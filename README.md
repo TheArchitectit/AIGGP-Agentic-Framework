@@ -199,7 +199,7 @@ Append new entries to `.guardrails/failure-registry.jsonl`:
 
 ## License
 
-MIT
+BSD 3-Clause
 
 ## Author
 
