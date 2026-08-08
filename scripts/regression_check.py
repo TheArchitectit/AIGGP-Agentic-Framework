@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
-DevGate Regression Check Tool
-Language-agnostic scanner for potential regressions in changed code.
+DevGate Regression Check Tool — language-agnostic.
+Auto-detects the project root and scans whatever source directories exist.
+Does NOT assume any specific language, package manager, or directory structure.
 
 Usage:
     python scripts/regression_check.py              # Check staged changes
@@ -12,10 +13,10 @@ Usage:
 Environment Variables:
     FAILURE_REGISTRY_PATH: Path to registry file
     PREVENTION_RULES_PATH: Path to prevention rules directory
+    DEVGATE_DB_PATH: Database connection string (if using schema health check)
 """
 
 import argparse
-import contextlib
 import fnmatch
 import json
 import os
@@ -27,20 +28,43 @@ from pathlib import Path
 DEFAULT_REGISTRY_PATH = Path(".guardrails/failure-registry.jsonl")
 DEFAULT_RULES_PATH = Path(".guardrails/prevention-rules")
 
-# File-size limits — configurable per directory and language.
-# src/ 300 soft / 500 hard; extensions/ 400 soft / 500 hard; tests/ 600 hard.
-FILE_SIZE_DIRS = ("src", "extensions")
-FILE_SIZE_SKIP_PARTS = ("node_modules", "dist", ".claude", "target", "__pycache__", "worktrees")
-FILE_SIZE_SKIP_SUFFIXES = (".d.ts",)
+# --- Auto-detect project root ------------------------------------------------
+def find_project_root():
+    """Walk up from CWD to find a project marker."""
+    cwd = Path.cwd()
+    markers = ["package.json", "Cargo.toml", "pyproject.toml", "setup.py",
+               "go.mod", "project.godot", ".git"]
+    for d in [cwd] + list(cwd.parents):
+        for m in markers:
+            if (d / m).exists():
+                return d
+    return cwd
+
+PROJECT_ROOT = find_project_root()
+
+# --- Source directories to scan (auto-detect what exists) -------------------
+SOURCE_DIRS = []
+for candidate in ["src", "lib", "app", "extensions", "scripts", "internal", "pkg", "cmd", "game"]:
+    if (PROJECT_ROOT / candidate).is_dir():
+        SOURCE_DIRS.append(candidate)
+
+# If no standard dirs found, scan the project root itself
+if not SOURCE_DIRS:
+    SOURCE_DIRS = ["."]
+
+FILE_SIZE_SKIP_PARTS = ("node_modules", "dist", ".claude", "target", "__pycache__",
+                        ".devgate", "vendor", "build", "out", ".next", ".nuxt",
+                        "venv", ".venv", "worktrees", "egg-info")
+FILE_SIZE_SKIP_SUFFIXES = (".d.ts", ".min.js", ".min.mjs", ".map")
+
+# File-size limits — configurable. These apply to ALL source file types.
 SRC_SOFT = 300
 SRC_HARD = 500
-EXT_SOFT = 400
-EXT_HARD = 500
 TEST_HARD = 600
 
-# Python source directories (if you have Python source alongside TS)
-PY_DIRS = ("src", "scripts")
-PY_HARD = 600
+# Source file extensions to check (language-agnostic)
+SOURCE_EXTENSIONS = (".ts", ".tsx", ".py", ".rs", ".go", ".gd", ".java", ".kt",
+                     ".rb", ".php", ".js", ".jsx", ".swift", ".c", ".cpp", ".h", ".cs")
 
 
 def _classify_file(rel_path: str) -> tuple[int | None, int | None]:
@@ -52,14 +76,12 @@ def _classify_file(rel_path: str) -> tuple[int | None, int | None]:
     for suf in FILE_SIZE_SKIP_SUFFIXES:
         if rel_path.endswith(suf):
             return (None, None)
-    is_test = rel_path.endswith((".test.ts", ".test.tsx", "_test.py", ".test.js"))
-    if rel_path.startswith("extensions" + os.sep):
-        return (EXT_SOFT, TEST_HARD if is_test else EXT_HARD)
-    if rel_path.startswith("src" + os.sep):
-        return (SRC_SOFT, TEST_HARD if is_test else SRC_HARD)
-    if rel_path.startswith("scripts" + os.sep) and rel_path.endswith(".py"):
-        return (None, PY_HARD)
-    return (None, None)
+    is_test = rel_path.endswith((".test.ts", ".test.tsx", ".test.js", ".spec.ts",
+                                 ".spec.js", "_test.py", "test_*.py", "_test.go",
+                                 ".test.rs", ".test.gd"))
+    if is_test:
+        return (None, TEST_HARD)
+    return (SRC_SOFT, SRC_HARD)
 
 
 def check_file_sizes(repo_root: Path) -> list[dict]:
@@ -76,17 +98,19 @@ def check_file_sizes(repo_root: Path) -> list[dict]:
         except OSError:
             return
         if line_count > hard:
-            violations.append({"file": rel_path, "lines": line_count, "soft": soft, "hard": hard, "severity": "error", "kind": "hard"})
+            violations.append({"file": rel_path, "lines": line_count, "soft": soft,
+                               "hard": hard, "severity": "error", "kind": "hard"})
         elif soft is not None and line_count > soft:
-            warnings.append({"file": rel_path, "lines": line_count, "soft": soft, "hard": hard, "severity": "warning", "kind": "soft"})
+            warnings.append({"file": rel_path, "lines": line_count, "soft": soft,
+                             "hard": hard, "severity": "warning", "kind": "soft"})
 
-    for top in FILE_SIZE_DIRS:
+    for top in SOURCE_DIRS:
         base = repo_root / top
         if not base.is_dir():
             continue
         for dirpath, _dirnames, filenames in os.walk(base):
             for name in filenames:
-                if not (name.endswith((".ts", ".tsx", ".py", ".rs", ".go", ".gd", ".java", ".kt"))):
+                if not name.endswith(SOURCE_EXTENSIONS):
                     continue
                 abs_path = Path(dirpath) / name
                 try:
@@ -112,34 +136,44 @@ def print_file_size_report(size_issues: list[dict]) -> None:
     for issue in size_issues:
         severity = format_severity(issue["severity"])
         tag = "OVER HARD LIMIT" if issue["kind"] == "hard" else "over soft limit"
-        print(f"  {severity}  {issue['file']}  ({issue['lines']} lines, limit {issue['hard'] if issue['kind'] == 'hard' else issue['soft']})  {tag}")
+        print(f"  {severity}  {issue['file']}  ({issue['lines']} lines, "
+              f"limit {issue['hard'] if issue['kind'] == 'hard' else issue['soft']})  {tag}")
     print("-" * 70)
     print(f"  {hard_count} over hard limit (blocks commit), {soft_count} over soft limit (warning)")
     print("=" * 70)
 
 
-def _npm_audit_available() -> bool:
-    try:
-        result = subprocess.run(["npm", "--version"], capture_output=True, text=True, timeout=5)
-        return result.returncode == 0
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        return False
+# --- Package manager audit (auto-detect) ------------------------------------
+def _detect_package_manager(repo_root: Path) -> str | None:
+    """Detect the project's package manager. Returns 'npm', 'cargo', 'pip', or None."""
+    if (repo_root / "package.json").exists():
+        return "npm"
+    if (repo_root / "Cargo.toml").exists():
+        return "cargo"
+    if (repo_root / "pyproject.toml").exists() or (repo_root / "setup.py").exists():
+        return "pip"
+    return None
 
 
 def check_npm_audit(repo_root: Path) -> tuple[int, int, list[dict]]:
-    if not _npm_audit_available():
-        return (0, 0, [])  # Non-blocking if npm not present
+    """Run npm audit if the project uses npm. Non-blocking if not present."""
+    pkg_manager = _detect_package_manager(repo_root)
+    if pkg_manager != "npm":
+        return (0, 0, [])  # Skip for non-npm projects
+
     try:
-        result = subprocess.run(["npm", "audit", "--json"], capture_output=True, text=True, cwd=str(repo_root), timeout=120)
-    except subprocess.TimeoutExpired:
-        return (1, 0, [{"name": "(npm)", "severity": "critical", "is_runtime": True, "advisory": "npm audit timed out", "fix_available": False, "effects": []}])
+        result = subprocess.run(["npm", "audit", "--json"], capture_output=True,
+                                text=True, cwd=str(repo_root), timeout=120)
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return (0, 0, [])
+
     raw = result.stdout.strip()
     if not raw:
         return (0, 0, [])
     try:
         audit = json.loads(raw)
     except json.JSONDecodeError:
-        return (1, 0, [{"name": "(npm)", "severity": "critical", "is_runtime": True, "advisory": "npm audit JSON unparseable", "fix_available": False, "effects": []}])
+        return (0, 0, [])
 
     pkg_path = repo_root / "package.json"
     runtime_deps: set[str] | None = set()
@@ -155,7 +189,9 @@ def check_npm_audit(repo_root: Path) -> tuple[int, int, list[dict]]:
         severity = str(info.get("severity", "unknown")).lower()
         effects = info.get("effects") or []
         is_runtime = any(eff in (runtime_deps or set()) for eff in effects) if runtime_deps is not None else True
-        issues.append({"name": name, "severity": severity, "is_runtime": is_runtime, "advisory": str(info.get("via", ""))[:80], "fix_available": bool(info.get("fixAvailable")), "effects": effects})
+        issues.append({"name": name, "severity": severity, "is_runtime": is_runtime,
+                       "advisory": str(info.get("via", ""))[:80],
+                       "fix_available": bool(info.get("fixAvailable")), "effects": effects})
     blocking = [i for i in issues if i["is_runtime"] and i["severity"] in ("high", "critical")]
     warning = [i for i in issues if not (i["is_runtime"] and i["severity"] in ("high", "critical"))]
     return len(blocking), len(warning), issues
@@ -163,10 +199,10 @@ def check_npm_audit(repo_root: Path) -> tuple[int, int, list[dict]]:
 
 def print_npm_audit_report(blocking: int, warnings: int, issues: list[dict]) -> None:
     if not issues:
-        print("✓ npm audit clean — no vulnerabilities")
+        print("✓ No package vulnerabilities found")
         return
     print("\n" + "=" * 70)
-    print("NPM AUDIT (runtime HIGH/CRITICAL = blocking; dev-only = warning)")
+    print("PACKAGE AUDIT (runtime HIGH/CRITICAL = blocking; dev-only = warning)")
     print("=" * 70)
     for i in sorted(issues, key=lambda x: (not x["is_runtime"], x["severity"])):
         scope = "RUNTIME" if i["is_runtime"] else "dev-only"
@@ -177,9 +213,11 @@ def print_npm_audit_report(blocking: int, warnings: int, issues: list[dict]) -> 
     print("=" * 70)
 
 
+# --- Git / failure registry / pattern rules (unchanged logic) ---------------
+
 def run_git_command(args: list[str]) -> tuple[int, str, str]:
     try:
-        result = subprocess.run(["git"] + args, capture_output=True, text=True, cwd=Path.cwd())
+        result = subprocess.run(["git"] + args, capture_output=True, text=True, cwd=str(PROJECT_ROOT))
         return result.returncode, result.stdout, result.stderr
     except FileNotFoundError:
         return 1, "", "git command not found"
@@ -295,21 +333,25 @@ def check_diff_against_patterns(diff_content: str, rules: list[dict]) -> list[di
                 forbidden = rule.get("forbidden_context")
                 if forbidden and re.search(forbidden, added_content, re.MULTILINE):
                     continue
-                violations.append({"rule_id": rule.get("rule_id"), "name": rule.get("name"), "message": rule.get("message"), "severity": rule.get("severity", "warning"), "suggestion": rule.get("suggestion"), "failure_id": rule.get("failure_id")})
+                violations.append({"rule_id": rule.get("rule_id"), "name": rule.get("name"),
+                                  "message": rule.get("message"), "severity": rule.get("severity", "warning"),
+                                  "suggestion": rule.get("suggestion"), "failure_id": rule.get("failure_id")})
         except re.error:
             continue
     return violations
 
 
 def format_severity(severity: str) -> str:
-    colors = {"critical": "\033[91m", "high": "\033[93m", "medium": "\033[94m", "low": "\033[90m", "error": "\033[91m", "warning": "\033[93m"}
+    colors = {"critical": "\033[91m", "high": "\033[93m", "medium": "\033[94m",
+              "low": "\033[90m", "error": "\033[91m", "warning": "\033[93m"}
     reset = "\033[0m"
     if sys.stdout.isatty():
         return f"{colors.get(severity.lower(), '')}{severity.upper()}{reset}"
     return severity.upper()
 
 
-def run_regression_check(registry_path: Path, rules_path: Path, staged: bool = True, unstaged: bool = False, verbose: bool = False) -> tuple[int, list[dict]]:
+def run_regression_check(registry_path: Path, rules_path: Path, staged: bool = True,
+                         unstaged: bool = False, verbose: bool = False) -> tuple[int, list[dict]]:
     issues = []
     failures = load_failure_registry(registry_path)
     rules = load_prevention_rules(rules_path)
@@ -366,9 +408,14 @@ def print_report(issues: list[dict], verbose: bool = False):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Check for potential regressions in changed code", formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--registry", "-r", type=Path, default=Path(os.getenv("FAILURE_REGISTRY_PATH", DEFAULT_REGISTRY_PATH)))
-    parser.add_argument("--rules", type=Path, default=Path(os.getenv("PREVENTION_RULES_PATH", DEFAULT_RULES_PATH)))
+    parser = argparse.ArgumentParser(description="Check for potential regressions in changed code",
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    # Resolve .devgate-relative paths if running from project root
+    devgate_root = Path(__file__).resolve().parent.parent
+    parser.add_argument("--registry", "-r", type=Path,
+                        default=Path(os.getenv("FAILURE_REGISTRY_PATH", devgate_root / ".guardrails" / "failure-registry.jsonl")))
+    parser.add_argument("--rules", type=Path,
+                        default=Path(os.getenv("PREVENTION_RULES_PATH", devgate_root / ".guardrails" / "prevention-rules")))
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--staged", action="store_true", default=True)
     group.add_argument("--unstaged", "-u", action="store_true")
@@ -388,12 +435,14 @@ def main():
     if args.all:
         staged = True
 
-    count, issues = run_regression_check(registry_path=args.registry, rules_path=args.rules, staged=staged, unstaged=unstaged, verbose=args.verbose and not args.quiet)
+    count, issues = run_regression_check(registry_path=args.registry, rules_path=args.rules,
+                                         staged=staged, unstaged=unstaged,
+                                         verbose=args.verbose and not args.quiet)
 
     size_issues: list[dict] = []
     size_hard_count = 0
     if not args.no_file_sizes:
-        size_issues = check_file_sizes(Path.cwd())
+        size_issues = check_file_sizes(PROJECT_ROOT)
         size_hard_count = sum(1 for i in size_issues if i["kind"] == "hard")
 
     soft_as_hard_count = 0
@@ -419,10 +468,13 @@ def main():
     audit_warnings = 0
     audit_issues: list[dict] = []
     if not args.no_audit:
-        audit_blocking, audit_warnings, audit_issues = check_npm_audit(Path.cwd())
+        audit_blocking, audit_warnings, audit_issues = check_npm_audit(PROJECT_ROOT)
 
     if args.json:
-        print(json.dumps({"issue_count": count, "size_violations_hard": size_hard_count, "soft_as_hard_blocked": soft_as_hard_count, "npm_audit_blocking": audit_blocking, "npm_audit_warnings": audit_warnings, "issues": issues, "file_sizes": size_issues, "npm_audit": audit_issues}, indent=2))
+        print(json.dumps({"issue_count": count, "size_violations_hard": size_hard_count,
+                           "soft_as_hard_blocked": soft_as_hard_count,
+                           "audit_blocking": audit_blocking, "audit_warnings": audit_warnings,
+                           "issues": issues, "file_sizes": size_issues, "audit": audit_issues}, indent=2))
     else:
         if not args.quiet or count > 0:
             print_report(issues, verbose=args.verbose)

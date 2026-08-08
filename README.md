@@ -33,37 +33,53 @@ git clone https://github.com/TheArchitectit/DevGate-Agentic-Framework.git .devga
 │       ├── semantic-rules.json         # AST-based rules
 │       └── extracted-rules.json        # Git/system/security rules
 ├── scripts/
-│   ├── deploy.sh                       # Gated publish pipeline
+│   ├── deploy.sh                       # Gated publish pipeline (auto-detects package manager)
 │   ├── guardrails-scan.mjs             # Pattern scanner (all languages)
-│   ├── regression_check.py             # Regression + file-size + npm audit
-│   ├── run-tests.mjs                   # Isolated per-file test runner
-│   ├── schema-health-check.mjs         # DB schema validation
-│   └── semantic-scan.mjs               # AST-based TS scanner
+│   ├── regression_check.py             # Regression + file-size + package audit
+│   ├── run-tests.mjs                   # Isolated per-file test runner (JS + Python)
+│   ├── schema-health-check.mjs         # Database schema validation (adapter-based)
+│   └── semantic-scan.mjs               # AST-based TS/JS scanner
+├── AGENTS.md                           # Directions for AI agents
 ├── LICENSE                             # BSD 3-Clause
 └── README.md                           # This file
 ```
 
 ### Run the gates
 
+All scripts auto-detect your project root (the parent of `.devgate/`) and scan whatever source files exist there — regardless of language or directory structure.
+
 ```bash
-# Run all guardrails scans
+# Pattern scan (checks all source file types in your project)
 node .devgate/scripts/guardrails-scan.mjs
 
-# Run semantic (AST) scan on TypeScript files
+# Semantic scan (TypeScript/JavaScript AST — skips automatically if none found)
 node .devgate/scripts/semantic-scan.mjs
 
-# Run regression check (file sizes, npm audit, failure registry)
-python3 .devgate/scripts/regression_check.py --all
+# Regression check (file sizes, package audit, failure registry)
+python3 .devgate/scripts/regression_check.py --all --pre-commit
 
-# Run the full test suite with isolation
+# Run tests (auto-detects JS .test.js and Python test_*.py files)
 node .devgate/scripts/run-tests.mjs
 
-# Pre-commit gate (runs everything)
-bash .devgate/.claude/hooks/pre-commit.sh
-
-# Deploy (gated publish)
+# Deploy (auto-detects npm/cargo/pip/go)
 bash .devgate/scripts/deploy.sh 1.0.0
 ```
+
+## How It Works
+
+DevGate scripts **auto-detect** your project's:
+- **Project root** — walks up from `.devgate/` to find `package.json`, `Cargo.toml`, `pyproject.toml`, `go.mod`, `project.godot`, or `.git`
+- **Source directories** — scans whatever directories exist (`src/`, `lib/`, `app/`, `scripts/`, `pkg/`, `cmd/`, etc.)
+- **Package manager** — detects npm, cargo, pip, or go in deploy.sh
+- **Test files** — finds `.test.js`, `.spec.js`, `test_*.py`, `_test.py` files anywhere in your project
+- **Database engine** — schema-health-check.mjs defaults to `"none"` (skips) unless you configure it
+
+DevGate does **not** impose:
+- ❌ A specific directory structure (`src/` vs `lib/` vs `app/` — it scans whatever you have)
+- ❌ A specific language (mix TS, Python, Rust, Go, GDScript — all scanned)
+- ❌ A specific package manager (npm, cargo, pip, go — auto-detected)
+- ❌ A specific database (SQLite, PostgreSQL, MySQL — adapter-based, or none)
+- ❌ A specific test framework (`node --test`, `pytest`, `cargo test` — auto-detected)
 
 ## Supported Languages
 
@@ -79,41 +95,24 @@ bash .devgate/scripts/deploy.sh 1.0.0
 | Kotlin/Java | ✅ 1 rule | — | ✅ |
 | Ruby | ✅ 3 rules | — | ✅ |
 | PHP | ✅ 1 rule | — | ✅ |
+| C/C++ | ✅ (file-size) | — | ✅ |
+| Swift | ✅ (file-size) | — | ✅ |
 | All languages | ✅ 3 rules | — | ✅ |
-
-### Rule highlights
-
-| Rule | Languages | What it catches |
-|------|-----------|-----------------|
-| PREVENT-001 | TS/JS | `JSON.parse()` without null check |
-| PREVENT-002 | Multi | SQL injection via string concatenation |
-| PREVENT-003 | All | Hardcoded credentials |
-| PREVENT-004 | GDScript | Direct `.free()` on Node (crash risk) |
-| PREVENT-007 | Python | Bare `except:` catches SystemExit |
-| PREVENT-008 | Python | Mutable default arguments |
-| PREVENT-009 | Go | Ignored error returns |
-| PREVENT-011 | TS/JS | `any` type usage |
-| PREVENT-013 | Rust | `unwrap()` in non-test code |
-| PREVENT-014 | Docker | `:latest` tag in production |
-| PREVENT-022 | Multi | Debug mode enabled in production |
-| PREVENT-023 | Multi | CORS wildcard |
-| PREVENT-024 | Multi | AI-hallucinated package imports |
-| PREVENT-025 | Multi | Weak hash for passwords (MD5/SHA1) |
-| PREVENT-026 | Multi | SSRF via unvalidated URL |
-| PREVENT-029 | TS/JS | Network calls in core modules |
 
 ## Components
 
 ### Test Runner (`scripts/run-tests.mjs`)
 
-Isolated per-file test runner using Node's native `node --test`.
+Isolated per-file test runner. Auto-detects test file types:
+- `.test.js` / `.spec.js` → `node --test`
+- `test_*.py` / `*_test.py` → `pytest`
 
+Features:
 - **Per-file process isolation** — each test file gets its own subprocess
 - **Parallel pooling** — up to 8 workers (configurable via `DEVGATE_TEST_POOL`)
-- **Serial lanes** — tests that share resources (ports, CPU budgets) run one-at-a-time
-- **Flake adjudication** — failed files re-run solo; flakes pass with flag
+- **Serial lanes** — tests that share resources run one-at-a-time
+- **Flake adjudication** — failed files re-run solo
 - **Hang-on-exit detection** — open handles don't block the pool
-- **Stale temp-dir sweeper** — cleans up test artifacts older than 60 minutes
 
 Env overrides:
 ```bash
@@ -125,16 +124,16 @@ DEVGATE_TEST_HANG_MS=10000     # silence threshold before force-kill
 ### Regression Scanner (`scripts/regression_check.py`)
 
 Scans changed files against the failure registry and pattern rules.
-
-- **File-size enforcement** — soft/hard limits per directory and language
-- **npm audit gate** — blocks on runtime HIGH/CRITICAL vulnerabilities
+- **File-size enforcement** — soft/hard limits, auto-detects source directories
+- **Package audit** — auto-detects your package manager (npm audit, or skips if not npm)
 - **Soft-as-hard headroom gate** — promotes soft violations to blocking for changed files only
 - **Failure registry** — cross-references changed files against known bug history
 
 ### Pattern Scanner (`scripts/guardrails-scan.mjs`)
 
-Regex-based scanner that checks all source files (`.ts`, `.py`, `.rs`, `.go`, `.gd`, `.java`, `.kt`, `.rb`, `.php`) against enabled rules. Supports inline annotations:
+Regex-based scanner. Walks your project's source files (auto-detected) and checks them against enabled rules. Scans `.ts`, `.py`, `.rs`, `.go`, `.gd`, `.java`, `.kt`, `.rb`, `.php`, `.js`, `.c`, `.cpp`, `.cs`, `.swift`.
 
+Supports inline annotations:
 ```typescript
 // guardrails-allow PREVENT-029: This file is the API boundary — network calls are intentional
 fetch("https://api.example.com/data");
@@ -142,32 +141,42 @@ fetch("https://api.example.com/data");
 
 ### Semantic Scanner (`scripts/semantic-scan.mjs`)
 
-AST-based scanner using the TypeScript compiler API. Catches structural issues that regex can't:
+AST-based scanner using the TypeScript compiler API. If your project has no TypeScript/JavaScript files, it exits 0 with "no matching files found."
 
 - `SEMANTIC-001`: Promise `.then()` chains without `.catch()`
 - `SEMANTIC-005`: React `useEffect` with missing dependencies
-- `SEMANTIC-007`: Rust unreachable match arms
-- `SEMANTIC-008`: Godot signal connected to non-existent method
 
 ### Deploy Pipeline (`scripts/deploy.sh`)
 
-Generic gated publish pipeline. Auto-detects your package manager:
+Generic gated publish pipeline. Auto-detects your project's package manager:
 
-1. Clean git tree check
-2. Full gate (build + test + lint + regression + guardrails)
-3. Schema health validation
-4. Build artifacts (if applicable)
-5. Critical verify — bundle exists in pack output
-6. UI smoke test (if Playwright configured)
-7. Version bump
-8. Commit + tag + push (before publish — push failure aborts)
-9. Publish (npm / cargo / pip / custom)
-10. GitHub release with auto-generated notes
+| If found | Commands used |
+|----------|---------------|
+| `package.json` | `npm run build`, `npm test`, `npm run lint`, `npm publish` |
+| `Cargo.toml` | `cargo build --release`, `cargo test`, `cargo clippy`, `cargo publish` |
+| `pyproject.toml` / `setup.py` | `pytest`, `twine upload` |
+| `go.mod` | `go build`, `go test` |
+| `project.godot` | Skips build (run Godot headless tests manually) |
+| None of the above | Skips build/test; tag pushed, publish manually |
+
+### Schema Health (`scripts/schema-health-check.mjs`)
+
+Database-agnostic schema validation. Ships with adapter templates for SQLite, PostgreSQL, and MySQL, but defaults to `"none"` (skips gracefully) so it never breaks if you don't use a database or use a different engine.
+
+To enable, edit `scripts/schema-health-check.mjs`:
+```javascript
+const DB_ADAPTER = "postgres"; // "sqlite" | "postgres" | "mysql" | "none"
+const EXPECTED_COLUMNS = [
+    ["users", "id", "TEXT NOT NULL PRIMARY KEY"],
+    ["users", "email", "TEXT NOT NULL UNIQUE"],
+];
+```
+
+Uncomment the adapter block for your database engine. The script auto-skips if `DB_ADAPTER` is `"none"` or `EXPECTED_COLUMNS` is empty.
 
 ### Failure Registry (`.guardrails/failure-registry.jsonl`)
 
 Append-only JSONL log of historical bugs. Each entry records:
-
 - Affected files
 - Root cause
 - Prevention rule
@@ -179,16 +188,15 @@ When a file is changed, the regression scanner checks it against active failures
 
 ### File Size Limits
 
-Edit `scripts/regression_check.py`:
+All source file types are checked. Edit `scripts/regression_check.py`:
 
 ```python
-SRC_SOFT = 300    # src/ soft limit (lines) — warning
-SRC_HARD = 500    # src/ hard limit (lines) — blocks commit
-EXT_SOFT = 400    # extensions/ soft limit
-EXT_HARD = 500    # extensions/ hard limit
+SRC_SOFT = 300    # soft limit (lines) — warning
+SRC_HARD = 500    # hard limit (lines) — blocks commit
 TEST_HARD = 600   # test files hard limit
-PY_HARD = 600     # Python files hard limit
 ```
+
+Limits apply to all files matching source extensions (`.ts`, `.py`, `.rs`, `.go`, `.gd`, `.java`, `.kt`, `.rb`, `.php`, `.js`, `.c`, `.cpp`, `.cs`, `.swift`) in any source directory that exists in your project.
 
 ### Custom Prevention Rules
 
@@ -207,17 +215,7 @@ Add to `.guardrails/prevention-rules/pattern-rules.json`:
 }
 ```
 
-### Schema Health
-
-Edit `scripts/schema-health-check.mjs` and add your tables to `EXPECTED_COLUMNS`:
-
-```javascript
-const EXPECTED_COLUMNS = [
-    ["users", "id", "TEXT NOT NULL PRIMARY KEY"],
-    ["users", "email", "TEXT NOT NULL UNIQUE"],
-    ["users", "created_at", "TEXT NOT NULL DEFAULT (datetime('now'))"],
-];
-```
+Rule IDs must match `^PREVENT(-[A-Z]+)?-\\d+$`.
 
 ## CI Integration
 
@@ -227,46 +225,19 @@ Add to your `.github/workflows/ci.yml`:
 - name: Guardrails scan
   run: node .devgate/scripts/guardrails-scan.mjs
 
-- name: Semantic scan
+- name: Semantic scan (skips if no TS/JS)
   run: node .devgate/scripts/semantic-scan.mjs
 
 - name: Regression check
   run: python3 .devgate/scripts/regression_check.py --all --pre-commit
 
-- name: Schema health
+- name: Schema health (skips if no database configured)
   run: node .devgate/scripts/schema-health-check.mjs
 ```
 
-## Agent Setup Guide
+## Agent Directions
 
-When an AI agent clones this framework into your project, it should:
-
-1. **Read this README and `.guardrails/pre-work-check.md` first** — understand the rules before writing code
-2. **NOT rename the `.devgate/` directory** — scripts reference paths relative to the framework root
-3. **Run `python3 scripts/regression_check.py --all` before any commit** — this is the gate
-4. **Add new failure entries to `failure-registry.jsonl`** when fixing bugs — append-only, never edit existing entries
-5. **Add custom rules to `pattern-rules.json`** — don't modify the schema file
-6. **Use inline `// guardrails-allow RULE-ID: <reason>` annotations** for deliberate exceptions — never disable rules globally
-7. **Recognize this is a tool, not the project** — DevGate enforces quality; your project's code lives alongside it, not inside it
-
-### For AI Agents (AGENTS.md snippet)
-
-If you're an AI agent working in a project that uses DevGate, add this to your project's `AGENTS.md`:
-
-```markdown
-## DevGate Framework
-
-This project uses DevGate for quality gates. The framework lives in `.devgate/`.
-
-Before committing:
-1. Run `python3 .devgate/scripts/regression_check.py --staged --pre-commit`
-2. Run `node .devgate/scripts/guardrails-scan.mjs`
-3. Check `.devgate/.guardrails/failure-registry.jsonl` for known bugs in your files
-
-DevGate is NOT this project — it's a quality tool cloned in. Don't modify DevGate's
-scripts unless adding a new rule to `pattern-rules.json`. Your project's code lives
-in the parent directory, not inside `.devgate/`.
-```
+See [AGENTS.md](AGENTS.md) for comprehensive directions that AI agents should read when working in a project that uses DevGate.
 
 ## License
 

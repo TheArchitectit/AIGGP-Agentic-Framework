@@ -28,9 +28,10 @@ out/
 # Local runtime state
 .devgate-state/
 .cache/
-sqlite.db
-sqlite.db-shm
-sqlite.db-wal
+# Database files (if using SQLite — add your own DB patterns here)
+*.db
+*.db-shm
+*.db-wal
 
 # Playwright scratch
 .playwright-mcp/

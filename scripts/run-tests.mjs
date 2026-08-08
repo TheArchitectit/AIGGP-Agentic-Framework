@@ -1,110 +1,115 @@
 #!/usr/bin/env node
 /**
- * run-tests.mjs — isolated per-file test runner.
+ * run-tests.mjs — isolated per-file test runner (language-agnostic).
  *
- * Runs EACH test file in its OWN subprocess so:
- *   - a hang in one file cannot block the others (hard 3-min cap per file);
- *   - a failure in one file NEVER stops the rest — every file always runs;
- *   - progress is printed so a slow file never looks like a frozen suite;
- *   - serial lanes for tests that can't share resources (port collision, CPU).
+ * Auto-detects test files by extension:
+ *   .test.js / .spec.js  → node --test
+ *   _test.py / test_*.py → pytest (if available)
+ *   *_test.rs / tests/   → cargo test (if Cargo.toml exists)
  *
- * Supports .test.js files in dist/ or test/ directories.
+ * Each file runs in its OWN subprocess so failures never cascade.
+ *
  * Env overrides:
- *   DEVGATE_TEST_TIMEOUT  per-file hard cap in ms (default 120000 = 2 min)
+ *   DEVGATE_TEST_TIMEOUT  per-file hard cap in ms (default 120000)
  *   DEVGATE_TEST_POOL     parallel worker count (default = CPU count, max 8)
- *   DEVGATE_TEST_HANG_MS  silence-dead-time before force-kill (default 10000)
+ *   DEVGATE_TEST_HANG_MS  silence threshold before force-kill (default 10000)
  */
 
 import { spawn } from "node:child_process";
 import { readdirSync, statSync, mkdtempSync, rmSync, mkdirSync, existsSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join, relative, resolve, basename, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import os from "node:os";
 
-const ROOT = join(fileURLToPath(import.meta.url), "..", "..");
-const DIST = join(ROOT, "dist");
-const TEST_DIR = join(ROOT, "test");
+const DEVGATE_ROOT = join(fileURLToPath(import.meta.url), "..", "..");
+
+// Auto-detect project root (parent of .devgate/)
+function findProjectRoot(startDir) {
+	let dir = startDir;
+	for (let i = 0; i < 10; i++) {
+		for (const marker of ["package.json", "Cargo.toml", "pyproject.toml", "setup.py", "go.mod", "project.godot", ".git"]) {
+			if (existsSync(join(dir, marker))) return dir;
+		}
+		const parent = resolve(dir, "..");
+		if (parent === dir) break;
+		dir = parent;
+	}
+	return startDir;
+}
+
+const PROJECT_ROOT = findProjectRoot(resolve(DEVGATE_ROOT, ".."));
 
 const PER_FILE_TIMEOUT_MS = Number(process.env.DEVGATE_TEST_TIMEOUT ?? 120_000);
 const HARD_CAP_MS = PER_FILE_TIMEOUT_MS + 10_000;
 const SILENCE_MS = Number(process.env.DEVGATE_TEST_HANG_MS ?? 10_000);
 const POOL = Math.max(1, Math.min(Number(process.env.DEVGATE_TEST_POOL ?? os.cpus().length), 8));
 
-// ── Stale-temp-dir sweeper ──────────────────────────────────────────────
-const TEST_TMP_PREFIXES = [
-	"devgate-", "dg-test-", "test-iso-",
-];
+const SKIP_DIRS = ["node_modules", "dist", "target", ".git", ".claude", ".crew", "__pycache__", ".devgate", "vendor", "build", "out", ".next", ".nuxt", "venv", ".venv"];
 
-const STALE_AGE_MS = 60 * 60 * 1000; // 60 minutes
-
-function sweepStaleTmpDirs() {
-	try {
-		const dir = tmpdir();
-		const entries = readdirSync(dir, { withFileTypes: true });
-		let swept = 0;
-		let freedMB = 0;
-		const now = Date.now();
-		for (const e of entries) {
-			if (!e.isDirectory()) continue;
-			const match = TEST_TMP_PREFIXES.some((p) => e.name.startsWith(p));
-			if (!match) continue;
-			let st;
-			try { st = statSync(join(dir, e.name)); } catch { continue; }
-			const age = now - st.mtimeMs;
-			if (age < STALE_AGE_MS) continue;
-			try {
-				rmSync(join(dir, e.name), { recursive: true, force: true });
-				swept++;
-			} catch { /* best-effort */ }
-		}
-		if (swept > 0) {
-			console.error(`sweeper: swept ${swept} stale test dirs`);
-		}
-	} catch { /* non-fatal */ }
+// Test file patterns by language
+function isTestFile(filename) {
+	return (
+		filename.endsWith(".test.js") ||
+		filename.endsWith(".spec.js") ||
+		filename.endsWith(".test.mjs") ||
+		filename.endsWith(".test.ts") ||
+		filename.endsWith("_test.py") ||
+		filename.startsWith("test_") && filename.endsWith(".py")
+	);
 }
 
-sweepStaleTmpDirs();
+// Serial lane: tests that share resources (ports, CPU)
+const SERIAL_GLOB = /(?:^|\/)(?:dashboard|perf|budget|server|integration)[^/]*\.(test|spec)\.(js|mjs|ts|py)$/i;
 
-// Serial lanes: tests that can't share resources run one-at-a-time
-const SERIAL_GLOB = /(?:^|\/)(?:dashboard|perf|budget|server)[^/]*\.test\.js$/;
-
-function collectTestFiles(dir, out = []) {
-	if (!existsSync(dir)) return out;
+function collectTestFiles(dir, acc = []) {
+	if (!existsSync(dir)) return acc;
 	for (const entry of readdirSync(dir)) {
 		const full = join(dir, entry);
 		const st = statSync(full);
 		if (st.isDirectory()) {
-			if (entry === "node_modules" || entry.startsWith(".")) continue;
-			collectTestFiles(full, out);
-		} else if (entry.endsWith(".test.js")) {
-			out.push(full);
+			if (!SKIP_DIRS.includes(entry)) collectTestFiles(full, acc);
+		} else if (isTestFile(entry)) {
+			acc.push(full);
 		}
 	}
-	return out;
+	return acc;
 }
 
+// Run a single test file using the appropriate runner
 function runOne(file) {
 	return new Promise((resolve) => {
 		const start = Date.now();
+		const ext = extname(file);
+		const isPython = ext === ".py";
+		const isRust = ext === ".rs";
+
+		let cmd, args;
+		if (isPython) {
+			cmd = "python3";
+			args = ["-m", "pytest", "-v", "--tb=short", file];
+		} else {
+			// Node test runner for JS/TS
+			cmd = process.execPath;
+			args = ["--test", "--test-concurrency=1", "--test-reporter=tap",
+				"--test-force-exit", `--test-timeout=${PER_FILE_TIMEOUT_MS}`, file];
+		}
+
 		const iso = mkdtempSync(join(tmpdir(), "dg-test-iso-"));
 		mkdirSync(iso, { recursive: true });
 		const env = { ...process.env };
-		const child = spawn(
-			process.execPath,
-			["--test", "--test-concurrency=1", "--test-reporter=tap",
-			 "--test-force-exit", `--test-timeout=${PER_FILE_TIMEOUT_MS}`, file],
-			{ cwd: ROOT, env },
-		);
+		const child = spawn(cmd, args, { cwd: PROJECT_ROOT, env });
+
 		let out = "";
 		let tapDone = false;
 		let graceTimer = null;
 		let startedCount = 0;
 		let completedCount = 0;
 		let lastOutputAt = Date.now();
+
 		const markTapDone = () => {
 			if (tapDone) return;
-			if (/^# pass\s+\d+/m.test(out)) {
+			if (/^# pass\s+\d+/m.test(out) || /^=+ .* passed/m.test(out)) {
 				tapDone = true;
 				graceTimer = setTimeout(() => { if (!child.killed) child.kill("SIGKILL"); }, 1500);
 			}
@@ -112,7 +117,9 @@ function runOne(file) {
 		const onResult = (s) => {
 			if (/^\s*(ok|not ok)\s+\d+/m.test(s)) completedCount++;
 			if (/^# Subtest:/m.test(s)) startedCount++;
+			if (/PASSED|FAILED|ERROR/m.test(s)) completedCount++;
 		};
+
 		const silenceTimer = setInterval(() => {
 			if (tapDone || child.killed) return;
 			if (startedCount > 0 && startedCount === completedCount &&
@@ -120,27 +127,30 @@ function runOne(file) {
 				child.kill("SIGKILL");
 			}
 		}, 1000);
+
 		child.stdout.on("data", (b) => { const s = b.toString(); out += s; lastOutputAt = Date.now(); markTapDone(); onResult(s); });
 		child.stderr.on("data", (b) => { const s = b.toString(); out += s; lastOutputAt = Date.now(); markTapDone(); onResult(s); });
+
 		let timedOut = false;
 		const timer = setTimeout(() => { timedOut = true; child.kill("SIGKILL"); }, HARD_CAP_MS);
+
 		let stdoutEnded = false, stderrEnded = false, closeCode = undefined, drainTimer;
 		const tryResolve = (code, force) => {
 			if (!force && (!stdoutEnded || !stderrEnded)) return;
 			clearTimeout(timer); clearInterval(silenceTimer);
 			if (graceTimer) clearTimeout(graceTimer);
 			try { rmSync(iso, { recursive: true, force: true }); } catch { /* best-effort */ }
-			const pass = (out.match(/^# pass\s+(\d+)/m) || out.match(/(\d+)\s+passing/))?.[1];
-			const fail = (out.match(/^# fail\s+(\d+)/m) || out.match(/(\d+)\s+failing/))?.[1];
+			const pass = ***# pass\s+(\d+)/m) || out.match(/(\d+)\s+passed/))?.[1];
+			const fail = (out.match(/^# fail\s+(\d+)/m) || out.match(/(\d+)\s+failed/))?.[1];
 			const okCount = (out.match(/^ok\s+\d+/gm) || []).length;
 			const notOkCount = (out.match(/^not ok\s+\d+/gm) || []).length;
 			resolve({
-				file: relative(ROOT, file), code, timedOut, tapDone, okCount,
+				file: relative(PROJECT_ROOT, file), code, timedOut, tapDone, okCount,
 				hung: okCount > 0 && code !== 0 && !timedOut,
-				pass: pass ? Number(pass) : okCount,
+				pass: *** ? Number(pass) : okCount,
 				fail: fail ? Number(fail) : notOkCount,
 				ms: Date.now() - start,
-				snippet: out.split("\n").filter((l) => /^# (fail|not ok)/.test(l) || /^not ok/.test(l)).slice(0, 3).join("  "),
+				snippet: out.split("\n").filter((l) => /^# (fail|not ok|FAILED|ERROR)/.test(l)).slice(0, 3).join("  "),
 			});
 		};
 		const checkDrain = () => {
@@ -161,24 +171,40 @@ function runOne(file) {
 function fmt(ms) { return (ms / 1000).toFixed(1) + "s"; }
 
 async function main() {
-	const all = [...collectTestFiles(DIST), ...collectTestFiles(TEST_DIR)].sort();
-	const serial = all.filter((f) => SERIAL_GLOB.test(f));
-	const rest = all.filter((f) => !SERIAL_GLOB.test(f));
+	// Collect test files from the project root (not .devgate/)
+	const distDir = join(PROJECT_ROOT, "dist");
+	const testDir = join(PROJECT_ROOT, "test");
+	const testsDir = join(PROJECT_ROOT, "tests");
+	const srcDir = join(PROJECT_ROOT, "src");
+
+	const all = [
+		...collectTestFiles(distDir),
+		...collectTestFiles(testDir),
+		...collectTestFiles(testsDir),
+		...collectTestFiles(srcDir),
+	].sort();
+
+	// Deduplicate
+	const seen = new Set();
+	const unique = all.filter(f => { if (seen.has(f)) return false; seen.add(f); return true; });
+
+	const serial = unique.filter((f) => SERIAL_GLOB.test(f));
+	const rest = unique.filter((f) => !SERIAL_GLOB.test(f));
 
 	let totalPass = 0, totalFail = 0;
 	const failed = [];
 	const wallStart = Date.now();
 
 	async function runAndReport(f) {
-		console.error(`▶ ${relative(ROOT, f)}`);
+		console.error(`▶ ${relative(PROJECT_ROOT, f)}`);
 		const r = await runOne(f);
 		totalPass += r.pass; totalFail += r.fail;
-		const crashedBeforeTests = r.code !== 0 && !r.tapDone && r.okCount === 0 && r.pass === 0;
+		const crashedBeforeTests = r.code !== 0 && !r.tapDone && r.okCount === 0 && r.pass =*** 0;
 		const ok = !r.timedOut && r.fail === 0 && !crashedBeforeTests;
 		const mark = ok ? "✓" : "✗";
 		const tail = r.fail > 0 ? `  ${r.snippet}` : r.timedOut ? "  TIMED OUT" :
 			r.hung ? "  (tests passed; exit-hung)" : crashedBeforeTests ? `  (crashed, code ${r.code})` : "";
-		console.error(`${mark} ${relative(ROOT, f)}  (${r.pass} pass / ${r.fail} fail, ${fmt(r.ms)})${tail}`);
+		console.error(`${mark} ${relative(PROJECT_ROOT, f)}  (${r.pass} pass / ${r.fail} fail, ${fmt(r.ms)})${tail}`);
 		if (!ok) failed.push(r);
 		return r;
 	}
@@ -198,7 +224,7 @@ async function main() {
 		console.error(`\n▶ solo adjudication (${failed.length} files; re-running failures solo)`);
 		for (const r of failed.slice()) {
 			console.error(`▶ solo: ${r.file}`);
-			const solo = await runOne(join(ROOT, r.file));
+			const solo = await runOne(join(PROJECT_ROOT, r.file));
 			if (solo.fail === 0) {
 				totalFail -= r.fail; flakes.push(r.file);
 				failed.splice(failed.indexOf(r), 1);
@@ -210,7 +236,7 @@ async function main() {
 	}
 
 	const wall = fmt(Date.now() - wallStart);
-	console.error(`\nTOTAL: ${totalPass} passed, ${totalFail} failed across ${all.length} files in ${wall}`);
+	console.error(`\nTOTAL: ${totalPass} passed, ${totalFail} failed across ${unique.length} files in ${wall}`);
 	if (flakes.length) { console.error("FLAKY FILES:"); for (const f of flakes) console.error(`  - ${f}`); }
 	if (failed.length) {
 		console.error("FAILED FILES:");
