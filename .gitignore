@@ -1,70 +1,67 @@
+# Dependencies
 node_modules/
+vendor/
+__pycache__/
+*.pyc
 dist/
-!extensions/dashboard-client/dist/
-!extensions/dashboard-client/dist/**
-*.log
+build/
+target/
+out/
+
+# Environment
 .env
 .env.*
-.DS_Store
-err.txt
-global-hitter.cjs
-worker.exp.cjs
+!.env.example
 
-# FORBIDDEN — npm is the ONLY distribution path (PREVENT-DIST-001).
-# Never produce or commit a `.tgz` (`npm pack`); tarballs bypass pi's package
-# manager and don't propagate to other devices. `npm publish` only.
+# OS
+.DS_Store
+
+# Logs
+*.log
+
+# FORBIDDEN — package manager is the ONLY distribution path (PREVENT-DIST-001).
+# Never produce or commit a `.tgz` tarball; tarballs bypass the package manager
+# and don't propagate to other devices. Use `npm publish` / `cargo publish` /
+# `pip install` / etc. only.
 *.tgz
 
-# Local runtime state for the extension (checkpoints / vector db)
-.pi-mega-compact-state/
-.pi/
-dashboard.json
-events.log
-dedup-stats.json
-bloom.json.gz
+# Local runtime state
+.devgate-state/
+.cache/
 sqlite.db
 sqlite.db-shm
 sqlite.db-wal
 
-# Vendored upstream template (config pieces extracted into .claude/.guardrails)
-guardrails-template/
-sess_*
-sqlite.db
-
-.claude/
-.crew/
-
-# Local runtime audit/state dir from pi-crew / mega-compact
-.crew/
-
-# PGlite vector index (Slice 2) + stray :memory: pgdata artifact from bad dataDir
-mega-compact-vector/
-:memory:/
-
-/.crew/
-/.crew
-!.crew/artifacts/
-!.crew/graphs/
-!.crew/artifacts/.gitkeep
-!.crew/graphs/.gitkeep
-# agent temp scratch dir
-tmp/
-
-# Playwright MCP scratch dir + ad-hoc debug screenshots
+# Playwright scratch
 .playwright-mcp/
 *-tab-fixed.png
 
 # Local agent/session state (never track)
+.claude/
+.crew/
 .claw/
 .clawd-todos.json
-.pi-subagents/
-scripts/__pycache__/
 
-# Python bytecode caches (training/vector-cortex pipeline)
+# Python bytecode
 __pycache__/
 *.pyc
 
-# VC1C downgrade exporter output (generated legacy copy + report; not authority
-# data and never committed — kept out of the tree so deploy.sh's clean-tree
-# publish gate is not tripped by an evidence run).
-conformance/vector-cortex/downgrade/
+# Rust build artifacts
+**/target/
+Cargo.lock
+
+# Go build artifacts
+*.exe
+*.dll
+*.so
+*.dylib
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Temp
+tmp/

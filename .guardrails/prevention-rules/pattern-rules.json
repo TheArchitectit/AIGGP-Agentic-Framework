@@ -1,7 +1,7 @@
 {
   "$schema": "./pattern-rules.schema.json",
-  "description": "Pattern-based prevention rules for regression detection (added PREVENT-PI-* rules for TypeScript/pi extensions)",
-  "version": "2.3.0",
+  "description": "Language-agnostic pattern-based prevention rules for regression detection",
+  "version": "3.0.0",
   "rules": [
     {
       "rule_id": "PREVENT-001",
@@ -11,12 +11,7 @@
       "forbidden_context": "without.*null.*check",
       "message": "Direct property access on JSON.parse result without null check",
       "severity": "error",
-      "file_glob": [
-        "*.js",
-        "*.ts",
-        "*.jsx",
-        "*.tsx"
-      ],
+      "file_glob": ["*.js", "*.ts", "*.jsx", "*.tsx"],
       "suggestion": "Add null check: const data = JSON.parse(...); if (data) { ... }"
     },
     {
@@ -27,14 +22,7 @@
       "forbidden_context": null,
       "message": "Potential SQL injection: String concatenation in SQL query",
       "severity": "critical",
-      "file_glob": [
-        "*.py",
-        "*.js",
-        "*.ts",
-        "*.rb",
-        "*.java",
-        "*.go"
-      ],
+      "file_glob": ["*.py", "*.js", "*.ts", "*.rb", "*.java", "*.go"],
       "suggestion": "Use parameterized queries or prepared statements"
     },
     {
@@ -45,9 +33,7 @@
       "forbidden_context": "(example|placeholder|test|mock|sample|dummy|fake)",
       "message": "Possible hardcoded credential detected",
       "severity": "critical",
-      "file_glob": [
-        "*"
-      ],
+      "file_glob": ["*"],
       "suggestion": "Use environment variables or secret management system"
     },
     {
@@ -58,9 +44,7 @@
       "forbidden_context": "(queue_free|is_queued_for_deletion|Object\\.)",
       "message": "Direct .free() on Node can crash. Use queue_free() instead.",
       "severity": "error",
-      "file_glob": [
-        "*.gd"
-      ],
+      "file_glob": ["*.gd"],
       "suggestion": "Use node.queue_free() for safe deferred deletion"
     },
     {
@@ -71,12 +55,7 @@
       "forbidden_context": null,
       "message": "Absolute file path detected. Use res:// paths in Godot.",
       "severity": "critical",
-      "file_glob": [
-        "*.tscn",
-        "*.gd",
-        "*.tres",
-        "*.cfg"
-      ],
+      "file_glob": ["*.tscn", "*.gd", "*.tres", "*.cfg"],
       "suggestion": "Replace with res://path/to/resource"
     },
     {
@@ -87,9 +66,7 @@
       "forbidden_context": null,
       "message": "String-based get_node() is fragile. Use @onready with $ or % syntax.",
       "severity": "warning",
-      "file_glob": [
-        "*.gd"
-      ],
+      "file_glob": ["*.gd"],
       "suggestion": "Use @onready var node = $Path or %UniqueName"
     },
     {
@@ -100,9 +77,7 @@
       "forbidden_context": "(Exception|BaseException|ValueError|TypeError|RuntimeError|KeyError)",
       "message": "Bare except catches SystemExit and KeyboardInterrupt. Use except Exception: at minimum.",
       "severity": "error",
-      "file_glob": [
-        "*.py"
-      ],
+      "file_glob": ["*.py"],
       "suggestion": "Use 'except Exception as e:' or catch specific exceptions"
     },
     {
@@ -113,9 +88,7 @@
       "forbidden_context": null,
       "message": "Mutable default argument (list/dict/set) — shared across calls, causes subtle bugs",
       "severity": "error",
-      "file_glob": [
-        "*.py"
-      ],
+      "file_glob": ["*.py"],
       "suggestion": "Use None as default and initialize inside the function"
     },
     {
@@ -126,9 +99,7 @@
       "forbidden_context": "(range|ok|type|assert|select)",
       "message": "Error return value ignored. Always check errors in Go.",
       "severity": "error",
-      "file_glob": [
-        "*.go"
-      ],
+      "file_glob": ["*.go"],
       "suggestion": "Handle the error: if err != nil { return err }"
     },
     {
@@ -139,9 +110,7 @@
       "forbidden_context": "context",
       "message": "Goroutine launched without context — cannot be cancelled or tracked",
       "severity": "warning",
-      "file_glob": [
-        "*.go"
-      ],
+      "file_glob": ["*.go"],
       "suggestion": "Pass context.Context to goroutine for cancellation"
     },
     {
@@ -152,10 +121,7 @@
       "forbidden_context": "(//\\s*@ts-ignore|eslint-disable)",
       "message": "Usage of 'any' type defeats TypeScript's type safety",
       "severity": "error",
-      "file_glob": [
-        "*.ts",
-        "*.tsx"
-      ],
+      "file_glob": ["*.ts", "*.tsx"],
       "suggestion": "Define a proper interface or use 'unknown' with type narrowing"
     },
     {
@@ -166,12 +132,7 @@
       "forbidden_context": "(test|spec|mock|__tests__)",
       "message": "console.log left in production code",
       "severity": "warning",
-      "file_glob": [
-        "*.ts",
-        "*.tsx",
-        "*.js",
-        "*.jsx"
-      ],
+      "file_glob": ["*.ts", "*.tsx", "*.js", "*.jsx"],
       "suggestion": "Remove console.log or replace with proper logging library"
     },
     {
@@ -182,9 +143,7 @@
       "forbidden_context": "(test|tests|spec|bench)",
       "message": "unwrap() can panic. Use proper error handling in production.",
       "severity": "warning",
-      "file_glob": [
-        "*.rs"
-      ],
+      "file_glob": ["*.rs"],
       "suggestion": "Use match, ?, or expect() with a descriptive message"
     },
     {
@@ -195,11 +154,7 @@
       "forbidden_context": null,
       "message": "Using :latest tag is non-deterministic. Pin to a specific version.",
       "severity": "error",
-      "file_glob": [
-        "Dockerfile",
-        "Dockerfile.*",
-        "*.dockerfile"
-      ],
+      "file_glob": ["Dockerfile", "Dockerfile.*", "*.dockerfile"],
       "suggestion": "Pin image version: FROM node:22.1.0-alpine"
     },
     {
@@ -210,13 +165,7 @@
       "forbidden_context": "(shlex|quote|shell=False)",
       "message": "Potential command injection via string concatenation",
       "severity": "critical",
-      "file_glob": [
-        "*.py",
-        "*.js",
-        "*.ts",
-        "*.rb",
-        "*.go"
-      ],
+      "file_glob": ["*.py", "*.js", "*.ts", "*.rb", "*.go"],
       "suggestion": "Use array form for subprocess or shlex.quote() for shell commands"
     },
     {
@@ -227,10 +176,7 @@
       "forbidden_context": "(test|mock)",
       "message": "Thread.sleep() is fragile. Use coroutines (delay) or proper synchronization.",
       "severity": "warning",
-      "file_glob": [
-        "*.kt",
-        "*.java"
-      ],
+      "file_glob": ["*.kt", "*.java"],
       "suggestion": "In Kotlin use delay(), in Java use CompletableFuture or ScheduledExecutor"
     },
     {
@@ -241,9 +187,7 @@
       "forbidden_context": null,
       "message": "File I/O or resource loading detected in _process. Move to _ready() or background thread.",
       "severity": "warning",
-      "file_glob": [
-        "*.gd"
-      ],
+      "file_glob": ["*.gd"],
       "suggestion": "Preload resources in _ready() or use ResourceLoader.load_threaded()"
     },
     {
@@ -254,9 +198,7 @@
       "forbidden_context": null,
       "message": "Cloud provider access key detected in source code",
       "severity": "critical",
-      "file_glob": [
-        "*"
-      ],
+      "file_glob": ["*"],
       "suggestion": "Use IAM roles, managed identities, or environment variables"
     },
     {
@@ -267,9 +209,7 @@
       "forbidden_context": "(var\\s+\\w+\\s*:|export|@export|@onready)",
       "message": "Untyped variable declaration. Use 'var name: Type = value' for clarity.",
       "severity": "info",
-      "file_glob": [
-        "*.gd"
-      ],
+      "file_glob": ["*.gd"],
       "suggestion": "Add explicit type: var speed: float = 200.0"
     },
     {
@@ -280,9 +220,7 @@
       "forbidden_context": "(#[0-9]|issue|ticket|JIRA)",
       "message": "TODO/FIXME without ticket reference — will be forgotten",
       "severity": "info",
-      "file_glob": [
-        "*"
-      ],
+      "file_glob": ["*"],
       "suggestion": "Add ticket reference: TODO(#123) or FIXME(RAD-456)"
     },
     {
@@ -293,12 +231,7 @@
       "forbidden_context": "(sanitized|escaped|encoded)",
       "message": "Potential command injection via eval/setTimeout with string concatenation",
       "severity": "critical",
-      "file_glob": [
-        "*.js",
-        "*.ts",
-        "*.jsx",
-        "*.tsx"
-      ],
+      "file_glob": ["*.js", "*.ts", "*.jsx", "*.tsx"],
       "suggestion": "Use function references instead of strings: setTimeout(() => { ... }, 0)"
     },
     {
@@ -309,17 +242,7 @@
       "forbidden_context": "(test|spec|development|staging|__debug__|if DEBUG)",
       "message": "Debug mode enabled in non-test code",
       "severity": "error",
-      "file_glob": [
-        "*.py",
-        "*.js",
-        "*.ts",
-        "*.rb",
-        "*.go",
-        "*.yaml",
-        "*.yml",
-        "*.json",
-        "*.env"
-      ],
+      "file_glob": ["*.py", "*.js", "*.ts", "*.rb", "*.go", "*.yaml", "*.yml", "*.json", "*.env"],
       "suggestion": "Use environment variables: DEBUG = os.environ.get(\"DEBUG\", \"false\").lower() == \"true\""
     },
     {
@@ -330,16 +253,7 @@
       "forbidden_context": null,
       "message": "CORS wildcard detected — allows any origin to access the API",
       "severity": "error",
-      "file_glob": [
-        "*.py",
-        "*.js",
-        "*.ts",
-        "*.go",
-        "*.rb",
-        "*.java",
-        "*.yaml",
-        "*.yml"
-      ],
+      "file_glob": ["*.py", "*.js", "*.ts", "*.go", "*.rb", "*.java", "*.yaml", "*.yml"],
       "suggestion": "Specify allowed origins explicitly instead of using wildcard"
     },
     {
@@ -350,15 +264,7 @@
       "forbidden_context": "(std|core|builtin|internal|github.com)",
       "message": "Triple-underscored package name may be AI-hallucinated. Verify it exists on the registry.",
       "severity": "warning",
-      "file_glob": [
-        "*.py",
-        "*.js",
-        "*.ts",
-        "*.rs",
-        "*.go",
-        "*.rb",
-        "*.java"
-      ],
+      "file_glob": ["*.py", "*.js", "*.ts", "*.rs", "*.go", "*.rb", "*.java"],
       "suggestion": "Verify the package exists: pip search, npm view, cargo search, etc."
     },
     {
@@ -369,15 +275,7 @@
       "forbidden_context": null,
       "message": "Weak hash algorithm used for passwords. Use bcrypt, scrypt, or argon2.",
       "severity": "critical",
-      "file_glob": [
-        "*.py",
-        "*.js",
-        "*.ts",
-        "*.go",
-        "*.rb",
-        "*.java",
-        "*.php"
-      ],
+      "file_glob": ["*.py", "*.js", "*.ts", "*.go", "*.rb", "*.java", "*.php"],
       "suggestion": "Use bcrypt, scrypt, or argon2 for password hashing"
     },
     {
@@ -388,14 +286,7 @@
       "forbidden_context": "(validated|whitelist|allowlist|sanitize)",
       "message": "Potential SSRF: User input passed to URL fetch without validation",
       "severity": "error",
-      "file_glob": [
-        "*.py",
-        "*.js",
-        "*.ts",
-        "*.go",
-        "*.rb",
-        "*.java"
-      ],
+      "file_glob": ["*.py", "*.js", "*.ts", "*.go", "*.rb", "*.java"],
       "suggestion": "Validate URL against allowlist before fetching"
     },
     {
@@ -406,10 +297,7 @@
       "forbidden_context": null,
       "message": "No .dockerignore file found — entire context sent to Docker daemon",
       "severity": "info",
-      "file_glob": [
-        "Dockerfile",
-        "Dockerfile.*"
-      ],
+      "file_glob": ["Dockerfile", "Dockerfile.*"],
       "suggestion": "Create .dockerignore to exclude .git, node_modules, __pycache__, .env"
     },
     {
@@ -420,54 +308,19 @@
       "forbidden_context": "(->|_ready|_process|_init|_input|_enter_tree|_exit_tree)",
       "message": "Function without return type hint. Use func name() -> ReturnType:",
       "severity": "info",
-      "file_glob": [
-        "*.gd"
-      ],
+      "file_glob": ["*.gd"],
       "suggestion": "Add return type: func get_score() -> int:"
     },
     {
-      "rule_id": "PREVENT-PI-001",
-      "name": "Dropping messages without anchor-floor guard",
+      "rule_id": "PREVENT-029",
+      "name": "Language-agnostic: No network calls in core modules",
       "enabled": true,
-      "pattern": "messages\\.slice\\(\\s*0\\s*,",
-      "forbidden_context": "without.*(anchor|keepRecent|preserveRecent|safeDrop|computeDropRange|dropBefore)",
-      "message": "Dropping a prefix of messages (messages.slice(0, N)) must preserve the last N user messages (anchor-floor) — use boundary.dropBefore() which applies the guard. Fires only when no anchor logic is present.",
-      "severity": "warning",
-      "file_glob": ["*.ts"],
-      "suggestion": "Use src/boundary.ts dropBefore(messages, keepFrom, anchorUserMessages) so the anchor floor + tool-pair invariants are enforced."
-    },
-    {
-      "rule_id": "PREVENT-PI-002",
-      "name": "Splitting a toolCall/toolResult pair at a boundary",
-      "enabled": true,
-      "pattern": "(keep_from|dropEnd|dropStart|safeDrop|messages\\.slice\\()",
-      "forbidden_context": "without.*(ToolUse|ToolResult|tool_call|pair|computeDropRange|dropBefore)",
-      "message": "Compaction boundary must not split an assistant toolCall from its following toolResult (OpenAI-compat 400). The engine guard lives in src/boundary.ts; runtime drops in extensions/ must use it.",
-      "severity": "critical",
-      "file_glob": ["extensions/**/*.ts"],
-      "suggestion": "Use src/boundary.ts computeDropRange/dropBefore which walks the boundary back if the first preserved message is a ToolResult without a preceding ToolUse."
-    },
-    {
-      "rule_id": "PREVENT-PI-003",
-      "name": "Injecting compacted context as role:system",
-      "enabled": true,
-      "pattern": "role:\\s*[\"']system[\"']",
-      "forbidden_context": null,
-      "message": "pi Message has no 'system' role. Inject compacted context via before_agent_start systemPrompt, not a system message.",
-      "severity": "critical",
-      "file_glob": ["*.ts"],
-      "suggestion": "Return { systemPrompt } from before_agent_start, or prepend a UserMessage."
-    },
-    {
-      "rule_id": "PREVENT-PI-004",
-      "name": "Network calls in extension (must stay local)",
-      "enabled": true,
-      "pattern": "(fetch\\(|https?://|new (WebSocket|net\\.)|XMLHttpRequest|child_process\\.|https\\.request\\(|http\\.get\\(|http\\.request\\(|net\\.connect\\(|net\\.createConnection\\(|new (http\\.)?Agent\\(|new https\\.Agent\\(|createServer\\(|\\bundici\\b|require\\(['\"]node:(http|https|net)['\"]\\)|from ['\"]node:(http|https|net)['\"]|from \"node:(http|https|net)\")",
-      "forbidden_context": null,
-      "message": "pi-mega-compact must run fully local — no remote MCP server or network calls at runtime.",
+      "pattern": "(fetch\\(|https?://|new (WebSocket|net\\.)|XMLHttpRequest|child_process\\.|https\\.request\\(|http\\.get\\(|http\\.request\\(|net\\.connect\\(|net\\.createConnection\\(|createServer\\(|import.*node:(http|https|net))",
+      "forbidden_context": "(guardrails-allow|test|spec|mock|config)",
+      "message": "Core modules should not make network calls at runtime — keep it local.",
       "severity": "critical",
       "file_glob": ["extensions/**/*.ts", "src/**/*.ts"],
-      "suggestion": "Keep compaction + vector store on local disk; remove network calls. (Config may still read a URL, but runtime must not fetch.)"
+      "suggestion": "Keep core logic local; move network calls to a dedicated boundary layer with explicit exemption."
     }
   ]
 }

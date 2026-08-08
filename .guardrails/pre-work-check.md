@@ -8,7 +8,7 @@
 
 Before editing any file, verify:
 
-- [ ] **I have read the relevant documentation** (INDEX_MAP.md → specific docs)
+- [ ] **I have read the relevant documentation**
 - [ ] **I know which files I will modify**
 - [ ] **I have checked the Failure Registry** for known bugs in those files
 - [ ] **I understand what bugs have been fixed** in this area before
@@ -26,7 +26,7 @@ python scripts/regression_check.py --all
 This will show you any potential regressions in your current changes. If you're starting fresh, check the registry for files in your scope:
 
 ```bash
-python scripts/log_failure.py --list
+grep -l "your_file.py" .guardrails/failure-registry.jsonl
 ```
 
 ---
@@ -62,30 +62,28 @@ python scripts/log_failure.py --list
 
 ## Prevention Rules in Effect
 
-The following patterns are automatically checked:
+DevGate ships with language-agnostic prevention rules. The following patterns are automatically checked:
 
-| Rule ID | Pattern | Severity | Description |
-|---------|---------|----------|-------------|
-| PREVENT-001 | JSON.parse without null check | error | Direct property access on parsed JSON |
-| PREVENT-002 | SQL string concatenation | critical | Potential SQL injection |
-| PREVENT-003 | Hardcoded credentials | critical | Credentials in source code |
+| Rule ID | Language | Pattern | Severity |
+|---------|----------|---------|----------|
+| PREVENT-001 | TS/JS | JSON.parse without null check | error |
+| PREVENT-002 | Multi | SQL string concatenation | critical |
+| PREVENT-003 | All | Hardcoded credentials | critical |
+| PREVENT-004 | GDScript | Direct .free() on Node | error |
+| PREVENT-007 | Python | Bare except clause | error |
+| PREVENT-008 | Python | Mutable default arguments | error |
+| PREVENT-009 | Go | Ignored error return | error |
+| PREVENT-011 | TS/JS | `any` type usage | error |
+| PREVENT-013 | Rust | unwrap() in production | warning |
+| PREVENT-014 | Docker | :latest tag | error |
+| PREVENT-022 | Multi | Debug mode in production | error |
+| PREVENT-023 | Multi | CORS wildcard | error |
+| PREVENT-029 | TS/JS | Network calls in core | critical |
 
 **Run the regression check to see all active rules:**
 ```bash
 python scripts/regression_check.py --verbose
 ```
-
----
-
-## Files with Known Bug History
-
-**Note:** This section is populated dynamically. Check the registry for your specific files.
-
-Common high-risk files to be extra careful with:
-- Configuration files (easy to misconfigure)
-- Authentication/authorization code (security critical)
-- Database access layers (data integrity)
-- API endpoints (interface contracts)
 
 ---
 
@@ -127,50 +125,15 @@ Common high-risk files to be extra careful with:
 **YOU MUST:**
 
 1. **Fix the bug first**
-2. **Log it in the registry**:
-   ```bash
-   python scripts/log_failure.py --interactive
-   ```
-3. **Add a regression test** in `tests/regression/`
+2. **Log it in the registry** (append to `.guardrails/failure-registry.jsonl`)
+3. **Add a regression test**
 4. **Update prevention rules** if applicable
-
----
-
-## Quick Commands Reference
-
-```bash
-# Check for regressions in staged changes
-python scripts/regression_check.py
-
-# Check for regressions in unstaged changes
-python scripts/regression_check.py --unstaged
-
-# List all active failures
-python scripts/log_failure.py --list
-
-# Show details of a specific failure
-python scripts/log_failure.py --show FAIL-abc12345
-
-# Mark a failure as resolved
-python scripts/log_failure.py --resolve FAIL-abc12345
-
-# Log a new failure interactively
-python scripts/log_failure.py --interactive
-```
 
 ---
 
 ## Remember
 
 > **The goal is not to slow you down—it's to prevent the same bugs from being fixed over and over again.**
-
-Every bug in the registry represents:
-- Time spent debugging
-- Potential user impact
-- Technical debt
-- Risk of reintroduction
-
-By checking before you start, you save time and prevent regressions.
 
 ---
 

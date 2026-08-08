@@ -1,10 +1,10 @@
-# DevGate-Agentic-Framework
+# DevGate Agentic Framework
 
-A quality engineering framework for AI agent development — test runner, regression scanner, deploy gates, CI workflows, and guardrails. Extracted from [pi-mega-compact](https://github.com/TheArchitectit/pi-mega-compact).
+A language-agnostic quality engineering framework for AI-assisted development — test runner, regression scanner, deploy gates, CI workflows, and guardrails. Works with any language: TypeScript, Python, Rust, Go, GDScript, and more.
 
 ## What This Is
 
-DevGate is the enforcement layer for AI-assisted development. It provides the tooling to validate, gate, and deploy code that was written by or with AI agents — ensuring the velocity of AI-generated code doesn't come at the cost of quality.
+DevGate is the enforcement layer for AI agent development. It provides the tooling to validate, gate, and deploy code that was written by or with AI agents — ensuring the velocity of AI-generated code doesn't come at the cost of quality.
 
 **DevGate is not another agent framework.** It's the quality gate that sits between your agents and your production code.
 
@@ -14,49 +14,53 @@ DevGate is the enforcement layer for AI-assisted development. It provides the to
 - Node.js native test runner (`node --test`) with custom driver
 - Per-file process isolation — each test file gets its own subprocess
 - Parallel pooling (max 8 workers, configurable)
-- Serial lanes for dashboard (port collision) and perf-budget (CPU sensitivity) tests
+- Serial lanes for tests that can't share resources (port collision, CPU sensitivity)
 - Flake adjudication — failed files re-run solo; flakes pass with flag
 - Hang-on-exit detection — open handles don't block the pool
 - Stale temp-dir sweeper
 
 ### Regression Scanner (`scripts/regression_check.py`)
-- File-size limit enforcement (src: 300 soft / 500 hard, extensions: 400 / 500, tests: 600 hard)
+- File-size limit enforcement (configurable per directory and language)
 - npm audit gate (blocks on runtime HIGH/CRITICAL, warns on dev-only)
 - Settings coverage check (every env var must have a dashboard entry)
 - Soft-as-hard headroom gate — promotes soft violations to blocking, only for files changed since prior release tag
 - Reads `.guardrails/failure-registry.jsonl` for known bug patterns
 
 ### Pattern Scanner (`scripts/guardrails-scan.mjs`)
-- PREVENT-PI-004: no network constructors outside annotated exemptions
-- PREVENT-PI-002: no SQL string concatenation
-- PREVENT-PI-001: no JSON.parse without null check
-- Supports inline `// guardrails-allow PREVENT-PI-xxx: <reason>` annotations
+- PREVENT-001: no JSON.parse without null check
+- PREVENT-002: no SQL string concatenation
+- PREVENT-003: no hardcoded credentials
+- PREVENT-004: no direct .free() on Godot Nodes
+- PREVENT-007: no bare except in Python
+- PREVENT-009: no ignored error returns in Go
+- PREVENT-013: no unwrap() in Rust production code
+- Supports inline `// guardrails-allow PREVENT-xxx: <reason>` annotations
+- Rules defined in `.guardrails/prevention-rules/pattern-rules.json` — add your own per language
 
 ### Semantic Scanner (`scripts/semantic-scan.mjs`)
 - AST-based using TypeScript compiler API
 - SEMANTIC-001: detects `.then()` chains without `.catch()` (unhandled promise rejection)
+- Extensible rule format in `.guardrails/prevention-rules/semantic-rules.json`
 
 ### Schema Health Check (`scripts/schema-health-check.mjs`)
 - Validates database schema integrity
 - Checks for orphaned tables, missing indexes, constraint violations
+- Configurable column registry
 
 ### Deploy Pipeline (`scripts/deploy.sh`)
-10-step gated publish pipeline:
+Generic gated publish pipeline:
 1. Clean git tree check
 2. Native deps pre-flight
 3. Full gate (build + test + lint + regression + guardrails)
 4. Schema health validation
-5. React dashboard build (if applicable)
-6. Critical verify — bundle exists in npm pack output
-7. Dashboard tab smoke (Playwright headless)
-8. Asset gate (encoder manifest + model + tokenizer present, package ≤ 80 MiB)
+5. Build artifacts (if applicable)
+6. Critical verify — bundle exists in pack output
+7. UI smoke test (Playwright headless, if applicable)
+8. Asset gate (required assets present, package size within budget)
 9. Version bump
-10. Commit + tag + push (before npm publish — push failure aborts)
-11. npm publish
-12. Stale dashboard bounce
-13. Merge to master
-14. GitHub release
-15. Post-publish device instructions
+10. Commit + tag + push
+11. Publish (npm, cargo, pip, or custom)
+12. Post-publish verification
 
 ### CI Workflows (`.github/workflows/`)
 | Workflow | Purpose |
@@ -78,10 +82,26 @@ Append-only JSONL log of historical bugs with:
 - Status (active/resolved)
 
 ### Prevention Rules (`.guardrails/prevention-rules/`)
-- `pattern-rules.json` — forbidden pattern definitions
+- `pattern-rules.json` — forbidden pattern definitions (multi-language)
 - `pattern-rules.schema.json` — JSON schema for rule validation
 - `semantic-rules.json` — AST-based semantic rules
 - `extracted-rules.json` — extracted rule summaries
+
+## Supported Languages
+
+DevGate ships with prevention rules for:
+
+| Language | Rules |
+|----------|-------|
+| TypeScript/JavaScript | JSON.parse, SQL injection, console.log, `any` type, unhandled promises |
+| Python | bare except, mutable defaults, resource leaks, argument count |
+| Rust | unwrap() in production, unreachable patterns |
+| Go | ignored errors, goroutines without context, defer in loops |
+| GDScript (Godot) | direct .free(), absolute paths, string get_node(), missing type hints, heavy ops in _process |
+| Docker | latest tags, missing .dockerignore |
+| Shell | command injection |
+| Kotlin/Java | Thread.sleep |
+| All | hardcoded credentials, TODO without ticket, debug mode, CORS wildcard, SSRF, weak hashes |
 
 ## Installation
 
@@ -134,7 +154,7 @@ bash .claude/hooks/pre-commit.sh
 
 ### Deploy
 ```bash
-bash scripts/deploy.sh
+bash scripts/deploy.sh 1.0.0
 ```
 
 ## Configuration
@@ -153,10 +173,13 @@ TEST_HARD = 600   # test files hard limit
 Add custom patterns to `.guardrails/prevention-rules/pattern-rules.json`:
 ```json
 {
-  "id": "PREVENT-CUSTOM-001",
+  "rule_id": "PREVENT-CUSTOM-001",
+  "name": "No eval() usage",
+  "enabled": true,
   "pattern": "eval\\(",
-  "description": "No eval() usage",
-  "severity": "error"
+  "message": "Do not use eval()",
+  "severity": "error",
+  "file_glob": ["*.js", "*.ts"]
 }
 ```
 
@@ -164,28 +187,19 @@ Add custom patterns to `.guardrails/prevention-rules/pattern-rules.json`:
 Append new entries to `.guardrails/failure-registry.jsonl`:
 ```json
 {
-  "id": "BUG-001",
-  "title": "Missing dashboard bundle in npm package",
-  "affected_files": ["extensions/dashboard-client/dist/index.html"],
-  "root_cause": "Vite build ran but output wasn't included in npm pack files array",
-  "prevention_rules": ["deploy.sh step 6 verifies bundle in npm pack --dry-run"],
+  "failure_id": "FAIL-001",
+  "title": "Missing bundle in published package",
+  "affected_files": ["dist/index.html"],
+  "root_cause": "Build ran but output wasn't included in package",
+  "prevention_rules": ["deploy.sh step 6 verifies bundle in pack --dry-run"],
   "status": "resolved",
   "date": "2026-07-15"
 }
 ```
 
-## Origin
-
-Extracted from [pi-mega-compact](https://github.com/TheArchitectit/pi-mega-compact) v0.20.46, where this framework was battle-tested across:
-- 332 test files (~3,900+ tests)
-- 51 acceptance test aggregators
-- 890 conformance fixtures
-- 60 sprint specs with evidence records
-- 20+ tagged releases
-
 ## License
 
-BSD-3-Clause
+MIT
 
 ## Author
 
