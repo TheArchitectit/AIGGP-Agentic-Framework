@@ -1,0 +1,6 @@
+[submodule "game-framework"]
+	path = game-framework
+	url = https://github.com/TheArchitectit/devgate-game-framework.git
+[submodule "vision-review"]
+	path = vision-review
+	url = https://github.com/TheArchitectit/radredeye-vision-review.git
