@@ -61,34 +61,36 @@ echo "[deploy] git tree clean."
 echo "[deploy] running gate: regression + guardrails"
 
 # Run regression check (auto-detects project root and package manager)
-python3 "$ROOT/scripts/regression_check.py" --all --pre-commit 2>/dev/null || {
-	echo "[deploy] WARN: regression check failed or not applicable — continuing"
+python3 "$ROOT/scripts/regression_check.py" --all --pre-commit || {
+	echo "[deploy] FAIL: regression check failed — aborting deploy"
+	exit 1
 }
 
 # Run guardrails scan
-node "$ROOT/scripts/guardrails-scan.mjs" 2>/dev/null || {
-	echo "[deploy] WARN: guardrails scan failed or not applicable — continuing"
+node "$ROOT/scripts/guardrails-scan.mjs" || {
+	echo "[deploy] FAIL: guardrails scan failed — aborting deploy"
+	exit 1
 }
 
 # Run project's own build/test/lint (whatever exists)
 cd "$PROJECT_ROOT"
 if [ -f "package.json" ]; then
 	echo "[deploy] detected npm project — running npm scripts"
-	npm run build 2>/dev/null || echo "[deploy] no build script"
-	npm test 2>/dev/null || echo "[deploy] no test script"
-	npm run lint 2>/dev/null || echo "[deploy] no lint script"
+	npm run build || { echo "[deploy] FAIL: npm build failed"; exit 1; }
+	npm test || { echo "[deploy] FAIL: npm test failed"; exit 1; }
+	npm run lint 2>/dev/null || echo "[deploy] WARN: lint skipped or not configured"
 elif [ -f "Cargo.toml" ]; then
 	echo "[deploy] detected Rust project — running cargo"
-	cargo build --release 2>/dev/null || echo "[deploy] cargo build failed"
-	cargo test 2>/dev/null || echo "[deploy] cargo test failed"
-	cargo clippy 2>/dev/null || echo "[deploy] no clippy"
+	cargo build --release || { echo "[deploy] FAIL: cargo build failed"; exit 1; }
+	cargo test || { echo "[deploy] FAIL: cargo test failed"; exit 1; }
+	cargo clippy 2>/dev/null || echo "[deploy] WARN: clippy skipped or not configured"
 elif [ -f "pyproject.toml" ] || [ -f "setup.py" ]; then
 	echo "[deploy] detected Python project — running pytest"
-	python3 -m pytest 2>/dev/null || echo "[deploy] no tests found"
+	python3 -m pytest || { echo "[deploy] FAIL: pytest failed"; exit 1; }
 elif [ -f "go.mod" ]; then
 	echo "[deploy] detected Go project — running go test"
-	go build ./... 2>/dev/null || echo "[deploy] go build failed"
-	go test ./... 2>/dev/null || echo "[deploy] go test failed"
+	go build ./... || { echo "[deploy] FAIL: go build failed"; exit 1; }
+	go test ./... || { echo "[deploy] FAIL: go test failed"; exit 1; }
 elif [ -f "project.godot" ]; then
 	echo "[deploy] detected Godot project — skipping build/test (run Godot headless tests manually)"
 else
@@ -97,7 +99,7 @@ fi
 
 # --- 3. schema health (if configured) -----------------------------------------
 if [ -f "$ROOT/scripts/schema-health-check.mjs" ]; then
-	node "$ROOT/scripts/schema-health-check.mjs" 2>/dev/null && echo "[deploy] schema health OK." || echo "[deploy] schema check skipped or failed (non-blocking)"
+	node "$ROOT/scripts/schema-health-check.mjs" && echo "[deploy] schema health OK." || { echo "[deploy] WARN: schema check skipped or failed (non-blocking for non-DB projects)"; }
 fi
 
 echo "[deploy] gate complete."
