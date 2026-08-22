@@ -1,0 +1,11 @@
+{
+  "note": "Known, deliberately tolerated silent-success markers. scripts/silent-success-scan.sh scans the ENABLED families in prevention-rules/silent-success-rules.json and FAILS on any occurrence NOT listed here. A hit is covered when some entry's \"file\" equals the hit's repo-relative path AND that entry's \"marker\" is a substring of the hit line — so a NEW occurrence (different file, or a different marker in the same file) still fails. Every entry should name the work item that removes it: an allowlist without expiry dates is just a list of bugs you agreed to keep. Do NOT add new production-simulating markers; fix the code instead.",
+  "entry_shape": {
+    "file": "repo-relative path of the file containing the marker",
+    "marker": "substring of the offending line that identifies it",
+    "family": "the detector family it matches (informational)",
+    "reason": "why it is tolerated for now",
+    "removal": "the sprint/ticket that removes it"
+  },
+  "entries": []
+}

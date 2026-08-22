@@ -31,14 +31,20 @@ your-project/               ← YOUR project code lives here (any structure, any
     ├── .guardrails/
     │   ├── failure-registry.jsonl
     │   ├── pre-work-check.md
+    │   ├── silent-success-allowlist.json
     │   └── prevention-rules/
+    ├── docs/
+    │   ├── RELEASE_GATE.md         ← Release stages and why each exists
+    │   └── WRITE_AUDIT_REVIEW.md   ← The four-gate agent process
     ├── scripts/
     │   ├── deploy.sh
     │   ├── guardrails-scan.mjs
+    │   ├── log_failure.py          ← Append a failure-registry entry
     │   ├── regression_check.py
     │   ├── run-tests.mjs
     │   ├── schema-health-check.mjs
-    │   └── semantic-scan.mjs
+    │   ├── semantic-scan.mjs
+    │   └── silent-success-scan.sh  ← Simulated-success detector
     ├── AGENTS.md           ← This file
     ├── LICENSE             ← BSD 3-Clause
     └── README.md
@@ -73,17 +79,45 @@ node .devgate/scripts/guardrails-scan.mjs
 # Semantic scan (TypeScript/JavaScript AST — skips if none found)
 node .devgate/scripts/semantic-scan.mjs
 
-# Regression check (file sizes, package audit, failure registry)
+# Regression check (file sizes, package audit, failure-registry patterns)
 python3 .devgate/scripts/regression_check.py --staged --pre-commit
+
+# Silent-success scan (skips when no detector families are enabled)
+bash .devgate/scripts/silent-success-scan.sh
 
 # Schema health (skips if no database configured)
 node .devgate/scripts/schema-health-check.mjs
 ```
 
+## The Four Gates (Write → Audit → Review → Commit)
+
+DevGate's scanners catch *known* failure patterns. They cannot tell whether the work does what was asked, whether a test asserts anything, or whether an agent reported success it never achieved. So work moves through four gates:
+
+| Gate | Actor | Definition of done |
+|------|-------|--------------------|
+| 1. Write | Writer agent | Only in-scope files changed; self-checked |
+| 2. Audit | **Independent** agent | Evidence gathered first-hand; explicit verdict |
+| 3. Review | Lead | Findings reconciled; gates re-run |
+| 4. Commit & Push | Lead | Clean diff, documented message, pushed |
+
+**The separation rule:** the agent that *writes* must not be the only agent that *validates*. The audit is performed by a **different agent in a different session**, and it sees the produced artifact — not the writer's reasoning. The lead reviews after the audit and is the **only** role that commits and pushes.
+
+Never report a check as passed when it failed, was skipped, or was never run. Use `NOT_RUN` with the blocker stated — a gate falsely reported green is worse than one that was never run, because it removes the reason to look.
+
+See **[docs/WRITE_AUDIT_REVIEW.md](docs/WRITE_AUDIT_REVIEW.md)** for the full process, the auditor checklist, and the acceptance-report contract. Release-specific gates are in **[docs/RELEASE_GATE.md](docs/RELEASE_GATE.md)**.
+
 ## When You Fix a Bug
 
 1. **Fix the bug**
-2. **Append to the failure registry** — add a JSONL entry to `.devgate/.guardrails/failure-registry.jsonl`:
+2. **Append to the failure registry** — use the helper (it validates the enums and generates the ID):
+   ```bash
+   python3 .devgate/scripts/log_failure.py \
+     --error-message "what broke" --category runtime --severity high \
+     --root-cause "why it happened" --affected-files path/to/file \
+     --regression-pattern 'the_signature_that_must_not_return' \
+     --prevention-rule "what prevents recurrence"
+   ```
+   The `regression_pattern` is the important field: `regression_check.py` compiles it and fails the build if that pattern reappears in newly **added** code. Scope it with `--file-glob` when the pattern would otherwise match docs or helpers. Or append the JSONL entry by hand:
    ```json
    {"failure_id":"FAIL-YYYYMMDD01","timestamp":"2026-08-08T12:00:00Z","category":"runtime","severity":"high","error_message":"Description","root_cause":"Why it happened","affected_files":["path/to/your/file"],"fix_commit":"abc1234","prevention_rule":"What prevents recurrence","status":"resolved"}
    ```

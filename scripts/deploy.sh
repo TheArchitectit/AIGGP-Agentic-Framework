@@ -12,12 +12,18 @@
 #   3. Schema health validation (if database configured)
 #   4. Build artifacts (if applicable)
 #   5. Version bump
-#   6. Commit + tag + push (before publish — push failure aborts)
+#   6. Commit + tag + push (before publish — push failure aborts, stderr shown)
+#   6b. Tag-reached-remote verification (--follow-tags pushes annotated tags only)
+#   6c. ARTIFACT VERIFY (manifest-driven; skipped when unconfigured)
 #   7. Publish (auto-detected: npm / cargo / pip / custom)
 #   8. GitHub release
 #
 # Usage:
 #   ./scripts/deploy.sh <new-version>
+#
+# Optional: create .guardrails/release-artifact-contract.json (see
+# release-artifact-contract.example.json) to assert the packed artifact really
+# contains the files it must before an immutable publish. Absent = stage skipped.
 #
 # Exit codes: non-zero on any failure (set -euo pipefail).
 
@@ -145,8 +151,189 @@ fi
 
 echo "[deploy] pushing commits + tag"
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-if ! git push --follow-tags 2>/dev/null; then
-	git push --set-upstream origin "$CURRENT_BRANCH" --follow-tags
+
+# Capture stderr instead of discarding it: `2>/dev/null` hid the real reason a
+# push failed and made every failure look like a missing upstream. Distinguish
+# "no upstream configured" (retry with -u) from any other error (abort, showing
+# what git actually said) — a push failure must abort while publish is un-done.
+PUSH_ERR="$(mktemp)"
+trap 'rm -f "$PUSH_ERR"' EXIT
+if ! git push --follow-tags 2>"$PUSH_ERR"; then
+	if grep -qiE 'no upstream branch|set-upstream|has no upstream' "$PUSH_ERR"; then
+		echo "[deploy] no upstream for '$CURRENT_BRANCH' — retrying with --set-upstream"
+		if ! git push --set-upstream origin "$CURRENT_BRANCH" --follow-tags 2>"$PUSH_ERR"; then
+			echo "[deploy] ERROR: push failed even with --set-upstream:" >&2
+			cat "$PUSH_ERR" >&2
+			exit 1
+		fi
+	else
+		echo "[deploy] ERROR: git push failed — aborting before publish:" >&2
+		cat "$PUSH_ERR" >&2
+		exit 1
+	fi
+fi
+rm -f "$PUSH_ERR"
+
+# --- 5b. verify the tag actually reached the remote ---------------------------
+# `git push --follow-tags` pushes ANNOTATED tags only, and reports success
+# either way. A tag left behind strands the source of a published artifact, so
+# prove it is upstream, retry explicitly, then re-verify before publishing.
+if ! git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+	echo "[deploy] tag $TAG not on remote after --follow-tags — pushing it explicitly"
+	if ! git push origin "$TAG"; then
+		echo "[deploy] ERROR: explicit tag push failed — aborting before publish" >&2
+		exit 1
+	fi
+fi
+if ! git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+	echo "[deploy] ERROR: tag $TAG still not on remote — refusing to publish an unpushed release" >&2
+	exit 1
+fi
+echo "[deploy] commit + tag $TAG confirmed on remote."
+
+# --- 5c. ARTIFACT VERIFY (manifest-driven; skips when unconfigured) -----------
+# A published version is IMMUTABLE. Package managers will happily produce a
+# well-formed archive with the built binary missing — the failure then surfaces
+# at install time, for every user, on a version that cannot be recalled. When
+# .guardrails/release-artifact-contract.json exists we pack, list the archive,
+# and prove the required entries are really inside it BEFORE publishing.
+# When it does not exist, we skip and continue (nothing to assert).
+cd "$PROJECT_ROOT"
+ARTIFACT_CONTRACT="$ROOT/.guardrails/release-artifact-contract.json"
+if [ ! -f "$ARTIFACT_CONTRACT" ]; then
+	echo "[deploy] no release-artifact-contract.json — skipping artifact verify"
+else
+	echo "[deploy] ARTIFACT VERIFY: packing and inspecting the release artifact"
+
+	# Read the contract with python3 (already a DevGate dependency).
+	contract_field() {
+		python3 -c "
+import json, sys
+doc = json.load(open(sys.argv[1]))
+val = doc.get(sys.argv[2])
+if isinstance(val, list):
+    print('\n'.join(str(v) for v in val))
+elif val is not None:
+    print(val)
+" "$ARTIFACT_CONTRACT" "$1"
+	}
+
+	ARTIFACT_GLOB="$(contract_field artifact_glob)"
+	ENTRY_PREFIX="$(contract_field entry_prefix)"
+
+	# Per-package-manager pack + listing command. Each branch sets PACK_CMD (may
+	# be empty when the artifact is pre-built) and LIST_MODE.
+	PACK_CMD=""
+	LIST_MODE="skip"
+	if [ -f "package.json" ]; then
+		PACK_CMD="npm pack"
+		LIST_MODE="tar"
+	elif [ -f "Cargo.toml" ]; then
+		PACK_CMD="cargo package --allow-dirty"
+		LIST_MODE="cargo-list"
+	elif [ -f "pyproject.toml" ] || [ -f "setup.py" ]; then
+		PACK_CMD="python3 -m build"
+		LIST_MODE="python-dist"
+	else
+		echo "[deploy] no recognized packer — skipping artifact verify"
+	fi
+
+	if [ "$LIST_MODE" != "skip" ]; then
+		if [ -n "$PACK_CMD" ]; then
+			echo "[deploy]   packing: $PACK_CMD"
+			$PACK_CMD >/dev/null 2>&1 || {
+				echo "[deploy] ERROR: '$PACK_CMD' failed — cannot verify artifact" >&2
+				exit 1
+			}
+		fi
+
+		# Produce the archive entry listing.
+		ARTIFACT_LISTING=""
+		if [ "$LIST_MODE" = "cargo-list" ]; then
+			# cargo prints the packaged file list directly (no prefix in output).
+			ARTIFACT_LISTING="$(cargo package --list --allow-dirty 2>/dev/null)" || {
+				echo "[deploy] ERROR: 'cargo package --list' failed" >&2
+				exit 1
+			}
+			ARTIFACT_PATH="(cargo package --list)"
+		else
+			# Resolve the packed artifact via the contract glob (newest match).
+			ARTIFACT_PATH=""
+			for candidate in $(ls -t $ARTIFACT_GLOB 2>/dev/null); do
+				ARTIFACT_PATH="$candidate"
+				break
+			done
+			if [ -z "$ARTIFACT_PATH" ]; then
+				echo "[deploy] ERROR: no artifact matched '$ARTIFACT_GLOB' after packing" >&2
+				exit 1
+			fi
+			echo "[deploy]   artifact: $ARTIFACT_PATH"
+			case "$ARTIFACT_PATH" in
+				*.tgz|*.tar.gz)
+					ARTIFACT_LISTING="$(tar -tzf "$ARTIFACT_PATH")" || {
+						echo "[deploy] ERROR: could not list $ARTIFACT_PATH" >&2; exit 1; }
+					;;
+				*.tar)
+					ARTIFACT_LISTING="$(tar -tf "$ARTIFACT_PATH")" || {
+						echo "[deploy] ERROR: could not list $ARTIFACT_PATH" >&2; exit 1; }
+					;;
+				*.whl|*.zip)
+					ARTIFACT_LISTING="$(unzip -Z1 "$ARTIFACT_PATH" 2>/dev/null || python3 -c "
+import sys, zipfile
+print('\n'.join(zipfile.ZipFile(sys.argv[1]).namelist()))
+" "$ARTIFACT_PATH")" || {
+						echo "[deploy] ERROR: could not list $ARTIFACT_PATH" >&2; exit 1; }
+					;;
+				*)
+					echo "[deploy] WARN: unknown artifact type '$ARTIFACT_PATH' — skipping entry check"
+					LIST_MODE="skip"
+					;;
+			esac
+		fi
+	fi
+
+	if [ "$LIST_MODE" != "skip" ]; then
+		# Every must_contain entry must be an EXACT line in the listing.
+		MISSING=0
+		while IFS= read -r required; do
+			[ -n "$required" ] || continue
+			expected="${ENTRY_PREFIX}${required}"
+			if printf '%s\n' "$ARTIFACT_LISTING" | grep -Fqx "$expected"; then
+				echo "[deploy]   ✓ $expected present"
+			else
+				echo "[deploy]   ✗ MISSING: $expected" >&2
+				MISSING=$((MISSING + 1))
+			fi
+		done <<-EOF
+			$(contract_field must_contain)
+		EOF
+
+		if [ "$MISSING" -gt 0 ]; then
+			echo "[deploy] --- full artifact listing ($ARTIFACT_PATH) ---" >&2
+			printf '%s\n' "$ARTIFACT_LISTING" >&2
+			echo "[deploy] ERROR: $MISSING required entr(ies) missing from the artifact." >&2
+			echo "[deploy] Refusing to publish an incomplete package (a published version is immutable)." >&2
+			exit 1
+		fi
+
+		# Executable bits: a non-executable launcher breaks the installer's spawn.
+		while IFS= read -r execpath; do
+			[ -n "$execpath" ] || continue
+			if [ ! -e "$execpath" ]; then
+				echo "[deploy] ERROR: must_be_executable path does not exist: $execpath" >&2
+				exit 1
+			fi
+			if [ ! -x "$execpath" ]; then
+				echo "[deploy] ERROR: $execpath is not executable — installs would fail" >&2
+				exit 1
+			fi
+			echo "[deploy]   ✓ $execpath is executable"
+		done <<-EOF
+			$(contract_field must_be_executable)
+		EOF
+
+		echo "[deploy] artifact verify OK."
+	fi
 fi
 
 # --- 6. publish ---------------------------------------------------------------

@@ -14,6 +14,20 @@ Environment Variables:
     FAILURE_REGISTRY_PATH: Path to registry file
     PREVENTION_RULES_PATH: Path to prevention rules directory
     DEVGATE_DB_PATH: Database connection string (if using schema health check)
+
+Diff scanning semantics:
+    Only ADDED lines ('+' lines of a unified diff) are scanned, so pre-existing
+    legitimate code is never flagged — only new introductions. The diff parser is
+    hunk-accurate: it tracks '+++' headers and '@@' hunk ranges so every finding
+    reports the real (path, new_line_number) instead of an offset into a
+    concatenated blob.
+
+    Each failure-registry entry may carry a `regression_pattern` (a regex that
+    must not reappear in added code) and an optional `file_glob` scoping it to
+    matching files, so docs and helper scripts can quote a pattern without
+    tripping the gate. The two files that DEFINE the patterns — the registry and
+    pattern-rules.json — are excluded from the added-line scan, since every
+    pattern trivially matches its own definition.
 """
 
 import argparse
@@ -27,6 +41,34 @@ from pathlib import Path
 
 DEFAULT_REGISTRY_PATH = Path(".guardrails/failure-registry.jsonl")
 DEFAULT_RULES_PATH = Path(".guardrails/prevention-rules")
+
+# Hunk-accurate diff parsing + failure-registry pattern matching live in a
+# sibling module (keeps both files under DevGate's own 500-line hard limit).
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from regression_audit import (  # noqa: E402
+    _detect_package_manager,
+    check_npm_audit,
+    print_npm_audit_report,
+)
+from regression_sizes import (  # noqa: E402
+    SRC_HARD,
+    SRC_SOFT,
+    TEST_HARD,
+    check_file_sizes,
+    format_severity,
+    print_file_size_report,
+)
+from regression_diff import (  # noqa: E402
+    SCANNED_STATUSES,
+    SELF_REFERENTIAL,
+    check_added_against_registry,
+    compile_registry_patterns,
+    get_added_lines,
+    glob_matches,
+    load_active_failures,
+    load_failure_registry,
+    parse_diff,
+)
 
 # --- Auto-detect project root ------------------------------------------------
 def find_project_root():
@@ -52,165 +94,6 @@ for candidate in ["src", "lib", "app", "extensions", "scripts", "internal", "pkg
 if not SOURCE_DIRS:
     SOURCE_DIRS = ["."]
 
-FILE_SIZE_SKIP_PARTS = ("node_modules", "dist", ".claude", "target", "__pycache__",
-                        ".devgate", "vendor", "build", "out", ".next", ".nuxt",
-                        "venv", ".venv", "worktrees", "egg-info")
-FILE_SIZE_SKIP_SUFFIXES = (".d.ts", ".min.js", ".min.mjs", ".map")
-
-# File-size limits — configurable. These apply to ALL source file types.
-SRC_SOFT = 300
-SRC_HARD = 500
-TEST_HARD = 600
-
-# Source file extensions to check (language-agnostic)
-SOURCE_EXTENSIONS = (".ts", ".tsx", ".py", ".rs", ".go", ".gd", ".java", ".kt",
-                     ".rb", ".php", ".js", ".jsx", ".swift", ".c", ".cpp", ".h", ".cs")
-
-
-def _classify_file(rel_path: str) -> tuple[int | None, int | None]:
-    """Return (soft, hard) line limits for a repo-relative path."""
-    parts = rel_path.split(os.sep)
-    for skip in FILE_SIZE_SKIP_PARTS:
-        if skip in parts:
-            return (None, None)
-    for suf in FILE_SIZE_SKIP_SUFFIXES:
-        if rel_path.endswith(suf):
-            return (None, None)
-    is_test = rel_path.endswith((".test.ts", ".test.tsx", ".test.js", ".spec.ts",
-                                 ".spec.js", "_test.py", "test_*.py", "_test.go",
-                                 ".test.rs", ".test.gd"))
-    if is_test:
-        return (None, TEST_HARD)
-    return (SRC_SOFT, SRC_HARD)
-
-
-def check_file_sizes(repo_root: Path) -> list[dict]:
-    violations: list[dict] = []
-    warnings: list[dict] = []
-
-    def _size_file(abs_path: Path, rel_path: str) -> None:
-        soft, hard = _classify_file(rel_path)
-        if hard is None:
-            return
-        try:
-            with open(abs_path, encoding="utf-8", errors="replace") as f:
-                line_count = sum(1 for _ in f)
-        except OSError:
-            return
-        if line_count > hard:
-            violations.append({"file": rel_path, "lines": line_count, "soft": soft,
-                               "hard": hard, "severity": "error", "kind": "hard"})
-        elif soft is not None and line_count > soft:
-            warnings.append({"file": rel_path, "lines": line_count, "soft": soft,
-                             "hard": hard, "severity": "warning", "kind": "soft"})
-
-    for top in SOURCE_DIRS:
-        base = repo_root / top
-        if not base.is_dir():
-            continue
-        for dirpath, _dirnames, filenames in os.walk(base):
-            for name in filenames:
-                if not name.endswith(SOURCE_EXTENSIONS):
-                    continue
-                abs_path = Path(dirpath) / name
-                try:
-                    rel_path = abs_path.relative_to(repo_root).as_posix()
-                except ValueError:
-                    continue
-                _size_file(abs_path, rel_path)
-
-    violations.sort(key=lambda d: d["lines"], reverse=True)
-    warnings.sort(key=lambda d: d["lines"], reverse=True)
-    return violations + warnings
-
-
-def print_file_size_report(size_issues: list[dict]) -> None:
-    if not size_issues:
-        print("✓ All source files within soft/hard line limits")
-        return
-    hard_count = sum(1 for i in size_issues if i["kind"] == "hard")
-    soft_count = sum(1 for i in size_issues if i["kind"] == "soft")
-    print("\n" + "=" * 70)
-    print("FILE-SIZE CHECK")
-    print("=" * 70)
-    for issue in size_issues:
-        severity = format_severity(issue["severity"])
-        tag = "OVER HARD LIMIT" if issue["kind"] == "hard" else "over soft limit"
-        print(f"  {severity}  {issue['file']}  ({issue['lines']} lines, "
-              f"limit {issue['hard'] if issue['kind'] == 'hard' else issue['soft']})  {tag}")
-    print("-" * 70)
-    print(f"  {hard_count} over hard limit (blocks commit), {soft_count} over soft limit (warning)")
-    print("=" * 70)
-
-
-# --- Package manager audit (auto-detect) ------------------------------------
-def _detect_package_manager(repo_root: Path) -> str | None:
-    """Detect the project's package manager. Returns 'npm', 'cargo', 'pip', or None."""
-    if (repo_root / "package.json").exists():
-        return "npm"
-    if (repo_root / "Cargo.toml").exists():
-        return "cargo"
-    if (repo_root / "pyproject.toml").exists() or (repo_root / "setup.py").exists():
-        return "pip"
-    return None
-
-
-def check_npm_audit(repo_root: Path) -> tuple[int, int, list[dict]]:
-    """Run npm audit if the project uses npm. Non-blocking if not present."""
-    pkg_manager = _detect_package_manager(repo_root)
-    if pkg_manager != "npm":
-        return (0, 0, [])  # Skip for non-npm projects
-
-    try:
-        result = subprocess.run(["npm", "audit", "--json"], capture_output=True,
-                                text=True, cwd=str(repo_root), timeout=120)
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        return (0, 0, [])
-
-    raw = result.stdout.strip()
-    if not raw:
-        return (0, 0, [])
-    try:
-        audit = json.loads(raw)
-    except json.JSONDecodeError:
-        return (0, 0, [])
-
-    pkg_path = repo_root / "package.json"
-    runtime_deps: set[str] | None = set()
-    try:
-        pkg = json.loads(pkg_path.read_text(encoding="utf-8"))
-        runtime_deps = set((pkg.get("dependencies") or {}).keys())
-    except (OSError, json.JSONDecodeError):
-        runtime_deps = None
-
-    vuln_map = audit.get("vulnerabilities") or {}
-    issues: list[dict] = []
-    for name, info in vuln_map.items():
-        severity = str(info.get("severity", "unknown")).lower()
-        effects = info.get("effects") or []
-        is_runtime = any(eff in (runtime_deps or set()) for eff in effects) if runtime_deps is not None else True
-        issues.append({"name": name, "severity": severity, "is_runtime": is_runtime,
-                       "advisory": str(info.get("via", ""))[:80],
-                       "fix_available": bool(info.get("fixAvailable")), "effects": effects})
-    blocking = [i for i in issues if i["is_runtime"] and i["severity"] in ("high", "critical")]
-    warning = [i for i in issues if not (i["is_runtime"] and i["severity"] in ("high", "critical"))]
-    return len(blocking), len(warning), issues
-
-
-def print_npm_audit_report(blocking: int, warnings: int, issues: list[dict]) -> None:
-    if not issues:
-        print("✓ No package vulnerabilities found")
-        return
-    print("\n" + "=" * 70)
-    print("PACKAGE AUDIT (runtime HIGH/CRITICAL = blocking; dev-only = warning)")
-    print("=" * 70)
-    for i in sorted(issues, key=lambda x: (not x["is_runtime"], x["severity"])):
-        scope = "RUNTIME" if i["is_runtime"] else "dev-only"
-        fix = "fix available" if i["fix_available"] else "NO fix"
-        print(f"  {i['severity'].upper():8s} {scope:8s} {i['name']:<32s} {fix}")
-    print("-" * 70)
-    print(f"  {blocking} blocking | {warnings} warning(s)")
-    print("=" * 70)
 
 
 # --- Git / failure registry / pattern rules (unchanged logic) ---------------
@@ -242,21 +125,26 @@ def get_diff_content(file_path: str, staged: bool = True) -> str:
     return stdout if rc in (0, 1) else ""
 
 
-def load_failure_registry(registry_path: Path) -> list[dict]:
-    if not registry_path.exists():
-        return []
-    entries = []
-    with open(registry_path) as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith("#"):
-                try:
-                    entry = json.loads(line)
-                    if entry.get("status") == "active":
-                        entries.append(entry)
-                except json.JSONDecodeError:
-                    continue
-    return entries
+
+def print_registry_regression_report(violations: list[dict]) -> None:
+    """Report re-added failure-registry patterns with real file:line locations."""
+    if not violations:
+        return
+    print("\n" + "=" * 70)
+    print("FAILURE-REGISTRY REGRESSION (a known bug's pattern was re-added)")
+    print("=" * 70)
+    for v in violations:
+        print(f"\n  🚫 {format_severity(v['severity'])} - {v['failure_id']} "
+              f"at {v['file']}:{v['line']}")
+        if v["error_message"]:
+            print(f"      Original failure: {v['error_message'][:100]}")
+        if v["prevention_rule"]:
+            print(f"      Prevention: {v['prevention_rule']}")
+        print(f"      Matched pattern: {v['pattern']}")
+        print(f"      Added line: {v['added']}")
+    print("-" * 70)
+    print(f"  {len(violations)} registry regression(s)")
+    print("=" * 70)
 
 
 def validate_rule_regex(rule: dict) -> bool:
@@ -341,19 +229,10 @@ def check_diff_against_patterns(diff_content: str, rules: list[dict]) -> list[di
     return violations
 
 
-def format_severity(severity: str) -> str:
-    colors = {"critical": "\033[91m", "high": "\033[93m", "medium": "\033[94m",
-              "low": "\033[90m", "error": "\033[91m", "warning": "\033[93m"}
-    reset = "\033[0m"
-    if sys.stdout.isatty():
-        return f"{colors.get(severity.lower(), '')}{severity.upper()}{reset}"
-    return severity.upper()
-
-
 def run_regression_check(registry_path: Path, rules_path: Path, staged: bool = True,
                          unstaged: bool = False, verbose: bool = False) -> tuple[int, list[dict]]:
     issues = []
-    failures = load_failure_registry(registry_path)
+    failures = load_active_failures(load_failure_registry(registry_path))
     rules = load_prevention_rules(rules_path)
     changed_files = get_changed_files(staged=staged, unstaged=unstaged)
     if not changed_files:
@@ -439,10 +318,20 @@ def main():
                                          staged=staged, unstaged=unstaged,
                                          verbose=args.verbose and not args.quiet)
 
+    # Hunk-accurate ADDED lines drive the registry regression scan and tell the
+    # file-size check which files this diff actually touches.
+    added = get_added_lines(run_git_command, staged=staged, unstaged=unstaged,
+                            all_scope=args.all)
+    touched = {path for path, _, _ in added}
+
+    all_entries = load_failure_registry(args.registry)
+    compiled, pattern_warnings = compile_registry_patterns(all_entries)
+    registry_violations = check_added_against_registry(added, compiled)
+
     size_issues: list[dict] = []
     size_hard_count = 0
     if not args.no_file_sizes:
-        size_issues = check_file_sizes(PROJECT_ROOT)
+        size_issues = check_file_sizes(PROJECT_ROOT, SOURCE_DIRS, touched=touched)
         size_hard_count = sum(1 for i in size_issues if i["kind"] == "hard")
 
     soft_as_hard_count = 0
@@ -474,10 +363,16 @@ def main():
         print(json.dumps({"issue_count": count, "size_violations_hard": size_hard_count,
                            "soft_as_hard_blocked": soft_as_hard_count,
                            "audit_blocking": audit_blocking, "audit_warnings": audit_warnings,
-                           "issues": issues, "file_sizes": size_issues, "audit": audit_issues}, indent=2))
+                           "registry_regressions": len(registry_violations),
+                           "issues": issues, "file_sizes": size_issues, "audit": audit_issues,
+                           "registry_violations": registry_violations,
+                           "registry_pattern_warnings": pattern_warnings}, indent=2))
     else:
+        for warn in pattern_warnings:
+            print(f"Warning: {warn}")
         if not args.quiet or count > 0:
             print_report(issues, verbose=args.verbose)
+        print_registry_regression_report(registry_violations)
         if size_issues and (not args.quiet or size_hard_count > 0):
             print_file_size_report(size_issues)
         if not args.no_audit and (not args.quiet or audit_blocking > 0):
@@ -491,7 +386,8 @@ def main():
                 print(f"    {issue['file']}  ({issue['lines']} lines, soft {issue['soft']})")
             print("=" * 70)
 
-    if args.pre_commit and (count > 0 or size_hard_count > 0 or soft_as_hard_count > 0 or audit_blocking > 0):
+    if args.pre_commit and (count > 0 or size_hard_count > 0 or soft_as_hard_count > 0
+                            or audit_blocking > 0 or registry_violations):
         sys.exit(1)
     sys.exit(0)
 

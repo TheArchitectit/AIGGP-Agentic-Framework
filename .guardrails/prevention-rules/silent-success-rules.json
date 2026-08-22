@@ -1,0 +1,87 @@
+{
+  "note": [
+    "Silent-success detector families for scripts/silent-success-scan.sh.",
+    "",
+    "A 'silent success' is code that REPORTS a successful production operation",
+    "without doing the work: a stub that returns OK, a handler that swallows an",
+    "error and returns nil, a function whose body is a TODO. These pass every",
+    "type check and every test that only asserts 'no error', which is exactly why",
+    "they reach production.",
+    "",
+    "EVERY family below ships enabled:false, so a fresh DevGate install is GREEN.",
+    "These are illustrative starting points, not prescriptions — the patterns that",
+    "matter are the ones specific to YOUR codebase. Enable a family only after you",
+    "have allowlisted the existing occurrences you intend to keep (see",
+    ".guardrails/silent-success-allowlist.json), otherwise the gate goes red on",
+    "your first run.",
+    "",
+    "Entry shape:",
+    "  family    — stable id, reported on every hit",
+    "  language  — informational grouping",
+    "  regex     — Python re syntax, matched per line",
+    "  file_glob — repo-relative globs OR bare basenames; a hit outside them is",
+    "              ignored. Keep families narrow: a broad regex over a whole tree",
+    "              produces noise that trains people to ignore the gate.",
+    "  enabled   — false by default; opt in deliberately",
+    "  note      — why this pattern is suspicious"
+  ],
+
+  "rules": [
+    {
+      "family": "simulated_completion_message",
+      "language": "any",
+      "regex": "(?i)(compaction|migration|sync|upload|backup|export)\\s+complete",
+      "file_glob": ["src/**/*", "crates/**/*", "lib/**/*", "app/**/*"],
+      "enabled": false,
+      "note": "Announces a finished production operation. Verify the work is real and not a placeholder log line."
+    },
+    {
+      "family": "rust_noop_ok_return",
+      "language": "rust",
+      "regex": "Ok\\(0\\)|Ok\\(None\\)|Ok\\(\\(\\)\\)",
+      "file_glob": ["*.rs"],
+      "enabled": false,
+      "note": "Rust stub reporting success with no effect. Legitimate in many places — scope this to the specific stub-prone modules before enabling."
+    },
+    {
+      "family": "rust_todo_unimplemented_in_release_path",
+      "language": "rust",
+      "regex": "todo!\\(\\)|unimplemented!\\(\\)",
+      "file_glob": ["*.rs"],
+      "enabled": false,
+      "note": "A todo!/unimplemented! on a shipped code path panics in production instead of doing the work."
+    },
+    {
+      "family": "go_return_nil_after_ignored_error",
+      "language": "go",
+      "regex": "_\\s*[,:]?=\\s*[A-Za-z_][A-Za-z0-9_.]*\\(|_\\s*=\\s*err\\b",
+      "file_glob": ["*.go"],
+      "enabled": false,
+      "note": "Error assigned to _ and then success returned: the failure is discarded and the caller is told everything worked."
+    },
+    {
+      "family": "ts_hardcoded_success_object",
+      "language": "typescript",
+      "regex": "return\\s*\\{\\s*success:\\s*true",
+      "file_glob": ["*.ts", "*.tsx", "*.js", "*.jsx"],
+      "enabled": false,
+      "note": "A literal success envelope. Confirm it reflects a real result rather than a stubbed handler."
+    },
+    {
+      "family": "python_pass_todo_body",
+      "language": "python",
+      "regex": "^\\s*pass\\s*#\\s*TODO|^\\s*\\.\\.\\.\\s*#\\s*TODO",
+      "file_glob": ["*.py"],
+      "enabled": false,
+      "note": "A function body that is a TODO returns None and reads as success to every caller."
+    },
+    {
+      "family": "gdscript_empty_signal_handler",
+      "language": "gdscript",
+      "regex": "^\\s*func\\s+_on_[A-Za-z0-9_]+\\s*\\([^)]*\\)\\s*(->\\s*\\w+\\s*)?:\\s*$",
+      "file_glob": ["*.gd"],
+      "enabled": false,
+      "note": "Signal handler declared with no body. The UI reacts as if wired up while nothing happens. (Check the following line is not the real body.)"
+    }
+  ]
+}

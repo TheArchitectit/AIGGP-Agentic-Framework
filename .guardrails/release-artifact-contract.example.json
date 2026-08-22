@@ -1,0 +1,40 @@
+{
+  "_comment": [
+    "EXAMPLE / TEMPLATE — copy to .guardrails/release-artifact-contract.json to",
+    "enable the ARTIFACT VERIFY stage in scripts/deploy.sh. When the real file is",
+    "absent the stage prints a skip notice and the deploy continues, so a fresh",
+    "DevGate install needs no configuration.",
+    "",
+    "The stage packs your project with its own package manager, lists the archive,",
+    "and asserts every 'must_contain' entry is REALLY inside it before publishing.",
+    "A published version is immutable: a package manager will happily produce a",
+    "well-formed archive with the built binary missing, and the failure only shows",
+    "up at install time for every user.",
+    "",
+    "Fields:",
+    "  artifact_glob      — glob for the packed artifact, relative to the project",
+    "                       root. Matched after packing (e.g. 'my-tool-*.tgz',",
+    "                       'dist/*.whl', 'target/package/*.crate').",
+    "  must_contain       — archive entries that MUST be present, exact match.",
+    "                       Do NOT include the archive's own top-level prefix; set",
+    "                       'entry_prefix' instead so the same list works across",
+    "                       package managers.",
+    "  must_be_executable — paths relative to the project root whose on-disk",
+    "                       executable bit is checked (a non-executable launcher",
+    "                       breaks the installer's spawn).",
+    "  entry_prefix       — prefix the packer adds to every archive entry. npm",
+    "                       uses 'package/'; cargo uses '<name>-<version>/'; set",
+    "                       \"\" when the packer adds none."
+  ],
+
+  "artifact_glob": "*.tgz",
+  "must_contain": [
+    "bin/my-tool-linux-x64",
+    "package.json",
+    "README.md"
+  ],
+  "must_be_executable": [
+    "bin/my-tool-linux-x64"
+  ],
+  "entry_prefix": "package/"
+}
