@@ -203,6 +203,23 @@ def check_file_against_failures(file_path: str, failures: list[dict]) -> list[di
     return matching_failures
 
 
+def rules_for_file(rules: list[dict], file_path: str) -> list[dict]:
+    """Scope rules to the file via their optional file_glob (full-path OR
+    basename match); empty/missing glob = every file. Without this, a
+    glob-scoped rule like PREVENT-027 (pattern ".*", file_glob
+    ["Dockerfile"]) fires on every changed file's diff."""
+    scoped = []
+    for rule in rules:
+        globs = rule.get("file_glob") or []
+        if globs and not any(
+            fnmatch.fnmatch(file_path, g) or fnmatch.fnmatch(os.path.basename(file_path), g)
+            for g in globs
+        ):
+            continue
+        scoped.append(rule)
+    return scoped
+
+
 def check_diff_against_patterns(diff_content: str, rules: list[dict]) -> list[dict]:
     violations = []
     added_lines = []
@@ -246,10 +263,17 @@ def run_regression_check(registry_path: Path, rules_path: Path, staged: bool = T
             file_issues["failures"] = matching_failures
         diff = get_diff_content(file_path, staged=staged)
         if diff:
-            violations = check_diff_against_patterns(diff, rules)
+            violations = check_diff_against_patterns(diff, rules_for_file(rules, file_path))
             if violations:
                 file_issues["violations"] = violations
         if file_issues["failures"] or file_issues["violations"]:
+            # info-severity findings are advisory: they report, they do not
+            # block the pre-commit gate (an info rule like PREVENT-027
+            # "missing .dockerignore" must not hard-fail an unrelated repo)
+            file_issues["blocking"] = bool(
+                file_issues["failures"]
+                or any(v.get("severity", "warning").lower() != "info"
+                       for v in file_issues["violations"]))
             issues.append(file_issues)
     return len(issues), issues
 
@@ -386,7 +410,8 @@ def main():
                 print(f"    {issue['file']}  ({issue['lines']} lines, soft {issue['soft']})")
             print("=" * 70)
 
-    if args.pre_commit and (count > 0 or size_hard_count > 0 or soft_as_hard_count > 0
+    blocking = sum(1 for issue in issues if issue.get("blocking"))
+    if args.pre_commit and (blocking > 0 or size_hard_count > 0 or soft_as_hard_count > 0
                             or audit_blocking > 0 or registry_violations):
         sys.exit(1)
     sys.exit(0)
