@@ -55,6 +55,8 @@ function isTestFile(filename) {
 		filename.endsWith(".test.mjs") ||
 		filename.endsWith(".test.ts") ||
 		filename.endsWith("_test.py") ||
+		filename.endsWith("_test.rs") ||
+		filename.endsWith("_tests.rs") ||
 		filename.startsWith("test_") && filename.endsWith(".py")
 	);
 }
@@ -85,7 +87,15 @@ function runOne(file) {
 		const isRust = ext === ".rs";
 
 		let cmd, args;
-		if (isPython) {
+		if (isRust) {
+			// Rust tests: run cargo test filtered to the test file's module.
+			// *_test.rs files are compiled into cargo test binaries; we match by
+			// the file stem (e.g. plugin_smoke_tests -> plugin_smoke_tests).
+			cmd = "cargo";
+			const stem = basename(file, ".rs");
+			args = ["test", "--manifest-path", join(PROJECT_ROOT, "Cargo.toml"),
+				"--", "--test-threads=1", stem];
+		} else if (isPython) {
 			cmd = "python3";
 			args = ["-m", "pytest", "-v", "--tb=short", file];
 		} else {
