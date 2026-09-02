@@ -1,5 +1,4 @@
 # DevGate Agentic Framework
-[![Sponsor](https://img.shields.io/badge/Sponsor-GitHub%20Sponsors-FF69B4?style=flat&logo=github-sponsors)](https://github.com/sponsors/TheArchitectit)
 
 A language-agnostic quality engineering framework for AI-assisted development. Drop it into any project — TypeScript, Python, Rust, Go, GDScript, or mixed stacks — and get test isolation, regression scanning, deploy gates, CI workflows, and guardrails out of the box.
 
