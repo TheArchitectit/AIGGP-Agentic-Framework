@@ -246,3 +246,9 @@ BSD 3-Clause
 ## Author
 
 TheArchitectit
+
+---
+
+## ☕ Sponsor
+
+If this project helps you, consider sponsoring on GitHub: [github.com/sponsors/TheArchitectit](https://github.com/sponsors/TheArchitectit)
