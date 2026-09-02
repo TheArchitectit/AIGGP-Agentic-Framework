@@ -150,14 +150,14 @@ function runOne(file) {
 			clearTimeout(timer); clearInterval(silenceTimer);
 			if (graceTimer) clearTimeout(graceTimer);
 			try { rmSync(iso, { recursive: true, force: true }); } catch { /* best-effort */ }
-			const pass = ***# pass\s+(\d+)/m) || out.match(/(\d+)\s+passed/))?.[1];
+			const pass = (out.match(/^# pass\s+(\d+)/m) || out.match(/(\d+)\s+passed/))?.[1];
 			const fail = (out.match(/^# fail\s+(\d+)/m) || out.match(/(\d+)\s+failed/))?.[1];
 			const okCount = (out.match(/^ok\s+\d+/gm) || []).length;
 			const notOkCount = (out.match(/^not ok\s+\d+/gm) || []).length;
 			resolve({
 				file: relative(PROJECT_ROOT, file), code, timedOut, tapDone, okCount,
 				hung: okCount > 0 && code !== 0 && !timedOut,
-				pass: *** ? Number(pass) : okCount,
+				pass: pass ? Number(pass) : okCount,
 				fail: fail ? Number(fail) : notOkCount,
 				ms: Date.now() - start,
 				snippet: out.split("\n").filter((l) => /^# (fail|not ok|FAILED|ERROR)/.test(l)).slice(0, 3).join("  "),
@@ -209,7 +209,7 @@ async function main() {
 		console.error(`▶ ${relative(PROJECT_ROOT, f)}`);
 		const r = await runOne(f);
 		totalPass += r.pass; totalFail += r.fail;
-		const crashedBeforeTests = r.code !== 0 && !r.tapDone && r.okCount === 0 && r.pass =*** 0;
+		const crashedBeforeTests = r.code !== 0 && !r.tapDone && r.okCount === 0 && r.pass === 0;
 		const ok = !r.timedOut && r.fail === 0 && !crashedBeforeTests;
 		const mark = ok ? "✓" : "✗";
 		const tail = r.fail > 0 ? `  ${r.snippet}` : r.timedOut ? "  TIMED OUT" :
@@ -235,12 +235,20 @@ async function main() {
 		for (const r of failed.slice()) {
 			console.error(`▶ solo: ${r.file}`);
 			const solo = await runOne(join(PROJECT_ROOT, r.file));
-			if (solo.fail === 0) {
+			// A solo re-run only clears a failure if it GENUINELY succeeded:
+			// zero failures AND a clean exit. A file that crashed before any
+			// test ran (collection error, missing import) emits no "N failed"
+			// lines — fail parses as 0 — and must NOT be adjudicated as a
+			// flake. That masking is a silent-success failure mode.
+			const soloClean = solo.fail === 0 && solo.code === 0 && !solo.timedOut;
+			if (soloClean) {
 				totalFail -= r.fail; flakes.push(r.file);
 				failed.splice(failed.indexOf(r), 1);
 				console.error(`✓ solo: ${r.file}  (${solo.pass} pass / 0 fail, ${fmt(solo.ms)})  (flake)`);
 			} else {
-				console.error(`✗ solo: ${r.file}  (${solo.pass} pass / ${solo.fail} fail)`);
+				const why = solo.timedOut ? "TIMED OUT" :
+					solo.code !== 0 ? `crashed, code ${solo.code}` : `${solo.fail} fail`;
+				console.error(`✗ solo: ${r.file}  (${solo.pass} pass / ${solo.fail} fail — ${why})`);
 			}
 		}
 	}

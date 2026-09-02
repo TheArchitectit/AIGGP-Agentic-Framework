@@ -1,5 +1,7 @@
 # DevGate Agentic Framework
 
+[![Sponsor](https://img.shields.io/badge/Sponsor-TheArchitectit-FF69B4?style=flat&logo=github-sponsors)](https://github.com/sponsors/TheArchitectit)
+
 A language-agnostic quality engineering framework for AI-assisted development. Drop it into any project — TypeScript, Python, Rust, Go, GDScript, or mixed stacks — and get test isolation, regression scanning, deploy gates, CI workflows, and guardrails out of the box.
 
 ## What This Is
@@ -246,3 +248,25 @@ BSD 3-Clause
 ## Author
 
 TheArchitectit
+
+---
+
+---
+
+#
+
+---
+
+## ☕ Support This Project
+
+If this project helps you, consider [sponsoring on GitHub](https://github.com/sponsors/TheArchitectit). Every donation goes straight back into the work — GPU hardware and cloud compute for AI development, API credits for the agents that build and test these projects, and keeping everything free and open source. As a solo architect shipping on nights and weekends, even a small monthly sponsor makes a real difference.
+
+Help keep this project going — use a referral link below and both of us get credits!
+
+| Service | Your Bonus | Details | Referral Code |
+| --------- | ----------- | --------- | --------------- |
+| [**Neuralwatt**](https://portal.neuralwatt.com/auth/register?ref=NW-ROGER-ET3Y) | $10 in credits | Spend $10+ → you get $10, we get $20 | `NW-ROGER-ET3Y` |
+| [**Synthetic**](https://synthetic.new/?referral=UAWqkKQQLFkzMkY) | $10 in credits | Subscribe → both get $10 credit | `UAWqkKQQLFkzMkY` |
+| [**Ozore**](https://ozore.com/?ref=cwe4kdx0) | 50% off first month | AI-ready cloud — code **lundrog50** | `lundrog50` |
+
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-TheArchitectit-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://www.buymeacoffee.com/TheArchitectit)
