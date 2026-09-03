@@ -12,7 +12,7 @@ from pathlib import Path
 REQ_ID = re.compile(r"<!--\s*id:\s*([a-z0-9-]+)\s*-->")
 MARKER = re.compile(r"//\s*spec:\s*([a-z0-9-]+)")
 SCAN_EXTS = {".rs", ".py", ".mjs", ".js", ".ts"}
-SCAN_SKIP = {"target", "node_modules", ".git", "openspec"}
+SCAN_SKIP = {"target", "node_modules", ".git", "openspec", ".devgate"}
 
 
 def load_config(root: Path) -> dict:
