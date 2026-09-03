@@ -64,7 +64,10 @@ function ruleAppliesTo(rule, file) {
 	const globs = rule.file_glob;
 	if (!Array.isArray(globs) || globs.length === 0) return true;
 	const rel = file.startsWith(projectRoot + "/") ? file.slice(projectRoot.length + 1) : file;
-	return globs.some((g) => globMatch(g, rel));
+	if (!globs.some((g) => globMatch(g, rel))) return false;
+	const excludes = rule.exclude_glob;
+	if (Array.isArray(excludes) && excludes.length > 0 && excludes.some((g) => globMatch(g, rel))) return false;
+	return true;
 }
 
 function walk(dir, acc = []) {

@@ -28,6 +28,7 @@
         "severity": { "$ref": "#/definitions/severity" },
         "message": { "type": "string" },
         "file_glob": { "type": "array", "items": { "type": "string" } },
+        "exclude_glob": { "type": "array", "items": { "type": "string" } },
         "forbidden_context": { "type": ["string", "null"] },
         "suggestion": { "type": "string" }
       }

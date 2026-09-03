@@ -109,11 +109,37 @@ def get_added_lines(run_git, staged: bool = True, unstaged: bool = False,
 
 
 def glob_matches(path: str, globs: list[str]) -> bool:
-    """True when the basename OR the repo-relative path matches any glob."""
+    """True when the basename OR the repo-relative path matches any glob.
+
+    Supports the ** globstar in two forms:
+      a/**/b   → matches a/b  (the zero-segment case)  and  a/*/b  (fnmatch handles intermediates)
+      a/**     → matches a/*  (fnmatch handles the trailing segment)
+    Both forms are tried alongside the original pattern so the function
+    stays backwards-compatible and agrees with guardrails-scan.mjs globMatch.
+    """
     base = path.rsplit("/", 1)[-1]
+    expanded = _expand_globstars(globs or [])
     return any(
-        fnmatch.fnmatch(base, g) or fnmatch.fnmatch(path, g) for g in globs or []
+        fnmatch.fnmatch(base, g) or fnmatch.fnmatch(path, g)
+        for g in expanded
     )
+
+
+def _expand_globstars(globs: list[str]) -> list[str]:
+    """Yield each glob and any stripped-** variants needed for fnmatch compatibility."""
+    for g in globs:
+        yield g
+        # a/**  → also try a/*
+        if g.endswith("/**"):
+            yield g[:-3] + "*"
+        # a/**/b  (and a/**/b/**, etc.) → strip the leading **/ and yield a/b
+        if "/**/" in g:
+            yield g.replace("/**/", "/", 1)
+        # Also strip a trailing /** from the stripped form for double-wildcard segments
+        if g.endswith("/**"):
+            stripped = g[:-3]
+            if "/**/" in stripped:
+                yield stripped.replace("/**/", "/", 1)
 
 
 def compile_registry_patterns(entries: list[dict]) -> tuple[list[dict], list[str]]:
@@ -137,7 +163,8 @@ def compile_registry_patterns(entries: list[dict]) -> tuple[list[dict], list[str
             )
             continue
         compiled.append({"entry": entry, "rx": rx,
-                         "file_glob": entry.get("file_glob") or []})
+                         "file_glob": entry.get("file_glob") or [],
+                         "exclude_glob": entry.get("exclude_glob") or []})
     return compiled, warnings
 
 
@@ -155,6 +182,8 @@ def check_added_against_registry(added: list[tuple[str, int, str]],
             continue
         for item in compiled:
             if item["file_glob"] and not glob_matches(path, item["file_glob"]):
+                continue
+            if item["exclude_glob"] and glob_matches(path, item["exclude_glob"]):
                 continue
             if not item["rx"].search(text):
                 continue
