@@ -40,7 +40,7 @@ const SKIP_DIRS = ["node_modules", "dist", "target", ".git", ".claude", ".crew",
 function loadRules() {
 	const data = JSON.parse(readFileSync(rulesPath, "utf-8"));
 	return data.rules.filter(
-		(r) => r.enabled !== false && ["critical", "error"].includes(r.severity),
+		(r) => r.enabled !== false && ["critical", "error", "warning"].includes(r.severity),
 	);
 }
 
@@ -88,6 +88,7 @@ function main() {
 	const rules = loadRules();
 	const files = walk(projectRoot);
 	let violations = 0;
+	let warnings = 0;
 	for (const file of files) {
 		const lines = readFileSync(file, "utf-8").split("\n");
 		lines.forEach((line, i) => {
@@ -99,14 +100,21 @@ function main() {
 					if (new RegExp(rule.pattern).test(line)) {
 						const rel = file.startsWith(projectRoot + "/") ? file.slice(projectRoot.length + 1) : file;
 						console.error(`[GUARDRAILS][${rule.severity}] ${rule.rule_id} ${rel}:${i + 1} — ${rule.message}`);
-						violations++;
+						if (rule.severity === "warning") {
+							warnings++;
+						} else {
+							violations++;
+						}
 					}
 				} catch { /* ignore bad regex */ }
 			}
 		});
 	}
+	if (warnings > 0) {
+		console.error(`\nGUARDRAILS: ${warnings} warning(s) (non-blocking).`);
+	}
 	if (violations > 0) {
-		console.error(`\nGUARDRAILS: ${violations} violation(s) found.`);
+		console.error(`GUARDRAILS: ${violations} violation(s) found.`);
 		process.exit(1);
 	}
 	console.log("GUARDRAILS: pattern scan clean.");

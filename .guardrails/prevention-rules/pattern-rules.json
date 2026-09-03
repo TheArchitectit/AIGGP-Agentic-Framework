@@ -1,7 +1,7 @@
 {
   "$schema": "./pattern-rules.schema.json",
   "description": "Language-agnostic pattern-based prevention rules for regression detection",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "rules": [
     {
       "rule_id": "PREVENT-001",
@@ -11,7 +11,12 @@
       "forbidden_context": "without.*null.*check",
       "message": "Direct property access on JSON.parse result without null check",
       "severity": "error",
-      "file_glob": ["*.js", "*.ts", "*.jsx", "*.tsx"],
+      "file_glob": [
+        "*.js",
+        "*.ts",
+        "*.jsx",
+        "*.tsx"
+      ],
       "suggestion": "Add null check: const data = JSON.parse(...); if (data) { ... }"
     },
     {
@@ -22,7 +27,14 @@
       "forbidden_context": null,
       "message": "Potential SQL injection: String concatenation in SQL query",
       "severity": "critical",
-      "file_glob": ["*.py", "*.js", "*.ts", "*.rb", "*.java", "*.go"],
+      "file_glob": [
+        "*.py",
+        "*.js",
+        "*.ts",
+        "*.rb",
+        "*.java",
+        "*.go"
+      ],
       "suggestion": "Use parameterized queries or prepared statements"
     },
     {
@@ -33,7 +45,9 @@
       "forbidden_context": "(example|placeholder|test|mock|sample|dummy|fake)",
       "message": "Possible hardcoded credential detected",
       "severity": "critical",
-      "file_glob": ["*"],
+      "file_glob": [
+        "*"
+      ],
       "suggestion": "Use environment variables or secret management system"
     },
     {
@@ -44,7 +58,9 @@
       "forbidden_context": "(queue_free|is_queued_for_deletion|Object\\.)",
       "message": "Direct .free() on Node can crash. Use queue_free() instead.",
       "severity": "error",
-      "file_glob": ["*.gd"],
+      "file_glob": [
+        "*.gd"
+      ],
       "suggestion": "Use node.queue_free() for safe deferred deletion"
     },
     {
@@ -55,7 +71,12 @@
       "forbidden_context": null,
       "message": "Absolute file path detected. Use res:// paths in Godot.",
       "severity": "critical",
-      "file_glob": ["*.tscn", "*.gd", "*.tres", "*.cfg"],
+      "file_glob": [
+        "*.tscn",
+        "*.gd",
+        "*.tres",
+        "*.cfg"
+      ],
       "suggestion": "Replace with res://path/to/resource"
     },
     {
@@ -66,7 +87,9 @@
       "forbidden_context": null,
       "message": "String-based get_node() is fragile. Use @onready with $ or % syntax.",
       "severity": "warning",
-      "file_glob": ["*.gd"],
+      "file_glob": [
+        "*.gd"
+      ],
       "suggestion": "Use @onready var node = $Path or %UniqueName"
     },
     {
@@ -77,7 +100,9 @@
       "forbidden_context": "(Exception|BaseException|ValueError|TypeError|RuntimeError|KeyError)",
       "message": "Bare except catches SystemExit and KeyboardInterrupt. Use except Exception: at minimum.",
       "severity": "error",
-      "file_glob": ["*.py"],
+      "file_glob": [
+        "*.py"
+      ],
       "suggestion": "Use 'except Exception as e:' or catch specific exceptions"
     },
     {
@@ -86,9 +111,11 @@
       "enabled": true,
       "pattern": "def\\s+\\w+\\([^)]*\\b\\w+\\s*[:=]\\s*(\\[\\]|\\{\\}|set\\(\\))",
       "forbidden_context": null,
-      "message": "Mutable default argument (list/dict/set) — shared across calls, causes subtle bugs",
+      "message": "Mutable default argument (list/dict/set) \u2014 shared across calls, causes subtle bugs",
       "severity": "error",
-      "file_glob": ["*.py"],
+      "file_glob": [
+        "*.py"
+      ],
       "suggestion": "Use None as default and initialize inside the function"
     },
     {
@@ -99,7 +126,9 @@
       "forbidden_context": "(range|ok|type|assert|select)",
       "message": "Error return value ignored. Always check errors in Go.",
       "severity": "error",
-      "file_glob": ["*.go"],
+      "file_glob": [
+        "*.go"
+      ],
       "suggestion": "Handle the error: if err != nil { return err }"
     },
     {
@@ -108,9 +137,11 @@
       "enabled": true,
       "pattern": "go\\s+func",
       "forbidden_context": "context",
-      "message": "Goroutine launched without context — cannot be cancelled or tracked",
+      "message": "Goroutine launched without context \u2014 cannot be cancelled or tracked",
       "severity": "warning",
-      "file_glob": ["*.go"],
+      "file_glob": [
+        "*.go"
+      ],
       "suggestion": "Pass context.Context to goroutine for cancellation"
     },
     {
@@ -121,7 +152,10 @@
       "forbidden_context": "(//\\s*@ts-ignore|eslint-disable)",
       "message": "Usage of 'any' type defeats TypeScript's type safety",
       "severity": "error",
-      "file_glob": ["*.ts", "*.tsx"],
+      "file_glob": [
+        "*.ts",
+        "*.tsx"
+      ],
       "suggestion": "Define a proper interface or use 'unknown' with type narrowing"
     },
     {
@@ -132,7 +166,12 @@
       "forbidden_context": "(test|spec|mock|__tests__)",
       "message": "console.log left in production code",
       "severity": "warning",
-      "file_glob": ["*.ts", "*.tsx", "*.js", "*.jsx"],
+      "file_glob": [
+        "*.ts",
+        "*.tsx",
+        "*.js",
+        "*.jsx"
+      ],
       "suggestion": "Remove console.log or replace with proper logging library"
     },
     {
@@ -143,7 +182,9 @@
       "forbidden_context": "(test|tests|spec|bench)",
       "message": "unwrap() can panic. Use proper error handling in production.",
       "severity": "warning",
-      "file_glob": ["*.rs"],
+      "file_glob": [
+        "*.rs"
+      ],
       "suggestion": "Use match, ?, or expect() with a descriptive message"
     },
     {
@@ -154,7 +195,11 @@
       "forbidden_context": null,
       "message": "Using :latest tag is non-deterministic. Pin to a specific version.",
       "severity": "error",
-      "file_glob": ["Dockerfile", "Dockerfile.*", "*.dockerfile"],
+      "file_glob": [
+        "Dockerfile",
+        "Dockerfile.*",
+        "*.dockerfile"
+      ],
       "suggestion": "Pin image version: FROM node:22.1.0-alpine"
     },
     {
@@ -165,7 +210,13 @@
       "forbidden_context": "(shlex|quote|shell=False)",
       "message": "Potential command injection via string concatenation",
       "severity": "critical",
-      "file_glob": ["*.py", "*.js", "*.ts", "*.rb", "*.go"],
+      "file_glob": [
+        "*.py",
+        "*.js",
+        "*.ts",
+        "*.rb",
+        "*.go"
+      ],
       "suggestion": "Use array form for subprocess or shlex.quote() for shell commands"
     },
     {
@@ -176,7 +227,10 @@
       "forbidden_context": "(test|mock)",
       "message": "Thread.sleep() is fragile. Use coroutines (delay) or proper synchronization.",
       "severity": "warning",
-      "file_glob": ["*.kt", "*.java"],
+      "file_glob": [
+        "*.kt",
+        "*.java"
+      ],
       "suggestion": "In Kotlin use delay(), in Java use CompletableFuture or ScheduledExecutor"
     },
     {
@@ -187,7 +241,9 @@
       "forbidden_context": null,
       "message": "File I/O or resource loading detected in _process. Move to _ready() or background thread.",
       "severity": "warning",
-      "file_glob": ["*.gd"],
+      "file_glob": [
+        "*.gd"
+      ],
       "suggestion": "Preload resources in _ready() or use ResourceLoader.load_threaded()"
     },
     {
@@ -198,7 +254,9 @@
       "forbidden_context": null,
       "message": "Cloud provider access key detected in source code",
       "severity": "critical",
-      "file_glob": ["*"],
+      "file_glob": [
+        "*"
+      ],
       "suggestion": "Use IAM roles, managed identities, or environment variables"
     },
     {
@@ -209,7 +267,9 @@
       "forbidden_context": "(var\\s+\\w+\\s*:|export|@export|@onready)",
       "message": "Untyped variable declaration. Use 'var name: Type = value' for clarity.",
       "severity": "info",
-      "file_glob": ["*.gd"],
+      "file_glob": [
+        "*.gd"
+      ],
       "suggestion": "Add explicit type: var speed: float = 200.0"
     },
     {
@@ -218,9 +278,11 @@
       "enabled": true,
       "pattern": "(TODO|FIXME|HACK|XXX|WORKAROUND)[^\\d]*$",
       "forbidden_context": "(#[0-9]|issue|ticket|JIRA)",
-      "message": "TODO/FIXME without ticket reference — will be forgotten",
+      "message": "TODO/FIXME without ticket reference \u2014 will be forgotten",
       "severity": "info",
-      "file_glob": ["*"],
+      "file_glob": [
+        "*"
+      ],
       "suggestion": "Add ticket reference: TODO(#123) or FIXME(RAD-456)"
     },
     {
@@ -231,7 +293,12 @@
       "forbidden_context": "(sanitized|escaped|encoded)",
       "message": "Potential command injection via eval/setTimeout with string concatenation",
       "severity": "critical",
-      "file_glob": ["*.js", "*.ts", "*.jsx", "*.tsx"],
+      "file_glob": [
+        "*.js",
+        "*.ts",
+        "*.jsx",
+        "*.tsx"
+      ],
       "suggestion": "Use function references instead of strings: setTimeout(() => { ... }, 0)"
     },
     {
@@ -242,7 +309,17 @@
       "forbidden_context": "(test|spec|development|staging|__debug__|if DEBUG)",
       "message": "Debug mode enabled in non-test code",
       "severity": "error",
-      "file_glob": ["*.py", "*.js", "*.ts", "*.rb", "*.go", "*.yaml", "*.yml", "*.json", "*.env"],
+      "file_glob": [
+        "*.py",
+        "*.js",
+        "*.ts",
+        "*.rb",
+        "*.go",
+        "*.yaml",
+        "*.yml",
+        "*.json",
+        "*.env"
+      ],
       "suggestion": "Use environment variables: DEBUG = os.environ.get(\"DEBUG\", \"false\").lower() == \"true\""
     },
     {
@@ -251,9 +328,18 @@
       "enabled": true,
       "pattern": "Access-Control-Allow-Origin\\s*[:*]\\s*\\*",
       "forbidden_context": null,
-      "message": "CORS wildcard detected — allows any origin to access the API",
+      "message": "CORS wildcard detected \u2014 allows any origin to access the API",
       "severity": "error",
-      "file_glob": ["*.py", "*.js", "*.ts", "*.go", "*.rb", "*.java", "*.yaml", "*.yml"],
+      "file_glob": [
+        "*.py",
+        "*.js",
+        "*.ts",
+        "*.go",
+        "*.rb",
+        "*.java",
+        "*.yaml",
+        "*.yml"
+      ],
       "suggestion": "Specify allowed origins explicitly instead of using wildcard"
     },
     {
@@ -264,7 +350,15 @@
       "forbidden_context": "(std|core|builtin|internal|github.com)",
       "message": "Triple-underscored package name may be AI-hallucinated. Verify it exists on the registry.",
       "severity": "warning",
-      "file_glob": ["*.py", "*.js", "*.ts", "*.rs", "*.go", "*.rb", "*.java"],
+      "file_glob": [
+        "*.py",
+        "*.js",
+        "*.ts",
+        "*.rs",
+        "*.go",
+        "*.rb",
+        "*.java"
+      ],
       "suggestion": "Verify the package exists: pip search, npm view, cargo search, etc."
     },
     {
@@ -275,7 +369,15 @@
       "forbidden_context": null,
       "message": "Weak hash algorithm used for passwords. Use bcrypt, scrypt, or argon2.",
       "severity": "critical",
-      "file_glob": ["*.py", "*.js", "*.ts", "*.go", "*.rb", "*.java", "*.php"],
+      "file_glob": [
+        "*.py",
+        "*.js",
+        "*.ts",
+        "*.go",
+        "*.rb",
+        "*.java",
+        "*.php"
+      ],
       "suggestion": "Use bcrypt, scrypt, or argon2 for password hashing"
     },
     {
@@ -286,7 +388,14 @@
       "forbidden_context": "(validated|whitelist|allowlist|sanitize)",
       "message": "Potential SSRF: User input passed to URL fetch without validation",
       "severity": "error",
-      "file_glob": ["*.py", "*.js", "*.ts", "*.go", "*.rb", "*.java"],
+      "file_glob": [
+        "*.py",
+        "*.js",
+        "*.ts",
+        "*.go",
+        "*.rb",
+        "*.java"
+      ],
       "suggestion": "Validate URL against allowlist before fetching"
     },
     {
@@ -295,9 +404,12 @@
       "enabled": true,
       "pattern": ".*",
       "forbidden_context": null,
-      "message": "No .dockerignore file found — entire context sent to Docker daemon",
+      "message": "No .dockerignore file found \u2014 entire context sent to Docker daemon",
       "severity": "info",
-      "file_glob": ["Dockerfile", "Dockerfile.*"],
+      "file_glob": [
+        "Dockerfile",
+        "Dockerfile.*"
+      ],
       "suggestion": "Create .dockerignore to exclude .git, node_modules, __pycache__, .env"
     },
     {
@@ -308,7 +420,9 @@
       "forbidden_context": "(->|_ready|_process|_init|_input|_enter_tree|_exit_tree)",
       "message": "Function without return type hint. Use func name() -> ReturnType:",
       "severity": "info",
-      "file_glob": ["*.gd"],
+      "file_glob": [
+        "*.gd"
+      ],
       "suggestion": "Add return type: func get_score() -> int:"
     },
     {
@@ -317,10 +431,52 @@
       "enabled": true,
       "pattern": "(fetch\\(|https?://|new (WebSocket|net\\.)|XMLHttpRequest|child_process\\.|https\\.request\\(|http\\.get\\(|http\\.request\\(|net\\.connect\\(|net\\.createConnection\\(|createServer\\(|import.*node:(http|https|net))",
       "forbidden_context": "(guardrails-allow|test|spec|mock|config)",
-      "message": "Core modules should not make network calls at runtime — keep it local.",
+      "message": "Core modules should not make network calls at runtime \u2014 keep it local.",
       "severity": "critical",
-      "file_glob": ["extensions/**/*.ts", "src/**/*.ts"],
+      "file_glob": [
+        "extensions/**/*.ts",
+        "src/**/*.ts"
+      ],
       "suggestion": "Keep core logic local; move network calls to a dedicated boundary layer with explicit exemption."
+    },
+    {
+      "rule_id": "PREVENT-030",
+      "name": "Digit via rune arithmetic",
+      "enabled": true,
+      "pattern": "string\\(rune\\('0'\\s*\\+",
+      "forbidden_context": null,
+      "message": "Digit conversion via rune arithmetic produces garbage beyond 0-9",
+      "severity": "error",
+      "file_glob": [
+        "*.go"
+      ],
+      "suggestion": "Use strconv.Itoa / strconv.FormatInt instead of string(rune('0'+x))"
+    },
+    {
+      "rule_id": "PREVENT-031",
+      "name": "Wildcard listen bind",
+      "enabled": true,
+      "pattern": "http\\.ListenAndServe\\(\\s*\\\"",
+      "forbidden_context": null,
+      "message": "http.ListenAndServe called with a string literal bind address \u2014 prefer explicit host binding",
+      "severity": "warning",
+      "file_glob": [
+        "*.go"
+      ],
+      "suggestion": "Bind explicitly, e.g. http.ListenAndServe(\"127.0.0.1:6060\", nil), or use a flag/config variable"
+    },
+    {
+      "rule_id": "PREVENT-032",
+      "name": "World-writable OpenFile",
+      "enabled": true,
+      "pattern": "os\\.OpenFile\\([^)]*0666",
+      "forbidden_context": null,
+      "message": "File opened world-writable (0666)",
+      "severity": "warning",
+      "file_glob": [
+        "*.go"
+      ],
+      "suggestion": "Prefer 0600 for log/data files, or 0640/0644 if group/world read is intentional"
     }
   ]
 }
