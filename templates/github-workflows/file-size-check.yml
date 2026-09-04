@@ -1,0 +1,77 @@
+# File Size Check — Reusable CI Template
+#
+# This workflow enforces file-size limits on source files in CI.
+# It runs a shell script that scans specified directories for files
+# exceeding a line-count threshold and fails if violations are found.
+#
+# SETUP:
+#   - Copy this file into your repo at .github/workflows/file-size-check.yml
+#   - Copy scripts/check_file_sizes.sh into your repo (or reference the DevGate version)
+#   - Customize the following placeholders:
+#     SOURCE_DIRS    — space-separated list of directories to scan (default: "src")
+#     FILE_PATTERN   — glob for source files (default: "*.gd" for Godot; change to
+#                      "*.py", "*.ts", "*.go", etc. for your stack)
+#     SIZE_LIMIT     — maximum lines per file (default: 500)
+#   - The script is also available in DevGate's regression_check.py which
+#     auto-detects your source directories and enforces soft/hard limits.
+#     Use this standalone workflow when you want CI-only enforcement without
+#     the full regression check.
+
+name: File Size Check
+
+on:
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+jobs:
+  check-file-sizes:
+    name: Check File Sizes
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check file sizes
+        run: |
+          # CUSTOMIZE: adjust these to match your project
+          SIZE_LIMIT=500
+          # Space-separated list of source directories to scan
+          SOURCE_DIRS="src"
+          # File pattern to check (change for your language)
+          FILE_PATTERN="*.gd"
+          # Pattern to exclude (e.g. uid files in Godot)
+          EXCLUDE_PATTERN=""
+
+          VIOLATIONS=0
+
+          for dir in $SOURCE_DIRS; do
+            if [ ! -d "$dir" ]; then
+              echo "Directory $dir not found, skipping."
+              continue
+            fi
+
+            while IFS= read -r -d '' file; do
+              # Skip exclude pattern if set
+              if [ -n "$EXCLUDE_PATTERN" ] && echo "$file" | grep -qE "$EXCLUDE_PATTERN"; then
+                continue
+              fi
+
+              lines=$(wc -l < "$file")
+              if [ "$lines" -ge "$SIZE_LIMIT" ]; then
+                printf "VIOLATION: %s: %d lines (limit %d)\n" "$file" "$lines" "$SIZE_LIMIT"
+                VIOLATIONS=$((VIOLATIONS + 1))
+              fi
+            done < <(find "$dir" -type f -name "$FILE_PATTERN" -print0)
+          done
+
+          if [ "$VIOLATIONS" -gt 0 ]; then
+            printf "\n%d file(s) exceed the %d-line limit.\n" "$VIOLATIONS" "$SIZE_LIMIT"
+            exit 1
+          fi
+
+          echo "All files are under ${SIZE_LIMIT} lines."
+          exit 0

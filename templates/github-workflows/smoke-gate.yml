@@ -1,0 +1,94 @@
+# Smoke Gate — Reusable CI Template
+#
+# This workflow runs your application in a headless/demo mode and validates
+# that it produces expected output. It fails closed — if the application
+# crashes, hangs, or produces no completion output, the gate fails.
+#
+# This is the "Demo Smoke Gate" pattern: a CI job that exercises the
+# application's happy path and asserts it reaches a known-good state.
+#
+# SETUP:
+#   - Copy this file into your repo at .github/workflows/smoke-gate.yml
+#   - You MUST customize these placeholders:
+#     RUN_CMD        — the command that launches your application in demo/headless mode
+#                      (e.g. "godot --headless --demo", "python -m myapp --smoke",
+#                       "go run ./cmd/server --smoke-test")
+#     SUCCESS_SENTINEL — the exact string that appears in stdout when the run succeeds
+#                        (e.g. "[DEMO] RUN COMPLETE", "SMOKE_TEST_PASSED", "Server ready")
+#     FAILURE_SENTINEL — the exact string that appears when the run fails by design
+#                        (e.g. "[DEMO] RUN FAILED", "SMOKE_TEST_FAILED")
+#     ERROR_PATTERN  — grep pattern for unrecoverable errors (e.g. "SCRIPT ERROR",
+#                      "FATAL", "panic:")
+#     TIMEOUT_SEC    — maximum seconds before killing the process (default: 300)
+#   - For game engines: install the engine binary in a prior step
+#   - For Docker apps: replace the run step with a docker run command
+
+name: Smoke Gate
+
+on:
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+jobs:
+  smoke-test:
+    name: Demo Smoke Gate (fail-closed)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # CUSTOMIZE: add steps here to install your runtime/engine.
+      # Examples:
+      #   - uses: actions/setup-python@v5  (for Python apps)
+      #   - uses: actions/setup-go@v5     (for Go apps)
+      #   - run: sudo apt-get install godot  (for Godot games)
+      #   - uses: actions/setup-node@v4  (for Node.js apps)
+
+      - name: Run smoke test
+        run: |
+          # ── CUSTOMIZE THESE PLACEHOLDERS ──────────────────────────────
+          RUN_CMD="echo 'PLACEHOLDER: Replace with your app launch command'"
+          SUCCESS_SENTINEL="PLACEHOLDER_REPLACE_WITH_SUCCESS_PATTERN"
+          FAILURE_SENTINEL="PLACEHOLDER_REPLACE_WITH_FAILURE_PATTERN"
+          ERROR_PATTERN="SCRIPT ERROR|FATAL|panic:"
+          TIMEOUT_SEC=300
+          # ── END PLACEHOLDERS ─────────────────────────────────────────
+
+          LOG_FILE="$(mktemp /tmp/smoke-gate.XXXXXX.log)"
+          trap 'rm -f "$LOG_FILE"' EXIT
+
+          echo "Running smoke test: $RUN_CMD (timeout ${TIMEOUT_SEC}s)"
+          set +e
+          timeout "$TIMEOUT_SEC" sh -c "$RUN_CMD" > "$LOG_FILE" 2>&1
+          EXIT_CODE=$?
+          set -e
+
+          SENTINEL_OK=$(grep -c "$SUCCESS_SENTINEL" "$LOG_FILE" || true)
+          SENTINEL_FAIL=$(grep -c "$FAILURE_SENTINEL" "$LOG_FILE" || true)
+          ERROR_COUNT=$(grep -cE "$ERROR_PATTERN" "$LOG_FILE" || true)
+
+          echo "--- exit code: $EXIT_CODE"
+          echo "--- success sentinel '${SUCCESS_SENTINEL}' found: ${SENTINEL_OK}"
+          echo "--- failure sentinel '${FAILURE_SENTINEL}' found: ${SENTINEL_FAIL}"
+          echo "--- error pattern matches: ${ERROR_COUNT}"
+
+          VERDICT="PASS"
+          if [ "$ERROR_COUNT" -gt 0 ]; then
+            VERDICT="FAIL (error pattern in output)"
+          elif [ "$SENTINEL_OK" -eq 0 ] && [ "$SENTINEL_FAIL" -eq 0 ]; then
+            VERDICT="FAIL (no completion sentinel in output — app may have crashed or hung)"
+          elif [ "$EXIT_CODE" -ne 0 ] && [ "$SENTINEL_FAIL" -eq 0 ]; then
+            VERDICT="FAIL (non-zero exit without failure sentinel)"
+          fi
+
+          echo "--- VERDICT: ${VERDICT}"
+          if [ "$VERDICT" != "PASS" ]; then
+            echo "--- First 50 lines of output:"
+            head -50 "$LOG_FILE"
+            exit 1
+          fi
+          exit 0

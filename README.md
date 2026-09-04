@@ -41,6 +41,20 @@ git clone https://github.com/TheArchitectit/DevGate-Agentic-Framework.git .devga
 │   ├── run-tests.mjs                   # Isolated per-file test runner (JS + Python)
 │   ├── schema-health-check.mjs         # Database schema validation (adapter-based)
 │   └── semantic-scan.mjs               # AST-based TS/JS scanner
+├── templates/
+│   ├── README.md                       # Template index and usage guide
+│   ├── github-workflows/               # Drop-in CI workflow templates
+│   │   ├── guardrails-compliance.yml   # Process gates (scope, forbidden files, commits, AI attribution)
+│   │   ├── secret-validation.yml       # Gitleaks + .env + credential + hardcoded-secret scan
+│   │   ├── file-size-check.yml         # CI-enforced source-file line-count limit
+│   │   └── smoke-gate.yml              # Headless run + completion-sentinel validation
+│   └── skills/                         # Agent-behavior skill templates
+│       ├── four-laws/                  # The Four Laws of Agent Safety (mandatory)
+│       ├── scope-validator/            # Stay-in-scope enforcement
+│       ├── halt-conditions/            # When to stop and ask the user
+│       ├── three-strikes/              # Halt after 3 failed attempts
+│       ├── commit-validator/           # Conventional commit + AI-attribution rules
+│       └── production-first/           # Production code before tests/infrastructure
 ├── AGENTS.md                           # Directions for AI agents
 ├── LICENSE                             # BSD 3-Clause
 └── README.md                           # This file
@@ -236,6 +250,34 @@ Add to your `.github/workflows/ci.yml`:
 - name: Schema health (skips if no database configured)
   run: node .devgate/scripts/schema-health-check.mjs
 ```
+
+## Reusable Templates
+
+DevGate ships with a complete set of drop-in templates for every project that pulls it in. These are **separate from the framework scripts** — they are project-side assets that the consuming repo copies in. Located in `templates/`:
+
+### CI Workflow Templates (`templates/github-workflows/`)
+
+| Template | What it does |
+|----------|--------------|
+| `guardrails-compliance.yml` | Process gates: change-scope boundaries, forbidden files, conventional-commit format, AI attribution, GitHub Step Summary table |
+| `secret-validation.yml` | Gitleaks scan, .env-file check, credential-file patterns, hardcoded-secret patterns |
+| `file-size-check.yml` | CI-enforced line-count limit on source files (parameterized: SIZE_LIMIT, SOURCE_DIRS, FILE_PATTERN) |
+| `smoke-gate.yml` | Headless run + completion-sentinel validation — fails closed if the app crashes, hangs, or produces no output |
+
+Each template has a `SETUP` header comment and clearly-marked `CUSTOMIZE` placeholders. See [templates/README.md](templates/README.md) for usage.
+
+### Agent Skill Templates (`templates/skills/`)
+
+Six language-agnostic, project-agnostic skills that any AI agent can load:
+
+- **four-laws** — mandatory safety laws (read-before-edit, stay-in-scope, verify-before-commit, halt-when-uncertain)
+- **scope-validator** — enforces "only touch authorized files" with dependency analysis
+- **halt-conditions** — checklist of when to STOP and ask the user
+- **three-strikes** — halt after 3 failed attempts on a single task
+- **commit-validator** — conventional-commit format + AI attribution enforcement
+- **production-first** — production code before tests or infrastructure
+
+Each skill is a single `SKILL.md` with frontmatter, ready to drop into any agent runtime that supports the skill convention.
 
 ## Agent Directions
 
