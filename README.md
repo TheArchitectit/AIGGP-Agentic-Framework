@@ -8,7 +8,7 @@ A language-agnostic quality engineering framework for AI-assisted development. D
 
 DevGate is **not** a project template or a starter kit. It's a **quality gate** that sits between your AI agents and your production code. You clone it into an existing project (or add it as a submodule) and it enforces engineering standards without imposing architecture decisions.
 
-**The problem it solves:** AI agents generate code fast, but velocity without guardrails produces regressions. DevGate catches the known failure patterns — SQL injection, unhandled promises, Godot `.free()` crashes, Rust `unwrap()` panics, hardcoded credentials, and 25+ more — before they reach production. Scheduled drift scans catch everything else: dependency updates that aged, base-image/toolchain drift on your runners, and CI-config changes that never arrived as a PR.
+**The problem it solves:** AI agents generate code fast, but velocity without guardrails produces regressions. DevGate catches the known failure patterns — SQL injection, unhandled promises, hardcoded credentials, unvalidated input, and 25+ more across languages — before they reach production. Scheduled drift scans catch everything else: dependency updates that aged, base-image/toolchain drift on your runners, and CI-config changes that never arrived as a PR.
 
 ## Quick Start
 
