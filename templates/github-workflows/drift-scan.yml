@@ -1,0 +1,121 @@
+# Drift Scan — Reusable Scheduled CI Template
+#
+# Scheduled scans catch DRIFT: changes that never arrive as a push or PR —
+# dependency updates that landed and aged, base-image/toolchain drift on a
+# self-hosted runner, CI-config edits, secret-shaped content that slipped into
+# history — plus anything a PR-time gate would have caught but didn't because
+# it ran before the offending change merged.
+#
+# This workflow does two things on a schedule (and on demand):
+#   1. HOST-AWARE TARGETING — runs .devgate/scripts/detect-host-ci.py to read
+#      THIS repo's own `runs-on:` labels and `schedule:` crons (secrets-
+#      redacted). The scan then runs on the host's declared self-hosted runner
+#      instead of a hardcoded `ubuntu-latest`. If the host declares no label,
+#      it falls back to `ubuntu-latest`.
+#   2. FULL-TREE GATE SUITE — runs DevGate's scanners against the whole tree
+#      (not a diff), so pre-existing code that was added before a gate existed
+#      is re-swept: guardrails pattern scan, semantic scan (skips if no
+#      TS/JS), regression check (--all: full tree), and the silent-success
+#      scan. Gate results are written to the job summary.
+#
+# SETUP:
+#   - DevGate must be present as .devgate/ (submodule or clone) — the job
+#     checks it out with `submodules: true`.
+#   - Copy this file into your repo at .github/workflows/drift-scan.yml
+#   - CUSTOMIZE the cron below (off-round minutes preferred; 04:23 UTC shown).
+#   - The host's OTHER schedules are reported by detect-host-ci.py in the
+#     summary so you can see cadence collisions at a glance.
+
+name: Drift Scan
+
+on:
+  schedule:
+    # CUSTOMIZE: nightly full-tree sweep. Avoid :00/:30 (shared CI crunch).
+    - cron: '23 4 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  resolve-target:
+    name: Resolve host CI target
+    runs-on: ubuntu-latest
+    outputs:
+      runner: ${{ steps.host.outputs.runner }}
+      crons: ${{ steps.host.outputs.crons }}
+    steps:
+      - name: Checkout code (with DevGate submodule)
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Detect host CI / runner info
+        id: host
+        run: |
+          # detect-host-ci.py answers: what runners and schedules does THIS
+          # repo already declare? Output is secrets-redacted by design.
+          python3 .devgate/scripts/detect-host-ci.py | tee host-ci.json
+
+          # First declared runs-on label wins; fall back to ubuntu-latest.
+          RUNNER=$(python3 -c "
+          import json,sys
+          d = json.load(open('host-ci.json'))
+          labels = d.get('runs_on_labels') or []
+          print(labels[0] if labels else 'ubuntu-latest')
+          ")
+          CRONS=$(python3 -c "
+          import json
+          d = json.load(open('host-ci.json'))
+          print(' '.join(d.get('scheduled_crons') or []))
+          ")
+          echo "runner=$RUNNER" >> "$GITHUB_OUTPUT"
+          echo "crons=$CRONS" >> "$GITHUB_OUTPUT"
+          echo "Resolved scan target: $RUNNER"
+
+  drift-scan:
+    name: Scheduled drift scan
+    needs: resolve-target
+    runs-on: ${{ needs.resolve-target.outputs.runner }}
+
+    steps:
+      - name: Checkout code (with DevGate submodule)
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Run gate suite (full tree)
+        run: |
+          set +e
+          declare -A RESULTS
+          run_gate() {
+            local name="$1"; shift
+            echo "=== $name ==="
+            if "$@"; then RESULTS[$name]=PASS; else RESULTS[$name]=FAIL; fi
+          }
+
+          run_gate guardrails   node .devgate/scripts/guardrails-scan.mjs
+          run_gate semantic     node .devgate/scripts/semantic-scan.mjs
+          run_gate regression   python3 .devgate/scripts/regression_check.py --all --pre-commit
+          run_gate silent-success bash .devgate/scripts/silent-success-scan.sh
+
+          # Summary: one line per gate, no gate can silently vanish.
+          {
+            echo "## Drift Scan Results"
+            echo ""
+            echo "| Gate | Result |"
+            echo "|------|--------|"
+            for gate in guardrails semantic regression silent-success; do
+              echo "| $gate | ${RESULTS[$gate]:-NOT_RUN} |"
+            done
+            echo ""
+            echo "Host CI schedules (from detect-host-ci.py): ${NEEDS_CRONS:-}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          FAILED=0
+          for gate in guardrails semantic regression silent-success; do
+            [ "${RESULTS[$gate]}" = "PASS" ] || FAILED=1
+          done
+          exit $FAILED
+        env:
+          NEEDS_CRONS: ${{ needs.resolve-target.outputs.crons }}

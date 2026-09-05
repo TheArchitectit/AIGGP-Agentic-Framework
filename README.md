@@ -40,14 +40,19 @@ git clone https://github.com/TheArchitectit/DevGate-Agentic-Framework.git .devga
 │   ├── regression_check.py             # Regression + file-size + package audit
 │   ├── run-tests.mjs                   # Isolated per-file test runner (JS + Python)
 │   ├── schema-health-check.mjs         # Database schema validation (adapter-based)
-│   └── semantic-scan.mjs               # AST-based TS/JS scanner
+│   ├── semantic-scan.mjs               # AST-based TS/JS scanner
+│   └── detect-host-ci.py               # Host-repo CI/runner detector (secrets-redacted)
 ├── templates/
 │   ├── README.md                       # Template index and usage guide
 │   ├── github-workflows/               # Drop-in CI workflow templates
 │   │   ├── guardrails-compliance.yml   # Process gates (scope, forbidden files, commits, AI attribution)
 │   │   ├── secret-validation.yml       # Gitleaks + .env + credential + hardcoded-secret scan
 │   │   ├── file-size-check.yml         # CI-enforced source-file line-count limit
-│   │   └── smoke-gate.yml              # Headless run + completion-sentinel validation
+│   │   ├── smoke-gate.yml              # Headless run + completion-sentinel validation
+│   │   └── drift-scan.yml              # Scheduled full-tree sweep, host-aware runner targeting
+│   ├── runner/                         # Self-hosted runner standard (ghcr.io + Podman/Docker)
+│   │   ├── README.md                   # The standard: official image, quadlet, secrets hygiene
+│   │   └── self-hosted-runner.container # Podman quadlet template (ghcr.io/actions/actions-runner)
 │   └── skills/                         # Agent-behavior skill templates
 │       ├── four-laws/                  # The Four Laws of Agent Safety (mandatory)
 │       ├── scope-validator/            # Stay-in-scope enforcement
@@ -263,8 +268,24 @@ DevGate ships with a complete set of drop-in templates for every project that pu
 | `secret-validation.yml` | Gitleaks scan, .env-file check, credential-file patterns, hardcoded-secret patterns |
 | `file-size-check.yml` | CI-enforced line-count limit on source files (parameterized: SIZE_LIMIT, SOURCE_DIRS, FILE_PATTERN) |
 | `smoke-gate.yml` | Headless run + completion-sentinel validation — fails closed if the app crashes, hangs, or produces no output |
+| `drift-scan.yml` | Scheduled full-tree gate sweep; resolves the host's own runner label via `detect-host-ci.py` instead of hardcoding `ubuntu-latest` |
 
 Each template has a `SETUP` header comment and clearly-marked `CUSTOMIZE` placeholders. See [templates/README.md](templates/README.md) for usage.
+
+### Self-Hosted Runner Standard (`templates/runner/`)
+
+DevGate's standard for producing CI evidence on your own hardware: the **official
+`ghcr.io/actions/actions-runner` image** (GitHub-maintained, MIT) deployed as a
+Podman quadlet or Docker container — one container per project, distinct labels,
+registration token via a drop-in `.env` (never committed). See
+[templates/runner/README.md](templates/runner/README.md) for the standard and
+[templates/runner/self-hosted-runner.container](templates/runner/self-hosted-runner.container)
+for the copy-in quadlet.
+
+DevGate is **host-repo aware**: `scripts/detect-host-ci.py` reads the host
+repo's own `runs-on:` labels and `schedule:` crons from
+`.github/workflows/*.yml` (secrets-redacted) so workflows bind to the host's
+declared infrastructure rather than a hardcoded hosted runner.
 
 ### Agent Skill Templates (`templates/skills/`)
 

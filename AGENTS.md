@@ -44,7 +44,8 @@ your-project/               ← YOUR project code lives here (any structure, any
     │   ├── run-tests.mjs
     │   ├── schema-health-check.mjs
     │   ├── semantic-scan.mjs
-    │   └── silent-success-scan.sh  ← Simulated-success detector
+    │   ├── silent-success-scan.sh  ← Simulated-success detector
+    │   └── detect-host-ci.py       ← Host-repo CI/runner detector (secrets-redacted)
     ├── AGENTS.md           ← This file
     ├── LICENSE             ← BSD 3-Clause
     └── README.md

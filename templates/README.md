@@ -11,7 +11,11 @@ templates/
 │   ├── guardrails-compliance.yml    # Process gates (scope, forbidden files, commits, AI attribution)
 │   ├── secret-validation.yml        # Gitleaks + .env + credential + hardcoded-secret scan
 │   ├── file-size-check.yml          # CI-enforced source-file line-count limit
-│   └── smoke-gate.yml               # Headless run + completion-sentinel validation
+│   ├── smoke-gate.yml               # Headless run + completion-sentinel validation
+│   └── drift-scan.yml               # Scheduled full-tree sweep, host-aware runner targeting
+├── runner/                          # Self-hosted runner standard (ghcr.io + Podman/Docker)
+│   ├── README.md                    # The standard: official image, quadlet, secrets hygiene
+│   └── self-hosted-runner.container # Podman quadlet template (ghcr.io/actions/actions-runner)
 └── skills/                          # Agent-behavior skill templates
     ├── four-laws/                   # The Four Laws of Agent Safety (mandatory)
     ├── scope-validator/             # Stay-in-scope enforcement
@@ -33,6 +37,21 @@ Each file in `github-workflows/` is a drop-in workflow. To use one:
 4. Commit and push — the workflow runs on your next PR
 
 The templates are deliberately generic: no game-specific paths, no hard-coded binary names. They work for any project — game engine, web app, CLI tool, data pipeline.
+
+### Self-Hosted Runner Standard
+
+`runner/` defines how DevGate projects produce CI evidence on their own
+hardware: the **official `ghcr.io/actions/actions-runner` image** deployed as a
+Podman quadlet (or Docker equivalent). See [`runner/README.md`](runner/README.md)
+for the standard and [`runner/self-hosted-runner.container`](runner/self-hosted-runner.container)
+for the copy-in quadlet. Registration tokens go in a drop-in `.env`, never in a
+committed file.
+
+Workflows that target your own runner should not hardcode `ubuntu-latest`.
+When DevGate is embedded as `.devgate/`, `scripts/detect-host-ci.py` reads the
+host repo's own `runs-on:` labels and `schedule:` crons from
+`.github/workflows/*.yml` (secrets-redacted) — `drift-scan.yml` shows the
+two-job pattern that resolves the target runner at runtime.
 
 ### Skill Templates
 
