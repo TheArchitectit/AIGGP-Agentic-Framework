@@ -2,13 +2,13 @@
 
 [![Sponsor](https://img.shields.io/badge/Sponsor-TheArchitectit-FF69B4?style=flat&logo=github-sponsors)](https://github.com/sponsors/TheArchitectit)
 
-A language-agnostic quality engineering framework for AI-assisted development. Drop it into any project — TypeScript, Python, Rust, Go, GDScript, or mixed stacks — and get test isolation, regression scanning, deploy gates, CI workflows, and guardrails out of the box.
+A language-agnostic quality engineering framework for AI-assisted development. Drop it into any project — TypeScript, Python, Rust, Go, GDScript, or mixed stacks — and get test isolation, regression scanning, deploy gates, scheduled drift scans, CI workflows, a self-hosted runner standard, and guardrails out of the box.
 
 ## What This Is
 
 DevGate is **not** a project template or a starter kit. It's a **quality gate** that sits between your AI agents and your production code. You clone it into an existing project (or add it as a submodule) and it enforces engineering standards without imposing architecture decisions.
 
-**The problem it solves:** AI agents generate code fast, but velocity without guardrails produces regressions. DevGate catches the known failure patterns — SQL injection, unhandled promises, Godot `.free()` crashes, Rust `unwrap()` panics, hardcoded credentials, and 25+ more — before they reach production.
+**The problem it solves:** AI agents generate code fast, but velocity without guardrails produces regressions. DevGate catches the known failure patterns — SQL injection, unhandled promises, Godot `.free()` crashes, Rust `unwrap()` panics, hardcoded credentials, and 25+ more — before they reach production. Scheduled drift scans catch everything else: dependency updates that aged, base-image/toolchain drift on your runners, and CI-config changes that never arrived as a PR.
 
 ## Quick Start
 
@@ -311,12 +311,6 @@ BSD 3-Clause
 ## Author
 
 TheArchitectit
-
----
-
----
-
-#
 
 ---
 
