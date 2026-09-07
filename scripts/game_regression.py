@@ -15,6 +15,7 @@ Adds game-specific failure classes beyond DevGate's generic scanner:
 Reads .guardrails/failure-registry.jsonl and scans staged/unstaged changes
 against known game-class patterns. Exit 1 on hard violations with --pre-commit.
 """
+import fnmatch
 import json, os, re, sys, subprocess
 from pathlib import Path
 
@@ -42,30 +43,72 @@ GAME_PATTERNS = {
 }
 
 def find_project_root():
-    d = Path.cwd()
-    for i in range(10):
-        for marker in ("project.godot", "package.json", "Cargo.toml", "go.mod", "pyproject.toml", ".git"):
-            if (d / marker).exists():
-                return d
-        parent = d.parent
-        if parent == d:
-            break
-        d = parent
-    return Path.cwd()
+    """Project root = the directory CONTAINING .devgate/, by layout contract.
+
+    Resolved from the script's own location, like guardrails-scan.mjs — cwd was
+    wrong two ways: run from a subdir (go/) it shrank the scan to that subdir,
+    and run from a bare directory with no markers it walked up into unrelated
+    sibling repos. DevGate standalone (script not under a .devgate/) is its own
+    project.
+    """
+    script_parent = Path(__file__).resolve().parent.parent  # <root>/.devgate
+    if script_parent.name == ".devgate":
+        return script_parent.parent
+    return script_parent
 
 # Directories that are not first-party source — mirrors SKIP_DIRS in
 # guardrails-scan.mjs. Vendored and generated code must not fail the gate.
 SKIP_DIRS = {"node_modules", ".git", "vendor", "dist", "build", "target", "out", "__pycache__", ".venv", "venv", ".devgate", ".claude"}
 
-def iter_source_files(root):
-    """Walk the tree collecting scannable source files, skipping SKIP_DIRS."""
+def load_ignore_patterns(root):
+    """Read <root>/.guardrailsignore — per-project scoping the gate can't know.
+
+    One fnmatch glob per line ('*' crosses '/', same as the rule globs); a
+    trailing '/' marks a directory prefix. Blank lines and '#' comments ignored.
+    """
+    path = Path(root) / ".guardrailsignore"
+    patterns = []
+    if not path.exists():
+        return patterns
+    for line in path.read_text(errors="replace").splitlines():
+        line = line.strip()
+        if line and not line.startswith("#"):
+            patterns.append(line)
+    return patterns
+
+def is_ignored(file_path, root, patterns):
+    """True when the file matches a .guardrailsignore entry (relpath, basename, or dir prefix)."""
+    if not patterns:
+        return False
+    try:
+        rel = os.path.relpath(file_path, root)
+    except ValueError:
+        rel = str(file_path)
+    base = os.path.basename(file_path)
+    for pat in patterns:
+        if pat.endswith("/"):
+            if rel.replace("\\", "/").startswith(pat) or (rel + "/").replace("\\", "/").startswith(pat):
+                return True
+        elif fnmatch.fnmatch(rel, pat) or fnmatch.fnmatch(base, pat):
+            return True
+    return False
+
+def glob_matches(path, globs):
+    """Basename OR path glob match — parity with regression_diff.py glob_matches."""
+    base = os.path.basename(path)
+    return any(fnmatch.fnmatch(base, g) or fnmatch.fnmatch(path, g) for g in globs)
+
+def iter_source_files(root, ignore_patterns=()):
+    """Walk the tree collecting scannable source files, skipping SKIP_DIRS and ignores."""
     exts = {".gd", ".ts", ".js", ".py", ".rs", ".go"}
     files = []
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
         for name in filenames:
             if os.path.splitext(name)[1] in exts:
-                files.append(os.path.join(dirpath, name))
+                path = os.path.join(dirpath, name)
+                if not is_ignored(path, root, ignore_patterns):
+                    files.append(path)
     return files
 
 def load_failure_registry(root):
@@ -101,6 +144,17 @@ def get_changed_files(root, staged=True):
         return []
     return [f.strip() for f in result.stdout.splitlines() if f.strip()]
 
+def line_has_allow(line, *ids):
+    """True when the line carries a guardrails-allow for any of the given ids.
+
+    Mirrors guardrails-scan.mjs, which keys the annotation on the rule id: a
+    substring-only check would let one id's allow silence every other pattern.
+    """
+    return any(
+        re.search(rf"guardrails-allow\s+{re.escape(i)}\s*:", line)
+        for i in ids if i
+    )
+
 def scan_file_for_patterns(file_path, patterns):
     """Scan a file for game-class regression patterns."""
     issues = []
@@ -110,10 +164,9 @@ def scan_file_for_patterns(file_path, patterns):
         return issues
 
     for line_num, line in enumerate(content.splitlines(), 1):
-        # Skip inline guardrails-allow annotations
-        if "guardrails-allow" in line:
-            continue
         for pattern_name, regexes in patterns.items():
+            if line_has_allow(line, pattern_name):
+                continue
             for regex in regexes:
                 if re.search(regex, line):
                     issues.append({
@@ -124,22 +177,35 @@ def scan_file_for_patterns(file_path, patterns):
                     })
     return issues
 
-def scan_failure_registry_patterns(file_path, entries):
-    """Check file against failure-registry regression_pattern regexes."""
+def scan_failure_registry_patterns(file_path, entries, root):
+    """Check file against failure-registry regression_pattern regexes.
+
+    Honors each entry's file_glob (basename OR relative path, matching the
+    pattern-rules semantics) — without this a "*.go" entry is checked against
+    docs and comments in unrelated files, over-reporting.
+    """
     issues = []
     try:
         content = Path(file_path).read_text(errors="replace")
     except Exception:
         return issues
 
+    try:
+        rel = os.path.relpath(file_path, root)
+    except ValueError:
+        rel = str(file_path)
     for entry in entries:
         pattern = entry.get("regression_pattern")
         if not pattern:
             continue
+        globs = entry.get("file_glob") or []
+        if globs and not glob_matches(rel, globs):
+            continue
         failure_id = entry.get("failure_id", "unknown")
+        prevention_rule = entry.get("prevention_rule")
         try:
             for line_num, line in enumerate(content.splitlines(), 1):
-                if "guardrails-allow" in line:
+                if line_has_allow(line, failure_id, prevention_rule):
                     continue
                 if re.search(pattern, line):
                     issues.append({
@@ -167,11 +233,16 @@ def main():
     registry = load_failure_registry(root)
     print(f"[game-regression] failure registry: {len(registry)} entries")
 
+    ignore_patterns = load_ignore_patterns(root)
+    if ignore_patterns:
+        print(f"[game-regression] .guardrailsignore: {len(ignore_patterns)} entries")
+
     # Determine which files to scan
     if args.staged or args.unstaged:
         files = [str(root / f) for f in get_changed_files(root, staged=args.staged)]
     else:
-        files = iter_source_files(root)
+        files = iter_source_files(root, ignore_patterns)
+    files = [f for f in files if not is_ignored(f, root, ignore_patterns)]
 
     if not files:
         print("[game-regression] no files to scan")
@@ -184,7 +255,7 @@ def main():
         # Built-in game-class patterns
         issues = scan_file_for_patterns(f, GAME_PATTERNS)
         # Failure-registry patterns
-        issues.extend(scan_failure_registry_patterns(f, registry))
+        issues.extend(scan_failure_registry_patterns(f, registry, root))
         all_issues.extend(issues)
 
     if all_issues:

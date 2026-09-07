@@ -1,7 +1,7 @@
 {
   "$schema": "./pattern-rules.schema.json",
   "description": "Language-agnostic pattern-based prevention rules for regression detection",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "rules": [
     {
       "rule_id": "PREVENT-001",
@@ -122,14 +122,17 @@
       "rule_id": "PREVENT-009",
       "name": "Go: Ignored error return",
       "enabled": true,
-      "pattern": "_\\s*,?\\s*=\\s*\\w+\\(",
-      "forbidden_context": "(range|ok|type|assert|select)",
+      "pattern": "\\w+\\s*,\\s*_\\s*(?::=|=)\\s*[\\w.]+\\(",
+      "forbidden_context": null,
       "message": "Error return value ignored. Always check errors in Go.",
       "severity": "error",
       "file_glob": [
         "*.go"
       ],
-      "suggestion": "Handle the error: if err != nil { return err }"
+      "suggestion": "Handle the error: if err != nil { return err }",
+      "exclude_glob": [
+        "*_test.go"
+      ]
     },
     {
       "rule_id": "PREVENT-010",
