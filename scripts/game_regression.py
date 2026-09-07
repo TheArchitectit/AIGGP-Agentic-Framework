@@ -44,7 +44,7 @@ GAME_PATTERNS = {
 def find_project_root():
     d = Path.cwd()
     for i in range(10):
-        for marker in ("project.godot", "package.json", "Cargo.toml", ".git"):
+        for marker in ("project.godot", "package.json", "Cargo.toml", "go.mod", "pyproject.toml", ".git"):
             if (d / marker).exists():
                 return d
         parent = d.parent
@@ -53,11 +53,35 @@ def find_project_root():
         d = parent
     return Path.cwd()
 
+# Directories that are not first-party source — mirrors SKIP_DIRS in
+# guardrails-scan.mjs. Vendored and generated code must not fail the gate.
+SKIP_DIRS = {"node_modules", ".git", "vendor", "dist", "build", "target", "out", "__pycache__", ".venv", "venv", ".devgate", ".claude"}
+
+def iter_source_files(root):
+    """Walk the tree collecting scannable source files, skipping SKIP_DIRS."""
+    exts = {".gd", ".ts", ".js", ".py", ".rs", ".go"}
+    files = []
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
+        for name in filenames:
+            if os.path.splitext(name)[1] in exts:
+                files.append(os.path.join(dirpath, name))
+    return files
+
 def load_failure_registry(root):
-    """Load .guardrails/failure-registry.jsonl — one JSON object per line."""
-    registry_path = root / ".guardrails" / "failure-registry.jsonl"
+    """Load the failure registry — one JSON object per line.
+
+    Resolution order matches the other gates: project .guardrails/ first, then
+    the bundled .devgate/.guardrails/ copy (as regression_check.py resolves its
+    own paths relative to the DevGate submodule root).
+    """
+    candidates = [
+        root / ".guardrails" / "failure-registry.jsonl",
+        Path(__file__).resolve().parent.parent / ".guardrails" / "failure-registry.jsonl",
+    ]
+    registry_path = next((p for p in candidates if p.exists()), None)
     entries = []
-    if not registry_path.exists():
+    if registry_path is None:
         return entries
     for line in registry_path.read_text(errors="replace").splitlines():
         line = line.strip()
@@ -112,13 +136,16 @@ def scan_failure_registry_patterns(file_path, entries):
         pattern = entry.get("regression_pattern")
         if not pattern:
             continue
+        failure_id = entry.get("failure_id", "unknown")
         try:
             for line_num, line in enumerate(content.splitlines(), 1):
+                if "guardrails-allow" in line:
+                    continue
                 if re.search(pattern, line):
                     issues.append({
                         "file": file_path,
                         "line": line_num,
-                        "pattern": f"REGISTRY:{entry.get('failure_id', 'unknown')}",
+                        "pattern": f"REGISTRY:{failure_id}",
                         "match": line.strip()[:120],
                     })
         except re.error:
@@ -141,17 +168,10 @@ def main():
     print(f"[game-regression] failure registry: {len(registry)} entries")
 
     # Determine which files to scan
-    if args.all:
-        files = []
-        for ext in (".gd", ".ts", ".js", ".py", ".rs", ".go"):
-            files.extend(str(p) for p in root.rglob(f"*{ext}") if "node_modules" not in str(p) and ".git" not in str(p))
-    elif args.staged or args.unstaged:
-        files = get_changed_files(root, staged=args.staged)
-        files = [str(root / f) for f in files]
+    if args.staged or args.unstaged:
+        files = [str(root / f) for f in get_changed_files(root, staged=args.staged)]
     else:
-        files = []
-        for ext in (".gd", ".ts", ".js", ".py", ".rs", ".go"):
-            files.extend(str(p) for p in root.rglob(f"*{ext}") if "node_modules" not in str(p) and ".git" not in str(p))
+        files = iter_source_files(root)
 
     if not files:
         print("[game-regression] no files to scan")
