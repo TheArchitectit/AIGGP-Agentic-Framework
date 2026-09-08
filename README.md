@@ -36,6 +36,7 @@ git clone https://github.com/TheArchitectit/DevGate-Agentic-Framework.git .devga
 │       └── extracted-rules.json        # Git/system/security rules
 ├── scripts/
 │   ├── deploy.sh                       # Gated publish pipeline (auto-detects package manager)
+│   ├── findings_to_spec.py             # Gate findings -> openspec requirement skeletons
 │   ├── guardrails-scan.mjs             # Pattern scanner (all languages)
 │   ├── regression_check.py             # Regression + file-size + package audit
 │   ├── run-tests.mjs                   # Isolated per-file test runner (JS + Python)
@@ -204,6 +205,28 @@ Append-only JSONL log of historical bugs. Each entry records:
 - Status (active/resolved)
 
 When a file is changed, the regression scanner checks it against active failures — preventing reintroduction of known bugs.
+
+### Findings → Specs (`scripts/findings_to_spec.py`)
+
+Gates produce findings; findings should produce requirements, not just
+warnings. This scaffolder converts both sources — every merged failure-registry
+entry, optionally plus live `guardrails-scan.mjs` violations piped in — into
+`openspec/specs/<capability>/spec.md` skeletons in the format
+`scripts/spec_traceability.py` gates:
+
+```bash
+python3 .devgate/scripts/findings_to_spec.py --list        # dry run
+python3 .devgate/scripts/findings_to_spec.py               # group by category
+node .devgate/scripts/guardrails-scan.mjs 2>&1 \
+  | python3 .devgate/scripts/findings_to_spec.py --stdin   # fold live findings in
+```
+
+The loop closes: `log_failure.py` records a bug → `findings_to_spec.py` turns
+it into a spec requirement → the fix carries `// spec: <id>` →
+`spec_traceability.py` fails (in blocking mode) when a requirement loses its
+enforcing code. Re-runs are idempotent: existing spec files are only ever
+APPENDED to, findings are recognized by their provenance line, hand edits
+survive.
 
 ## Configuration
 
