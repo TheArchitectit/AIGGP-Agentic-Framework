@@ -102,10 +102,32 @@ def get_added_lines(run_git, staged: bool = True, unstaged: bool = False,
             added += parse_diff(stdout)
     if all_scope:
         base = resolve_all_base(run_git)
-        rc, stdout, _ = run_git(["diff", f"{base}...HEAD"])
-        if rc == 0:
-            added += parse_diff(stdout)
+        rc, stdout, stderr = run_git(["diff", f"{base}...HEAD"])
+        if rc != 0:
+            # A base that can't be diffed (e.g. a tag that isn't present in a
+            # shallow checkout, or HEAD~20 when history is truncated) would
+            # make the scan VACUOUSLY pass. Fail loud so the gate is never
+            # green while scanning nothing.
+            raise RuntimeError(
+                f"--all regression scan could not diff {base}...HEAD: "
+                f"{(stderr or stdout).strip()} (is the checkout shallow? "
+                f"fetch full history + tags before running the gate)"
+            )
+        added += parse_diff(stdout)
     return added
+
+
+def line_has_allow(line: str, *ids: str) -> bool:
+    """True when the line carries a guardrails-allow for any of the given ids.
+
+    Mirrors guardrails-scan.mjs and game_regression.py, which key the annotation
+    on the rule/failure id: a substring-only check would let one id's allow
+    silence every other pattern.
+    """
+    return any(
+        re.search(rf"guardrails-allow\s+{re.escape(i)}\s*:", line)
+        for i in ids if i
+    )
 
 
 def glob_matches(path: str, globs: list[str]) -> bool:
@@ -174,7 +196,10 @@ def check_added_against_registry(added: list[tuple[str, int, str]],
 
     A hit means a previously fixed bug's signature is being re-added. Entries
     scoped with a `file_glob` only fire for matching files, so a doc or helper
-    script may quote a pattern without tripping the gate.
+    script may quote a pattern without tripping the gate. A line carrying a
+    `guardrails-allow <failure_id|prevention_rule>:` annotation is skipped —
+    the same escape hatch game_regression.py honours, so a comment asserting
+    the anti-pattern is ABSENT doesn't read as a re-add.
     """
     violations: list[dict] = []
     for path, lineno, text in added:
@@ -185,9 +210,12 @@ def check_added_against_registry(added: list[tuple[str, int, str]],
                 continue
             if item["exclude_glob"] and glob_matches(path, item["exclude_glob"]):
                 continue
+            entry = item["entry"]
+            if line_has_allow(text, entry.get("failure_id", ""),
+                              entry.get("prevention_rule", "")):
+                continue
             if not item["rx"].search(text):
                 continue
-            entry = item["entry"]
             violations.append({
                 "file": path,
                 "line": lineno,

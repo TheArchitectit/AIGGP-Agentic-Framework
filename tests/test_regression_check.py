@@ -18,6 +18,8 @@ Covers:
   * file_glob scoping (pattern only fires for matching files)
   * SELF_REFERENTIAL exclusion (definition files never self-match)
   * --all tag-base behaviour (tag wins; HEAD~20 only when no tag exists)
+  * --all fails loud when the base diff errors (no vacuous green)
+  * guardrails-allow annotations silence the entry they name, and only it
   * touched-vs-untouched hard file-size classification
 """
 
@@ -162,6 +164,52 @@ def test_self_referential_files_are_excluded():
         # ...but must be skipped in a definition file.
         violations, _ = _check([(path, 1, line)], entries)
         assert violations == [], f"{path} self-matched: {violations}"
+
+
+def test_guardrails_allow_annotation_silences_matching_entry():
+    """A line allowing THIS entry's id (or prevention rule) must not fire.
+
+    Real-world case: a test comment that quotes the anti-pattern to assert its
+    ABSENCE ("Verify no string(rune('0'+x)) residue // guardrails-allow...").
+    game_regression.py already honoured these; the diff-based scanner must
+    agree, or the two gates contradict each other on the same tree.
+    """
+    entries = [_entry(prevention_rule="PREVENT-030")]
+    by_id = "dangerous_call(x) // guardrails-allow FAIL-TEST01: quoted to prove absence"
+    by_rule = "dangerous_call(x) // guardrails-allow PREVENT-030: quoted to prove absence"
+    for line in (by_id, by_rule):
+        violations, _ = _check([("src/app.py", 1, line)], entries)
+        assert violations == [], f"allow annotation ignored ({line!r}): {violations}"
+
+
+def test_allow_for_other_id_does_not_silence():
+    """Substring-only matching would let any allow silence every pattern."""
+    entries = [_entry(prevention_rule="PREVENT-030")]
+    line = "dangerous_call(x) // guardrails-allow FAIL-OTHER: unrelated exemption"
+    violations, _ = _check([("src/app.py", 1, line)], entries)
+    assert len(violations) == 1, f"unrelated allow leaked silence: {violations}"
+
+
+def test_all_scope_raises_when_base_diff_fails():
+    """A shallow checkout that can't diff the resolved base must fail loud.
+
+    The vacuous pass this prevents: fetch-depth: 1 CI cannot resolve the tag
+    base, rc != 0 used to be silently skipped, and the gate reported success
+    while scanning zero lines.
+    """
+    def fake_git(args):
+        if args[:1] == ["describe"]:
+            return (0, "v9.9.9\n", "")
+        if args[:2] == ["diff", "v9.9.9...HEAD"]:
+            return (128, "", "fatal: bad object v9.9.9")
+        return (0, "", "")
+
+    try:
+        get_added_lines(fake_git, staged=False, unstaged=False, all_scope=True)
+    except RuntimeError as exc:
+        assert "v9.9.9...HEAD" in str(exc), f"unhelpful message: {exc}"
+    else:
+        raise AssertionError("failed --all diff did not raise; gate can pass vacuously")
 
 
 def test_invalid_pattern_warns_but_does_not_crash():
