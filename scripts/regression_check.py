@@ -11,9 +11,14 @@ Usage:
     python scripts/regression_check.py --pre-commit   # Exit non-zero if issues found
 
 Environment Variables:
-    FAILURE_REGISTRY_PATH: Path to registry file
-    PREVENTION_RULES_PATH: Path to prevention rules directory
+    FAILURE_REGISTRY_PATH: Path to registry file (overrides the bundled+overlay merge)
+    PREVENTION_RULES_PATH: Path to prevention rules directory (overrides the merge)
     DEVGATE_DB_PATH: Database connection string (if using schema health check)
+
+With no explicit path, rules and the failure registry are MERGED from the
+bundled .devgate/.guardrails/ baseline and the project's .guardrails/ overlay
+(see gate_overlay.py): overlay entries replace same-id baseline entries, new
+ids append. The same applies to the --registry / --rules flags.
 
 Diff scanning semantics:
     Only ADDED lines ('+' lines of a unified diff) are scanned, so pre-existing
@@ -39,12 +44,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-DEFAULT_REGISTRY_PATH = Path(".guardrails/failure-registry.jsonl")
-DEFAULT_RULES_PATH = Path(".guardrails/prevention-rules")
-
 # Hunk-accurate diff parsing + failure-registry pattern matching live in a
 # sibling module (keeps both files under DevGate's own 500-line hard limit).
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import gate_overlay  # noqa: E402
 from regression_audit import (  # noqa: E402
     _detect_package_manager,
     check_npm_audit,
@@ -66,7 +69,6 @@ from regression_diff import (  # noqa: E402
     get_added_lines,
     glob_matches,
     load_active_failures,
-    load_failure_registry,
     parse_diff,
 )
 
@@ -166,30 +168,20 @@ def validate_rule_regex(rule: dict) -> bool:
     return True
 
 
-def load_prevention_rules(rules_path: Path) -> list[dict]:
+def load_prevention_rules(rules_path: Path | None = None) -> list[dict]:
+    """Enabled, regex-valid rules. rules_path=None merges DevGate's bundled
+    baseline with the current project's .guardrails/ overlay (gate_overlay.py);
+    an explicit directory reads that one source only, no merge.
+    """
+    raw = gate_overlay.resolve_rules(PROJECT_ROOT, rules_path)
     rules = []
-    pattern_rules_file = rules_path / "pattern-rules.json"
-    if pattern_rules_file.exists():
-        try:
-            with open(pattern_rules_file) as f:
-                data = json.load(f)
-                for rule in data.get("rules", []):
-                    if rule.get("enabled", True) and validate_rule_regex(rule):
-                        rule["rule_type"] = "pattern"
-                        rules.append(rule)
-        except (OSError, json.JSONDecodeError):
-            pass
-    semantic_rules_file = rules_path / "semantic-rules.json"
-    if semantic_rules_file.exists():
-        try:
-            with open(semantic_rules_file) as f:
-                data = json.load(f)
-                for rule in data.get("rules", []):
-                    if rule.get("enabled", True):
-                        rule["rule_type"] = "semantic"
-                        rules.append(rule)
-        except (OSError, json.JSONDecodeError):
-            pass
+    for rule in raw:
+        if not rule.get("enabled", True):
+            continue
+        if rule.get("_kind") == "pattern" and not validate_rule_regex(rule):
+            continue
+        rule["rule_type"] = rule.get("_kind", "pattern")
+        rules.append(rule)
     return rules
 
 
@@ -247,10 +239,12 @@ def check_diff_against_patterns(diff_content: str, rules: list[dict]) -> list[di
     return violations
 
 
-def run_regression_check(registry_path: Path, rules_path: Path, staged: bool = True,
+def run_regression_check(registry_path: Path | None = None, rules_path: Path | None = None,
+                         staged: bool = True,
                          unstaged: bool = False, verbose: bool = False) -> tuple[int, list[dict]]:
     issues = []
-    failures = load_active_failures(load_failure_registry(registry_path))
+    entries, _owner = gate_overlay.resolve_registry(PROJECT_ROOT, registry_path, statuses=SCANNED_STATUSES)
+    failures = load_active_failures(entries)
     rules = load_prevention_rules(rules_path)
     changed_files = get_changed_files(staged=staged, unstaged=unstaged)
     if not changed_files:
@@ -314,12 +308,13 @@ def print_report(issues: list[dict], verbose: bool = False):
 def main():
     parser = argparse.ArgumentParser(description="Check for potential regressions in changed code",
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    # Resolve .devgate-relative paths if running from project root
-    devgate_root = Path(__file__).resolve().parent.parent
+    # No explicit path (flag or env) -> bundled baseline + project overlay
+    # are MERGED (gate_overlay.py). An explicit path collapses to a single
+    # source, no merge — the caller said exactly what to read.
     parser.add_argument("--registry", "-r", type=Path,
-                        default=Path(os.getenv("FAILURE_REGISTRY_PATH", devgate_root / ".guardrails" / "failure-registry.jsonl")))
+                        default=Path(os.environ["FAILURE_REGISTRY_PATH"]) if "FAILURE_REGISTRY_PATH" in os.environ else None)
     parser.add_argument("--rules", type=Path,
-                        default=Path(os.getenv("PREVENTION_RULES_PATH", devgate_root / ".guardrails" / "prevention-rules")))
+                        default=Path(os.environ["PREVENTION_RULES_PATH"]) if "PREVENTION_RULES_PATH" in os.environ else None)
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--staged", action="store_true", default=True)
     group.add_argument("--unstaged", "-u", action="store_true")
@@ -349,7 +344,8 @@ def main():
                             all_scope=args.all)
     touched = {path for path, _, _ in added}
 
-    all_entries = load_failure_registry(args.registry)
+    all_entries, _owner = gate_overlay.resolve_registry(
+        PROJECT_ROOT, args.registry, statuses=SCANNED_STATUSES)
     compiled, pattern_warnings = compile_registry_patterns(all_entries)
     registry_violations = check_added_against_registry(added, compiled)
 

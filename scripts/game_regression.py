@@ -19,6 +19,9 @@ import fnmatch
 import json, os, re, sys, subprocess
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import gate_overlay  # noqa: E402
+
 # Game-class patterns (regex-based, loaded from failure-registry.jsonl)
 GAME_PATTERNS = {
     "NULL_DEREF": [
@@ -112,28 +115,16 @@ def iter_source_files(root, ignore_patterns=()):
     return files
 
 def load_failure_registry(root):
-    """Load the failure registry — one JSON object per line.
+    """Merged failure registry — DevGate's bundled baseline PLUS the project's
+    .guardrails/ overlay (the old pick-one-file resolution meant a game with
+    its own registry silently lost every upstream entry, and vice versa).
 
-    Resolution order matches the other gates: project .guardrails/ first, then
-    the bundled .devgate/.guardrails/ copy (as regression_check.py resolves its
-    own paths relative to the DevGate submodule root).
+    Merged by failure_id: an overlay entry replaces a same-id bundled entry
+    (retune status/fields), new ids append. See gate_overlay.py.
     """
-    candidates = [
-        root / ".guardrails" / "failure-registry.jsonl",
-        Path(__file__).resolve().parent.parent / ".guardrails" / "failure-registry.jsonl",
-    ]
-    registry_path = next((p for p in candidates if p.exists()), None)
-    entries = []
-    if registry_path is None:
-        return entries
-    for line in registry_path.read_text(errors="replace").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
-        try:
-            entries.append(json.loads(line))
-        except json.JSONDecodeError:
-            continue
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import gate_overlay
+    entries, _owner = gate_overlay.resolve_registry(root)
     return entries
 
 def get_changed_files(root, staged=True):

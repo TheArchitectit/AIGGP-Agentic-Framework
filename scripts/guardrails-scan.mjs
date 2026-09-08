@@ -20,7 +20,14 @@ const devgateRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 // every sibling repo. DevGate standalone IS its own project.
 const isSubmoduleLayout = basename(devgateRoot) === ".devgate";
 const projectRoot = isSubmoduleLayout ? resolve(devgateRoot, "..") : devgateRoot;
-const rulesPath = join(devgateRoot, ".guardrails", "prevention-rules", "pattern-rules.json");
+// Rule sources: DevGate's bundled baseline plus the PROJECT's .guardrails/
+// overlay merged on top — an overlay entry replaces a same-rule_id bundled
+// entry (so a game can retune severity or fix a false positive without
+// editing the submodule), new ids append. Set GUARDRAILS_RULES to a
+// pattern-rules.json path to collapse to that single file with no merge —
+// same contract as gate_overlay.py on the Python side.
+const bundledRulesPath = join(devgateRoot, ".guardrails", "prevention-rules", "pattern-rules.json");
+const overlayRulesPath = join(projectRoot, ".guardrails", "prevention-rules", "pattern-rules.json");
 
 // Source file extensions to scan (language-agnostic)
 const SOURCE_EXTENSIONS = [".ts", ".js", ".py", ".rs", ".go", ".gd", ".java", ".kt", ".rb", ".php", ".jsx", ".tsx"];
@@ -28,9 +35,39 @@ const SOURCE_EXTENSIONS = [".ts", ".js", ".py", ".rs", ".go", ".gd", ".java", ".
 // Directories to skip (DevGate's own dir + common non-source dirs)
 const SKIP_DIRS = ["node_modules", "dist", "target", ".git", ".claude", ".crew", "__pycache__", ".devgate", "vendor", "build", "out", ".next", ".nuxt", "venv", ".venv", "egg-info"];
 
+function readRulesFile(path) {
+	if (!existsSync(path)) return [];
+	let data;
+	try {
+		data = JSON.parse(readFileSync(path, "utf-8"));
+	} catch {
+		return [];
+	}
+	return Array.isArray(data.rules) ? data.rules : [];
+}
+
 function loadRules() {
-	const data = JSON.parse(readFileSync(rulesPath, "utf-8"));
-	return data.rules.filter(
+	let rules;
+	const explicit = process.env.GUARDRAILS_RULES;
+	if (explicit) {
+		rules = readRulesFile(explicit); // single source, no merge
+	} else {
+		rules = readRulesFile(bundledRulesPath);
+		// In DevGate standalone the project root IS the devgate root — the
+		// "overlay" is the same file; merging it with itself is a no-op, so skip.
+		const overlay = resolve(overlayRulesPath) === resolve(bundledRulesPath) ? [] : readRulesFile(overlayRulesPath);
+		if (overlay.length) {
+			const index = new Map();
+			rules.forEach((r, i) => {
+				if (r.rule_id != null) index.set(r.rule_id, i);
+			});
+			for (const r of overlay) {
+				if (r.rule_id != null && index.has(r.rule_id)) rules[index.get(r.rule_id)] = r;
+				else rules.push(r);
+			}
+		}
+	}
+	return rules.filter(
 		(r) => r.enabled !== false && ["critical", "error", "warning"].includes(r.severity),
 	);
 }
@@ -122,6 +159,10 @@ function walk(dir, acc = [], ignorePatterns = []) {
 
 function main() {
 	const rules = loadRules();
+	if (rules.length && existsSync(overlayRulesPath) && !process.env.GUARDRAILS_RULES
+		&& resolve(overlayRulesPath) !== resolve(bundledRulesPath)) {
+		console.log(`GUARDRAILS: ${rules.length} rule(s) in effect (bundled baseline + ${relTo(projectRoot, overlayRulesPath)} overlay merged)`);
+	}
 	const ignorePatterns = loadIgnorePatterns(projectRoot);
 	if (ignorePatterns.length > 0) console.log(`GUARDRAILS: honoring ${ignorePatterns.length} .guardrailsignore entr(y/ies)`);
 	const files = walk(projectRoot, [], ignorePatterns);

@@ -219,24 +219,59 @@ TEST_HARD = 600   # test files hard limit
 
 Limits apply to all files matching source extensions (`.ts`, `.py`, `.rs`, `.go`, `.gd`, `.java`, `.kt`, `.rb`, `.php`, `.js`, `.c`, `.cpp`, `.cs`, `.swift`) in any source directory that exists in your project.
 
-### Custom Prevention Rules
+### Custom Prevention Rules — the overlay contract
 
-Add to `.guardrails/prevention-rules/pattern-rules.json`:
+A project using DevGate as a `.devgate/` submodule adds its **own** rules in a
+project-root `.guardrails/` overlay — it never edits or copies the bundled
+baseline. The gates MERGE the two by rule/failure id:
+
+```
+<project>/
+  .devgate/.guardrails/prevention-rules/pattern-rules.json   <- shared baseline (upstream-owned)
+  .devgate/.guardrails/failure-registry.jsonl                <- shared registry (upstream-owned)
+  .guardrails/prevention-rules/pattern-rules.json            <- THIS project's delta only
+  .guardrails/failure-registry.jsonl                         <- THIS project's bugs only
+  .guardrailsignore                                          <- per-project scan scoping
+```
+
+Merge semantics (implemented once in `scripts/gate_overlay.py`, mirrored in
+`guardrails-scan.mjs`):
+
+* An overlay entry with a **new** id is appended — baseline rules keep firing.
+* An overlay entry with the **same** id as a baseline entry **replaces** it, in
+  place (retune severity, fix a false positive, override a message) — without
+  ever forking the baseline into your repo.
+* A missing overlay (or DevGate standalone) = baseline only, unchanged behaviour.
+* An explicit `--rules` / `--registry` path or `PREVENTION_RULES_PATH` /
+  `FAILURE_REGISTRY_PATH` / `GUARDRAILS_RULES` env collapses to that single
+  source, no merge.
+
+Overlay rule file shape — list only your delta, it does NOT need upstream's rules:
 
 ```json
 {
-  "rule_id": "PREVENT-CUSTOM-001",
-  "name": "No eval() usage",
-  "enabled": true,
-  "pattern": "eval\\(",
-  "forbidden_context": null,
-  "message": "Do not use eval()",
-  "severity": "error",
-  "file_glob": ["*.js", "*.ts"]
+  "version": "1.0.0",
+  "rules": [
+    {
+      "rule_id": "PREVENT-SI-001",
+      "name": "Non-cryptographic checksum for saves",
+      "enabled": true,
+      "pattern": "fn.*checksum.*\\(.*\\).*u64",
+      "forbidden_context": "(sha|hmac|argon)",
+      "message": "Save checksum is not cryptographic — use HMAC-SHA256",
+      "severity": "warning",
+      "file_glob": ["*.rs"],
+      "suggestion": "Use hmac::Hmac<sha2::Sha256> for save integrity"
+    }
+  ]
 }
 ```
 
-Rule IDs must match `^PREVENT(-[A-Z]+)?-\\d+$`.
+Rule IDs must match `^PREVENT(-[A-Z]+)?-\\d+$` (per-project prefixes like
+`-SI-`, `-SOH-` are the convention for scoping). Note `semantic-scan.mjs` is
+exempt: its checks are hardcoded AST logic, not data — a project
+`semantic-rules.json` is merged for `regression_check.py`'s advisory path but
+does not drive that scanner.
 
 ## CI Integration
 

@@ -12,7 +12,13 @@ Exit codes:
           non-existent paths, broken fix_commits)
 
 Environment:
-    FAILURE_REGISTRY_PATH   override the default registry path
+    FAILURE_REGISTRY_PATH   check this ONE file only (no bundled+overlay merge)
+
+With no override, the DevGate bundled registry and the project's
+.guardrails/failure-registry.jsonl overlay are checked as MERGED (an overlay
+entry replacing a same-id baseline entry is the contract, not a duplicate),
+and each entry's fix_commit / affected_files are validated against the repo
+that owns it. See gate_overlay.py.
 
 Supports both shapes of `affected_files` seen in DevGate's own registry:
     * a JSON list  e.g. ["a.go", "b.go"]
@@ -46,13 +52,6 @@ def _find_project_root() -> Path:
         if (d / ".git").exists():
             return d
     return cwd
-
-
-def _default_registry_path() -> Path:
-    """Resolve the default registry relative to the DevGate scripts dir."""
-    scripts_dir = Path(__file__).resolve().parent
-    devgate_root = scripts_dir.parent
-    return devgate_root / ".guardrails" / "failure-registry.jsonl"
 
 
 def _git_cat_file_t(repo_root: Path, sha: str) -> bool:
@@ -112,79 +111,118 @@ def _load_entries(registry_path: Path) -> tuple[list[dict], list[str]]:
 
 
 def check(registry_path: Path | None = None) -> tuple[int, list[str]]:
-    """Run all hygiene checks.
+    """Run all hygiene checks over the EFFECTIVE registry — bundled baseline +
+    project overlay merged by failure_id (the overlay entry replacing a same-id
+    baseline entry is the overlay contract, not a duplicate; duplicates are
+    only errors WITHIN one source file). An explicit registry_path checks that
+    one file only.
 
     Returns (exit_code, findings).  findings are one-line messages for stdout/stderr.
     Exit 0 means clean; exit 1 means at least one ERROR was emitted.
     Warnings (stale affected_files paths) are included in findings but do not
     affect the exit code.
+
+    Every entry is validated against the repo that OWNS it (DevGate entries
+    against .devgate's git history and files, project entries against the
+    project's) — merged entries reference commits/paths in different repos.
     """
     errors: list[str] = []
     warnings: list[str] = []
-    registry_path = registry_path or _default_registry_path()
+    project_root = _find_project_root()
+    devgate_root = Path(__file__).resolve().parent.parent
 
-    # 1. JSONL parse
-    entries, parse_errors = _load_entries(registry_path)
-    errors.extend(parse_errors)
-    if parse_errors:
+    if registry_path is not None:
+        sources = [("registry", registry_path, project_root)]
+    else:
+        sources = [("devgate", devgate_root / ".guardrails" / "failure-registry.jsonl", devgate_root)]
+        overlay = project_root / ".guardrails" / "failure-registry.jsonl"
+        if overlay.exists() and overlay.resolve() != sources[0][1].resolve():
+            sources.append(("project", overlay, project_root))
+
+    # Parse every source; a source that fails to parse is reported and skipped
+    # (like before), but any parse error is still a hard failure at the end.
+    # merged: list of (entry, owner_repo, label, lineno), id -> position, with
+    # overlay replacing a same-id baseline entry in place.
+    merged: list[tuple[dict, Path, str, int]] = []
+    pos_by_id: dict[str, int] = {}
+    had_parse_error = False
+    for label, path, owner in sources:
+        if not path.exists():
+            if label == "devgate":
+                errors.append(f"registry not found: {path}")
+                return 1, errors + warnings
+            continue
+        entries, parse_errors = _load_entries(path)
+        errors.extend(f"{label}: {e}" for e in parse_errors)
+        if parse_errors:
+            had_parse_error = True
+            continue
+        seen_ids: set[str] = set()
+        for lineno, entry in enumerate(entries, 1):
+            eid = entry.get("failure_id", "")
+            if not eid:
+                errors.append(f"{label}:line {lineno}: missing or empty failure_id")
+            elif eid in seen_ids:
+                errors.append(f"{label}:line {lineno}: duplicate failure_id '{eid}'")
+            else:
+                seen_ids.add(eid)
+            if eid and eid in pos_by_id:
+                merged[pos_by_id[eid]] = (entry, owner, label, lineno)  # overlay replaces
+            elif eid:
+                pos_by_id[eid] = len(merged)
+                merged.append((entry, owner, label, lineno))
+            else:
+                merged.append((entry, owner, label, lineno))
+    if had_parse_error:
         return 1, errors + warnings
 
-    # 2. Required fields + duplicate failure_id
-    seen_ids: set[str] = set()
-    for lineno, entry in enumerate(entries, 1):
+    # 2. Required fields (+ duplicate failure_id reported at merge time)
+    for entry, _owner, label, lineno in merged:
         eid = entry.get("failure_id", "")
-        if not eid:
-            errors.append(f"line {lineno}: missing or empty failure_id")
-        elif eid in seen_ids:
-            errors.append(f"line {lineno}: duplicate failure_id '{eid}'")
-        else:
-            seen_ids.add(eid)
-
         missing = REQUIRED_FIELDS - set(entry.keys())
         if missing:
             errors.append(
-                f"line {lineno} [{eid or '?'}]: missing field(s): {', '.join(sorted(missing))}"
+                f"{label}:line {lineno} [{eid or '?'}]: missing field(s): {', '.join(sorted(missing))}"
             )
 
     # 3. status enum
-    for lineno, entry in enumerate(entries, 1):
+    for entry, _owner, label, lineno in merged:
         status = entry.get("status", "")
         if status not in VALID_STATUSES:
             errors.append(
-                f"line {lineno} [{entry.get('failure_id','?')}]: "
+                f"{label}:line {lineno} [{entry.get('failure_id','?')}]: "
                 f"invalid status '{status}' — expected one of {sorted(VALID_STATUSES)}"
             )
 
-    # 4. fix_commit via git
-    repo_root = _find_project_root()
-    for lineno, entry in enumerate(entries, 1):
+    # 4. fix_commit via git — in the repo that owns the entry
+    for entry, owner, label, lineno in merged:
         fix = (entry.get("fix_commit") or "").strip()
         if not fix:
             errors.append(
-                f"line {lineno} [{entry.get('failure_id','?')}]: empty fix_commit"
+                f"{label}:line {lineno} [{entry.get('failure_id','?')}]: empty fix_commit"
             )
         elif fix in DUMMY_COMMITS:
             pass  # allowed dummy
         elif len(fix) == 40 and all(c in "0123456789abcdefABCDEF" for c in fix):
-            # looks like a SHA; verify it exists
-            if not _git_cat_file_t(repo_root, fix):
+            # looks like a SHA; verify it exists in the owning repo
+            if not _git_cat_file_t(owner, fix):
                 errors.append(
-                    f"line {lineno} [{entry.get('failure_id','?')}]: "
-                    f"fix_commit '{fix}' not found in git history"
+                    f"{label}:line {lineno} [{entry.get('failure_id','?')}]: "
+                    f"fix_commit '{fix}' not found in git history of {owner}"
                 )
         # else: unusual value — accept but don't validate
 
     # 5. affected_files: path existence (WARN only — stale paths are not errors)
-    for lineno, entry in enumerate(entries, 1):
+    for entry, owner, label, lineno in merged:
         raw = entry.get("affected_files")
         if raw is None:
             continue  # caught as missing-field above
         paths = _parse_affected_files(raw)
         for p in paths:
-            abs_path = repo_root / p
+            abs_path = owner / p
             if not abs_path.exists():
                 warnings.append(
-                    f"line {lineno} [{entry.get('failure_id','?')}]: "
+                    f"{label}:line {lineno} [{entry.get('failure_id','?')}]: "
                     f"affected_files path not found: '{p}'  (warning — stale entry)"
                 )
 

@@ -107,8 +107,63 @@ r = runScan(dir5);
 check(".guardrailsignore excludes archive/, keeps pkg/", r.code === 1 && !r.err.includes("archive/python/bare.py") && r.err.includes("pkg/keep.py"));
 rmSync(dir5, { recursive: true, force: true });
 
-// --- 6. Python-side semantics agree: file_glob + allow + ignore -------------
-// (game_regression.py is exercised by tests/test_game_regression.py)
+// --- 6. project overlay MERGES over the bundled baseline --------------------
+// A game repo carries its own .guardrails/prevention-rules/pattern-rules.json
+// next to the .devgate/ submodule. Baseline rules must keep firing, overlay
+// rules must fire too, and an overlay entry sharing a baseline rule_id must
+// REPLACE it (retuned severity/message) rather than double-report.
+const dir6 = mkdtempSync(join(tmpdir(), "devgate-scan-"));
+makeProject(dir6, {
+	"internal/spawners/spawners.go": "package spawners\n\nvar x = string(rune('0' + 3))\n",
+	"model/player.rs": "fn nearest(q: &[Enemy]) -> f32 {\n\tfor e in &q { distance(e) }\n}\n",
+});
+mkdirSync(join(dir6, ".guardrails", "prevention-rules"), { recursive: true });
+writeFileSync(join(dir6, ".guardrails", "prevention-rules", "pattern-rules.json"), JSON.stringify({
+	version: "1.0.0",
+	rules: [
+		// NEW id → appended: fires on the .rs file only the overlay knows about
+		{ rule_id: "PREVENT-XI-001", name: "linear nearest scan", enabled: true, pattern: "for .* in &.*\\{", severity: "error", file_glob: ["*.rs"], message: "O(n) nearest scan", suggestion: "spatial hash" },
+		// SAME id as bundled PREVENT-030 → replaces it: severity downgraded to warning here
+		{ rule_id: "PREVENT-030", name: "rune digit", enabled: true, pattern: "string\\(rune\\('0'\\s*\\+", severity: "warning", file_glob: ["*.go"], message: "retuned by project overlay", suggestion: "simplify" },
+	],
+}));
+r = runScan(dir6);
+check("overlay: new rule_id fires (PREVENT-XI-001)", r.err.includes("PREVENT-XI-001"));
+check("overlay: merge banner shown", r.out.includes("overlay merged"));
+// If same-id REPLACED worked: the .go hit is a warning (0 errors from 030) and
+// the .rs hit is the one error. Replacement failure would show 2 violations.
+check("overlay: same-id entry REPLACED severity (error→warning)", r.err.includes("1 warning(s)") && r.err.includes("1 violation(s)"));
+check("overlay: replaced entry uses overlay message", r.err.includes("retuned by project overlay"));
+check("overlay: scan blocks on the appended rule", r.code === 1);
+rmSync(dir6, { recursive: true, force: true });
+
+// --- 7. explicit GUARDRAILS_RULES env collapses to a single file ------------
+const dir7 = mkdtempSync(join(tmpdir(), "devgate-scan-"));
+makeProject(dir7, {
+	"internal/spawners/spawners.go": "package spawners\n\nvar x = string(rune('0' + 3))\n",
+	"model/player.rs": "fn nearest(q: &[Enemy]) -> f32 {\n\tfor e in &q { distance(e) }\n}\n",
+});
+mkdirSync(join(dir7, ".guardrails", "prevention-rules"), { recursive: true });
+writeFileSync(join(dir7, ".guardrails", "prevention-rules", "pattern-rules.json"), JSON.stringify({
+	rules: [{ rule_id: "PREVENT-XI-001", enabled: true, pattern: "for .* in &.*\\{", severity: "error", file_glob: ["*.rs"], message: "overlay only", suggestion: "-" }],
+}));
+{
+	const local = join(dir7, ".devgate", "scripts", "guardrails-scan.mjs");
+	let res;
+	try {
+		const out = execFileSync("node", [local], { cwd: dir7, encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"], env: { ...process.env, GUARDRAILS_RULES: join(dir7, ".guardrails", "prevention-rules", "pattern-rules.json") } });
+		res = { code: 0, out: out ?? "", err: "" };
+	} catch (e) {
+		res = { code: e.status ?? 1, out: e.stdout ?? "", err: e.stderr ?? "" };
+	}
+	check("env override: overlay-only rule fires", res.code === 1 && res.err.includes("PREVENT-XI-001"));
+	check("env override: bundled baseline NOT merged (030 silent)", !res.err.includes("PREVENT-030"));
+}
+rmSync(dir7, { recursive: true, force: true });
+
+// --- 8. Python-side semantics agree: file_glob + allow + ignore -------------
+// (game_regression.py is exercised by tests/test_game_regression.py,
+//  gate_overlay.py by tests/test_gate_overlay.py)
 
 console.log(failures === 0 ? "\nALL TESTS PASSED" : `\n${failures} TEST(S) FAILED`);
 process.exit(failures === 0 ? 0 : 1);
