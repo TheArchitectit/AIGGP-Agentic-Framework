@@ -239,6 +239,25 @@ def check_diff_against_patterns(diff_content: str, rules: list[dict]) -> list[di
     return violations
 
 
+ADVISORY_SEVERITIES = ("low", "medium", "warning", "info")
+
+def is_blocking(failures: list[dict], violations: list[dict]) -> bool:
+    """Severity ladder — one contract across the gate family.
+
+    guardrails-scan.mjs treats warning as non-blocking, and 1149896 made
+    info findings advisory in this gate — but the Known-Bug-History check
+    ignored severity entirely, so an ACTIVE warning-severity entry (a filed,
+    not-yet-fixed bug) hard-blocked every commit touching its file while the
+    report printed "⚠️ WARNING". Now low/medium/warning/info report without
+    gating; high/critical/error, and a MISSING severity (conservative, as
+    before), block. Reintroduction of a fixed bug stays a hard gate via
+    check_added_against_registry, which ignores this ladder.
+    """
+    def blocks(entry: dict, default: str) -> bool:
+        return (entry.get("severity") or default).lower() not in ADVISORY_SEVERITIES
+    return any(blocks(f, "high") for f in failures) or any(blocks(v, "warning") for v in violations)
+
+
 def run_regression_check(registry_path: Path | None = None, rules_path: Path | None = None,
                          staged: bool = True,
                          unstaged: bool = False, verbose: bool = False) -> tuple[int, list[dict]]:
@@ -262,13 +281,7 @@ def run_regression_check(registry_path: Path | None = None, rules_path: Path | N
             if violations:
                 file_issues["violations"] = violations
         if file_issues["failures"] or file_issues["violations"]:
-            # info-severity findings are advisory: they report, they do not
-            # block the pre-commit gate (an info rule like PREVENT-027
-            # "missing .dockerignore" must not hard-fail an unrelated repo)
-            file_issues["blocking"] = bool(
-                file_issues["failures"]
-                or any(v.get("severity", "warning").lower() != "info"
-                       for v in file_issues["violations"]))
+            file_issues["blocking"] = is_blocking(file_issues["failures"], file_issues["violations"])
             issues.append(file_issues)
     return len(issues), issues
 

@@ -41,6 +41,7 @@ from regression_diff import (  # noqa: E402
     parse_diff,
     resolve_all_base,
 )
+from regression_check import is_blocking  # noqa: E402
 from regression_sizes import check_file_sizes  # noqa: E402
 
 # --- fixtures ---------------------------------------------------------------
@@ -276,6 +277,30 @@ def test_all_scope_does_not_rescan_history_on_empty_range():
     assert added == []
     assert ["diff", "v1.0.0...HEAD"] in calls, f"tag base not used: {calls}"
     assert not any("HEAD~20" in " ".join(c) for c in calls), f"fell back wrongly: {calls}"
+
+
+def test_advisory_severity_reports_without_blocking():
+    """The severity ladder: low/medium/warning/info findings do NOT gate."""
+    for sev in ("low", "medium", "warning", "info"):
+        assert not is_blocking([{"failure_id": "F", "severity": sev}], []), f"active {sev} must not block"
+        assert not is_blocking([], [{"rule_id": "R", "severity": sev}]), f"violation {sev} must not block"
+
+
+def test_high_and_missing_severity_still_block():
+    """high/critical/error block, and a MISSING severity is conservative: the
+    gate was pre-severity all-blocking, so an entry that never declared one
+    must not quietly become advisory."""
+    for sev in ("high", "critical", "error"):
+        assert is_blocking([{"failure_id": "F", "severity": sev}], []), f"{sev} failure must block"
+        assert is_blocking([], [{"rule_id": "R", "severity": sev}]), f"{sev} violation must block"
+    assert is_blocking([{"failure_id": "F"}], []), "failure with no severity must block"
+
+
+def test_one_blocking_entry_amid_advisories_blocks():
+    """The gate is per-file ANY: a warning-severity bug alongside a
+    critical-severity one must not let the file through on the average."""
+    mixed = [{"failure_id": "A", "severity": "warning"}, {"failure_id": "B", "severity": "critical"}]
+    assert is_blocking(mixed, [])
 
 
 def test_hard_size_blocks_touched_but_warns_untouched(tmp_path=None):
