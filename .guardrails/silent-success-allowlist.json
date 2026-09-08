@@ -1,5 +1,5 @@
 {
-  "note": "Known, deliberately tolerated silent-success markers. scripts/silent-success-scan.sh scans the ENABLED families in prevention-rules/silent-success-rules.json and FAILS on any occurrence NOT listed here. A hit is covered when some entry's \"file\" equals the hit's repo-relative path AND that entry's \"marker\" is a substring of the hit line — so a NEW occurrence (different file, or a different marker in the same file) still fails. Every entry should name the work item that removes it: an allowlist without expiry dates is just a list of bugs you agreed to keep. Do NOT add new production-simulating markers; fix the code instead.",
+  "note": "Known, deliberately tolerated silent-success markers. scripts/silent-success-scan.sh scans the ENABLED families in prevention-rules/silent-success-rules.json and FAILS on any occurrence NOT listed here. A hit is covered when some entry's \"file\" equals the hit's repo-relative path AND that entry's \"marker\" is a substring of the hit line \u2014 so a NEW occurrence (different file, or a different marker in the same file) still fails. Every entry should name the work item that removes it: an allowlist without expiry dates is just a list of bugs you agreed to keep. Do NOT add new production-simulating markers; fix the code instead.",
   "entry_shape": {
     "file": "repo-relative path of the file containing the marker",
     "marker": "substring of the offending line that identifies it",
@@ -7,5 +7,286 @@
     "reason": "why it is tolerated for now",
     "removal": "the sprint/ticket that removes it"
   },
-  "entries": []
+  "entries": [
+    {
+      "file": "go/cmd/game/battle_test.go",
+      "marker": "_ = os.Chdir(",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "test/bench code \u2014 discarded value is an input to a race or perf assertion, not a production success claim.",
+      "removal": "n/a (test fixture)"
+    },
+    {
+      "file": "go/cmd/game/exit_flag_test.go",
+      "marker": "_ = g.exitFlag.Load(",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "test/bench code \u2014 discarded value is an input to a race or perf assertion, not a production success claim.",
+      "removal": "n/a (test fixture)"
+    },
+    {
+      "file": "go/cmd/game/main_test.go",
+      "marker": "_ = os.Chdir(",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "test/bench code \u2014 discarded value is an input to a race or perf assertion, not a production success claim.",
+      "removal": "n/a (test fixture)"
+    },
+    {
+      "file": "go/cmd/game/modes_test.go",
+      "marker": "_ = os.Chdir(",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "test/bench code \u2014 discarded value is an input to a race or perf assertion, not a production success claim.",
+      "removal": "n/a (test fixture)"
+    },
+    {
+      "file": "go/cmd/game/runtime.go",
+      "marker": "_ = log.Global(",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "os.Rename/logger Sync/pprof listener Close \u2014 best-effort cleanup at shutdown where the failure has no actionable path; no success is reported to a caller.",
+      "removal": "reviewed permanent \u2014 fix would require plumbing errors through a best-effort path"
+    },
+    {
+      "file": "go/cmd/game/runtime.go",
+      "marker": "_ = os.Rename(",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "os.Rename/logger Sync/pprof listener Close \u2014 best-effort cleanup at shutdown where the failure has no actionable path; no success is reported to a caller.",
+      "removal": "reviewed permanent \u2014 fix would require plumbing errors through a best-effort path"
+    },
+    {
+      "file": "go/cmd/game/runtime.go",
+      "marker": "_ = pprofLn.Close(",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "os.Rename/logger Sync/pprof listener Close \u2014 best-effort cleanup at shutdown where the failure has no actionable path; no success is reported to a caller.",
+      "removal": "reviewed permanent \u2014 fix would require plumbing errors through a best-effort path"
+    },
+    {
+      "file": "go/internal/assets/embed_test.go",
+      "marker": "_ = MustGetDataFile(",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "test/bench code \u2014 discarded value is an input to a race or perf assertion, not a production success claim.",
+      "removal": "n/a (test fixture)"
+    },
+    {
+      "file": "go/internal/engine/combat_test.go",
+      "marker": "_ := g.Attack(",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "test/bench code \u2014 discarded value is an input to a race or perf assertion, not a production success claim.",
+      "removal": "n/a (test fixture)"
+    },
+    {
+      "file": "go/internal/engine/combat_test.go",
+      "marker": "_ = g.Attack(",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "test/bench code \u2014 discarded value is an input to a race or perf assertion, not a production success claim.",
+      "removal": "n/a (test fixture)"
+    },
+    {
+      "file": "go/internal/engine/data_structures_bench_test.go",
+      "marker": "_ = lookup.HasEffect(",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "test/bench code \u2014 discarded value is an input to a race or perf assertion, not a production success claim.",
+      "removal": "n/a (test fixture)"
+    },
+    {
+      "file": "go/internal/engine/data_structures_bench_test.go",
+      "marker": "_ = tracker.GetPosition(",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "test/bench code \u2014 discarded value is an input to a race or perf assertion, not a production success claim.",
+      "removal": "n/a (test fixture)"
+    },
+    {
+      "file": "go/internal/engine/data_structures_bench_test.go",
+      "marker": "_ = visited.IsVisited(",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "test/bench code \u2014 discarded value is an input to a race or perf assertion, not a production success claim.",
+      "removal": "n/a (test fixture)"
+    },
+    {
+      "file": "go/internal/engine/engine_bench_test.go",
+      "marker": "_ = NewGameState(",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "test/bench code \u2014 discarded value is an input to a race or perf assertion, not a production success claim.",
+      "removal": "n/a (test fixture)"
+    },
+    {
+      "file": "go/internal/engine/engine_bench_test.go",
+      "marker": "_ = NewItem(",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "test/bench code \u2014 discarded value is an input to a race or perf assertion, not a production success claim.",
+      "removal": "n/a (test fixture)"
+    },
+    {
+      "file": "go/internal/engine/engine_bench_test.go",
+      "marker": "_ = NewMonster(",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "test/bench code \u2014 discarded value is an input to a race or perf assertion, not a production success claim.",
+      "removal": "n/a (test fixture)"
+    },
+    {
+      "file": "go/internal/engine/engine_bench_test.go",
+      "marker": "_ = fakeAudio.GetMusicVolume(",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "test/bench code \u2014 discarded value is an input to a race or perf assertion, not a production success claim.",
+      "removal": "n/a (test fixture)"
+    },
+    {
+      "file": "go/internal/engine/engine_bench_test.go",
+      "marker": "_ = fakeInput.IsKeyJustPressed(",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "test/bench code \u2014 discarded value is an input to a race or perf assertion, not a production success claim.",
+      "removal": "n/a (test fixture)"
+    },
+    {
+      "file": "go/internal/engine/engine_bench_test.go",
+      "marker": "_ = int(",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "test/bench code \u2014 discarded value is an input to a race or perf assertion, not a production success claim.",
+      "removal": "n/a (test fixture)"
+    },
+    {
+      "file": "go/internal/engine/engine_bench_test.go",
+      "marker": "_ = rand.New(",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "test/bench code \u2014 discarded value is an input to a race or perf assertion, not a production success claim.",
+      "removal": "n/a (test fixture)"
+    },
+    {
+      "file": "go/internal/engine/engine_bench_test.go",
+      "marker": "_ = state.GetCurrentScene(",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "test/bench code \u2014 discarded value is an input to a race or perf assertion, not a production success claim.",
+      "removal": "n/a (test fixture)"
+    },
+    {
+      "file": "go/internal/engine/optimizations_bench.go",
+      "marker": "_ = clampIntOptimized(",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "benchmark sink for clampIntOptimized \u2014 result discarded by design to keep the call from being optimised away.",
+      "removal": "reviewed permanent \u2014 fix would require plumbing errors through a best-effort path"
+    },
+    {
+      "file": "go/internal/engine/performance_bench_test.go",
+      "marker": "_ = monitor.GetFPS(",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "test/bench code \u2014 discarded value is an input to a race or perf assertion, not a production success claim.",
+      "removal": "n/a (test fixture)"
+    },
+    {
+      "file": "go/internal/engine/performance_bench_test.go",
+      "marker": "_ = monitor.GetMemoryStats(",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "test/bench code \u2014 discarded value is an input to a race or perf assertion, not a production success claim.",
+      "removal": "n/a (test fixture)"
+    },
+    {
+      "file": "go/internal/engine/upgrade/upgrade_system_test.go",
+      "marker": "_ = int(",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "test/bench code \u2014 discarded value is an input to a race or perf assertion, not a production success claim.",
+      "removal": "n/a (test fixture)"
+    },
+    {
+      "file": "go/internal/integration/guardrail_test.go",
+      "marker": "_ := buildBattleState(",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "test/bench code \u2014 discarded value is an input to a race or perf assertion, not a production success claim.",
+      "removal": "n/a (test fixture)"
+    },
+    {
+      "file": "go/internal/log/config_test.go",
+      "marker": "_ = logger.Sync(",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "test/bench code \u2014 discarded value is an input to a race or perf assertion, not a production success claim.",
+      "removal": "n/a (test fixture)"
+    },
+    {
+      "file": "go/internal/log/crash_test.go",
+      "marker": "_ = Initialize(",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "test/bench code \u2014 discarded value is an input to a race or perf assertion, not a production success claim.",
+      "removal": "n/a (test fixture)"
+    },
+    {
+      "file": "go/internal/log/export_test.go",
+      "marker": "_ = logger.Sync(",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "test/bench code \u2014 discarded value is an input to a race or perf assertion, not a production success claim.",
+      "removal": "n/a (test fixture)"
+    },
+    {
+      "file": "go/internal/log/logger.go",
+      "marker": "_ = Initialize(",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "lazy bootstrap of the global logger \u2014 Initialize only fails on a corrupt zap config (unreachable in practice); a nil globalLogger panics at first use rather than reporting success.",
+      "removal": "reviewed permanent \u2014 fix would require plumbing errors through a best-effort path"
+    },
+    {
+      "file": "go/internal/log/logger_test.go",
+      "marker": "_ = Initialize(",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "test/bench code \u2014 discarded value is an input to a race or perf assertion, not a production success claim.",
+      "removal": "n/a (test fixture)"
+    },
+    {
+      "file": "go/internal/radredeye/capture.go",
+      "marker": "_ = io.Copy(",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "drain-then-close idiom on the POST response body \u2014 errors are not actionable in the capture path; already annotated PREVENT-009.",
+      "removal": "reviewed permanent \u2014 fix would require plumbing errors through a best-effort path"
+    },
+    {
+      "file": "go/internal/radredeye/capture.go",
+      "marker": "_ = resp.Body.Close(",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "drain-then-close idiom on the POST response body \u2014 errors are not actionable in the capture path; already annotated PREVENT-009.",
+      "removal": "reviewed permanent \u2014 fix would require plumbing errors through a best-effort path"
+    },
+    {
+      "file": "go/internal/radredeye/capture_test.go",
+      "marker": "_ = io.Copy(",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "test/bench code \u2014 discarded value is an input to a race or perf assertion, not a production success claim.",
+      "removal": "n/a (test fixture)"
+    },
+    {
+      "file": "go/internal/renderer/modular.go",
+      "marker": "_ = lm.AddRegion(",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "LayoutManager registration/sizing at init \u2014 the error cannot be surfaced to the render loop; no production operation is claimed successful.",
+      "removal": "reviewed permanent \u2014 fix would require plumbing errors through a best-effort path"
+    },
+    {
+      "file": "go/internal/renderer/modular.go",
+      "marker": "_ = lm.SetScreenSize(",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "LayoutManager registration/sizing at init \u2014 the error cannot be surfaced to the render loop; no production operation is claimed successful.",
+      "removal": "reviewed permanent \u2014 fix would require plumbing errors through a best-effort path"
+    },
+    {
+      "file": "go/internal/renderer/region_overlay.go",
+      "marker": "_ = r.Render(",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "debug-overlay region registration/sizing/draw \u2014 debug-only code path; debugRegion.Render always returns nil.",
+      "removal": "reviewed permanent \u2014 fix would require plumbing errors through a best-effort path"
+    },
+    {
+      "file": "go/internal/renderer/region_overlay.go",
+      "marker": "_ = ro.lm.AddRegion(",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "debug-overlay region registration/sizing/draw \u2014 debug-only code path; debugRegion.Render always returns nil.",
+      "removal": "reviewed permanent \u2014 fix would require plumbing errors through a best-effort path"
+    },
+    {
+      "file": "go/internal/renderer/region_overlay.go",
+      "marker": "_ = ro.lm.SetScreenSize(",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "debug-overlay region registration/sizing/draw \u2014 debug-only code path; debugRegion.Render always returns nil.",
+      "removal": "reviewed permanent \u2014 fix would require plumbing errors through a best-effort path"
+    },
+    {
+      "file": "go/internal/ui/region/state.go",
+      "marker": "_ = rsm.transitionTo(",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "transitionTo inside RecordError \u2014 RecordError returns a non-nil error on this branch regardless, so the caller is not told the operation succeeded.",
+      "removal": "reviewed permanent \u2014 fix would require plumbing errors through a best-effort path"
+    }
+  ]
 }
