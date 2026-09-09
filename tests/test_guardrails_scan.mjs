@@ -13,7 +13,7 @@
 //     gate with violations nobody is allowed to fix.
 //
 // Run: node tests/test_guardrails_scan.mjs
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -42,16 +42,16 @@ function makeProject(dir, files) {
 	}
 }
 
-function runScan(dir) {
+function runScan(dir, opts = {}) {
 	// Must exec the COPY inside the fixture — the scanner resolves its project
 	// root from its own file location, not from cwd.
 	const local = join(dir, ".devgate", "scripts", "guardrails-scan.mjs");
-	try {
-		execFileSync("node", [local], { cwd: dir, encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] });
-		return { code: 0, out: "", err: "" };
-	} catch (e) {
-		return { code: e.status ?? 1, out: e.stdout ?? "", err: e.stderr ?? "" };
-	}
+	const args = opts.strict ? [local, "--strict"] : [local];
+	const env = opts.rulesEnv
+		? { ...process.env, GUARDRAILS_RULES: opts.rulesEnv }
+		: process.env;
+	const res = spawnSync("node", args, { cwd: dir, encoding: "utf-8", env });
+	return { code: res.status ?? 1, out: res.stdout ?? "", err: res.stderr ?? "" };
 }
 
 // --- 1. glob-scoped rules fire on NESTED files (the core regression) --------
@@ -161,7 +161,102 @@ writeFileSync(join(dir7, ".guardrails", "prevention-rules", "pattern-rules.json"
 }
 rmSync(dir7, { recursive: true, force: true });
 
-// --- 8. Python-side semantics agree: file_glob + allow + ignore -------------
+// --- 8. Rust #[cfg(test)] blanking: blocking rules see production only ------
+// MC2 incident (2026-09-09): an unwrap() inside a test module was indistinguishable
+// from one in production handlers, so the api/db unwrap ban generated false
+// positives at a 13:12 noise ratio and got on the way to being waived.
+const dir8 = mkdtempSync(join(tmpdir(), "devgate-scan-"));
+makeProject(dir8, {
+	"api/handlers.rs": [
+		"fn real() -> u32 {",
+		"\tlet a = x.unwrap();",
+		"\tlet b = y.expect(\"nope\");",
+		"\ta + b",
+		"}",
+		"",
+		"#[cfg(test)]",
+		"mod tests {",
+		"\tuse super::*;",
+		"\t#[test]",
+		"\tfn t() { let z = v.unwrap(); assert!(true); }",
+		"}",
+	].join("\n") + "\n",
+});
+mkdirSync(join(dir8, ".guardrails", "prevention-rules"), { recursive: true });
+const rules8Path = join(dir8, ".guardrails", "prevention-rules", "pattern-rules.json");
+writeFileSync(rules8Path, JSON.stringify({
+	rules: [
+		{ rule_id: "PREVENT-RS-UNWRAP", enabled: true, pattern: "\\.(unwrap|expect)\\s*\\(", severity: "error", file_glob: ["**/*.rs"], message: "unwrap in production", suggestion: "?" },
+	],
+}));
+r = runScan(dir8, { rulesEnv: rules8Path });
+check("cfg(test): production unwrap blocks (2 hits)", r.code === 1 && r.err.includes("api/handlers.rs:2") && r.err.includes("api/handlers.rs:3"));
+check("cfg(test): unwrap inside test module is NOT reported", !r.err.includes("api/handlers.rs:11"));
+check("cfg(test): exactly 2 violation(s), not 3", r.err.includes("2 violation(s)"));
+rmSync(dir8, { recursive: true, force: true });
+
+// --- 9. whole test FILES: blocking rules skip, warnings still apply ----------
+const dir9 = mkdtempSync(join(tmpdir(), "devgate-scan-"));
+makeProject(dir9, {
+	"tests/flows.rs": "fn it() { let z = v.unwrap(); } // TODO: flaky\n",
+});
+mkdirSync(join(dir9, ".guardrails", "prevention-rules"), { recursive: true });
+const rules9Path = join(dir9, ".guardrails", "prevention-rules", "pattern-rules.json");
+writeFileSync(rules9Path, JSON.stringify({
+	rules: [
+		{ rule_id: "PREVENT-RS-UNWRAP", enabled: true, pattern: "\\.(unwrap|expect)\\s*\\(", severity: "error", file_glob: ["**/*.rs"], message: "unwrap", suggestion: "-" },
+		{ rule_id: "PREVENT-RS-TODO", enabled: true, pattern: "// TODO", severity: "warning", file_glob: ["**/*.rs"], message: "TODO", suggestion: "-" },
+	],
+}));
+r = runScan(dir9, { rulesEnv: rules9Path });
+check("test file: error rule silent", !r.err.includes("PREVENT-RS-UNWRAP"));
+check("test file: warning rule still fires", r.err.includes("PREVENT-RS-TODO") && r.err.includes("1 warning(s)"));
+check("test file: non-strict exit 0 (warning non-blocking)", r.code === 0);
+rmSync(dir9, { recursive: true, force: true });
+
+// --- 10. COMMITTED-ENV / COMMITTED-GENERATED via git index -------------------
+// The walk misses files present in the index but deleted from the working
+// tree; and local-but-untracked files must NOT fail the gate.
+const dir10 = mkdtempSync(join(tmpdir(), "devgate-scan-"));
+makeProject(dir10, {});
+{
+	execFileSync("git", ["init", "-q"], { cwd: dir10 });
+	execFileSync("git", ["add", "go.mod"], { cwd: dir10 });
+	writeFileSync(join(dir10, ".env"), "SECRET=committed\n");
+	execFileSync("git", ["add", ".env"], { cwd: dir10 });
+	writeFileSync(join(dir10, "local.env"), "SECRET=only-on-disk\n"); // never added
+	mkdirSync(join(dir10, "__pycache__"), { recursive: true });
+	writeFileSync(join(dir10, "__pycache__", "stale.pyc"), "x");
+	execFileSync("git", ["add", "__pycache__/stale.pyc"], { cwd: dir10 });
+	r = runScan(dir10);
+	check("COMMITTED-ENV fires on tracked .env", r.code === 1 && r.err.includes("COMMITTED-ENV") && r.err.includes(".env"));
+	check("COMMITTED-ENV ignores untracked file", !r.err.includes("local.env"));
+	check("COMMITTED-GENERATED fires on tracked __pycache__", r.err.includes("COMMITTED-GENERATED"));
+	// Non-git fixture dirs (tests 1–9) must skip the index checks entirely —
+	// trackedFiles returns null; a crash or false COMMITTED-* there would have
+	// failed those fixtures, which pass above.
+}
+rmSync(dir10, { recursive: true, force: true });
+
+// --- 11. --strict blocks on warnings -----------------------------------------
+const dir11 = mkdtempSync(join(tmpdir(), "devgate-scan-"));
+makeProject(dir11, {
+	"pkg/t.py": "# TODO: something\nx = 1\n",
+});
+mkdirSync(join(dir11, ".guardrails", "prevention-rules"), { recursive: true });
+const rules11Path = join(dir11, ".guardrails", "prevention-rules", "pattern-rules.json");
+writeFileSync(rules11Path, JSON.stringify({
+	rules: [
+		{ rule_id: "PREVENT-TST-TODO", enabled: true, pattern: "# TODO", severity: "warning", file_glob: ["**/*.py"], message: "TODO", suggestion: "-" },
+	],
+}));
+r = runScan(dir11, { rulesEnv: rules11Path });
+const strict = runScan(dir11, { rulesEnv: rules11Path, strict: true });
+check("warning alone: non-strict exit 0", r.code === 0 && r.err.includes("1 warning(s) (non-blocking)"));
+check("warning alone: --strict exits 1", strict.code === 1 && strict.err.includes("blocking under --strict"));
+rmSync(dir11, { recursive: true, force: true });
+
+// --- 12. Python-side semantics agree: file_glob + allow + ignore -------------
 // (game_regression.py is exercised by tests/test_game_regression.py,
 //  gate_overlay.py by tests/test_gate_overlay.py)
 

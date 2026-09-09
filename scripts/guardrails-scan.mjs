@@ -6,6 +6,7 @@
 // Supports inline `// guardrails-allow RULE-ID: <reason>` annotations.
 
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { join, dirname, resolve, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -140,6 +141,57 @@ function isIgnored(file, root, patterns) {
 	);
 }
 
+// Test-code scope for error/critical rules (MC2 incident, 2026-09-09): a
+// scanner that fires production rules on test fixtures gets waived into
+// meaninglessness. Test FILES are skipped entirely for error/critical rules;
+// inside a non-test Rust file, #[cfg(test)] mod blocks are blanked line-for-
+// line so reported line numbers stay accurate. Style rules (warning severity)
+// still scan everything — println! in a test is still noise worth reporting.
+function isTestFile(rel) {
+	const base = basename(rel);
+	if (/(^|\/)tests?\//.test(rel)) return true; // Rust integration + pytest dirs
+	if (base.endsWith("_test.go") || base.endsWith("_test.rs") || base.endsWith("_test.py")) return true;
+	if (/^(conftest|test_.*|.*\.test\.|.*\.spec\.)/.test(base)) return true;
+	return false;
+}
+
+// Brace-count #[cfg(test)] … mod { … } regions to their closing brace and
+// blank those lines (keeping indices stable). Braces inside the module are
+// balanced, so cumulative depth returns to 0 only at the module's own `}`.
+function blankTestModulesRust(lines) {
+	const out = [];
+	let depth = 0;
+	let inBlock = false;
+	for (const line of lines) {
+		if (!inBlock && /#\[cfg\(test\)\]/.test(line)) {
+			inBlock = true;
+			depth = 0;
+			out.push("");
+			continue;
+		}
+		if (inBlock) {
+			depth += (line.match(/\{/g) || []).length - (line.match(/\}/g) || []).length;
+			out.push("");
+			if (depth <= 0) inBlock = false;
+			continue;
+		}
+		out.push(line);
+	}
+	return out;
+}
+
+function trackedFiles(root) {
+	// Git index = what would actually be published. Returns null when the tree
+	// is not a git checkout (fixture dirs) so callers can skip the check
+	// rather than silently pass on the wrong file set.
+	try {
+		const out = execFileSync("git", ["ls-files"], { cwd: root, encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] });
+		return out.split("\n").filter(Boolean);
+	} catch {
+		return null;
+	}
+}
+
 function walk(dir, acc = [], ignorePatterns = []) {
 	if (!existsSync(dir)) return acc;
 	for (const name of readdirSync(dir)) {
@@ -168,22 +220,34 @@ function main() {
 	const files = walk(projectRoot, [], ignorePatterns);
 	let violations = 0;
 	let warnings = 0;
+	const STRICT = process.argv.includes("--strict");
 	for (const file of files) {
 		const lines = readFileSync(file, "utf-8").split("\n");
+		const rel = relTo(projectRoot, file);
+		const testFile = isTestFile(rel);
+		// Rust keeps unit tests in the same file as production code; blank
+		// #[cfg(test)] regions so error/critical rules see only production lines.
+		const prodLines = !testFile && file.endsWith(".rs") ? blankTestModulesRust(lines) : lines;
 		lines.forEach((line, i) => {
 			for (const rule of rules) {
 				if (!ruleAppliesTo(rule, file)) continue;
+				const blocking = rule.severity !== "warning";
+				// Error/critical rules do not apply to test code (see isTestFile).
+				if (blocking && testFile) continue;
+				// For Rust blocking rules, scan the cfg(test)-blanked line so a
+				// violation inside #[cfg(test)] never counts. Blank ⇒ skip.
+				const scanLine = blocking && file.endsWith(".rs") ? prodLines[i] : line;
+				if (blocking && file.endsWith(".rs") && prodLines[i] === "") continue;
 				const allow = new RegExp(`guardrails-allow\\s+${rule.rule_id}\\s*:\\s*\\S`);
-				if (allow.test(line)) continue;
+				if (allow.test(scanLine)) continue;
 				try {
-					if (new RegExp(rule.pattern).test(line)) {
+					if (new RegExp(rule.pattern).test(scanLine)) {
 						// forbidden_context suppresses the hit when the same line
 						// carries its documented safe usage — same rule as
 						// regression_check.py's check_diff_against_patterns. Without
 						// this, info rules like PREVENT-020 (TODO without ticket)
 						// fire on their own suppression examples.
-						if (rule.forbidden_context && new RegExp(rule.forbidden_context).test(line)) continue;
-						const rel = file.startsWith(projectRoot + "/") ? file.slice(projectRoot.length + 1) : file;
+						if (rule.forbidden_context && new RegExp(rule.forbidden_context).test(scanLine)) continue;
 						console.error(`[GUARDRAILS][${rule.severity}] ${rule.rule_id} ${rel}:${i + 1} — ${rule.message}`);
 						if (rule.severity === "warning") {
 							warnings++;
@@ -195,10 +259,33 @@ function main() {
 			}
 		});
 	}
-	if (warnings > 0) {
-		console.error(`\nGUARDRAILS: ${warnings} warning(s) (non-blocking).`);
+
+	// Committed-artifact checks against the git index (what would be published).
+	// Walk-based checks above can't see a file the working tree deleted but git
+	// still tracks, and can't tell a local-only file from one that got committed.
+	// Skipped outside a git checkout (fixture dirs) so tests stay deterministic.
+	const tracked = trackedFiles(projectRoot);
+	if (tracked) {
+		const reportedGenDirs = new Set();
+		for (const t of tracked) {
+			const base = basename(t);
+			if (base.startsWith(".env") && !/\.(example|template|sample)$/.test(base) && !/template/i.test(base)) {
+				console.error(`[GUARDRAILS][critical] COMMITTED-ENV ${t}:1 — .env file tracked in git`);
+				violations++;
+			}
+			const gen = t.match(/(^|\/)(target|node_modules|__pycache__|\.venv|venv)\//);
+			if (gen && !reportedGenDirs.has(gen[2])) {
+				reportedGenDirs.add(gen[2]);
+				console.error(`[GUARDRAILS][error] COMMITTED-GENERATED ${t} — generated directory tracked in git`);
+				violations++;
+			}
+		}
 	}
-	if (violations > 0) {
+
+	if (warnings > 0) {
+		console.error(`\nGUARDRAILS: ${warnings} warning(s)${STRICT ? " (blocking under --strict)" : " (non-blocking)"}.`);
+	}
+	if (violations > 0 || (STRICT && warnings > 0)) {
 		console.error(`GUARDRAILS: ${violations} violation(s) found.`);
 		process.exit(1);
 	}
