@@ -78,7 +78,9 @@ node .devgate/scripts/guardrails-scan.mjs
 node .devgate/scripts/semantic-scan.mjs
 
 # Regression check (file sizes, package audit, failure registry)
-python3 .devgate/scripts/regression_check.py --all --pre-commit
+# --staged scopes to what you are about to commit. Do not use --all here: it
+# scans every change since the last tag, not the commit you are making.
+python3 .devgate/scripts/regression_check.py --staged --pre-commit
 
 # Run tests (auto-detects JS .test.js and Python test_*.py files)
 node .devgate/scripts/run-tests.mjs
@@ -307,8 +309,22 @@ Add to your `.github/workflows/ci.yml`:
 - name: Semantic scan (skips if no TS/JS)
   run: node .devgate/scripts/semantic-scan.mjs
 
-- name: Regression check
+- name: Regression check (drift window)
+  # --all scans every change since the last tag (or HEAD~20). That is a
+  # drift/release sweep, NOT a review of this pull request: on a repository
+  # with legacy oversize files it reports pre-existing debt as blocking, the
+  # gate goes permanently red, and reviewers stop reading it. Schedule it
+  # (see templates/github-workflows/drift-scan.yml) and keep it off the
+  # pull-request path.
   run: python3 .devgate/scripts/regression_check.py --all --pre-commit
+
+# NOTE: DevGate has no flag to scope the regression scan to an arbitrary base
+# ref (for example origin/main...HEAD), which is what a pull-request gate
+# needs. --staged/--unstaged see nothing in a plain CI checkout, and --all
+# widens to the tag window, so there is currently no per-PR scope. For
+# file-size enforcement on pull requests use
+# templates/github-workflows/file-size-check.yml; for the full governance
+# sweep, run the regression gate on a schedule.
 
 - name: Schema health (skips if no database configured)
   run: node .devgate/scripts/schema-health-check.mjs

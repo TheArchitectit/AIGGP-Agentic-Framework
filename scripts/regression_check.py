@@ -342,6 +342,18 @@ def main():
     parser.add_argument("--soft-as-hard-base", default=None)
     args = parser.parse_args()
 
+    if args.all and args.pre_commit:
+        print(
+            "warning: --all scopes the scan to every change since the last tag "
+            "(or HEAD~20), not to the change under review. Combined with "
+            "--pre-commit it reports pre-existing debt as if this change caused "
+            "it, so on a repository with legacy oversize files the gate is "
+            "permanently red and gets ignored. Use --staged --pre-commit for a "
+            "commit/merge gate, and reserve --all for scheduled drift sweeps "
+            "and release gates.",
+            file=sys.stderr,
+        )
+
     staged = args.staged and not args.unstaged and not args.all
     unstaged = args.unstaged or args.all
     if args.all:
