@@ -33,18 +33,23 @@ another project's data and this repo's leftovers:
 
 ## Scope
 
-Shrink every bundled data file to what belongs to this repository; move
-project-specific data to the projects that own it (or document the move);
-fix the default write path that causes re-contamination; gate against
-regression.
+Shrink every bundled data file to what belongs to this repository;
+re-home project-specific *data* (allowlist entries, foreign registry bugs)
+to the projects that own it; fix the default write path that causes
+re-contamination; gate against regression. Game development stays in this
+repo (owner decision 2026-09-13 — one DevGate, not two): the bundled game
+specs are remediated in place, not moved out.
 
 ## Non-goals
 
 - The silent-success overlay merge mechanism (owned by
   2026-09-13-rule-enforcement-gaps) — this change owns the *data* and the
   log_failure default.
-- Deleting game-framework capability work: specs move to the game-framework
-  project where they are enforceable, they are not discarded.
+- Moving game development out of this repo: per owner decision
+  (2026-09-13) game dev stays in DevGate — one DevGate, not two. The M8
+  remedy is in-place remediation of the bundled game specs (requirement
+  IDs, gate references, one-repo README), not extraction, and nothing is
+  deleted.
 
 ## Success criteria
 

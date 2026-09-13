@@ -21,12 +21,17 @@ D3. **log_failure.py defaults to the owner's side.** In a submodule layout
     to write the baseline, and the command prints which file it wrote.
     Standalone behavior is unchanged.
 
-D4. **Game specs leave the framework.** The three openspec/specs/* game
-    documents and scripts/game-framework-README.md move to the
-    game-framework project (or a docs/attic note pointing there); the
-    framework keeps a one-paragraph README note that game-specific gates
-    (game_regression.py, scene_inventory.py) remain but their phase-matrix
-    specs live with the game framework.
+D4. **Game specs and gates stay in the framework — one DevGate, not
+    two.** Owner decision (Roger, 2026-09-13): game development is NOT
+    moving out of this repository. The three openspec/specs/* game
+    documents, the game gates (game_regression.py, scene_inventory.py),
+    and scripts/game-framework-README.md all remain here and are brought
+    up to framework standard in place: add `<!-- id: … -->` requirement
+    IDs so spec_traceability.py covers the game specs (no more 0/0
+    capabilities), reconcile the gates the specs reference (implement or
+    mark planned), and rewrite game-framework-README.md so it documents
+    the game tooling as part of THIS framework — it must no longer tell
+    readers to submodule a separate devgate-game-framework repo.
 
 D5. **A baseline-hygiene gate prevents re-contamination.** A small script
     (folded into failure_registry_check.py or new baseline_check.py) fails
@@ -49,9 +54,10 @@ Q1. Which consuming project owns the 1,726 allowlist entries, and does it
     pattern) preserves them regardless. Owner confirms before their next
     submodule bump.
 
-Q2. Keep the game *scripts* (game_regression.py, scene_inventory.py) in the
-    framework or move them with the specs? Recommendation: keep — they are
-    generic scanners for Godot projects; only the SoH-specific specs move.
+Q2. RESOLVED (owner, 2026-09-13): keep BOTH the game *scripts*
+    (game_regression.py, scene_inventory.py) and the game *specs* in this
+    repo. Game dev is not moving out — one DevGate, not two. D4 amended
+    from extraction to in-place remediation accordingly.
 
 ## Risk register
 
@@ -59,4 +65,4 @@ Q2. Keep the game *scripts* (game_regression.py, scene_inventory.py) in the
 |---|---|---|
 | A consumer relied on baseline allowlist coverage after a submodule bump | Medium | D1 export file + CHANGELOG migration note + overlay merge lands first (rule-enforcement-gaps) |
 | Registry split breaks a consumer's fix_commit validation | Low | gate_overlay owner logic already attributes entries per source; exports are labeled non-enforced |
-| Moving specs breaks inbound links | Low | Leave a README pointer at the old docs location |
+| Bundled game specs drift from what consuming game projects rely on while remediated in place | Low | Specs stay in exactly one place (this repo); consumers track the submodule, no second copy is created |

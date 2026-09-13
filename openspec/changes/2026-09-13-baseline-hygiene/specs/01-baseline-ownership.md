@@ -31,13 +31,23 @@ entry.
 - **WHEN** log_failure.py runs with `--upstream`
 - **THEN** the entry lands in the DevGate baseline
 
-## Requirement: Game-specific specs live with the game framework
+## Requirement: Game-dev gates and specs live in this framework
 <!-- id: base-specs-01 -->
-The language-agnostic framework shall not bundle capability specs for a
-specific game framework; remaining game-oriented scanners shall be
-documented as generic Godot tooling.
+Game development is part of this framework — one DevGate, not two (owner
+decision 2026-09-13). Bundled game specs shall carry requirement IDs
+traceable by spec_traceability.py, shall reference only gates that exist
+in this repo or are explicitly marked planned, and no bundled document
+shall direct readers to a separate game-framework repository. Game
+gates (game_regression.py, scene_inventory.py) and their specs remain
+here permanently.
 
 #### Scenario: traceable bundled specs
 - **WHEN** spec_traceability.py runs against the repo's bundled specs
 - **THEN** every spec carries requirement IDs the gate can parse (no 0/0
   capabilities)
+
+#### Scenario: no external game-framework pointer
+- **WHEN** scripts/game-framework-README.md or any bundled spec is read
+- **THEN** it documents the game tooling as part of this repo and contains
+  no instruction to submodule a separate devgate-game-framework
+  repository

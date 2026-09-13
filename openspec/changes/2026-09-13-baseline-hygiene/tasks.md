@@ -17,7 +17,9 @@
 - [ ] 3.2 failure_registry_check.py runs warning-free on clean checkout (D2)
 
 ## Sprint 4 — specs and leftovers (M8, L6)
-- [ ] 4.1 Move game specs + game-framework-README.md out; leave pointers (D4)
+- [ ] 4.1 Game specs + game-framework-README.md: remediate in place —
+      add requirement IDs, reconcile referenced gates, rewrite the README
+      to one-repo wording (no devgate-game-framework submodule pointer) (D4)
 - [ ] 4.2 .gitignore: un-ignore Cargo.lock; move PREVENT-DIST-001 note (D6)
 
 ## Sprint 5 — regression gate (D5)
