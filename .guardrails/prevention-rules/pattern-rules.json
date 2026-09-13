@@ -286,7 +286,8 @@
       "file_glob": [
         "*"
       ],
-      "suggestion": "Add ticket reference: TODO(#123) or FIXME(RAD-456)"
+      "suggestion": "Add ticket reference: TODO(#123) or FIXME(RAD-456)",
+      "scan_comments": true
     },
     {
       "rule_id": "PREVENT-021",

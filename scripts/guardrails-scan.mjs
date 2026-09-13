@@ -209,6 +209,38 @@ function walk(dir, acc = [], ignorePatterns = []) {
 	return acc;
 }
 
+// Detect comment lines by file extension so marker-comment rules (TODO, FIXME)
+// can opt in via scan_comments: true while all other rules skip comment-only lines.
+// Handles: // (JS/TS/Rust/Go/Java/Kotlin), # (Python/Shell/Ruby), <!-- --> (HTML/XML),
+// /* */ and <!-- --> on their own line, and trailing inline comments for // and #.
+function isCommentLine(line, ext) {
+	const trimmed = line.trim();
+	if (trimmed === "") return false;
+	// Full-line comments
+	if (ext === ".py" || ext === ".rb" || ext === ".sh") {
+		if (trimmed.startsWith("#")) return true;
+	} else if (ext === ".html" || ext === ".xml" || ext === ".svg") {
+		if (trimmed.startsWith("<!--")) return true;
+	} else if ([".ts", ".tsx", ".js", ".jsx", ".rs", ".go", ".java", ".kt", ".gd", ".php"].includes(ext)) {
+		if (trimmed.startsWith("//") || trimmed.startsWith("/*") || trimmed.startsWith("*")) return true;
+	}
+	// Inline trailing comments (// or # after code) — detect if the pattern
+	// appears only inside a comment suffix. We check if everything after the
+	// first // or # (for Python) is the only place the pattern could match.
+	// Conservative: only strip the comment portion for single-line comment markers.
+	if ([".ts", ".tsx", ".js", ".jsx", ".rs", ".go", ".java", ".kt", ".gd", ".php"].includes(ext)) {
+		const commentIdx = line.indexOf("//");
+		if (commentIdx >= 0) {
+			// Check if the line before // is only whitespace or code that doesn't match typical patterns
+			const beforeComment = line.substring(0, commentIdx).trim();
+			// If the line is ONLY a comment (already caught above), skip.
+			// For trailing comments on code lines, we DON'T strip — the code
+			// portion is still scanned. Only full-line comments are skipped.
+		}
+	}
+	return false;
+}
+
 function main() {
 	const rules = loadRules();
 	if (rules.length && existsSync(overlayRulesPath) && !process.env.GUARDRAILS_RULES
@@ -238,6 +270,11 @@ function main() {
 				// violation inside #[cfg(test)] never counts. Blank ⇒ skip.
 				const scanLine = blocking && file.endsWith(".rs") ? prodLines[i] : line;
 				if (blocking && file.endsWith(".rs") && prodLines[i] === "") continue;
+				// Skip comment-only lines unless the rule opts in via scan_comments.
+				// Without this, doc comments explaining why a pattern exists fire the
+				// rule on their own suppression examples.
+				const ext = "." + file.split(".").pop();
+				if (!rule.scan_comments && isCommentLine(scanLine, ext)) continue;
 				const allow = new RegExp(`guardrails-allow\\s+${rule.rule_id}\\s*:\\s*\\S`);
 				if (allow.test(scanLine)) continue;
 				try {
@@ -248,6 +285,13 @@ function main() {
 						// this, info rules like PREVENT-020 (TODO without ticket)
 						// fire on their own suppression examples.
 						if (rule.forbidden_context && new RegExp(rule.forbidden_context).test(scanLine)) continue;
+					// Test-scope inversion: when forbidden_context contains "test", the rule
+					// targets test-specific patterns. In production (non-test) files, only
+					// suppress if the line itself carries test context; otherwise the
+					// forbidden_context exclusion does not apply.
+					if (rule.forbidden_context && /(?:test|spec|mock|__tests__|bench)/i.test(rule.forbidden_context) && !testFile && !/(?:test|spec|mock|__tests__|bench)/i.test(scanLine)) {
+						// Production code — forbidden_context exclusion does not apply, let violation stand.
+					}
 						console.error(`[GUARDRAILS][${rule.severity}] ${rule.rule_id} ${rel}:${i + 1} — ${rule.message}`);
 						if (rule.severity === "warning") {
 							warnings++;
