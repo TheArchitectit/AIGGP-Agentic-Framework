@@ -1,0 +1,41 @@
+# DevGate runner-monitor hub — thin Python service image.
+#
+# The hub is a small stdlib-only Python service (no pip dependencies).
+# Base: python:3.12-slim (Debian bookworm, ~150 MB). No systemd needed —
+# the container runs `python3 -m hub.main` directly as PID 1.
+#
+# Build:
+#   podman build -t devgate-hub:local -f templates/runner-monitor/Containerfile .
+#
+# Run (see devgate-hub.container quadlet for the production unit):
+#   podman run --rm -v hub-data:/data \
+#     -e HUB_BIND_HOST=0.0.0.0 -e HUB_BIND_PORT=8443 \
+#     devgate-hub:local
+
+FROM python:3.12-slim
+
+# Non-root user (the hub binds a port; AI01 firewall restricts access).
+RUN groupadd --system devgate && useradd --system --gid devgate --home /data devgate
+
+WORKDIR /app
+
+# Copy the hub package (stdlib only — no pip install needed).
+COPY hub/ ./hub/
+
+# The data volume holds runners.json + alerts/*.jsonl.
+# Created by the quadlet Volume= directive; here we just set ownership.
+RUN mkdir -p /data/alerts && chown -R devgate:devgate /data
+
+USER devgate
+
+# Default config via ENV (overridable at runtime via quadlet Environment=).
+# HUB_BIND_HOST defaults to 127.0.0.1 in code; the quadlet sets 0.0.0.0
+# because the container's port is firewalled on AI01 (D7).
+ENV HUB_DATA_DIR=/data \
+    HUB_BIND_HOST=0.0.0.0 \
+    HUB_BIND_PORT=8443
+
+EXPOSE 8443
+
+# PID 1: the hub server. main.py handles SIGTERM/SIGINT for clean shutdown.
+ENTRYPOINT ["python3", "-m", "hub.main"]
