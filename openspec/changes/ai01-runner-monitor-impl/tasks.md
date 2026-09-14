@@ -20,9 +20,9 @@ Sprints 1–6). No spec deltas expected — the requirements are already live in
 - [x] 2.3 Tests: enroll → heartbeat → stale cycle against a fixture hub (D2b)
 
 ## Sprint 3 — GitHub polling (D2a, D5)
-- [ ] 3.1 Poll runner status + queued-run age per registered repo (commit 3)
-- [ ] 3.2 Poll check-run conclusions on watched branches (commit 3)
-- [ ] 3.3 Poll scheduled drift-scan presence/recency (commit 3)
+- [x] 3.1 Poll runner status + queued-run age per registered repo (commit 3)
+- [x] 3.2 Poll check-run conclusions on watched branches (commit 3)
+- [x] 3.3 Poll scheduled drift-scan presence/recency (commit 3)
 
 ## Sprint 4 — alerting (D6)
 - [ ] 4.1 Alert engine: dedupe by (repo, check-class, runner), JSONL alert log
