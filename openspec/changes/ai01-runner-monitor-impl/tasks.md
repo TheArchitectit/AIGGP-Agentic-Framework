@@ -9,7 +9,7 @@ Sprints 1–6). No spec deltas expected — the requirements are already live in
       runners.json load/save on the hub volume (commit 2; schema/config/tokens
       in commit 1)
 - [x] 1.2 runners.json JSON schema + redacted example committed (D3)
-- [ ] 1.3 Hub Containerfile + Podman quadlet template under
+- [x] 1.3 Hub Containerfile + Podman quadlet template under
       templates/runner-monitor/ (commit 6)
 
 ## Sprint 2 — enrollment and heartbeat (D4, D2b)
