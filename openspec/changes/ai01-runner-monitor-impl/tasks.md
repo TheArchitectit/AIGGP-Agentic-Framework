@@ -25,11 +25,11 @@ Sprints 1–6). No spec deltas expected — the requirements are already live in
 - [x] 3.3 Poll scheduled drift-scan presence/recency (commit 3)
 
 ## Sprint 4 — alerting (D6)
-- [ ] 4.1 Alert engine: dedupe by (repo, check-class, runner), JSONL alert log
+- [x] 4.1 Alert engine: dedupe by (repo, check-class, runner), JSONL alert log
       (commit 4)
-- [ ] 4.2 GitHub-issue notifier with devgate-monitor label + notifier interface
+- [x] 4.2 GitHub-issue notifier with devgate-monitor label + notifier interface
       stub (commit 4)
-- [ ] 4.3 Dead-man switch workflow template for this repo (commit 7)
+- [x] 4.3 Dead-man switch workflow template for this repo (commit 7)
 
 ## Sprint 5 — AI01 deployment runbook (D7)
 - [ ] 5.1 docs/runner-monitor-ai01.md: volume, token drop-in, enrollment tokens,

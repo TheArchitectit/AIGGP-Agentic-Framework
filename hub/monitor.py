@@ -25,6 +25,7 @@ import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 
+from .alerts import AlertSink
 from .config import Config
 from .server import HubState
 
@@ -351,8 +352,4 @@ class MonitorLoop:
             log.warning("ALERT [%s/%s/%s] %s", repo, check_class, runner, detail)
 
 
-class AlertSink:
-    """Interface for alert delivery. Sprint 4 implements AlertEngine with dedupe."""
 
-    def raise_alert(self, repo: str, check_class: str, runner: str, detail: str) -> None:
-        raise NotImplementedError

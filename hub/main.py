@@ -71,9 +71,12 @@ def main() -> int:
 
     poll_thread = None
     if os.environ.get("GITHUB_TOKEN"):
+        from .alerts import build_notifier
         from .monitor import MonitorLoop  # imported here: polling needs ghapi
+        notifier = build_notifier(config)
         poll_thread = threading.Thread(
-            target=MonitorLoop(state).run, args=(stop,), daemon=True)
+            target=MonitorLoop(state, alert_sink=notifier).run,
+            args=(stop,), daemon=True)
         poll_thread.start()
     else:
         print("[hub] WARNING: GITHUB_TOKEN not set — API polling disabled; "
