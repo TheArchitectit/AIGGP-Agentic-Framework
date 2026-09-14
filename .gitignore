@@ -72,3 +72,4 @@ Cargo.lock
 
 # Temp
 tmp/
+.pi/
