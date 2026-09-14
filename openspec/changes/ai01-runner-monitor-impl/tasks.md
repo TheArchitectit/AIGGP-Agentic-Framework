@@ -5,7 +5,7 @@ Sprints 1–6). No spec deltas expected — the requirements are already live in
 `openspec/specs/{hub-architecture,runner-monitoring,enrollment-and-alerting}/`.
 
 ## Sprint 1 — hub skeleton (D1, D3)
-- [ ] 1.1 `hub/` Python service: /enroll, /heartbeat, /health endpoints +
+- [x] 1.1 `hub/` Python service: /enroll, /heartbeat, /health endpoints +
       runners.json load/save on the hub volume (commit 2; schema/config/tokens
       in commit 1)
 - [x] 1.2 runners.json JSON schema + redacted example committed (D3)

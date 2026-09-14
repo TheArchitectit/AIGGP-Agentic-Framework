@@ -99,6 +99,8 @@ class HubHandler(BaseHTTPRequestHandler):
             self._handle_enroll(state)
         elif self.path == "/heartbeat":
             self._handle_heartbeat(state)
+        elif self.path == "/revoke":
+            self._handle_revoke(state)
         else:
             self._send(404, {"ok": False, "error": "not_found"})
 
@@ -153,6 +155,31 @@ class HubHandler(BaseHTTPRequestHandler):
             return {"ok": True}
 
         result = state.with_registry(do_heartbeat)
+        if result is False:
+            self._send(401, {"ok": False, "error": "unknown_or_revoked_token"})
+        else:
+            self._send(200, result)
+
+
+    # --- /revoke (mon-enroll-01) ---------------------------------------------
+
+    def _handle_revoke(self, state: HubState) -> None:
+        """Revoke a runner's heartbeat token. Authenticated by the token itself."""
+        data = self._read_json()
+        if not isinstance(data, dict):
+            self._send(400, {"ok": False, "error": "bad_request", "detail": "json object required"})
+            return
+        runner_name = data.get("runner_name") or ""
+        presented = data.get("heartbeat_token") or ""
+
+        def do_revoke(reg):
+            # Verify the token belongs to this runner before revoking.
+            if not reg.verify_heartbeat_token(runner_name, presented):
+                return False
+            reg.revoke(runner_name)
+            return {"ok": True, "runner_name": runner_name}
+
+        result = state.with_registry(do_revoke)
         if result is False:
             self._send(401, {"ok": False, "error": "unknown_or_revoked_token"})
         else:
