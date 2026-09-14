@@ -247,7 +247,7 @@ mkdirSync(join(dir11, ".guardrails", "prevention-rules"), { recursive: true });
 const rules11Path = join(dir11, ".guardrails", "prevention-rules", "pattern-rules.json");
 writeFileSync(rules11Path, JSON.stringify({
 	rules: [
-		{ rule_id: "PREVENT-TST-TODO", enabled: true, pattern: "# TODO", severity: "warning", file_glob: ["**/*.py"], message: "TODO", suggestion: "-" },
+		{ rule_id: "PREVENT-TST-TODO", enabled: true, pattern: "# TODO", severity: "warning", scan_comments: true, file_glob: ["**/*.py"], message: "TODO", suggestion: "-" },
 	],
 }));
 r = runScan(dir11, { rulesEnv: rules11Path });
