@@ -13,11 +13,11 @@ Sprints 1–6). No spec deltas expected — the requirements are already live in
       templates/runner-monitor/ (commit 6)
 
 ## Sprint 2 — enrollment and heartbeat (D4, D2b)
-- [ ] 2.1 scripts/runner-enroll.sh: enroll, write devgate-heartbeat.timer,
+- [x] 2.1 scripts/runner-enroll.sh: enroll, write devgate-heartbeat.timer,
       --revoke (commit 5)
 - [x] 2.2 Hub: enrollment-token verification, per-runner heartbeat token
       issuance, stale-heartbeat detection (commits 1–2)
-- [ ] 2.3 Tests: enroll → heartbeat → stale cycle against a fixture hub (D2b)
+- [x] 2.3 Tests: enroll → heartbeat → stale cycle against a fixture hub (D2b)
 
 ## Sprint 3 — GitHub polling (D2a, D5)
 - [ ] 3.1 Poll runner status + queued-run age per registered repo (commit 3)
