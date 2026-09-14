@@ -72,20 +72,38 @@ def parse_diff(diff: str) -> list[tuple[str, int, str]]:
     return added
 
 
+# The well-known empty tree. Used as the --all base when a repo has no tags
+# and fewer than HEAD~20 commits: diffing it against HEAD scans the whole
+# reachable tree as added lines, which is the honest drift sweep for a small
+# repo. A crash ("HEAD~20 does not exist") used to make the gate unrunnable
+# there — the exact repos with the least history to audit.
+EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+
+
 def resolve_all_base(run_git) -> str:
-    """Base ref for --all: the most recent tag, else HEAD~20.
+    """Base ref for --all: the most recent tag, else HEAD~20, else the root.
 
     An EMPTY range is legitimate (the tag IS HEAD) and must NOT trigger a
     fallback: rescanning released history would flag long-standing code as newly
-    added. Only when NO tag exists do we fall back to HEAD~20.
+    added. Only when NO tag exists do we fall back to HEAD~20 — and when the
+    repo has 20 or fewer commits, HEAD~20 does not exist, so we fall back to
+    the empty tree (scan everything reachable) instead of crashing.
     """
     rc, stdout, _ = run_git(["describe", "--tags", "--abbrev=0"])
     base = stdout.strip() if rc == 0 and stdout.strip() else ""
-    return base or "HEAD~20"
+    if base:
+        return base
+    rc, stdout, _ = run_git(["rev-list", "--count", "HEAD"])
+    try:
+        count = int(stdout.strip()) if rc == 0 else 0
+    except ValueError:
+        count = 0
+    return "HEAD~20" if count > 20 else EMPTY_TREE
 
 
 def get_added_lines(run_git, staged: bool = True, unstaged: bool = False,
-                    all_scope: bool = False) -> list[tuple[str, int, str]]:
+                    all_scope: bool = False,
+                    base: str | None = None) -> list[tuple[str, int, str]]:
     """Collect ADDED diff lines with accurate line numbers for the given scope.
 
     `run_git` is injected (regression_check.run_git_command) so this module
@@ -101,17 +119,28 @@ def get_added_lines(run_git, staged: bool = True, unstaged: bool = False,
         if rc == 0:
             added += parse_diff(stdout)
     if all_scope:
-        base = resolve_all_base(run_git)
-        rc, stdout, stderr = run_git(["diff", f"{base}...HEAD"])
+        all_base = resolve_all_base(run_git)
+        # The empty tree is not a commit, so merge-base (...) syntax cannot
+        # resolve it; two-dot diff is exact there. Either way an undiffable
+        # base (e.g. a tag missing from a shallow checkout) must fail loud —
+        # silently skipping used to report success while scanning zero lines.
+        rng = f"{all_base}...HEAD" if all_base != EMPTY_TREE else f"{all_base} HEAD"
+        rc, stdout, stderr = run_git(["diff"] + rng.split())
         if rc != 0:
-            # A base that can't be diffed (e.g. a tag that isn't present in a
-            # shallow checkout, or HEAD~20 when history is truncated) would
-            # make the scan VACUOUSLY pass. Fail loud so the gate is never
-            # green while scanning nothing.
             raise RuntimeError(
-                f"--all regression scan could not diff {base}...HEAD: "
+                f"--all regression scan could not diff {rng}: "
                 f"{(stderr or stdout).strip()} (is the checkout shallow? "
                 f"fetch full history + tags before running the gate)"
+            )
+        added += parse_diff(stdout)
+    if base:
+        rng = f"{base}...HEAD"
+        rc, stdout, stderr = run_git(["diff", rng])
+        if rc != 0:
+            raise RuntimeError(
+                f"--base regression scan could not diff {rng}: "
+                f"{(stderr or stdout).strip()} (does the ref exist in this "
+                f"checkout? fetch it before running the gate)"
             )
         added += parse_diff(stdout)
     return added

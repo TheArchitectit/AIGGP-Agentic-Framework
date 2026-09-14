@@ -31,6 +31,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
 from regression_diff import (  # noqa: E402
+    EMPTY_TREE,
     SELF_REFERENTIAL,
     check_added_against_registry,
     compile_registry_patterns,
@@ -255,12 +256,64 @@ def test_all_base_uses_tag_when_one_exists():
 
 
 def test_all_base_falls_back_only_when_no_tag():
-    """HEAD~20 is used ONLY when no tag exists at all."""
+    """HEAD~20 is used ONLY when no tag exists AND history is long enough."""
     def fake_git_no_tag(args):
         if args[:1] == ["describe"]:
             return (128, "", "fatal: No names found")
+        if args[:2] == ["rev-list", "--count"]:
+            return (0, "57\n", "")
         return (0, "", "")
     assert resolve_all_base(fake_git_no_tag) == "HEAD~20"
+
+
+def test_all_base_short_history_uses_empty_tree_not_crash():
+    """No tag + <=20 commits: base is the empty tree (full scan), not HEAD~20.
+
+    Regression for the zombie-hero-match crash: a 3-commit repo with no tags
+    raised 'could not diff HEAD~20...HEAD' and the drift-sweep mode did not
+    run at all. Small repos get a complete scan instead of a traceback.
+    """
+    def fake_git_small(args):
+        if args[:1] == ["describe"]:
+            return (128, "", "fatal: No names found")
+        if args[:2] == ["rev-list", "--count"]:
+            return (0, "3\n", "")
+        return (0, "", "")
+    assert resolve_all_base(fake_git_small) == EMPTY_TREE
+
+
+def test_all_scope_empty_tree_diff_uses_two_dot():
+    """The empty tree is not a commit; merge-base (...) syntax cannot resolve it."""
+    calls = []
+
+    def fake_git(args):
+        calls.append(args)
+        if args[:1] == ["describe"]:
+            return (128, "", "fatal: No names found")
+        if args[:2] == ["rev-list", "--count"]:
+            return (0, "3\n", "")
+        return (0, "", "")
+
+    get_added_lines(fake_git, staged=False, unstaged=False, all_scope=True)
+    assert ["diff", EMPTY_TREE, "HEAD"] in calls, f"two-dot empty-tree diff not used: {calls}"
+
+
+def test_base_scope_diffs_ref_and_fails_loud_on_bad_ref():
+    """--base scans committed content; an unresolvable ref must raise, not pass."""
+    calls = []
+
+    def fake_git(args):
+        calls.append(args)
+        if args[:1] == ["diff"] and "origin/main...HEAD" in args:
+            return (128, "", "fatal: bad revision 'origin/main...HEAD'")
+        return (0, "", "")
+
+    try:
+        get_added_lines(fake_git, staged=False, unstaged=False, base="origin/main")
+    except RuntimeError as exc:
+        assert "origin/main...HEAD" in str(exc), f"unhelpful message: {exc}"
+    else:
+        raise AssertionError("bad --base ref did not raise; gate can pass vacuously")
 
 
 def test_all_scope_does_not_rescan_history_on_empty_range():

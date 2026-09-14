@@ -74,3 +74,43 @@ def test_advisory_passes_on_uncovered(tmp_path):
 def test_missing_spec_file_is_error(tmp_path):
     result = run(tmp_path, "--report")
     assert result.returncode == 2
+
+
+def test_change_package_layout_is_discovered(tmp_path):
+    """openspec/changes/<change>/specs/<cap>/spec.md is a standard OpenSpec
+    layout; the gate used to miss it entirely and exit 2 with 'no specs found'
+    (zombie-hero-match audit F5)."""
+    write(tmp_path / "openspec/changes/zombie-hero-match/specs/match3-combat/spec.md", SPEC)
+    write(tmp_path / "game/match.js", "// spec: router-req-01\nswap();\n")
+    result = run(tmp_path, "--report")
+    assert result.returncode == 0
+    assert "router-req-01: covered" in result.stdout
+
+
+def test_archived_changes_are_skipped(tmp_path):
+    write(tmp_path / "openspec/changes/archive/2026-01-01-old/specs/old/spec.md", SPEC)
+    result = run(tmp_path, "--report")
+    assert result.returncode == 2
+    assert "0 requirement IDs" not in result.stdout  # archived specs don't count as found
+    assert "no spec files found" in result.stdout
+
+
+def test_specs_without_id_markers_get_honest_diagnostic(tmp_path):
+    """Heading-style specs (### R1:) exist but carry no <!-- id: --> markers:
+    say exactly that, never 'no specs found'."""
+    write(tmp_path / "openspec/changes/x/specs/cap/spec.md",
+          "### R1: Swap validation\nThe game SHALL revert invalid swaps.\n")
+    result = run(tmp_path, "--report")
+    assert result.returncode == 2
+    assert "0 requirement IDs" in result.stdout
+    assert "no spec files found" not in result.stdout
+
+
+def test_both_layouts_merge(tmp_path):
+    write(tmp_path / "openspec/specs/router/spec.md", SPEC)
+    write(tmp_path / "openspec/changes/ch1/specs/net/spec.md",
+          SPEC.replace("router-req-01", "net-req-01"))
+    result = run(tmp_path, "--report")
+    assert result.returncode == 0
+    assert "router-req-01" in result.stdout and "net-req-01" in result.stdout
+    assert "2/2 requirements covered" not in result.stdout  # nothing marked yet

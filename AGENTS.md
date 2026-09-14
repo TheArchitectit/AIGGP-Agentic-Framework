@@ -105,6 +105,22 @@ DevGate's scanners catch *known* failure patterns. They cannot tell whether the 
 
 Never report a check as passed when it failed, was skipped, or was never run. Use `NOT_RUN` with the blocker stated — a gate falsely reported green is worse than one that was never run, because it removes the reason to look.
 
+## Gate Honesty (No Vacuous Green)
+
+A gate that evaluated zero inputs is not a passed gate:
+
+- `regression_check.py --staged` on a clean checkout has NOTHING to scan (it only sees uncommitted work). It prints a NOTHING SCANNED notice; treat that as no evidence. To audit committed content, run `--base <ref>` (e.g. `--base origin/main`) or `--all`. In CI use `--fail-if-empty` so zero-input runs fail the job.
+- `semantic-scan.mjs` without the `typescript` parser FAILS (it could not evaluate your files). If the project knowingly cannot provide the parser, set `DEVGATE_SEMANTIC_REQUIRED=0` and report the gate as SKIPPED, never as green.
+- Run the gates AT THE HEAD YOU PUSH. A green run on an earlier commit that later commits broke is a stale result — re-run after every change, before pushing.
+
+## Tests That Prove Something
+
+run-tests.mjs runs your tests; it cannot judge whether they prove anything. When you write tests:
+
+- Prefer **behavioral** tests that call the real code path and assert on outcomes. Presence/substring checks (`assert "function" in source`) detect deletion, not breakage — a suite made only of them is weak evidence and must be called out as such in handoffs.
+- Never round-trip a hand-written literal and claim it validates save/load (or any) code. Build fixtures by CALLING the real function, or delete the test.
+- Expose a seam (e.g. `window.__hooks`) so tests can exercise real logic instead of copies of it.
+
 See **[docs/WRITE_AUDIT_REVIEW.md](docs/WRITE_AUDIT_REVIEW.md)** for the full process, the auditor checklist, and the acceptance-report contract. Release-specific gates are in **[docs/RELEASE_GATE.md](docs/RELEASE_GATE.md)**.
 
 ## When You Fix a Bug

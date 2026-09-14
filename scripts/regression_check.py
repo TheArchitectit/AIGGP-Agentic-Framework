@@ -7,8 +7,15 @@ Does NOT assume any specific language, package manager, or directory structure.
 Usage:
     python scripts/regression_check.py              # Check staged changes
     python scripts/regression_check.py --unstaged     # Check unstaged changes
-    python scripts/regression_check.py --all         # Check all changes
+    python scripts/regression_check.py --all         # Check all changes (last tag, else HEAD~20, else root)
+    python scripts/regression_check.py --base REF     # Check committed content as diff REF...HEAD
     python scripts/regression_check.py --pre-commit   # Exit non-zero if issues found
+    python scripts/regression_check.py --fail-if-empty # Exit 2 when the scope scanned zero files
+
+Vacuous-green contract: a run that scanned ZERO files prints a NOTHING
+SCANNED notice instead of the clean-pass line — "green" that evaluated no
+inputs is not evidence of a clean tree (see gate-execution-contract
+gate-vacuous-01). --fail-if-empty turns that notice into exit 2 for CI.
 
 Environment Variables:
     FAILURE_REGISTRY_PATH: Path to registry file (overrides the bundled+overlay merge)
@@ -260,7 +267,8 @@ def is_blocking(failures: list[dict], violations: list[dict]) -> bool:
 
 def run_regression_check(registry_path: Path | None = None, rules_path: Path | None = None,
                          staged: bool = True,
-                         unstaged: bool = False, verbose: bool = False) -> tuple[int, list[dict]]:
+                         unstaged: bool = False,
+                         verbose: bool = False) -> tuple[int, list[dict], int]:
     issues = []
     entries, _owner = gate_overlay.resolve_registry(PROJECT_ROOT, registry_path, statuses=SCANNED_STATUSES)
     failures = load_active_failures(entries)
@@ -269,7 +277,7 @@ def run_regression_check(registry_path: Path | None = None, rules_path: Path | N
     if not changed_files:
         if verbose:
             print("No changed files to check")
-        return 0, []
+        return 0, [], 0
     for file_path in changed_files:
         file_issues = {"file": file_path, "failures": [], "violations": []}
         matching_failures = check_file_against_failures(file_path, failures)
@@ -283,7 +291,7 @@ def run_regression_check(registry_path: Path | None = None, rules_path: Path | N
         if file_issues["failures"] or file_issues["violations"]:
             file_issues["blocking"] = is_blocking(file_issues["failures"], file_issues["violations"])
             issues.append(file_issues)
-    return len(issues), issues
+    return len(issues), issues, len(changed_files)
 
 
 def print_report(issues: list[dict], verbose: bool = False):
@@ -332,6 +340,13 @@ def main():
     group.add_argument("--staged", action="store_true", default=True)
     group.add_argument("--unstaged", "-u", action="store_true")
     group.add_argument("--all", "-a", action="store_true")
+    parser.add_argument("--base", default=None, metavar="REF",
+                        help="also scan committed content as diff REF...HEAD "
+                             "(answers 'the pushed branch was never audited': a clean "
+                             "checkout has no staged changes for --staged to see)")
+    parser.add_argument("--fail-if-empty", action="store_true",
+                        help="exit 2 when the selected scope scanned zero files, "
+                             "so CI cannot green-light a run that evaluated nothing")
     parser.add_argument("--pre-commit", action="store_true")
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--no-file-sizes", action="store_true")
@@ -359,14 +374,18 @@ def main():
     if args.all:
         staged = True
 
-    count, issues = run_regression_check(registry_path=args.registry, rules_path=args.rules,
-                                         staged=staged, unstaged=unstaged,
-                                         verbose=args.verbose and not args.quiet)
+    count, issues, files_scanned = run_regression_check(
+        registry_path=args.registry, rules_path=args.rules,
+        staged=staged, unstaged=unstaged,
+        verbose=args.verbose and not args.quiet)
 
     # Hunk-accurate ADDED lines drive the registry regression scan and tell the
     # file-size check which files this diff actually touches.
     added = get_added_lines(run_git_command, staged=staged, unstaged=unstaged,
-                            all_scope=args.all)
+                            all_scope=args.all, base=args.base)
+    if args.base:
+        files_scanned += len({path for path, _, _ in added})
+    vacuous = files_scanned == 0 and not added
     touched = {path for path, _, _ in added}
 
     all_entries, _owner = gate_overlay.resolve_registry(
@@ -406,7 +425,9 @@ def main():
         audit_blocking, audit_warnings, audit_issues = check_npm_audit(PROJECT_ROOT)
 
     if args.json:
-        print(json.dumps({"issue_count": count, "size_violations_hard": size_hard_count,
+        print(json.dumps({"issue_count": count, "files_scanned": files_scanned,
+                           "vacuous": vacuous,
+                           "size_violations_hard": size_hard_count,
                            "soft_as_hard_blocked": soft_as_hard_count,
                            "audit_blocking": audit_blocking, "audit_warnings": audit_warnings,
                            "registry_regressions": len(registry_violations),
@@ -416,7 +437,15 @@ def main():
     else:
         for warn in pattern_warnings:
             print(f"Warning: {warn}")
-        if not args.quiet or count > 0:
+        if vacuous:
+            print("\n" + "!" * 70)
+            print("REGRESSION CHECK: NOTHING SCANNED — the selected scope contains "
+                  "0 changed files.")
+            print("This run evaluated no inputs; it is NOT evidence of a clean tree.")
+            print("On a clean checkout, --staged/--unstaged see only uncommitted work.")
+            print("Scan committed content with --base <ref> (diff REF...HEAD) or --all.")
+            print("!" * 70)
+        elif not args.quiet or count > 0:
             print_report(issues, verbose=args.verbose)
         print_registry_regression_report(registry_violations)
         if size_issues and (not args.quiet or size_hard_count > 0):
@@ -432,6 +461,8 @@ def main():
                 print(f"    {issue['file']}  ({issue['lines']} lines, soft {issue['soft']})")
             print("=" * 70)
 
+    if args.fail_if_empty and vacuous:
+        sys.exit(2)
     blocking = sum(1 for issue in issues if issue.get("blocking"))
     if args.pre_commit and (blocking > 0 or size_hard_count > 0 or soft_as_hard_count > 0
                             or audit_blocking > 0 or registry_violations):

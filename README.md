@@ -82,6 +82,14 @@ node .devgate/scripts/semantic-scan.mjs
 # scans every change since the last tag, not the commit you are making.
 python3 .devgate/scripts/regression_check.py --staged --pre-commit
 
+# On a clean checkout --staged sees NOTHING (it only scans uncommitted work).
+# The gate says so loudly ("NOTHING SCANNED") instead of printing a clean pass.
+# To audit already-committed content — e.g. a branch that was pushed without a
+# local gate run — scan it explicitly:
+python3 .devgate/scripts/regression_check.py --base origin/main   # diff origin/main...HEAD
+# In CI, fail the job when a scope evaluated zero files:
+python3 .devgate/scripts/regression_check.py --staged --fail-if-empty
+
 # Run tests (auto-detects JS .test.js and Python test_*.py files)
 node .devgate/scripts/run-tests.mjs
 
@@ -145,6 +153,29 @@ DEVGATE_TEST_POOL=8            # parallel worker count
 DEVGATE_TEST_HANG_MS=10000     # silence threshold before force-kill
 ```
 
+#### Evidence quality: what a green run actually proves
+
+run-tests executes whatever test files exist; it cannot judge whether those
+tests prove anything. When you write or review a suite, grade each test:
+
+- **Behavioral (strong):** calls the real code path and asserts on the outcome
+  (a swap function rejects an invalid move; `saveGame()` output round-trips
+  through `loadSave()`).
+- **Contract (useful):** parses/validates the real artifact (the shipped HTML's
+  script blocks parse; the save schema a real save produces has the required
+  fields).
+- **Presence (weak):** substring or file-existence checks (`assert "function"
+  in source`). These detect deletion, not breakage.
+
+Rules of thumb:
+- A suite that is ONLY presence checks is weak evidence — say so in the
+  handoff; never cite it as "tested".
+- Round-tripping a hand-written literal (e.g. `JSON.parse(JSON.stringify({
+  wave: 1 }))`) proves nothing about the code that actually saves. Build the
+  fixture by CALLING the real function, or drop the test.
+- Expose seams for behavioral tests where the runtime allows it (e.g. a
+  `window.__hooks` object) instead of testing copies of the logic.
+
 ### Regression Scanner (`scripts/regression_check.py`)
 
 Scans changed files against the failure registry and pattern rules.
@@ -152,6 +183,14 @@ Scans changed files against the failure registry and pattern rules.
 - **Package audit** — auto-detects your package manager (npm audit, or skips if not npm)
 - **Soft-as-hard headroom gate** — promotes soft violations to blocking for changed files only
 - **Failure registry** — cross-references changed files against known bug history
+- **No vacuous green** — a scope with zero changed files prints a NOTHING
+  SCANNED notice (never the clean-pass line); `--fail-if-empty` turns it into
+  exit 2 for CI
+- **`--base REF`** — scans committed content as `diff REF...HEAD`, so pushed
+  branches can be audited after the fact (staged-only scanning cannot)
+- **`--all` on small repos** — with no tags and 20 or fewer commits it scans
+  from the repository root (empty-tree base) instead of crashing on `HEAD~20`;
+  an undiffable base still fails loud rather than passing vacuously
 
 ### Pattern Scanner (`scripts/guardrails-scan.mjs`)
 
@@ -169,6 +208,13 @@ AST-based scanner using the TypeScript compiler API. If your project has no Type
 
 - `SEMANTIC-001`: Promise `.then()` chains without `.catch()`
 - `SEMANTIC-005`: React `useEffect` with missing dependencies
+
+The parser (`typescript@5`) is loaded lazily. When TS/JS files exist but the
+parser is unavailable, the gate FAILS with the install command — a gate that
+evaluated nothing must not read as "clean". Projects that knowingly cannot
+provide the parser may set `DEVGATE_SEMANTIC_REQUIRED=0`: the gate then exits
+0 with an explicit `SKIPPED` line, so the gate list says "skipped", not
+"green".
 
 ### Deploy Pipeline (`scripts/deploy.sh`)
 
@@ -222,6 +268,13 @@ python3 .devgate/scripts/findings_to_spec.py               # group by category
 node .devgate/scripts/guardrails-scan.mjs 2>&1 \
   | python3 .devgate/scripts/findings_to_spec.py --stdin   # fold live findings in
 ```
+
+`spec_traceability.py` discovers requirements in both standard OpenSpec
+layouts — `openspec/specs/<capability>/spec.md` and
+`openspec/changes/<change>/specs/**/*.md` (archived changes excluded) — keyed
+on `<!-- id: name -->` markers. Spec files without id markers get an explicit
+"0 requirement IDs in the supported format" diagnostic (exit 2), never a
+misleading "no specs found".
 
 The loop closes: `log_failure.py` records a bug → `findings_to_spec.py` turns
 it into a spec requirement → the fix carries `// spec: <id>` →

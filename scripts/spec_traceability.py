@@ -2,7 +2,14 @@
 """Spec traceability gate: every openspec requirement ID needs a `// spec: <id>`
 marker in a source file. Modes: advisory (exit 0, report) / blocking (exit 1).
 Per-spec override via openspec/gate-config.json: {"specs": {"<capability>": "blocking"}}.
-Exit codes: 0 pass, 1 uncovered in blocking mode, 2 usage/error."""
+Exit codes: 0 pass, 1 uncovered in blocking mode, 2 usage/config error.
+
+Spec discovery covers BOTH standard OpenSpec layouts:
+  openspec/specs/<capability>/spec.md          (published specs)
+  openspec/changes/<change>/specs/**/*.md      (change packages, archive/ skipped)
+Requirement IDs use the <!-- id: ... --> marker; heading-only specs are
+reported as "0 requirement IDs in the supported format", never as "no specs
+found" - a gate that misdescribes what it looked at cannot be trusted."""
 import argparse
 import json
 import re
@@ -22,14 +29,29 @@ def load_config(root: Path) -> dict:
     return json.loads(cfg_path.read_text())
 
 
+def find_spec_files(root: Path) -> list[Path]:
+    """All spec files in both standard OpenSpec layouts.
+
+    openspec/specs/<capability>/spec.md plus openspec/changes/<change>/specs/**/*.md,
+    skipping archived changes (their requirements already live, or are being
+    moved, under openspec/specs/).
+    """
+    files = sorted((root / "openspec" / "specs").glob("*/spec.md"))
+    changes = root / "openspec" / "changes"
+    if changes.is_dir():
+        for spec in sorted(changes.glob("*/specs/**/*.md")):
+            if "archive" not in spec.relative_to(changes).parts:
+                files.append(spec)
+    return files
+
+
 def collect_requirements(root: Path) -> dict:
-    """capability -> {req_id: spec_path}"""
+    """capability -> {req_id: spec_path}, across both OpenSpec layouts."""
     out = {}
-    specs_dir = root / "openspec" / "specs"
-    if not specs_dir.is_dir():
-        return out
-    for spec in sorted(specs_dir.glob("*/spec.md")):
-        capability = spec.parent.name
+    for spec in find_spec_files(root):
+        # specs/<cap>/spec.md -> capability dir; flat change specs/<file>.md
+        # -> file stem (DevGate's own change packages use that flat layout).
+        capability = spec.parent.name if spec.name == "spec.md" else spec.stem
         ids = REQ_ID.findall(spec.read_text())
         out.setdefault(capability, {})
         for rid in ids:
@@ -66,8 +88,17 @@ def main() -> int:
         print(f"spec-traceability: config/parse error: {exc}", file=sys.stderr)
         return 2
 
-    if not requirements:
-        print("spec-traceability: no specs found under openspec/specs/")
+    total_ids = sum(len(r) for r in requirements.values())
+    if total_ids == 0:
+        spec_files = find_spec_files(root)
+        if spec_files:
+            print(f"spec-traceability: found {len(spec_files)} spec file(s) under "
+                  "openspec/specs/ and openspec/changes/*/specs/ but 0 requirement IDs "
+                  "in the supported <!-- id: name --> format. Add id markers to the "
+                  "requirements this gate should track, or it stays a config error (exit 2).")
+        else:
+            print("spec-traceability: no spec files found under openspec/specs/ or "
+                  "openspec/changes/*/specs/ (searched both OpenSpec layouts)")
         return 2
 
     markers = collect_markers(root)
@@ -85,7 +116,7 @@ def main() -> int:
             if not covered and mode == "blocking":
                 blocking_failures.append(rid)
 
-    total = sum(len(r) for r in requirements.values())
+    total = total_ids
     covered_count = len(markers & set(rid for r in requirements.values() for rid in r))
     uncovered = total - covered_count
     print(f"spec-traceability: {covered_count}/{total} requirements covered")

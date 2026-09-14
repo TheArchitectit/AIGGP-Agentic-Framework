@@ -175,12 +175,19 @@ async function main() {
 	}
 	// typescript@7 ships as a CLI-only package (the compiler API moved off the
 	// root export), so a bare `npm install typescript` loads fine but crashes
-	// mid-scan with an opaque "Cannot read properties of undefined". Fail with
-	// the actionable version pin instead — and fail loud: "you have TS/JS files
-	// but no parser" must never read as "scan clean".
+	// mid-scan with an opaque "Cannot read properties of undefined". Two honest
+	// outcomes, never a silent pass: by default the gate FAILS with the
+	// actionable pin ("you have TS/JS files but no parser" must not read as
+	// "scan clean"); a project that knowingly cannot provide the parser sets
+	// DEVGATE_SEMANTIC_REQUIRED=0 and gets an explicit SKIPPED line — the gate
+	// list then says "skipped", not "green".
 	if (!ts || typeof ts.createSourceFile !== "function" || !ts.ScriptTarget) {
-		console.error(`GUARDRAILS: semantic scan found ${files.length} TS/JS file(s) but cannot load the typescript compiler API.`);
-		console.error("Install it with: npm install --no-save typescript@5  (v7 dropped the root compiler API).");
+		if (process.env.DEVGATE_SEMANTIC_REQUIRED === "0") {
+			console.log(`GUARDRAILS: semantic scan SKIPPED — ${files.length} TS/JS file(s) found but the typescript compiler API is unavailable (DEVGATE_SEMANTIC_REQUIRED=0). Install with: npm install --no-save typescript@5 to actually run this gate.`);
+			process.exit(0);
+		}
+		console.error(`GUARDRAILS: semantic scan found ${files.length} TS/JS file(s) but cannot load the typescript compiler API. The gate evaluated NOTHING — this is a tooling error, not a clean scan.`);
+		console.error("Install it with: npm install --no-save typescript@5  (v7 dropped the root compiler API). To skip this gate explicitly instead, set DEVGATE_SEMANTIC_REQUIRED=0.");
 		process.exit(1);
 	}
 
