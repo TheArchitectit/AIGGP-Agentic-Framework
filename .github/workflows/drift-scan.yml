@@ -4,6 +4,9 @@
 # Env-adaptive (fleet standard): installs its own Node 20 job-locally; gates
 # that the runner environment genuinely cannot run are recorded as
 # SKIPPED-with-reason in the job summary — never silent, never fake-green.
+# Scanners are cloned into the workspace at .devgate/ (NOT $RUNNER_TEMP):
+# the .mjs scanners anchor project-root detection on the script location, so
+# an out-of-tree placement scans the scanner copy instead of this repo.
 name: Drift Scan
 
 on:
@@ -32,18 +35,16 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Bootstrap DevGate scanners (pinned framework main)
+      - name: Bootstrap DevGate scanners (pinned, in-tree at .devgate/)
         run: |
           set -euo pipefail
-          DG="$RUNNER_TEMP/devgate-scan"
-          rm -rf "$DG"
-          git clone https://github.com/TheArchitectit/DevGate-Agentic-Framework.git "$DG"
-          git -C "$DG" checkout cb29c002db0fa5c04a3984300e780a0a3e84f76d
+          rm -rf .devgate
+          git clone https://github.com/TheArchitectit/DevGate-Agentic-Framework.git .devgate
+          git -C .devgate checkout cb29c002db0fa5c04a3984300e780a0a3e84f76d
 
       - name: Drift gate suite (full tree)
         run: |
           set -uo pipefail
-          DG="$RUNNER_TEMP/devgate-scan"
           PY_OK=0
           command -v python3 >/dev/null && python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 9) else 1)' 2>/dev/null && PY_OK=1
 
@@ -56,18 +57,23 @@ jobs:
 
           # python-gated: regression_check.py requires >=3.9 (py3.8 crashes on list[str])
           if [ "$PY_OK" = "1" ]; then
-            run_gate regression python3 "$DG/scripts/regression_check.py" --all --pre-commit
+            run_gate regression python3 .devgate/scripts/regression_check.py --all --pre-commit
           else RES[regression]="SKIPPED (python < 3.9 on this runner)"; fi
 
-          run_gate guardrails node "$DG/scripts/guardrails-scan.mjs"
+          run_gate guardrails node .devgate/scripts/guardrails-scan.mjs
 
-          run_gate silent-success bash "$DG/scripts/silent-success-scan.sh"
+          run_gate silent-success bash .devgate/scripts/silent-success-scan.sh
 
-          # semantic: TS compiler API needed when TS/JS files exist (typescript@5
-          # injected into the scanner root; v7 dropped the root compiler API).
-          if [ -n "$(find . -path ./.git -prune -o -path '*/node_modules' -prune -o -type f \( -name '*.ts' -o -name '*.tsx' -o -name '*.js' -o -name '*.jsx' -o -name '*.mjs' -o -name '*.cjs' \) -print -quit)" ]; then
-            npm --prefix "$DG" install --no-save typescript@5 >/dev/null 2>&1 || true
-            run_gate semantic node "$DG/scripts/semantic-scan.mjs"
+          # semantic: TS compiler API needed when TS/JS files exist in THIS repo
+          # (typescript@5 injected into the scanner root; v7 dropped the root
+          # compiler API). Detection prunes ./.devgate (a .mjs copy must not
+          # count as project source). typescript is installed AFTER the
+          # tree-walking gates and removed right after, so node_modules never
+          # pollutes a scan.
+          if [ -n "$(find . -path ./.git -prune -o -path ./.devgate -prune -o -path '*/node_modules' -prune -o -type f \( -name '*.ts' -o -name '*.tsx' -o -name '*.js' -o -name '*.jsx' -o -name '*.mjs' -o -name '*.cjs' \) -print -quit)" ]; then
+            npm --prefix .devgate install --no-save typescript@5 >/dev/null 2>&1 || true
+            run_gate semantic node .devgate/scripts/semantic-scan.mjs
+            rm -rf .devgate/node_modules
           else RES[semantic]="SKIPPED (no TS/JS files in tree)"; fi
 
           {
@@ -80,6 +86,6 @@ jobs:
             echo "| silent-success | ${RES[silent-success]:-NOT_RUN} |"
             echo "| semantic | ${RES[semantic]:-NOT_RUN} |"
             echo ""
-            echo "Scanners: DevGate-Agentic-Framework@cb29c002 (cloned fresh, pinned)"
+            echo "Scanners: DevGate-Agentic-Framework@cb29c002 (in-tree clone, pinned)"
           } >> "$GITHUB_STEP_SUMMARY"
           exit $FAIL
