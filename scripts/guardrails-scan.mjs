@@ -3,7 +3,8 @@
 // Scans the PARENT project's source files (not DevGate's own directory).
 // Loads .guardrails/prevention-rules/pattern-rules.json and checks all source
 // files against enabled error/critical rules.
-// Supports inline `// guardrails-allow RULE-ID: <reason>` annotations.
+// Supports inline `// guardrails-allow RULE-ID: <reason>` annotations and
+// file-scope `//! guardrails-allow-file RULE-ID: <reason>` declarations.
 
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
@@ -180,6 +181,39 @@ function blankTestModulesRust(lines) {
 	return out;
 }
 
+// File-scope suppression: a `//! guardrails-allow-file RULE-ID: <reason>`
+// declaration in the file header exempts the ENTIRE file for that rule.
+// radcode's own gate (scripts/guardrails_rules.py) has shipped this since the
+// PREVENT-RAD-001..004 overlay landed; the framework scanner honored only the
+// line-level form, so every annotated file got re-flagged on each sweep (92
+// false blocking findings on radcode alone). The reason is mandatory — a bare
+// `guardrails-allow-file RULE:` with no justification is not an exemption —
+// and prose reasons that wrap onto following comment lines are joined before
+// the check. Only the header is consulted so the declaration stays visible to
+// a reader who never scrolls.
+const FILE_SCOPE_MAX_LINES = 20;
+const FILE_SCOPE_RE = /\/\/[/!]?\s*guardrails-allow-file\s+([A-Z0-9-]+)\s*:\s*(.*)$/;
+
+function fileScopeExemptions(lines) {
+	const out = new Set();
+	const header = lines.slice(0, FILE_SCOPE_MAX_LINES);
+	for (let i = 0; i < header.length; i++) {
+		const m = FILE_SCOPE_RE.exec(header[i]);
+		if (!m) continue;
+		const parts = [m[2].trim()];
+		for (let j = i + 1; j < header.length; j++) {
+			const next = header[j].trim();
+			if (!(next.startsWith("//") || next.startsWith("/*") || next.startsWith("*"))) break;
+			if (FILE_SCOPE_RE.test(next)) break;
+			const body = next.replace(/^\/[/!]?\s*/, "").trim();
+			if (!body) break;
+			parts.push(body);
+		}
+		if (parts.join(" ").trim()) out.add(m[1]);
+	}
+	return out;
+}
+
 function trackedFiles(root) {
 	// Git index = what would actually be published. Returns null when the tree
 	// is not a git checkout (fixture dirs) so callers can skip the check
@@ -257,12 +291,16 @@ function main() {
 		const lines = readFileSync(file, "utf-8").split("\n");
 		const rel = relTo(projectRoot, file);
 		const testFile = isTestFile(rel);
+		// File-scope exemptions are declared once in the header and apply to
+		// every line of the file.
+		const fileExempt = fileScopeExemptions(lines);
 		// Rust keeps unit tests in the same file as production code; blank
 		// #[cfg(test)] regions so error/critical rules see only production lines.
 		const prodLines = !testFile && file.endsWith(".rs") ? blankTestModulesRust(lines) : lines;
 		lines.forEach((line, i) => {
 			for (const rule of rules) {
 				if (!ruleAppliesTo(rule, file)) continue;
+				if (fileExempt.has(rule.rule_id)) continue;
 				const blocking = rule.severity !== "warning";
 				// Error/critical rules do not apply to test code (see isTestFile).
 				if (blocking && testFile) continue;

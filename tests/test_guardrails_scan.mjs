@@ -256,7 +256,36 @@ check("warning alone: non-strict exit 0", r.code === 0 && r.err.includes("1 warn
 check("warning alone: --strict exits 1", strict.code === 1 && strict.err.includes("blocking under --strict"));
 rmSync(dir11, { recursive: true, force: true });
 
-// --- 12. Python-side semantics agree: file_glob + allow + ignore -------------
+// --- 12. guardrails-allow-file exempts a whole file; reason mandatory -------
+// radcode shipped PREVENT-RAD-001..004 with FILE-scope annotations, but the
+// framework scanner honored only the line-level form, so every annotated file
+// was re-flagged on each sweep (92 false blocking findings on radcode alone).
+// The declaration must sit in the header, carry a non-empty reason, and exempt
+// only the rule it names.
+const dir12 = mkdtempSync(join(tmpdir(), "devgate-scan-"));
+const lateTail = Array.from({ length: 21 }, (_, i) => `let v${i} = ${i};`).join("\n");
+makeProject(dir12, {
+	"app/annotated.ts": "// guardrails-allow-file PREVENT-TST-EXC: terminal output is the CLI contract\nconsole.log(userInput)\n",
+	"app/no_reason.ts": "// guardrails-allow-file PREVENT-TST-EXC:\nconsole.log(userInput)\n",
+	"app/other_rule.ts": "// guardrails-allow-file PREVENT-TST-OTHER: a different rule\nconsole.log(userInput)\n",
+	"app/late.ts": `${lateTail}\n// guardrails-allow-file PREVENT-TST-EXC: declared past the header\nconsole.log(userInput)\n`,
+});
+mkdirSync(join(dir12, ".guardrails", "prevention-rules"), { recursive: true });
+const rules12Path = join(dir12, ".guardrails", "prevention-rules", "pattern-rules.json");
+writeFileSync(rules12Path, JSON.stringify({
+	rules: [
+		{ rule_id: "PREVENT-TST-EXC", enabled: true, pattern: "console\\.log", severity: "error", file_glob: ["**/*.ts"], message: "console.log in library", suggestion: "use a logger" },
+	],
+}));
+r = runScan(dir12, { rulesEnv: rules12Path });
+check("allow-file: header declaration exempts the whole file", !r.err.includes("annotated.ts"));
+check("allow-file: empty reason is NOT an exemption", r.err.includes("no_reason.ts"));
+check("allow-file: unrelated rule id does not exempt", r.err.includes("other_rule.ts"));
+check("allow-file: declaration past the header does not exempt", r.err.includes("late.ts"));
+check("allow-file: exactly 3 violations (reason/rule/position)", r.err.includes("3 violation(s)"));
+rmSync(dir12, { recursive: true, force: true });
+
+// --- 13. Python-side semantics agree: file_glob + allow + ignore -------------
 // (game_regression.py is exercised by tests/test_game_regression.py,
 //  gate_overlay.py by tests/test_gate_overlay.py)
 
