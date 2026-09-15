@@ -37,7 +37,7 @@ jobs:
           set -euo pipefail
           DG="$RUNNER_TEMP/devgate-scan"
           rm -rf "$DG"
-          git clone --depth 1 https://github.com/TheArchitectit/DevGate-Agentic-Framework.git "$DG"
+          git clone https://github.com/TheArchitectit/DevGate-Agentic-Framework.git "$DG"
           git -C "$DG" checkout cb29c002db0fa5c04a3984300e780a0a3e84f76d
 
       - name: Drift gate suite (full tree)
