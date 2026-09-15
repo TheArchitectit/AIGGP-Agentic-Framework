@@ -82,6 +82,23 @@ This repo is public. Every runner artifact here must stay free of:
 `scripts/detect-host-ci.py` redacts token-shaped values before anything
 reaches stdout; keep that guarantee in any template you add.
 
+## Monitoring your runner fleet
+
+A runner deployed from this standard can report to the **runner monitor hub** —
+one small service that watches every registered runner for offline state,
+stalled queues, red gates, and stale drift scans, and files a deduplicated
+GitHub issue when something breaks. The hub ships in `hub/`; its image and
+quadlet template are under
+[`../runner-monitor/`](../runner-monitor/), and the deployment runbook
+(volume, tokens, firewall, linger, enrollment) is
+[`docs/runner-monitor-monitor-hub.md`](../../docs/runner-monitor-monitor-hub.md).
+
+Enrolling a runner is one command on its host:
+
+```bash
+scripts/runner-enroll.sh <hub-url> <enrollment-token> --repo OWNER/REPO
+```
+
 ---
 
-*Last Updated: 2026-09-04*
+*Last Updated: 2026-09-14*

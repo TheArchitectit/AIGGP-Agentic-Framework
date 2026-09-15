@@ -3,7 +3,7 @@
 Q1–Q3 of the archived design are config defaults, not hardcoded logic:
 ALERT_CHANNEL (default github_issue), HEARTBEAT_INTERVAL_SEC (default 300),
 MONITOR_ONLY (default true). Each is flagged for owner confirmation in
-docs/runner-monitor-ai01.md.
+docs/runner-monitor-monitor-hub.md.
 
 // spec: mon-hub-01
 """
@@ -29,7 +29,7 @@ class Config:
     bind_host: str = "127.0.0.1"          # never 0.0.0.0 by default (D7 firewall step)
     bind_port: int = 8443
 
-    # --- instance state (hub volume on AI01, never committed) --------------
+    # --- instance state (hub volume on monitor-hub, never committed) --------------
     data_dir: str = "/data"               # runners.json + alerts/*.jsonl live here
 
     # --- Q1–Q3 defaults (owner confirmation in the runbook) ----------------

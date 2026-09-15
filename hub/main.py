@@ -56,6 +56,9 @@ def main() -> int:
     state = server.hub_state  # type: ignore[attr-defined]
 
     # Load one-time enrollment tokens from the env drop-in (never committed).
+    # // spec: mon-monitor-hub-01 — the credential half of the requirement: hub
+    # secrets are env-only, so no committed file carries a token. The runbook
+    # half (machine duties documented off-repo) is docs/runner-monitor-monitor-hub.md.
     for raw in filter(None, os.environ.get("HUB_ENROLLMENT_TOKENS", "").split(",")):
         state.registry.add_enrollment_token(raw.strip())
     state.registry.save()

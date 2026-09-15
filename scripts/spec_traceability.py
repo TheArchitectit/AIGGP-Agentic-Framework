@@ -17,7 +17,11 @@ import sys
 from pathlib import Path
 
 REQ_ID = re.compile(r"<!--\s*id:\s*([a-z0-9-]+)\s*-->")
-MARKER = re.compile(r"//\s*spec:\s*([a-z0-9-]+)")
+# One marker line may carry several IDs: `// spec: a-01, b-02, c-03`.
+# Anchored to the ID shape and comma-separated so a trailing comment
+# (`// spec: a-01 -- why`) is not swallowed into the match.
+MARKER = re.compile(r"//\s*spec:[ \t]*([a-z0-9-]+(?:[ \t]*,[ \t]*[a-z0-9-]+)*)")
+ID = re.compile(r"[a-z0-9-]+")
 SCAN_EXTS = {".rs", ".py", ".mjs", ".js", ".ts"}
 SCAN_SKIP = {"target", "node_modules", ".git", "openspec", ".devgate"}
 
@@ -67,9 +71,11 @@ def collect_markers(root: Path) -> set:
         if any(part in SCAN_SKIP for part in path.parts):
             continue
         try:
-            markers.update(MARKER.findall(path.read_text(errors="ignore")))
+            text = path.read_text(errors="ignore")
         except OSError:
             continue
+        for group in MARKER.findall(text):
+            markers.update(ID.findall(group))
     return markers
 
 

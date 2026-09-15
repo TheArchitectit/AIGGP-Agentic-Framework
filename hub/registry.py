@@ -1,7 +1,7 @@
 """hub.registry — runners.json load/save on the hub volume.
 
 The registry is INSTANCE STATE: it lives on the hub's persistent volume on
-AI01 and is never committed (mon-registry-01). Only the schema and a redacted
+monitor-hub and is never committed (mon-registry-01). Only the schema and a redacted
 example ship in-repo under hub/schema/. Saves are atomic (tmp + os.replace)
 so a crash mid-write cannot corrupt the fleet registry.
 

@@ -1,4 +1,4 @@
-# Implementation Plan — AI01 runner monitor (hub)
+# Implementation Plan — monitor-hub runner monitor
 
 Maps to `openspec/changes/archive/2026-09-13-ai01-runner-monitor/{design,tasks}.md`
 and the live specs under `openspec/specs/{hub-architecture,runner-monitoring,enrollment-and-alerting}/`.
@@ -77,7 +77,7 @@ Token verification is in `hub/tokens.py`, called by `server.py`; the handler sta
 
 ## 3. runners.json schema + location + .gitignore
 
-**Instance file** lives on the hub's persistent volume at AI01 (path set by config,
+**Instance file** lives on the hub's persistent volume on monitor-hub (path set by config,
 default `/data/runners.json`), **never committed**. Only the schema + redacted example
 ship in-repo under `hub/schema/`.
 
@@ -120,7 +120,7 @@ matches `placeholder|example`, so these are safe.
 
 **.gitignore additions** (per mon-registry-01 — instance state never committed):
 ```
-# Runner-monitor instance state (hub volume on AI01) — NEVER commit
+# Runner-monitor instance state (hub volume on monitor-hub) — NEVER commit
 /data/runners.json
 runners.json
 alerts/*.jsonl
@@ -314,7 +314,7 @@ TimeoutStopSec=30
 [Install]
 WantedBy=default.target
 ```
-**Env drop-ins** (owner-created on AI01, `chmod 600`, never committed):
+**Env drop-ins** (owner-created on monitor-hub, `chmod 600`, never committed):
 - `devgate-monitor-hub.container.d/github-token.env` → `GITHUB_TOKEN=<fine-grained-PAT>`
 - `devgate-monitor-hub.container.d/enrollment-tokens.env` → `HUB_ENROLLMENT_TOKENS=<tok1>,<tok2>`
 
@@ -341,33 +341,39 @@ collides with other suites.
 
 **NOT_RUN with blocker stated:**
 - **Live GitHub API polling end-to-end** — NOT_RUN; requires a real fine-grained PAT +
-  live repo on AI01 (no network creds in CI, secrets hygiene). Covered by stubbed
-  `ghapi` tests instead. Blocker: needs owner's token on AI01.
-- **Actual quadlet/podman start** — NOT_RUN; requires the AI01 machine + rootless podman.
+  live repo on monitor-hub (no network creds in CI, secrets hygiene). Covered by stubbed
+  `ghapi` tests instead. Blocker: needs owner's token on monitor-hub.
+- **Actual quadlet/podman start** — NOT_RUN; requires the monitor-hub machine + rootless podman.
   Blocker: remote machine, done via runbook (Sprint 5).
 - **systemd user timer install** — NOT_RUN in unit tests (no systemd in test env);
   `runner-enroll.sh` unit-write logic is tested by asserting the generated unit file
   contents on a temp HOME, not by actually enabling a timer.
 
-**Suite-green caveat:** the repo's node suite `tests/test_guardrails_scan.mjs` has **2
-pre-existing failures** (comment-skip rule issue) unrelated to this work, and
-`run-tests.mjs` is broken in this checkout (QA C3). The plan must NOT claim "suite
-green" — Sprint 6.1 "suite green" means: all `python3 -m pytest -q tests/` pass AND the
-new hub tests pass; the 2 pre-existing node failures are called out as pre-existing, not
-regressed by this change.
+**Suite-green caveat (updated at closeout):** the plan recorded 2 pre-existing failures
+in `tests/test_guardrails_scan.mjs` at planning time. **They no longer reproduce**:
+`node --test tests/test_guardrails_scan.mjs` passes (1/1) on the current tree, so they
+are not carried forward as an exemption. `run-tests.mjs` still discovers **0 test
+files** on this repo and reports green (QA C3) — that is *not* evidence, and it is why
+Sprint 6.1 "suite green" means `python3 -m pytest -q tests/` (86 passed) plus the node
+guardrails suite, not `run-tests.mjs` output.
 
 ---
 
-## 9. `docs/runner-monitor-ai01.md` outline (mon-ai01-01)
+## 9. `docs/runner-monitor-monitor-hub.md` outline (mon-monitor-hub-01)
+
+*(The archived plan named this `runner-monitor-ai01.md` under a `mon-ai01-01` id.
+The live spec's requirement is `mon-monitor-hub-01`, which names the file
+`docs/runner-monitor-monitor-hub.md`; the spec wins — `mon-ai01-01` does not
+exist.)*
 
 Follows `docs/RELEASE_GATE.md` structure (Overview → Quick Reference table → Why each
 step exists → Usage). Sections:
-1. **Overview** — hub-and-spoke, what runs on AI01 vs from this machine.
+1. **Overview** — hub-and-spoke, what runs on monitor-hub vs from this machine.
 2. **Quick Reference** — table of runbook steps (volume, token drop-in, enrollment
    tokens, port/firewall, linger, start quadlet), each with "Failure means."
 3. **Why each step exists** — secrets hygiene (chmod 600, never committed), firewall
    (explicit bind, not 0.0.0.0), linger (survive logout), rotation note.
-4. **Deployment steps** (owner executes ON AI01):
+4. **Deployment steps** (owner executes ON monitor-hub):
    - Build image from `templates/runner-monitor/Containerfile`, pin digest.
    - Create persistent volume; place `runners.json` (from schema) on it.
    - Mint fine-grained PAT (`actions:read` + `issues:write` per watched repo) →
@@ -384,7 +390,7 @@ step exists → Usage). Sections:
 8. **Dead-man switch** — enable the committed workflow template (§4.3) to watch `/health`.
 
 **No step may read a secret from this repo** (mon-ai01-01 scenario). All tokens minted
-on AI01.
+on monitor-hub.
 
 ---
 
@@ -423,9 +429,10 @@ existing suite):
 6. **`feat(templates): runner-monitor Containerfile + quadlet`** —
    `templates/runner-monitor/*`. Verify: quadlet parses (podman quadlet dry-run if
    available, else structural lint); PREVENT-014 does not fire (named Containerfile).
-7. **`docs(runner-monitor): AI01 runbook + dead-man workflow template`** —
-   `docs/runner-monitor-ai01.md`, `.github/workflows/monitor-deadman.yml` (committed
-   template, not enabled), README pointer from `templates/runner/README.md`, CHANGELOG.
+7. **`docs(runner-monitor): monitor-hub runbook + dead-man workflow template`** —
+   `docs/runner-monitor-monitor-hub.md`, `.github/workflows/devgate-monitor-deadman.yml`
+   (committed template, not enabled), README pointer from `templates/runner/README.md`,
+   CHANGELOG.
    Verify: secrets-hygiene scan clean (no tokens/IPs/hosts in committed files);
    full `python3 -m pytest -q tests/` green; traceability covers all 10 mon-* IDs.
 

@@ -106,6 +106,22 @@ def test_specs_without_id_markers_get_honest_diagnostic(tmp_path):
     assert "no spec files found" not in result.stdout
 
 
+def test_comma_separated_marker_covers_every_id(tmp_path):
+    """A single marker line may list several IDs: `// spec: a-01, b-02`.
+    The regex used to capture only the first, so hub/monitor.py's five-ID
+    marker silently covered one requirement and four read as UNCOVERED."""
+    for name in ("alpha-req-01", "beta-req-02", "gamma-req-03"):
+        write(tmp_path / f"openspec/specs/{name}/spec.md",
+              SPEC.replace("router-req-01", name))
+    write(tmp_path / "game/match.js",
+          "// spec: alpha-req-01, beta-req-02, gamma-req-03\nswap();\n")
+    result = run(tmp_path, "--report")
+    assert result.returncode == 0
+    for name in ("alpha-req-01", "beta-req-02", "gamma-req-03"):
+        assert f"{name}: covered" in result.stdout
+    assert "3/3 requirements covered" in result.stdout
+
+
 def test_both_layouts_merge(tmp_path):
     write(tmp_path / "openspec/specs/router/spec.md", SPEC)
     write(tmp_path / "openspec/changes/ch1/specs/net/spec.md",

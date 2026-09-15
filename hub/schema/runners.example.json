@@ -1,7 +1,7 @@
 {
   "_comment": [
     "Redacted EXAMPLE of the runner-monitor registry — placeholder values only.",
-    "The live registry is instance state on the hub volume on AI01 and is",
+    "The live registry is instance state on the hub volume on monitor-hub and is",
     "NEVER committed (mon-registry-01). See runners.schema.json for the shape."
   ],
   "version": 1,
@@ -11,7 +11,7 @@
       "name": "example-runner",
       "repo": "OWNER/REPO",
       "labels": ["devgate"],
-      "host_alias": "ai01",
+      "host_alias": "monitor-hub",
       "enrolled_at": "2026-09-13T00:00:00Z",
       "heartbeat_token": "example-heartbeat-token-PLACEHOLDER",
       "last_heartbeat": "2026-09-13T00:05:00Z",

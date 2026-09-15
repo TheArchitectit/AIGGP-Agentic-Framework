@@ -5,7 +5,30 @@ All notable changes to the DevGate Agentic Framework will be documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.1.0] - 2026-09-13
+## [Unreleased]
+
+### Added
+
+- **Runner monitor hub** (`hub/`) — a stdlib-only Python service that watches
+  the self-hosted runner fleet from one machine. Endpoints `/enroll`,
+  `/heartbeat`, `/revoke`, `/health`; one-time enrollment tokens and
+  per-runner revocable heartbeat tokens (constant-time compared); an atomic
+  `runners.json` registry on a hub volume that is never committed. Polls the
+  GitHub API per registered repo for runner online state, queue-drain age, the
+  latest check-run conclusion per watched branch, and scheduled drift-scan
+  recency, combining that with spoke heartbeats as **independent** evidence
+  channels. Alerts are deduplicated by `(repo, check-class, runner)`: one
+  GitHub issue per key, recurrence as a comment, every event appended to an
+  append-only JSONL log. Ships `scripts/runner-enroll.sh` (enroll / `--revoke`
+  / systemd user timer), a Containerfile + Podman quadlet template under
+  `templates/runner-monitor/`, a committed dead-man-switch workflow, and the
+  deployment runbook `docs/runner-monitor-monitor-hub.md`. The hub is
+  monitor-only by default and binds loopback unless deliberately widened; see
+  the runbook's TLS and firewall notes before exposing it.
+- `spec_traceability.py`: a marker line may now carry several requirement IDs
+  (`// spec: a-01, b-02, c-03`). The pattern previously captured only the first
+  ID, so a multi-ID marker silently covered one requirement and reported the
+  rest as uncovered.
 
 ### Fixed
 
@@ -19,7 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   requirement IDs in the <!-- id: --> format" instead of reporting both as
   "no specs found under openspec/specs/".
 
-### Added
+### Added (gates)
 
 - `regression_check.py`: a scope that scanned zero files now prints an
   explicit NOTHING SCANNED notice instead of the clean-pass line
@@ -33,7 +56,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   tests are weak evidence, and hand-written-literal round-trips prove nothing
   about the real save/load path.
 
-## [1.0.0] - 2026-09-11
+## [1.2.0] - 2026-09-04
+
+### Added
+
+- Self-hosted runner standard under `templates/runner/`: the official
+  `ghcr.io/actions/actions-runner` image deployed as a Podman quadlet, with
+  secret drop-ins, durable registration, and no hosted-runner fallback.
+- Scheduled drift-scan workflow templates plus `scripts/detect-host-ci.py`,
+  which reads a host repo's own workflows and reports the `runs-on:` labels and
+  `schedule:` crons already declared there (secrets redacted).
+- The spec traceability gate (`scripts/spec_traceability.py`): every OpenSpec
+  requirement ID needs a `// spec: <id>` marker in a source file, advisory by
+  default and blocking per capability.
+- Reusable gate patterns ported from the game project (scene inventory,
+  file-size check, guardrails compliance, secret validation, smoke gate) under
+  `templates/`.
+- Go rules for rune digits, listen-on-all-interfaces, and unclosed file
+  handles; newly surfaced rule warnings.
+- GitHub Sponsors (`FUNDING.yml`, README section, badge).
+
+### Changed
+
+- Gates now **block** a deploy on failure rather than warning (regression,
+  guardrails, build, test), with an incident-proven failure-registry
+  enforcement loop.
+- `exclude_glob` support and `**` globstar parity in the gate configuration
+  contract, plus a registry hygiene gate.
+- The game framework is absorbed directly instead of being carried as a
+  submodule.
+
+### Fixed
+
+- `regression-check` honors a rule's `file_glob`; `info` findings are advisory.
+- `run-tests.mjs` parser repaired — a crashed test file now fails the gate
+  instead of passing silently. Rust test-file support added.
+- The `.devgate` tree is excluded from the marker scan.
+
+## [1.1.0] - 2026-08-08
+
+### Changed
+
+- All scripts are now fully generic: they auto-detect the project root,
+  language, and package manager instead of assuming a fixed layout. Rewrote
+  `regression_check.py`, `run-tests.mjs`, `semantic-scan.mjs`,
+  `guardrails-scan.mjs`, `schema-health-check.mjs`, and `deploy.sh` against the
+  detected project rather than a hardcoded tree, and updated AGENTS.md and the
+  README to match.
+
+## [1.0.0] - 2026-08-08
 
 ### Added
 

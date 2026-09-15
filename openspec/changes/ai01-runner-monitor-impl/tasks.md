@@ -31,12 +31,14 @@ Sprints 1–6). No spec deltas expected — the requirements are already live in
       stub (commit 4)
 - [x] 4.3 Dead-man switch workflow template for this repo (commit 7)
 
-## Sprint 5 — AI01 deployment runbook (D7)
-- [ ] 5.1 docs/runner-monitor-ai01.md: volume, token drop-in, enrollment tokens,
-      port/firewall, linger, rotation (commit 7)
-- [ ] 5.2 secrets-hygiene check: no tokens/IPs/hosts in committed files (commit 7)
+## Sprint 5 — monitor-hub deployment runbook (D7)
+- [x] 5.1 docs/runner-monitor-monitor-hub.md: volume, token drop-in, enrollment
+      tokens, port/firewall, linger, rotation (commit 7). Named for the spec's
+      mon-monitor-hub-01 requirement (the plan's `runner-monitor-ai01.md` was
+      superseded); quadlet + config.py pointers updated to match.
+- [x] 5.2 secrets-hygiene check: no tokens/IPs/hosts in committed files (commit 7)
 
 ## Sprint 6 — closeout
-- [ ] 6.1 Suite green (pytest + new hub tests; pre-existing node failures noted,
+- [x] 6.1 Suite green (pytest + new hub tests; pre-existing node failures noted,
       not claimed); README pointer from templates/runner/README.md; CHANGELOG;
       version bump per release gate (commit 7)

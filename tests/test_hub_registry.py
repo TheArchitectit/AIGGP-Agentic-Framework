@@ -28,7 +28,7 @@ def test_fresh_registry_defaults(tmp_path):
 def test_save_is_atomic_roundtrip(tmp_path):
     path = tmp_path / "runners.json"
     reg = Registry(str(path))
-    runner = reg.enroll("r1", "OWNER/REPO", ["devgate"], "ai01")
+    runner = reg.enroll("r1", "OWNER/REPO", ["devgate"], "monitor-hub")
     assert runner["heartbeat_token"]
     reg.save()
     reloaded = Registry(str(path))

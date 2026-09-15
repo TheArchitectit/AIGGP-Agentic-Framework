@@ -72,7 +72,7 @@ def test_enroll_happy_path(tmp_path):
     try:
         code, body = hub.post("/enroll", {
             "runner_name": "r1", "repo": "OWNER/REPO", "labels": ["devgate"],
-            "host_alias": "ai01", "enrollment_token": "test-enroll-token-PLACEHOLDER"})
+            "host_alias": "monitor-hub", "enrollment_token": "test-enroll-token-PLACEHOLDER"})
         assert code == 200, body
         assert body["ok"] is True
         assert body["heartbeat_token"]

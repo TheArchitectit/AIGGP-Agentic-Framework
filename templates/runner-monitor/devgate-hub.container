@@ -4,7 +4,7 @@
 # binds one port, reads/writes runners.json + alerts/*.jsonl on a named
 # volume, and polls the GitHub API for runner/queue/gate/drift status.
 #
-# Copy to AI01:
+# Copy to monitor-hub:
 #   ~/.config/containers/systemd/devgate-hub.container
 # Then:
 #   systemctl --user daemon-reload
@@ -32,16 +32,16 @@ ContainerName=devgate-hub
 HostName=devgate-hub
 
 # --- Network ---
-# The hub binds 0.0.0.0:8443 INSIDE the container; AI01's host firewall
+# The hub binds 0.0.0.0:8443 INSIDE the container; monitor-hub's host firewall
 # restricts access to enrolled runner hosts only (D7). We publish the port
-# on the host so spokes can reach it at http://<ai01-host>:8443.
+# on the host so spokes can reach it at http://<monitor-hub-host>:8443.
 PublishPort=8443:8443
 
 # --- Configuration (non-secret defaults; override via drop-in) ---
 Environment=HUB_BIND_HOST=0.0.0.0
 Environment=HUB_BIND_PORT=8443
 Environment=HUB_DATA_DIR=/data
-# Q1–Q3 defaults (see docs/runner-monitor-ai01.md for owner confirmation):
+# Q1–Q3 defaults (see docs/runner-monitor-monitor-hub.md for owner confirmation):
 Environment=HUB_ALERT_CHANNEL=github_issue
 Environment=HUB_HEARTBEAT_INTERVAL_SEC=300
 Environment=HUB_MONITOR_ONLY=true
@@ -54,7 +54,7 @@ Volume=devgate-hub-data:/data
 
 # --- Logging ---
 # k8s-file (readable via `podman logs devgate-hub`). journald is NOT used:
-# rootless user journald is often absent on AI01, which would leave service
+# rootless user journald is often absent on monitor-hub, which would leave service
 # failures invisible.
 LogDriver=k8s-file
 

@@ -50,11 +50,11 @@ Options:
 
 Examples:
   # Enroll a new runner:
-  scripts/runner-enroll.sh https://ai01.internal:8443 <token> \\
-      --repo owner/repo --labels devgate --host-alias ai01
+  scripts/runner-enroll.sh https://monitor-hub.internal:8443 <token> \\
+      --repo owner/repo --labels devgate --host-alias monitor-hub
 
   # Revoke (unenroll) a runner:
-  scripts/runner-enroll.sh --revoke https://ai01.internal:8443 <hb-token> my-runner
+  scripts/runner-enroll.sh --revoke https://monitor-hub.internal:8443 <hb-token> my-runner
 EOF
     exit 1
 }
