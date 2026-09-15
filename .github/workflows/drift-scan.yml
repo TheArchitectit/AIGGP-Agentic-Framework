@@ -1,0 +1,85 @@
+# Drift Scan — scheduled full-tree sweep against DevGate scanners (pinned).
+# Satisfies the DevGate hub's drift check: workflow name contains "drift",
+# latest run must complete within 24h + grace, conclusion must not be failure.
+# Env-adaptive (fleet standard): installs its own Node 20 job-locally; gates
+# that the runner environment genuinely cannot run are recorded as
+# SKIPPED-with-reason in the job summary — never silent, never fake-green.
+name: Drift Scan
+
+on:
+  schedule:
+    - cron: '19 5 * * *'  # nightly, off-round minute (fleet-staggered)
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: drift-scan
+  cancel-in-progress: false
+
+jobs:
+  drift-scan:
+    name: "Scheduled drift scan"
+    runs-on: devgate
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0 (node24)
+
+      - name: Install Node 20 (job-local; container runners ship none)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Bootstrap DevGate scanners (pinned framework main)
+        run: |
+          set -euo pipefail
+          DG="$RUNNER_TEMP/devgate-scan"
+          rm -rf "$DG"
+          git clone --depth 1 https://github.com/TheArchitectit/DevGate-Agentic-Framework.git "$DG"
+          git -C "$DG" checkout cb29c002db0fa5c04a3984300e780a0a3e84f76d
+
+      - name: Drift gate suite (full tree)
+        run: |
+          set -uo pipefail
+          DG="$RUNNER_TEMP/devgate-scan"
+          PY_OK=0
+          command -v python3 >/dev/null && python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 9) else 1)' 2>/dev/null && PY_OK=1
+
+          declare -A RES
+          FAIL=0
+          run_gate() {
+            local n="$1"; shift
+            if "$@" >"$RUNNER_TEMP/drift-$n.log" 2>&1; then RES[$n]=PASS; else RES[$n]=FAIL; FAIL=1; fi
+          }
+
+          # python-gated: regression_check.py requires >=3.9 (py3.8 crashes on list[str])
+          if [ "$PY_OK" = "1" ]; then
+            run_gate regression python3 "$DG/scripts/regression_check.py" --all --pre-commit
+          else RES[regression]="SKIPPED (python < 3.9 on this runner)"; fi
+
+          run_gate guardrails node "$DG/scripts/guardrails-scan.mjs"
+
+          run_gate silent-success bash "$DG/scripts/silent-success-scan.sh"
+
+          # semantic: TS compiler API needed when TS/JS files exist (typescript@5
+          # injected into the scanner root; v7 dropped the root compiler API).
+          if [ -n "$(find . -path ./.git -prune -o -path '*/node_modules' -prune -o -type f \( -name '*.ts' -o -name '*.tsx' -o -name '*.js' -o -name '*.jsx' -o -name '*.mjs' -o -name '*.cjs' \) -print -quit)" ]; then
+            npm --prefix "$DG" install --no-save typescript@5 >/dev/null 2>&1 || true
+            run_gate semantic node "$DG/scripts/semantic-scan.mjs"
+          else RES[semantic]="SKIPPED (no TS/JS files in tree)"; fi
+
+          {
+            echo "## Drift Scan Results"
+            echo ""
+            echo "| Gate | Result |"
+            echo "|------|--------|"
+            echo "| regression | ${RES[regression]:-NOT_RUN} |"
+            echo "| guardrails | ${RES[guardrails]:-NOT_RUN} |"
+            echo "| silent-success | ${RES[silent-success]:-NOT_RUN} |"
+            echo "| semantic | ${RES[semantic]:-NOT_RUN} |"
+            echo ""
+            echo "Scanners: DevGate-Agentic-Framework@cb29c002 (cloned fresh, pinned)"
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit $FAIL
