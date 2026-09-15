@@ -21,6 +21,7 @@ import json
 import logging
 import os
 import threading
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -34,6 +35,28 @@ log = logging.getLogger("hub.alerts")
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _append_jsonl(alerts_dir: Path, repo: str, check_class: str,
+                  runner: str, detail: str) -> None:
+    """Append one alert line to the daily JSONL audit log (mon-alert-01).
+
+    Shared by every AlertSink so the append-only audit trail is written
+    regardless of which delivery channel is configured.
+    """
+    alerts_dir.mkdir(parents=True, exist_ok=True)
+    # One file per day for easy rotation/inspection.
+    day = _now_iso()[:10]  # YYYY-MM-DD
+    log_file = alerts_dir / f"alerts-{day}.jsonl"
+    entry = {
+        "ts": _now_iso(),
+        "repo": repo,
+        "check_class": check_class,
+        "runner": runner,
+        "detail": detail,
+    }
+    with open(log_file, "a", encoding="utf-8") as f:
+        f.write(json.dumps(entry) + "\n")
 
 
 class AlertSink(abc.ABC):
@@ -57,14 +80,20 @@ class GitHubIssueNotifier(AlertSink):
 
     LABEL = "devgate-monitor"
 
-    def __init__(self, api_base: str, token: str, alerts_dir: str) -> None:
+    def __init__(self, api_base: str, token: str, alerts_dir: str,
+                 comment_cooldown_sec: float = 3600.0) -> None:
         self.api_base = api_base.rstrip("/")
         self.token = token
         self.alerts_dir = Path(alerts_dir)
+        self.comment_cooldown_sec = float(comment_cooldown_sec)
         self._lock = threading.Lock()
         # In-memory dedupe cache: (repo, check_class, runner) -> issue_number.
         # Avoids a search API call on every recurrence within the same process.
         self._open_issues: dict[tuple[str, str, str], int] = {}
+        # Per-key monotonic timestamp of the last recurrence comment. Without
+        # this the poll loop comments on every open issue every cycle, which
+        # trips GitHub's secondary (content-creation) rate limit.
+        self._last_comment: dict[tuple[str, str, str], float] = {}
 
     def raise_alert(self, repo: str, check_class: str, runner: str, detail: str) -> None:
         """Deliver an alert: append to JSONL log + file/comment GitHub issue."""
@@ -84,9 +113,21 @@ class GitHubIssueNotifier(AlertSink):
         try:
             issue_number = self._find_open_issue(repo, title)
             if issue_number is not None:
-                # Recurrence: comment on the existing issue.
-                self._comment_on_issue(repo, issue_number, body)
-                log.info("ALERT recurrence commented on #%d in %s", issue_number, repo)
+                # Recurrence: comment on the existing issue, but at most once
+                # per cooldown window (mon-alert-01 dedupe; prevents the poll
+                # loop from flooding GitHub's content-creation rate limit).
+                last = self._last_comment.get(key)
+                now_mono = time.monotonic()
+                if last is not None and (now_mono - last) < self.comment_cooldown_sec:
+                    log.info(
+                        "ALERT recurrence on #%d in %s suppressed "
+                        "(cooldown %.0fs remaining)",
+                        issue_number, repo,
+                        self.comment_cooldown_sec - (now_mono - last))
+                else:
+                    self._comment_on_issue(repo, issue_number, body)
+                    self._last_comment[key] = now_mono
+                    log.info("ALERT recurrence commented on #%d in %s", issue_number, repo)
             else:
                 # First occurrence: file a new issue.
                 issue_number = self._file_issue(repo, title, body)
@@ -99,19 +140,7 @@ class GitHubIssueNotifier(AlertSink):
     def _append_log(self, repo: str, check_class: str, runner: str, detail: str) -> None:
         """Append one line to the JSONL alert log (append-only, mon-alert-01)."""
         with self._lock:
-            self.alerts_dir.mkdir(parents=True, exist_ok=True)
-            # One file per day for easy rotation/inspection.
-            day = _now_iso()[:10]  # YYYY-MM-DD
-            log_file = self.alerts_dir / f"alerts-{day}.jsonl"
-            entry = {
-                "ts": _now_iso(),
-                "repo": repo,
-                "check_class": check_class,
-                "runner": runner,
-                "detail": detail,
-            }
-            with open(log_file, "a", encoding="utf-8") as f:
-                f.write(json.dumps(entry) + "\n")
+            _append_jsonl(self.alerts_dir, repo, check_class, runner, detail)
 
     def _find_open_issue(self, repo: str, title: str) -> int | None:
         """Search for an open issue with the exact title. Returns issue number or None."""
@@ -199,9 +228,19 @@ class GitHubIssueNotifier(AlertSink):
 
 
 class NullNotifier(AlertSink):
-    """No-op notifier: logs alerts but files no issues. Used when Q1 = null."""
+    """Local-only notifier: writes the JSONL audit log but files no issues.
+
+    Used when Q1 = null (no GitHub writes). The append-only audit trail is
+    still maintained (mon-alert-01) — local-only must not mean no evidence.
+    """
+
+    def __init__(self, alerts_dir: str) -> None:
+        self.alerts_dir = Path(alerts_dir)
+        self._lock = threading.Lock()
 
     def raise_alert(self, repo: str, check_class: str, runner: str, detail: str) -> None:
+        with self._lock:
+            _append_jsonl(self.alerts_dir, repo, check_class, runner, detail)
         log.warning("ALERT [%s/%s/%s] %s", repo, check_class, runner, detail)
 
 
@@ -213,6 +252,7 @@ def build_notifier(config: Config) -> AlertSink:
             api_base=config.github_api_base,
             token=os.environ.get("GITHUB_TOKEN", ""),
             alerts_dir=config.alerts_dir,
+            comment_cooldown_sec=config.comment_cooldown_sec,
         )
     else:
-        return NullNotifier()
+        return NullNotifier(alerts_dir=config.alerts_dir)

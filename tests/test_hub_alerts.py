@@ -214,13 +214,52 @@ def test_dedupe_by_different_runner(tmp_path):
 
 
 def test_null_notifier_logs_only(tmp_path):
-    """NullNotifier raises no HTTP calls; just logs."""
+    """NullNotifier makes no HTTP calls but still writes the JSONL audit log."""
     alerts_dir = str(tmp_path / "alerts")
-    notifier = NullNotifier()
+    notifier = NullNotifier(alerts_dir=alerts_dir)
     # Should not raise any exception.
     notifier.raise_alert("owner/repo", "queue_stall", "r1", "detail")
-    # No JSONL file created (NullNotifier doesn't log to disk).
-    assert not Path(alerts_dir).exists() or not list(Path(alerts_dir).glob("*.jsonl"))
+    # mon-alert-01: the append-only audit trail must exist even with no
+    # GitHub channel configured (local-only must not mean no evidence).
+    day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    log_file = Path(alerts_dir) / f"alerts-{day}.jsonl"
+    assert log_file.exists(), f"expected audit log {log_file}"
+    entry = json.loads(log_file.read_text().strip())
+    assert entry["repo"] == "owner/repo"
+    assert entry["check_class"] == "queue_stall"
+    assert entry["runner"] == "r1"
+    assert entry["detail"] == "detail"
+
+
+def test_recurrence_comment_cooldown(tmp_path):
+    """Repeat recurrences are suppressed during the cooldown window."""
+    alerts_dir = str(tmp_path / "alerts")
+    comments: list[dict] = []
+
+    def comment_handler(payload):
+        comments.append(payload)
+        return (201, {"id": 1})
+
+    # Search finds an existing open issue #42 on every call.
+    server, port = _start_fake_gh({
+        "search": lambda: (200, {"items": [{"number": 42}]}),
+        "comment": comment_handler,
+    })
+    try:
+        notifier = GitHubIssueNotifier(
+            api_base=f"http://127.0.0.1:{port}", token="t",
+            alerts_dir=alerts_dir, comment_cooldown_sec=3600.0)
+        notifier.raise_alert("owner/repo", "queue_stall", "r1", "first")
+        notifier.raise_alert("owner/repo", "queue_stall", "r1", "second")
+        notifier.raise_alert("owner/repo", "queue_stall", "r1", "third")
+        # Only the first recurrence escapes the cooldown.
+        assert len(comments) == 1, f"expected 1 comment, got {len(comments)}"
+        # The audit log still records every occurrence (mon-alert-01).
+        day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        lines = (Path(alerts_dir) / f"alerts-{day}.jsonl").read_text().strip().splitlines()
+        assert len(lines) == 3, f"expected 3 audit lines, got {len(lines)}"
+    finally:
+        server.shutdown()
 
 
 def test_build_notifier_factory_github_issue(tmp_path):
@@ -233,12 +272,16 @@ def test_build_notifier_factory_github_issue(tmp_path):
 
 
 def test_build_notifier_factory_null(tmp_path):
-    """build_notifier returns NullNotifier when channel=null."""
+    """build_notifier returns a local-only notifier when channel=null."""
     config = Config()
     config.alert_channel = "null"
     config.data_dir = str(tmp_path)
     notifier = build_notifier(config)
     assert isinstance(notifier, NullNotifier)
+    # Local-only must still write the audit log (mon-alert-01).
+    notifier.raise_alert("owner/repo", "queue_stall", "r1", "detail")
+    day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    assert (Path(config.alerts_dir) / f"alerts-{day}.jsonl").exists()
 
 
 def test_alert_sink_is_abstract():

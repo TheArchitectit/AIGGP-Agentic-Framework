@@ -43,6 +43,11 @@ class Config:
     drift_workflow_match: str = "drift"   # config-provided name pattern (spec does not name it)
     watched_branches: list[str] = field(default_factory=lambda: ["default"])
 
+    # Minimum seconds between recurrence comments on the same open issue.
+    # Without this the poll loop re-comments every cycle and trips GitHub's
+    # secondary content-creation rate limit (observed 2026-09-15).
+    comment_cooldown_sec: float = 3600.0
+
     # --- GitHub API ---------------------------------------------------------
     github_api_base: str = "https://api.github.com"
     poll_interval_sec: int = 60           # between full cycles
@@ -83,4 +88,6 @@ class Config:
             cfg.github_api_base = v
         if v := os.environ.get("HUB_POLL_INTERVAL_SEC"):
             cfg.poll_interval_sec = int(v)
+        if v := os.environ.get("HUB_COMMENT_COOLDOWN_SEC"):
+            cfg.comment_cooldown_sec = float(v)
         return cfg
