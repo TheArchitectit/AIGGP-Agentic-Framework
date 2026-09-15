@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   GitHub issue per key, recurrence as a comment, every event appended to an
   append-only JSONL log. Ships `scripts/runner-enroll.sh` (enroll / `--revoke`
   / systemd user timer), a Containerfile + Podman quadlet template under
-  `templates/runner-monitor/`, a committed dead-man-switch workflow, and the
+  `templates/runner-monitor/`, a spoke-side hub watchdog, and the
   deployment runbook `docs/runner-monitor-monitor-hub.md`. The hub is
   monitor-only by default and binds loopback unless deliberately widened; see
   the runbook's TLS and firewall notes before exposing it.
@@ -29,6 +29,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`// spec: a-01, b-02, c-03`). The pattern previously captured only the first
   ID, so a multi-ID marker silently covered one requirement and reported the
   rest as uncovered.
+- **Spoke-side hub watchdog** (`scripts/hub-watchdog.sh` + a
+  `devgate-hub-watchdog.timer` installed by `runner-enroll.sh`) — the inverted
+  dead-man switch (`mon-deadman-01`). The hub cannot report its own death and a
+  GitHub-scheduled workflow cannot report its own absence, so each spoke polls
+  the hub's `/health` on a timer and fails its own systemd unit when the hub is
+  unreachable or its poll loop has gone stale. Local-only by design: no token
+  on the spoke, no GitHub issue. `/health` now also reports
+  `polling_enabled` / `poll_interval_sec` so a watchdog can tell "no PAT,
+  polling off by design" (`last_poll_at` null, warn) from a wedged poll loop
+  (`last_poll_at` stale, fail) rather than reading an unconfigured hub as a dead
+  one. `monitor.py` now actually records `last_poll_at` each cycle (it was
+  declared but never written).
+- `.github/workflows/hub-health-probe.yml` — the former
+  `devgate-monitor-deadman.yml`, converted from a scheduled "dead-man switch"
+  that only ever printed an `echo` line (its header claimed it would open a
+  GitHub issue if the schedule stopped firing; nothing in GitHub Actions or in
+  the file did so) into an honest `workflow_dispatch` hub probe. It shares the
+  watchdog's verdict logic so a manual probe and the spoke check cannot
+  disagree. No `schedule:`, since a workflow cannot report its own absence.
 
 ### Fixed
 

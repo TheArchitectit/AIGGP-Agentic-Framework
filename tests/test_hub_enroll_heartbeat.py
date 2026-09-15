@@ -135,10 +135,38 @@ def test_health_endpoint_shape(tmp_path):
     try:
         code, body = hub.get("/health")
         assert code == 200
-        for key in ("ok", "last_poll_at", "last_alert_at", "registered_runners", "uptime_sec"):
+        for key in ("ok", "last_poll_at", "last_alert_at", "registered_runners",
+                    "uptime_sec", "polling_enabled", "poll_interval_sec"):
             assert key in body, f"missing {key}"
         assert body["ok"] is True
         assert body["registered_runners"] == 0
+    finally:
+        hub.close()
+
+
+def test_health_reports_polling_state_for_watchdogs(tmp_path):
+    """A spoke watchdog must not read "no PAT configured" as "hub is dead".
+
+    last_poll_at is null in two very different situations: polling disabled
+    (never set) and the poll loop wedged (set, then stopped advancing).
+    polling_enabled is what separates them, and poll_interval_sec is what
+    lets a watcher size its staleness threshold without hardcoding one.
+    """
+    hub = HubFixture(tmp_path)
+    try:
+        # No poll thread in the fixture -> polling disabled, null is by design.
+        code, body = hub.get("/health")
+        assert code == 200
+        assert body["polling_enabled"] is False
+        assert body["last_poll_at"] is None
+        assert body["poll_interval_sec"] > 0
+
+        # Simulate a completed cycle: the timestamp must advance.
+        hub.state.polling_enabled = True
+        hub.state.note_poll()
+        code, body = hub.get("/health")
+        assert body["polling_enabled"] is True
+        assert body["last_poll_at"] is not None, "note_poll did not advance /health"
     finally:
         hub.close()
 

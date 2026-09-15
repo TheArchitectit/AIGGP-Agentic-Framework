@@ -35,3 +35,23 @@ host IPs, hostnames with credentials, tokens, or live runner instance data.
 #### Scenario: public-repo hygiene
 - **WHEN** the repo is scanned for secrets/host detail
 - **THEN** no runner-monitor file contains tokens, IPs, or real hostnames
+
+## Requirement: Hub death is detected by a spoke
+<!-- id: mon-deadman-01 -->
+The hub shall not be relied upon to report its own death, and the check shall
+not run on GitHub-hosted runners. Each enrolled spoke shall install a local
+watchdog that polls the hub's `/health` and fails its own systemd unit when the
+hub is unreachable or its poll loop has gone stale; the watchdog shall
+distinguish polling-disabled (`polling_enabled: false`, where `last_poll_at` is
+null by design) from a wedged poll loop, and shall exit non-zero rather than
+pass when it cannot perform the check at all.
+
+#### Scenario: hub container dies
+- **WHEN** the hub stops responding to `/health` and a spoke's watchdog runs
+- **THEN** that spoke's watchdog unit enters the failed state without
+  requiring a GitHub-hosted runner or an issue-writing token on the spoke
+
+#### Scenario: hub alive but polling disabled
+- **WHEN** the hub serves `/health` with `polling_enabled: false`
+- **THEN** the watchdog warns that nothing is monitored and exits 0, rather
+  than reporting the hub as dead

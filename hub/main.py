@@ -77,6 +77,7 @@ def main() -> int:
         from .alerts import build_notifier
         from .monitor import MonitorLoop  # imported here: polling needs ghapi
         notifier = build_notifier(config)
+        state.polling_enabled = True
         poll_thread = threading.Thread(
             target=MonitorLoop(state, alert_sink=notifier).run,
             args=(stop,), daemon=True)

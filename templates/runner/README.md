@@ -99,6 +99,11 @@ Enrolling a runner is one command on its host:
 scripts/runner-enroll.sh <hub-url> <enrollment-token> --repo OWNER/REPO
 ```
 
+That also installs `devgate-hub-watchdog.timer` on the runner: the spoke watches
+the **hub** back, failing its own unit if the hub stops monitoring — so a dead
+hub is noticed by a machine that is still up. Check it with
+`systemctl --user status devgate-hub-watchdog`.
+
 ---
 
 *Last Updated: 2026-09-14*

@@ -30,6 +30,8 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 TICKET_FILE="$HOME/.devgate-heartbeat.env"
 TIMER_UNIT="$HOME/.config/systemd/user/devgate-heartbeat.timer"
 SERVICE_UNIT="$HOME/.config/systemd/user/devgate-heartbeat.service"
+WATCHDOG_TIMER_UNIT="$HOME/.config/systemd/user/devgate-hub-watchdog.timer"
+WATCHDOG_SERVICE_UNIT="$HOME/.config/systemd/user/devgate-hub-watchdog.service"
 
 log() { echo "[runner-enroll] $*"; }
 die() { log "ERROR: $*"; exit "${2:-1}"; }
@@ -162,6 +164,59 @@ EOF
     systemctl --user start devgate-heartbeat.timer
 
     log "Timer installed and enabled: devgate-heartbeat.timer"
+
+    install_watchdog
+}
+
+# The inverted dead-man switch: this spoke checks the HUB, so a dead hub is
+# noticed by a machine that is still up. Its own unit failing IS the signal
+# (local-only by design — no GitHub issue, no token on the spoke).
+install_watchdog() {
+    local watchdog="$REPO_ROOT/scripts/hub-watchdog.sh"
+    if [[ ! -x "$watchdog" ]]; then
+        log "WARNING: $watchdog not found/executable — skipping hub watchdog install"
+        return 0
+    fi
+
+    # Independent cadence from the heartbeat: the watchdog watches the HUB, so
+    # it should not inherit a very short or very long heartbeat interval.
+    # Clamped to [5 min, 15 min] — always well inside the script's staleness grace.
+    if (( INTERVAL < 300 )); then WATCH_INTERVAL=300
+    elif (( INTERVAL > 900 )); then WATCH_INTERVAL=900
+    else WATCH_INTERVAL=$INTERVAL; fi
+
+    log "Installing hub watchdog (checks the hub every ${WATCH_INTERVAL}s)..."
+
+    # Runs the in-repo script directly; HUB_URL comes from the heartbeat env
+    # file, which enrollment already wrote.
+    cat > "$WATCHDOG_SERVICE_UNIT" <<EOF
+[Unit]
+Description=DevGate hub watchdog (spoke-side dead-man check)
+
+[Service]
+Type=oneshot
+EnvironmentFile=$TICKET_FILE
+ExecStart=$watchdog
+EOF
+
+    cat > "$WATCHDOG_TIMER_UNIT" <<EOF
+[Unit]
+Description=DevGate hub watchdog timer
+
+[Timer]
+OnBootSec=${WATCH_INTERVAL}
+OnUnitActiveSec=${WATCH_INTERVAL}
+AccuracySec=10
+
+[Install]
+WantedBy=timers.target
+EOF
+
+    systemctl --user daemon-reload
+    systemctl --user enable devgate-hub-watchdog.timer 2>/dev/null || true
+    systemctl --user start devgate-hub-watchdog.timer
+
+    log "Watchdog installed: devgate-hub-watchdog.timer (status: systemctl --user status devgate-hub-watchdog)"
 }
 
 # --- enroll mode --------------------------------------------------------------
@@ -207,13 +262,18 @@ if [[ "$MODE" == "revoke" ]]; then
     }
     log "Hub confirmed revocation: $RESPONSE"
 
-    # Remove local timer + env file.
+    # Remove local timers + env file. The watchdog goes too: it reads
+    # HUB_URL from the env file being deleted, so leaving it behind would
+    # leave a unit that fails forever with a confusing config error.
     systemctl --user stop devgate-heartbeat.timer 2>/dev/null || true
     systemctl --user disable devgate-heartbeat.timer 2>/dev/null || true
-    rm -f "$TIMER_UNIT" "$SERVICE_UNIT" "$TICKET_FILE"
+    systemctl --user stop devgate-hub-watchdog.timer 2>/dev/null || true
+    systemctl --user disable devgate-hub-watchdog.timer 2>/dev/null || true
+    rm -f "$TIMER_UNIT" "$SERVICE_UNIT" "$TICKET_FILE" \
+          "$WATCHDOG_TIMER_UNIT" "$WATCHDOG_SERVICE_UNIT"
     systemctl --user daemon-reload
 
-    log "Runner '$REVOKE_RUNNER' revoked. Timer removed."
+    log "Runner '$REVOKE_RUNNER' revoked. Timers removed."
 fi
 
 exit 0

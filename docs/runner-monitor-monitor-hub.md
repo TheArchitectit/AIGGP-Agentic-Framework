@@ -204,17 +204,21 @@ Expect:
 
 ```json
 {"ok": true, "last_poll_at": "…", "last_alert_at": null,
- "registered_runners": 0, "uptime_sec": 12.3}
+ "registered_runners": 0, "uptime_sec": 12.3,
+ "polling_enabled": true, "poll_interval_sec": 60}
 ```
 
 `last_poll_at` advancing is proof the API channel is live. `last_alert_at` is
-`null` until the first alert — that is healthy, not broken.
+`null` until the first alert — that is healthy, not broken. `polling_enabled`
+is what tells a watchdog whether a `null` `last_poll_at` is by design; poll
+once, then re-check that `last_poll_at` has moved before you trust the hub.
 
 ### 8. Enable the dead-man switch
 
-`.github/workflows/devgate-monitor-deadman.yml` is the monitor's monitor
-(`mon-hub-01`, D6). See **Dead-man switch** below for what the committed
-template does and does not catch before you rely on it.
+The dead-man switch is spoke-side: each spoke's `devgate-hub-watchdog.timer`
+is installed during enrollment and fails its unit when the hub stops
+monitoring (`mon-deadman-01`). Nothing to enable here beyond step 9 — but read
+**Dead-man switch** below, including its honest limits, before you rely on it.
 
 ## Enrolling a runner (run this ON the spoke)
 
@@ -247,21 +251,50 @@ This posts `/revoke`, which deletes the heartbeat token and marks the runner
 `enrolled: false`; subsequent heartbeats get `401`. It then stops and removes
 the local timer and the token file.
 
-## Dead-man switch — read this before trusting it
+## Dead-man switch — how a dead hub gets noticed
 
-The committed workflow (`devgate-monitor-deadman.yml`) runs every 6 hours on
-GitHub's schedule and **prints a proof-of-life line**. Its own header states the
-intent: the switch fires on *absence*, not on failure.
+The hub cannot report its own death, and a GitHub-scheduled workflow cannot
+report its own absence. So the check runs on the machines that are still alive
+when the hub is not: **the spokes**. Every spoke installs
+`devgate-hub-watchdog.timer` during enrollment (no extra step — see
+`scripts/runner-enroll.sh`), which fetches the hub's `/health` on a timer and
+**fails its own systemd unit** when the hub has stopped monitoring.
 
-Watch the gap: a GitHub-scheduled workflow cannot natively notify you that it
-*didn't* run, and the committed template does not call the hub. As shipped it is
-a heartbeat record and a manual `workflow_dispatch` probe — it will **not**
-page you if the hub container dies. To make it a real dead-man switch, add a
-step that fetches the hub's `/health` and fails when `last_poll_at` is older
-than a few poll intervals (or point an external monitor at `/health` and alert
-on staleness). Do this before you rely on it, and record which of the two you
-chose. Until then, the hub's own alerting is your only automatic signal, and a
-dead hub is silent.
+The signal is local and deliberate: `devgate-hub-watchdog.service` in `failed`
+state on each spoke.
+
+```bash
+systemctl --user status devgate-hub-watchdog   # on any spoke
+journalctl --user -u devgate-hub-watchdog -n 50
+```
+
+**Why local-only.** There is no GitHub issue and no token on the spoke. A
+spoke is a runner host, not a paging service; giving every spoke an
+`issues:write` token to report a down hub would widen the blast radius of the
+fleet's credentials far more than the failure it detects. Wire the failed unit
+into whatever alerting you already run — `systemd` state is visible to any
+external monitor — and the notification path stays yours.
+
+**What the watchdog distinguishes.** `last_poll_at` is `null` in two opposite
+situations, and the watchdog does not conflate them:
+
+| Hub state | `/health` says | Watchdog |
+| --- | --- | --- |
+| Polling disabled (no `GITHUB_TOKEN`) | `polling_enabled: false`, `last_poll_at: null` | **warns, exits 0** — nothing is being monitored, but nothing is broken |
+| Poll loop wedged, or hub killing time | `polling_enabled: true`, `last_poll_at` stale | **fails (exit 1)** after `max(5 × poll interval, 300s)` |
+| Hub just started | `polling_enabled: true`, `last_poll_at: null`, low `uptime_sec` | passes — a fresh hub has not had time to poll |
+| Hub process gone / unreachable | no response | **fails (exit 1)** |
+
+That first row is the honest rough edge: **a hub with no PAT is not being
+watched by anyone.** The watchdog says so loudly rather than passing quietly,
+but it cannot turn an unconfigured hub into a monitored one. If you have not
+minted the PAT (step 3), the watchdog on every spoke will warn on every run.
+
+**Manual probe.** `.github/workflows/hub-health-probe.yml` is the same verdict
+logic as a `workflow_dispatch` button, for asking a hub about itself from the
+GitHub UI. It is explicitly *not* a dead-man switch — it only runs when a human
+runs it. It needs `HUB_URL` set as a repository **variable** (not a secret; a
+hub URL is host detail, so it is not committed).
 
 ## Q1–Q3 — defaults, confirm before go-live
 

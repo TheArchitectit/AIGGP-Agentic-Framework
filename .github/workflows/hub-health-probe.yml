@@ -1,0 +1,93 @@
+# Hub health probe — MANUAL ONLY. This is NOT a dead-man switch.
+#
+# A GitHub-scheduled workflow cannot report its own absence: if the schedule
+# stops firing, nothing runs to notice. An earlier version of this file
+# claimed it would "open an issue if it does not run within 24h" — no such
+# mechanism exists in GitHub Actions, and no such code was ever here. That
+# claim is removed rather than restated.
+#
+# The real dead-man switch is spoke-side and local: each enrolled spoke runs
+# `devgate-hub-watchdog.timer` (installed by scripts/runner-enroll.sh), which
+# checks the hub's /health and FAILS ITS UNIT when the hub stops monitoring.
+# See docs/runner-monitor-monitor-hub.md ("Dead-man switch"). Spokes are the
+# machines still alive when the hub is not, so they are the right place for it.
+#
+# This workflow is the manual equivalent for a human: run it on demand to ask
+# a hub whether it is healthy. It requires HUB_URL to be set as a repository
+# variable (Settings → Secrets and variables → Actions → Variables), e.g.
+# http://your-hub-host:8443 — a hub URL is not a secret, but it IS host detail,
+# so it is not committed here.
+
+name: hub-health-probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      hub_url:
+        description: "Hub base URL (overrides the HUB_URL repository variable)"
+        required: false
+        type: string
+      grace_sec:
+        description: "Staleness window in seconds (default: max(5 x poll interval, 300))"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe hub /health
+        env:
+          HUB_URL: ${{ inputs.hub_url || vars.HUB_URL }}
+          GRACE_SEC: ${{ inputs.grace_sec }}
+        run: |
+          if [ -z "${HUB_URL}" ]; then
+            echo "::error::No hub URL. Set the HUB_URL repository variable, or pass hub_url."
+            exit 1
+          fi
+
+          echo "Probing ${HUB_URL%/}/health ..."
+          health="$(curl -fsS --max-time 15 "${HUB_URL%/}/health")" || {
+            echo "::error::Hub unreachable at ${HUB_URL%/}/health — it is down or the network path is blocked."
+            exit 1
+          }
+          echo "$health"
+
+          # Same verdict logic as scripts/hub-watchdog.sh, so a manual probe
+          # and the spoke watchdog cannot disagree about what "healthy" means.
+          HUB_HEALTH="$health" GRACE_SEC="${GRACE_SEC}" python3 - <<'PY'
+          import json, os, sys
+          from datetime import datetime, timezone
+
+          h = json.loads(os.environ["HUB_HEALTH"])
+
+          if h.get("ok") is not True:
+              print("::error::Hub reports ok=false.")
+              sys.exit(1)
+
+          interval = int(h.get("poll_interval_sec") or 60)
+          grace = int(os.environ.get("GRACE_SEC") or 0) or max(interval * 5, 300)
+
+          if not h.get("polling_enabled"):
+              print("::warning::Polling is disabled (no GITHUB_TOKEN) — the hub is "
+                    "alive but monitoring nothing. last_poll_at is null by design.")
+              sys.exit(0)
+
+          uptime = float(h.get("uptime_sec") or 0)
+          if not h.get("last_poll_at"):
+              if uptime > grace:
+                  print(f"::error::Polling enabled but no cycle in {uptime:.0f}s of uptime.")
+                  sys.exit(1)
+              print(f"::notice::Hub started {uptime:.0f}s ago; no poll cycle yet.")
+              sys.exit(0)
+
+          last = datetime.strptime(h["last_poll_at"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+          age = (datetime.now(timezone.utc) - last).total_seconds()
+          if age > grace:
+              print(f"::error::Poll loop stale: last poll {age:.0f}s ago (grace {grace}s).")
+              sys.exit(1)
+          print(f"::notice::Hub healthy — last poll {age:.0f}s ago (grace {grace}s).")
+          PY

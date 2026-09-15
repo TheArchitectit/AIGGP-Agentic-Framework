@@ -134,6 +134,10 @@ class MonitorLoop:
         while not stop_event.is_set():
             try:
                 self.poll_cycle()
+                # A completed cycle is the liveness signal /health reports.
+                # Set after poll_cycle returns, so a wedged cycle stops
+                # advancing it — that staleness is what a watchdog detects.
+                self.state.note_poll()
             except Exception as e:  # noqa: BLE001 — monitor must never crash the hub
                 log.error("poll cycle failed: %s", e, exc_info=True)
             # Sleep in small increments so stop_event is checked promptly.

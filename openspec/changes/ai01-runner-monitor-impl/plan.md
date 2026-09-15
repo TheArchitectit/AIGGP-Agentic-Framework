@@ -430,11 +430,17 @@ existing suite):
    `templates/runner-monitor/*`. Verify: quadlet parses (podman quadlet dry-run if
    available, else structural lint); PREVENT-014 does not fire (named Containerfile).
 7. **`docs(runner-monitor): monitor-hub runbook + dead-man workflow template`** —
-   `docs/runner-monitor-monitor-hub.md`, `.github/workflows/devgate-monitor-deadman.yml`
+   `docs/runner-monitor-monitor-hub.md`, `.github/workflows/hub-health-probe.yml`
    (committed template, not enabled), README pointer from `templates/runner/README.md`,
    CHANGELOG.
    Verify: secrets-hygiene scan clean (no tokens/IPs/hosts in committed files);
    full `python3 -m pytest -q tests/` green; traceability covers all 10 mon-* IDs.
+   _Superseded post-implementation:_ the dead-man workflow was never a working
+   dead-man switch (a scheduled workflow cannot report its own absence, and the
+   committed job only echoed a line), so it is now a manual
+   `hub-health-probe.yml` and the real detection moved spoke-side to
+   `scripts/hub-watchdog.sh` under new requirement `mon-deadman-01` (11 mon-*
+   IDs covered).
 
 Order rationale: schema/config first (everything depends on it), server before polling
 (polling consumes registry state), alerts after checks exist to alert, then the

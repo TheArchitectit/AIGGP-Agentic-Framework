@@ -42,3 +42,26 @@ Sprints 1–6). No spec deltas expected — the requirements are already live in
 - [x] 6.1 Suite green (pytest + new hub tests; pre-existing node failures noted,
       not claimed); README pointer from templates/runner/README.md; CHANGELOG;
       version bump per release gate (commit 7)
+
+## Post-closeout — real dead-man switch (added after 6.1 review)
+- [x] 7.1 Discovered commit 7's dead-man workflow was not a working dead-man
+      switch: its header claimed it would open an issue if the schedule stopped
+      firing, but nothing in GitHub Actions or in the file did so. A scheduled
+      workflow cannot report its own absence.
+- [x] 7.2 Inverted the switch to the spokes (`scripts/hub-watchdog.sh` + a
+      `devgate-hub-watchdog.timer` installed by runner-enroll.sh). Local-only
+      signal: a failed systemd unit on each spoke. No token on the spoke, no
+      GitHub issue — deliberate, to keep an `issues:write` credential off every
+      runner host.
+- [x] 7.3 Wired `/health` for real staleness: `last_poll_at` was declared but
+      assigned nowhere; added `polling_enabled` + `poll_interval_sec` so a
+      watchdog distinguishes polling-disabled (null by design, warn) from a
+      wedged poll loop (stale, fail) and never exits 0 when it could not check.
+- [x] 7.4 Converted `devgate-monitor-deadman.yml` -> `hub-health-probe.yml`
+      (manual `workflow_dispatch`, shared verdict logic). Added spec requirement
+      `mon-deadman-01` (hub-architecture had no dead-man requirement — only a
+      line in the archived design's risk table).
+- [ ] 7.5 Deploy verification on a live hub machine (NOT_RUN: needs the hub
+      host) — start the quadlet, confirm `last_poll_at` advances across two
+      cycles, then confirm `systemctl --user list-timers devgate-hub-watchdog`
+      on an enrolled spoke and `status devgate-hub-watchdog` is clean.

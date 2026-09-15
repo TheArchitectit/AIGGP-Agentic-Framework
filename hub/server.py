@@ -37,7 +37,22 @@ class HubState:
         self.started_at = datetime.now(timezone.utc)
         self.last_poll_at: datetime | None = None
         self.last_alert_at: datetime | None = None
+        # Set by main() when the poll thread is started. A watcher reading
+        # /health must be able to tell "polling is disabled, so last_poll_at
+        # will stay null forever" from "polling is enabled but the loop died" —
+        # otherwise an unconfigured hub reads as a dead one.
+        self.polling_enabled: bool = False
         self._lock = threading.Lock()
+
+    def note_poll(self) -> None:
+        """Record that a full poll cycle completed (drives /health staleness)."""
+        self.last_poll_at = datetime.now(timezone.utc)
+
+    # // spec: mon-deadman-01 — the hub-side half of the requirement: the
+    # /health contract a spoke watchdog reads (polling_enabled separates
+    # "polling off, null by design" from "loop wedged"). The spoke half
+    # (timer + unit failure) is scripts/hub-watchdog.sh, documented in
+    # docs/runner-monitor-monitor-hub.md.
 
     def with_registry(self, fn):
         """Run fn(registry) under the state lock, saving on success."""
@@ -89,6 +104,10 @@ class HubHandler(BaseHTTPRequestHandler):
                 "last_alert_at": iso(state.last_alert_at),
                 "registered_runners": len(state.registry.runners()),
                 "uptime_sec": uptime,
+                # Watchdogs need these to judge staleness without guessing:
+                # polling_enabled=false means last_poll_at is null by design.
+                "polling_enabled": state.polling_enabled,
+                "poll_interval_sec": state.config.poll_interval_sec,
             })
         else:
             self._send(404, {"ok": False, "error": "not_found"})
