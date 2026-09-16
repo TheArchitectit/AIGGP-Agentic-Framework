@@ -96,7 +96,7 @@ PROJECT_ROOT = find_project_root()
 # --- Source directories to scan (auto-detect what exists) -------------------
 SOURCE_DIRS = []
 for candidate in ["src", "lib", "app", "extensions", "scripts", "internal", "pkg", "cmd", "game",
-                  "router", "agents", "common", "tools", "migrations", "openspec", "hub"]:
+                  "router", "agents", "common", "tools", "migrations", "openspec", "hub", "go"]:
     if (PROJECT_ROOT / candidate).is_dir():
         SOURCE_DIRS.append(candidate)
 
