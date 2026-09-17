@@ -236,10 +236,11 @@ def run(request_path: str) -> int:
         return _fail(out_dir, "policy-resolution", str(e), "adoption", identities)
     ledger, findings = adoption_out["ledger"], adoption_out["findings"]
 
-    if not context.is_promotion_authorizing(ctx):
-        # Replay reproduces a decision but never authorizes promotion
-        # (coh-ctx-03); the decision itself is unchanged.
-        pass
+    # coh-ctx-03 replay labeling lives IN the payload: the canonical result
+    # carries `semantics` (required by result.schema.json), so a replayed
+    # decision is structurally distinguishable and non-promotion-authorizing;
+    # consumers and report.summarize derive the flag from it. Nothing to do
+    # here — and nothing else may silently "authorize" on a replay.
 
     try:
         ev_digest = evidence.seal(findings, out_dir)

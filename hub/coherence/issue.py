@@ -111,13 +111,21 @@ def issue_context(ctx_dir: str, policy_dir: str, *, repo: str,
                   baseline_set=None, exception_set=None,
                   capability_grants=None, captured_facts=None,
                   context_id: str = "pilot-context",
+                  semantics: str = "fresh-promotion",
                   issuer: str = None) -> dict:
     """Issue a pilot evaluation context.
 
     Writes context.json into ctx_dir; baseline/exception sets into policy_dir
     (where the CLI's load_adoption_sets reads them). Raises ValueError on an
     unknown repo, a stage downgrade request, or an invalid set.
+
+    `semantics: replay` re-runs a historical decision with the SAME trusted
+    fields (evaluation_time/stage/sets) and is structurally labeled
+    non-promotion-authorizing in the canonical payload (coh-ctx-03). A
+    replay may not change the time, stage, or sets it replays.
     """
+    if semantics not in ("fresh-promotion", "replay"):
+        raise ValueError(f"invalid semantics {semantics!r}")
     registry = load_stage_registry(registry_path)
     stage = effective_stage(registry, repo, requested_stage)
 
@@ -139,7 +147,7 @@ def issue_context(ctx_dir: str, policy_dir: str, *, repo: str,
         "context_id": context_id,
         "evaluation_time": evaluation_time,
         "stage": stage,
-        "semantics": "fresh-promotion",
+        "semantics": semantics,
         "baseline_set_digest": baseline_digest,
         "exception_set_digest": exception_digest,
         "signer_set_digest": None,
