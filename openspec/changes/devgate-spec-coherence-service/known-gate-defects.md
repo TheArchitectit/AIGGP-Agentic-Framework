@@ -69,3 +69,25 @@ gap it cannot detect on its own.
 Open a separate change for GD-1 + GD-2 together: fix the matcher, add `tests` to
 `SOURCE_DIRS`, and expect a burst of newly-visible oversize test files across the
 repo (which is exactly why it must not be bundled here).
+
+
+## GD-3 — traceability double-counts requirement ids present in both active deltas and published specs
+
+`scripts/spec_traceability.py` sums ids per capability for its total
+(`total_ids = sum(len(r) for r in requirements.values())`) while capabilities
+are keyed by path — so the same `<!-- id: coh-eval-01 -->` living in
+`openspec/changes/<active>/specs/coherence-evaluation/spec.md` AND
+`openspec/specs/spec-coherence-service/spec.md` counts TWICE toward the total
+but once toward coverage (the marker set is a flat `set`). Measured when tried:
+48/125 with 25 duplicated ids vs 48/99 without. Worse, per-spec blocking mode
+resolves by capability name: making the published capability blocking would
+silently make the DELTA copies of the same ids blocking too, since they live
+under different capability keys — or not, depending on which file the reader
+means. The archive-time publishing convention (GD-unaware today) papers over
+it; the durable fix is set-deduplication of ids across files in
+`collect_requirements` (same id in change+spec is one requirement), and/or an
+explicit "in-flight" skip rule.
+
+Consequence taken by this change: published-spec creation deferred to archive
+(S8); do not publish while a change with the same ids is active until GD-3 is
+fixed.
