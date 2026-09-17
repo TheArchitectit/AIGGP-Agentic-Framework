@@ -281,3 +281,21 @@ Confirmed against fleet reconnaissance on 2026-09-17 (sources: framework repo + 
 | R9 | Fingerprint definition and lifecycle (version increment, severity escalation, recurrence-after-fix); provenance rules for pilot baselines (see acceptance.md) |
 
 New capability specs added in v2: `canonical-identity`, `decision-contract`, `evaluation-context`, `assertions-and-evaluators`, `subjects-3d`.
+
+### Implementation progress notes (post-freeze, no contract change)
+
+Recorded so the frozen design stays the single reading of the contract while
+implementation history stays visible. Full ledger: `s3-delivery.md`.
+
+- S3 `85b9cda`: `issue.py` ships an HMAC countersignature as a **labeled
+  stand-in** for the control-plane signature (coh-ctx-02); the primitive is
+  replaced in S5/ADR-018, the contract (bound sets, downgrade refusal,
+  signature-required-when-key-configured) is not.
+- S3 `85c6f5e`: replay equality pinned as **field-level across semantics**
+  (decision fields match; context/semantics digests differ by design) and
+  byte-level only fresh↔fresh (coh-ctx-03). An earlier doc claim of
+  byte-identity across semantics was wrong and is corrected here, not in the
+  spec text.
+- S3 `b538c79`: gate posture decided — coherence advisory until demo review
+  + S4 container close; published-spec creation deferred to S8 archive
+  (measured GD-3 double-count).
