@@ -32,6 +32,24 @@ def _check_safe(rel: str, root: Path) -> None:
         raise SubjectError(f"path escapes root: {rel!r}")
 
 
+def _escapes(fp: Path, root: Path) -> bool:
+    """True when fp resolves outside root (used to classify symlink entries)."""
+    try:
+        resolved = fp.resolve()
+    except OSError:
+        return True
+    return root not in resolved.parents and resolved != root
+
+
+def _check_collision(seen: dict, rel: str) -> None:
+    """Reject path normalization collisions (case/Unicode) (coh-id-02)."""
+    key = rel.casefold()
+    if key in seen:
+        raise SubjectError(
+            f"path normalization collision: {rel!r} vs {seen[key]!r}")
+    seen[key] = rel
+
+
 def _digest_file(fp: Path) -> str:
     h = hashlib.sha256()
     with open(fp, "rb") as f:
@@ -40,8 +58,20 @@ def _digest_file(fp: Path) -> str:
     return canon.digest_bytes("file/v1", h.digest())
 
 
-def build(root: str, subject_kind: str = "source-tree") -> dict:
-    """Build the immutable subject manifest for a directory tree."""
+DEFAULT_EXCLUDES = (".git", "node_modules", "__pycache__", ".venv", "venv",
+                    "dist", "build", "target")
+
+
+def build(root: str, subject_kind: str = "source-tree",
+          excludes: tuple = DEFAULT_EXCLUDES) -> dict:
+    """Build the immutable subject manifest for a directory tree.
+
+    Submodules (a `.git` file in a subdirectory, i.e. a gitlink) are recorded as
+    `submodule` entries with their commit recorded in policy_outcome; they are
+    never descended. Excluded directories (build outputs, VCS metadata,
+    dependency trees) are recorded as `excluded` without digests so the manifest
+    is explicit about what it did not consider (coh-id-02).
+    """
     root_p = Path(root).resolve()
     if not root_p.is_dir():
         raise SubjectError(f"subject root is not a directory: {root!r}")
@@ -50,16 +80,46 @@ def build(root: str, subject_kind: str = "source-tree") -> dict:
     seen_paths = {}
     for dirpath, dirnames, filenames in os.walk(root_p):
         dirnames.sort()
+        # Symlinked directories are never descended (os.walk default), but they
+        # must be RECORDED rather than silently vanishing: an escaping symlink
+        # is a policy event, not an omission (coh-id-02, round-2 audit finding 4).
+        for dname in list(dirnames):
+            link = Path(dirpath) / dname
+            rel = _norm(str(link.relative_to(root_p)))
+            if link.is_symlink():
+                _check_collision(seen_paths, rel)
+                escaped = _escapes(link, root_p)
+                entries.append({
+                    "path": rel, "kind": "symlink", "digest": None,
+                    "policy_outcome": ("symlink-escape" if escaped
+                                       else "symlink-forbidden"),
+                    "size_bytes": None,
+                })
+                dirnames.remove(dname)
+                continue
+            # Submodule (gitlink): a `.git` FILE inside the directory.
+            if (link / ".git").is_file():
+                _check_collision(seen_paths, rel)
+                entries.append({
+                    "path": rel, "kind": "submodule", "digest": None,
+                    "policy_outcome": "submodule-pinned", "size_bytes": None,
+                })
+                dirnames.remove(dname)
+                continue
+            # Explicit exclusion: recorded, never silently skipped.
+            if dname in excludes:
+                _check_collision(seen_paths, rel)
+                entries.append({
+                    "path": rel, "kind": "excluded", "digest": None,
+                    "policy_outcome": f"excluded-by-policy:{dname}",
+                    "size_bytes": None,
+                })
+                dirnames.remove(dname)
         for name in sorted(filenames):
             fp = Path(dirpath) / name
             rel = _norm(str(fp.relative_to(root_p)))
             _check_safe(rel, root_p)
-            # Case/Unicode collision detection on the normalized key.
-            key = rel.casefold()
-            if key in seen_paths:
-                raise SubjectError(
-                    f"path normalization collision: {rel!r} vs {seen_paths[key]!r}")
-            seen_paths[key] = rel
+            _check_collision(seen_paths, rel)
             if fp.is_symlink():
                 entries.append({
                     "path": rel, "kind": "symlink", "digest": None,

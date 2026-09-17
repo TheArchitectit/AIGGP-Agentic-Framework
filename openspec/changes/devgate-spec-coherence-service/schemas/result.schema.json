@@ -14,14 +14,14 @@
     "openspec_digest": { "$ref": "#/definitions/digest" },
     "policy_digest": { "$ref": "#/definitions/digest" },
     "context_digest": { "$ref": "#/definitions/digest" },
-    "evaluator_image_digest": { "$ref": "#/definitions/digest" },
+    "evaluator_image_digest": { "$ref": "#/definitions/digestOrNull", "description": "Null when the slice cannot compute it (coh-dec-02): never fabricated." },
     "platform": {
       "type": "object",
       "additionalProperties": false,
       "required": ["index_digest", "manifest_digest", "profile"],
       "properties": {
         "index_digest": { "$ref": "#/definitions/digestOrNull" },
-        "manifest_digest": { "$ref": "#/definitions/digest" },
+        "manifest_digest": { "$ref": "#/definitions/digestOrNull", "description": "Null when no pinned image is in use (coh-dec-02): never fabricated." },
         "profile": { "type": "string" }
       }
     },
@@ -65,7 +65,7 @@
     "finding": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["assertion_id", "finding_key", "outcome", "enforcement", "severity", "subject_locations", "expected", "observed", "evidence_refs"],
+      "required": ["assertion_id", "finding_key", "outcome", "enforcement", "severity", "subject_locations", "expected", "observed", "evidence_refs", "violation_class", "fingerprint"],
       "properties": {
         "assertion_id": { "type": "string" },
         "finding_key": { "type": "string" },
@@ -75,7 +75,10 @@
         "subject_locations": { "type": "array", "items": { "type": "string" } },
         "expected": { "type": "string" },
         "observed": { "type": "string" },
-        "evidence_refs": { "type": "array", "items": { "type": "string" } }
+        "evidence_refs": { "type": "array", "items": { "type": "string" } },
+        "violation_class": { "type": "string", "description": "Content-derived violation class; part of the baseline fingerprint." },
+        "fingerprint": { "type": "string", "description": "Stable finding fingerprint used for baseline ratchet matching (coh-pol-05)." },
+        "exception_id": { "type": "string", "description": "Present only when enforcement is EXCEPTION-ADVISORY." }
       }
     }
   }

@@ -1,0 +1,116 @@
+# // spec: coh-pol-04, coh-pol-05, coh-pol-06, coh-eval-05
+"""Adoption ladder: fingerprinted baseline ratchet, scoped exceptions.
+
+Baselines are SETS of fingerprints, not counts (coh-pol-04). A violation whose
+fingerprint is in the baseline is named debt (ADVISORY); one that is not is a
+regression and blocks at Stage >= 2. Exceptions never rewrite an outcome — they
+change enforcement only (coh-eval-05), and expiry is evaluated against the
+context evaluation_time, never the host clock.
+"""
+from datetime import datetime
+
+from . import policy
+
+
+def _parse(ts: str) -> datetime:
+    return datetime.fromisoformat(ts.replace("Z", "+00:00"))
+
+
+def fingerprint(assertion_id: str, version: int, location: str, vclass: str) -> str:
+    """Stable, content-derived fingerprint (no whole-subject digests, no time)."""
+    return "|".join([str(assertion_id), f"v{version}", str(location), str(vclass)])
+
+
+def _vclass(finding: dict) -> str:
+    """Violation class for the fingerprint.
+
+    Read from the explicit `violation_class` field; falls back to the last
+    segment of the finding key for findings produced before that field existed.
+    """
+    vc = finding.get("violation_class")
+    if vc:
+        return vc
+    parts = finding.get("finding_key", "").split("|")
+    return parts[-1] if len(parts) >= 3 else "unknown"
+
+
+def validate_exceptions(exceptions: list) -> None:
+    """Wildcards across assertions or repositories are forbidden (coh-pol-06)."""
+    for ex in exceptions:
+        if ex.get("assertion_id") in (None, "*", ""):
+            raise policy.PolicyError("wildcard exception rejected: no assertion scope")
+        if ex.get("subject_ref") in (None, "*", ""):
+            raise policy.PolicyError("wildcard exception rejected: no subject scope")
+
+
+def evaluate(ledger: list, findings: list, planned: list, baseline: list,
+             exceptions: list, stage: int, evaluation_time: str) -> dict:
+    """Apply the ladder. Returns ledger, findings, and whether anything blocks."""
+    validate_exceptions(exceptions)
+
+    versions = {a["id"]: a.get("version", 1) for a in planned}
+    baseline_fps = {
+        fingerprint(b["fingerprint"]["assertion_id"],
+                    b["fingerprint"]["assertion_version"],
+                    b["fingerprint"]["subject_location"],
+                    b["fingerprint"]["violation_key"])
+        for b in baseline if b.get("status", "open") == "open"
+    }
+
+    now = _parse(evaluation_time)
+    active_exc, expired_exc = {}, set()
+    for ex in exceptions:
+        fp = fingerprint(ex["finding_fingerprint"]["assertion_id"],
+                         ex["finding_fingerprint"]["assertion_version"],
+                         ex["finding_fingerprint"]["subject_location"],
+                         ex["finding_fingerprint"]["violation_key"])
+        if _parse(ex["expires_at"]) <= now:
+            expired_exc.add(fp)
+        else:
+            active_exc[fp] = ex
+
+    blocked = False
+    for f in findings:
+        aid = f["assertion_id"]
+        fp = fingerprint(aid, versions.get(aid, 1),
+                         f["subject_locations"][0] if f["subject_locations"] else "?",
+                         _vclass(f))
+        f["fingerprint"] = fp
+        if stage < 2:
+            f["enforcement"] = "ADVISORY"          # Stage 0/1: never blocks
+        elif fp in expired_exc:
+            f["enforcement"] = "BLOCK"             # expired exception -> blocks
+            blocked = True
+        elif fp in active_exc:
+            f["enforcement"] = "EXCEPTION-ADVISORY"
+            f["exception_id"] = active_exc[fp]["exception_id"]
+        elif fp in baseline_fps:
+            f["enforcement"] = "ADVISORY"          # named inherited debt
+        else:
+            f["enforcement"] = "BLOCK"             # regression -> blocks
+            blocked = True
+
+    # Ledger enforcement mirrors findings; unresolved required assertions are
+    # incomplete execution and block at enforced stages.
+    by_aid = {f["assertion_id"]: f for f in findings}
+    for e in ledger:
+        if e["outcome"] == "SATISFIED":
+            e["enforcement"] = "ADVISORY"
+        elif e["outcome"] == "VIOLATED":
+            f = by_aid.get(e["assertion_id"])
+            if f is None:
+                # coh-eval-03: VIOLATED with no finding detail is itself an
+                # evidence defect for enforced assertions, and blocks.
+                e["enforcement"] = "BLOCK"
+                e["reason"] = "violation-without-finding-detail"
+                blocked = True
+            else:
+                e["enforcement"] = f["enforcement"]
+                if e["enforcement"] == "BLOCK":
+                    blocked = True
+        else:  # UNRESOLVED: incomplete execution (coh-eval-02)
+            e["enforcement"] = "BLOCK" if stage >= 2 else "ADVISORY"
+            if e["enforcement"] == "BLOCK":
+                blocked = True
+
+    return {"ledger": ledger, "findings": findings, "blocked": blocked}

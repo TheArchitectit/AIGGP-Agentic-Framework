@@ -19,7 +19,10 @@ def seal(findings: list, output_dir: str) -> str:
     finding key, locations, expected/observed — never full source payloads.
     """
     out = Path(output_dir)
-    out.mkdir(parents=True, exist_ok=True)
+    try:
+        out.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        raise EvidenceError(f"cannot create evidence directory {output_dir}: {e}") from e
     objects = []
     for f in findings:
         ev = {
@@ -32,8 +35,8 @@ def seal(findings: list, output_dir: str) -> str:
         payload = canon.canon(ev)
         digest = canon.digest_bytes("evidence-manifest/v1", payload)
         rel = f"evidence/findings/{f['assertion_id']}.json"
-        (out / rel).parent.mkdir(parents=True, exist_ok=True)
         try:
+            (out / rel).parent.mkdir(parents=True, exist_ok=True)
             (out / rel).write_bytes(payload)
         except OSError as e:
             raise EvidenceError(f"cannot seal evidence {rel}: {e}") from e

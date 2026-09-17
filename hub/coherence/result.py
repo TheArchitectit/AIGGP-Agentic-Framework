@@ -34,8 +34,14 @@ def _summary(ledger: list) -> dict:
     }
 
 
-def decide(ledger: list, stage: int, error_class: str = None, error_reason: str = None) -> tuple:
-    """Apply the decision/exit matrix. Returns (decision, exit_code)."""
+def decide(ledger: list, stage: int, error_class: str = None,
+           error_reason: str = None, blocked: bool = None) -> tuple:
+    """Apply the decision/exit matrix. Returns (decision, exit_code).
+
+    When `blocked` is supplied it is the adoption ladder's verdict (a BLOCK
+    enforcement exists after ratification/exception logic). Otherwise the
+    matrix falls back to stage-based blocking.
+    """
     if error_class:
         exit_map = {
             "invalid-input": EXIT_INVALID_INPUT,
@@ -51,22 +57,20 @@ def decide(ledger: list, stage: int, error_class: str = None, error_reason: str 
     violated = [e for e in ledger if e["outcome"] == "VIOLATED"]
     unresolved = [e for e in ledger if e["outcome"] == "UNRESOLVED"]
 
-    # Enforced stages: any violated or unresolved required assertion blocks.
-    if stage in _BLOCK_STAGES:
-        if violated or unresolved:
-            return ("FAIL", EXIT_FAIL)
-        return ("PASS", EXIT_PASS)
+    if blocked is None:
+        blocked = stage in _BLOCK_STAGES and bool(violated or unresolved)
 
-    # Advisory/inventory stages: violations visible but non-blocking.
+    if blocked:
+        return ("FAIL", EXIT_FAIL)
     if violated or unresolved:
         return ("ADVISORY", EXIT_ADVISORY)
     return ("PASS", EXIT_PASS)
 
 
 def build(ledger: list, findings: list, identities: dict, stage: int,
-          semantics: str, evidence_manifest_digest: str) -> dict:
+          semantics: str, evidence_manifest_digest: str, blocked: bool = None) -> dict:
     """Build the canonical result payload (no attestation, no envelope)."""
-    decision, _ = decide(ledger, stage)
+    decision, _ = decide(ledger, stage, blocked=blocked)
     result = {
         "api_version": "devgate.spec-coherence.result/v1",
         "decision": decision,

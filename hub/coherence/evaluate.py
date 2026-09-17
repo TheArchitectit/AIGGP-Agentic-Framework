@@ -58,6 +58,15 @@ def run(planned: list, package: dict, subject_root: str, limits: dict = None) ->
 
         try:
             fs = _mediated_call(fn, a, package, subject_root, a["subjects"])
+        except evaluators.Unresolved as e:
+            # Unresolvable input (coh-assert-02) — distinct from a crash.
+            ledger.append({
+                "assertion_id": a["id"], "version": a["version"],
+                "outcome": "UNRESOLVED", "reason": e.reason,
+                "enforcement": "BLOCK",
+            })
+            done[a["id"]] = "UNRESOLVED"
+            continue
         except Exception as e:  # evaluator crash -> UNRESOLVED, enforced blocks
             ledger.append({
                 "assertion_id": a["id"], "version": a["version"],

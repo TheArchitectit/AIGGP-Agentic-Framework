@@ -6,6 +6,20 @@ Each returns a list of findings (empty = satisfied).
 import re
 from pathlib import Path
 
+
+class Unresolved(Exception):
+    """Raised by an evaluator when the assertion cannot be decided.
+
+    Per coh-assert-02 an unresolvable input (e.g. an empty selector) is
+    UNRESOLVED, never VIOLATED and never SATISFIED. Defined here (not in
+    evaluate.py) to avoid a circular import.
+    """
+
+    def __init__(self, reason: str):
+        super().__init__(reason)
+        self.reason = reason
+
+
 # Identity: compare declared fields against the approved package value, not
 # merely against each other (coh-assert-02).
 def identity_consistency(assertion: dict, package: dict, subject_root: str) -> list:
@@ -13,15 +27,13 @@ def identity_consistency(assertion: dict, package: dict, subject_root: str) -> l
     approved_ref = assertion["parameters"].get("approved_value_ref")
     approved = _dig(package, approved_ref) if approved_ref else None
     if approved is None:
-        return [_mk(assertion, "selector-empty",
-                    expected=f"approved value at {approved_ref}",
-                    observed="no approved value in package")]
+        raise Unresolved(f"approved-value-missing:{approved_ref}")
     for sel in assertion["subjects"]:
         observed = _extract(sel, subject_root, package)
         if observed is None:
-            findings.append(_mk(assertion, "selector-empty",
-                                expected=str(approved), observed="selector empty"))
-        elif observed != approved:
+            # coh-assert-02: an empty selector is UNRESOLVED, not VIOLATED.
+            raise Unresolved(f"selector-empty:{_loc(sel)}")
+        if observed != approved:
             findings.append(_mk(assertion, "identity-mismatch",
                                 expected=str(approved), observed=str(observed),
                                 locations=[_loc(sel)]))
@@ -112,6 +124,7 @@ def _mk(assertion: dict, violation_class: str, expected: str, observed: str,
     return {
         "assertion_id": assertion["id"],
         "finding_key": key,
+        "violation_class": violation_class,
         "outcome": "VIOLATED",
         "enforcement": "BLOCK",
         "severity": assertion.get("severity", "medium"),

@@ -19,14 +19,40 @@ def _check_assertion(a: dict) -> None:
         raise PlanError(f"assertion {a['id']!r} has no requirement_refs")
 
 
-def plan(assertions: list, central_required: list) -> list:
+def check_traceability(assertions: list, requirements: dict) -> None:
+    """Planning-time traceability (coh-assert-04), before any evaluator runs.
+
+    Every assertion must reference requirements that actually exist in the
+    package; every requirement marked testable must be claimed by at least one
+    assertion. This is structural — it does not depend on evidence that would
+    only exist after execution (that is the separate post-seal completeness
+    check).
+    """
+    known = set(requirements or {})
+    claimed = set()
+    for a in assertions:
+        for ref in a.get("requirement_refs", []):
+            if known and ref not in known:
+                raise PlanError(
+                    f"assertion {a['id']!r} references unknown requirement {ref!r}")
+            claimed.add(ref)
+    for rid, meta in (requirements or {}).items():
+        if meta.get("testable") and rid not in claimed:
+            raise PlanError(
+                f"testable requirement {rid!r} has no assertion (orphan)")
+
+
+def plan(assertions: list, central_required: list, requirements: dict = None) -> list:
     """Validate and order the assertion graph. Returns planned assertions.
 
     central_required are assertion IDs central policy requires; a repository
-    cannot omit them (coh-pol-01).
+    cannot omit them (coh-pol-01). When `requirements` is supplied, the
+    planning-time traceability check runs first (coh-assert-04).
     """
     for a in assertions:
         _check_assertion(a)
+    if requirements is not None:
+        check_traceability(assertions, requirements)
 
     ids = [a["id"] for a in assertions]
     dupes = {i for i in ids if ids.count(i) > 1}

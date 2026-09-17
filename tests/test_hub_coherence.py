@@ -247,15 +247,30 @@ class TestEvaluate(unittest.TestCase):
             self.assertTrue(all(f["expected"] == "widget" for f in fs))
 
     def test_identity_empty_selector_unresolved(self):
-        # README has no declared product line -> selector empty -> finding.
+        # README has no declared product line -> empty selector -> UNRESOLVED
+        # (coh-assert-02), never VIOLATED and never SATISFIED.
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
             pkg = _mk_package(root, approved_name="widget")
             _mk_subject(root, "# just a readme\n")
             p = package.resolve(str(pkg))
             a = json.loads((pkg / "specs" / "product-identity.json").read_text())
-            fs = evaluators.identity_consistency(a, p, str(root / "subject"))
-            self.assertTrue(any("selector-empty" in f["finding_key"] for f in fs))
+            with self.assertRaises(evaluators.Unresolved) as c:
+                evaluators.identity_consistency(a, p, str(root / "subject"))
+            self.assertIn("selector-empty", str(c.exception))
+
+    def test_empty_selector_ledger_is_unresolved_not_violated(self):
+        # End-to-end: the runtime maps Unresolved to an UNRESOLVED ledger entry.
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            pkg = _mk_package(root, approved_name="widget")
+            _mk_subject(root, "# just a readme\n")
+            p = package.resolve(str(pkg))
+            a = json.loads((pkg / "specs" / "product-identity.json").read_text())
+            out = evaluate.run([a], p, str(root / "subject"))
+            e = out["ledger"][0]
+            self.assertEqual(e["outcome"], "UNRESOLVED")
+            self.assertIn("selector-empty", e["reason"])
 
     def test_unapproved_evaluator_unresolved(self):
         a = {

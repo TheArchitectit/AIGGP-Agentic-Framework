@@ -9,8 +9,8 @@ This is the single published total ordering. Every stage × outcome × error-cla
 | Class | Members | Exit | Decision |
 |---|---|---|---|
 | `ERROR-invalid-input` | bad request schema, unsupported api_version is separate (40), missing/invalid subject or package, path traversal, normalization collision, input mutation during evaluation | 30 | ERROR |
-| `ERROR-policy` | policy resolution failure, untrusted policy/context, anti-rollback rejection, unapproved evaluator selected | 31 | ERROR |
-| `ERROR-execution` | evaluator crash, limit exhaustion, incomplete ledger, selector-empty on a required assertion, dependency-blocked required assertion | 32 | ERROR |
+| `ERROR-policy` | policy resolution failure, untrusted policy/context, anti-rollback rejection, **overlay that weakens central policy (disable required / lower severity / unapproved evaluator / capability grant / unknown severity)**, malformed policy or overlay | 31 | ERROR |
+| `ERROR-execution` | evaluator crash, limit exhaustion, incomplete ledger, dependency-blocked required assertion | 32 | ERROR |
 | `ERROR-evidence` | evidence sealing failure, attestation/signing failure, verification failure on tamper | 33 | ERROR |
 | `ERROR-protocol` | unsupported `api_version` | 40 | ERROR |
 | `FAIL` | ≥1 enforced assertion VIOLATED or UNRESOLVED (evaluation completed cleanly), expired-exception on required assertion | 20 | FAIL |
