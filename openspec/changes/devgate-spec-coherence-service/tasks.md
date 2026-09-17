@@ -73,6 +73,29 @@ Tests — `tests/test_hub_coherence.py` + `tests/test_hub_coherence_conformance.
 
 ## Sprint S3 — slice hardening and pilot-shaped demos
 
+Carried forward from audit rounds 1–3 (recorded in `s2-remediation.md`;
+round-3 APPROVE at pin `856cbd08…` listed these as non-blocking):
+
+- [ ] Schema-file assertion: one test asserting the parsed `result.schema.json`
+  has `additionalProperties: false` on findings — a permissive schema file makes
+  the conformance tests vacuous (round-3 residual 1).
+- [ ] `traceability_completeness` consuming `scripts/spec_traceability.py`
+  marker conventions (`<!-- id: -->` ↔ `// spec:`), carried from the original
+  S2 criteria (round 1).
+- [ ] Submodule commit-pinning: manifest records `submodule-pinned` entries but
+  does not yet capture/verify the pinned commit digest (round-1 partial).
+- [ ] Split `test_hub_coherence_conformance.py` (519 lines > 300 soft; invisible
+  under GD-1/GD-2 until the gate fix lands) (round-2/3 residuals).
+- [ ] Wrap the success-path `_emit` at `__main__.py:208` (race-only window)
+  (round-3, info).
+- [ ] Close S0 carry-forwards: independent review of R1–R9 and ADR disposition
+  (round-1 process debt; audit covered code, not the ADR clause decisions).
+- [ ] `semantic-scan.mjs` root detection: either scope it to this repo or
+  declare it out of service for this repo — do not keep a permanently-red or
+  silently-parent-scanning gate (GD-adjacent, round 2–3).
+
+Sprint work:
+
 - [ ] Context issuance tooling (control-plane stand-in for pilots): signed context files, stage registry, baseline/exception sets with fingerprint schema (coh-ctx-02, coh-pol-05).
 - [ ] Advisory-age and exception-expiry reporting from result + context (coh-pol-03, coh-pol-06).
 - [ ] Replay CLI (`semantics: replay`) demonstrating byte-reproduction of a historical decision, labeled non-promotion-authorizing (coh-ctx-03).
