@@ -126,7 +126,7 @@ Sprint work:
   r3-indep/round-4 crash-vector family into one door guard; protocol check
   (exit 40) still precedes schema validation so a foreign version is not
   judged by this version's schema.
-- [ ] Context issuance tooling (control-plane stand-in for pilots): signed context files, stage registry, baseline/exception sets with fingerprint schema (coh-ctx-02, coh-pol-05).
+- [x] Context issuance tooling (control-plane stand-in for pilots): signed context files, stage registry, baseline/exception sets with fingerprint schema (coh-ctx-02, coh-pol-05). `hub/coherence/issue.py` (139 lines): HMAC countersignature stand-in (honest scope: real signing is S5/ADR-018), authoritative stage registry with downgrade refusal, sets written to the policy dir + digest-bound into the context; `context.load` now requires a valid signature whenever a CP key is configured, and `verify_bound_sets` fails closed on post-issuance set swaps (coh-ctx-01). 12 tests, all six guards mutation-caught.
 - [ ] Advisory-age and exception-expiry reporting from result + context (coh-pol-03, coh-pol-06).
 - [ ] Replay CLI (`semantics: replay`) demonstrating byte-reproduction of a historical decision, labeled non-promotion-authorizing (coh-ctx-03).
 - [ ] Synthetic LobsterWars-shaped fixture: 13 named findings, full Stage 1 → Stage 2 ladder demonstration per acceptance Fixture C (labeled synthetic until R9 provenance capture exists).

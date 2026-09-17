@@ -225,6 +225,9 @@ def run(request_path: str) -> int:
     # malformed baseline/exceptions file is exit 31, never a traceback.
     try:
         baseline, exceptions = policy.load_adoption_sets(req["policy"]["root"])
+        # Sets must hash to the digests bound in the signed context
+        # (coh-ctx-01): a policy content-swap after issuance is detected here.
+        context.verify_bound_sets(ctx, baseline, exceptions)
         adoption_out = adoption.evaluate(
             ledger, findings, planned, baseline, exceptions,
             ctx["stage"], ctx["evaluation_time"])

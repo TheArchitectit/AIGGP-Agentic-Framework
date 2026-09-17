@@ -50,15 +50,39 @@ def load(root: str) -> dict:
     if semantics not in VALID_SEMANTICS:
         raise ContextError(f"invalid semantics: {semantics!r}")
 
-    # Trusted issuance: a countersignature or an issuer recorded in the
-    # control-plane trust root must be present. A bare self-issued context
-    # with no authority fails policy resolution (exit 31).
+    # Trusted issuance (slice scope): an issuer identity is always required.
+    # When a control-plane key IS configured, the HMAC countersignature is
+    # mandatory too — an unsigned context must not pass where a verifier
+    # exists (the S5 signing milestone tightens this to signer-set
+    # verification, coh-ev-05).
     issuance = ctx.get("issuance") or {}
     if not issuance.get("issuer"):
         raise ContextError("context has no trusted issuer")
+    from . import issue
+    if issue._key() is not None and not issue.verify_signature(ctx):
+        raise ContextError("control-plane key configured but context is "
+                           "unsigned or the countersignature does not verify")
 
     ctx["context_digest"] = canon.digest_obj("context/v1", ctx)
     return ctx
+
+
+def verify_bound_sets(ctx: dict, baseline: list, exceptions: list) -> None:
+    """Cross-check bound set digests (coh-ctx-01): when the context names a
+    baseline/exception digest, the sets actually loaded from the policy must
+    hash to it — a policy swapped after issuance is detected here."""
+    for digest_key, entries, label in (
+            ("baseline_set_digest", baseline, "baseline"),
+            ("exception_set_digest", exceptions, "exception")):
+        claimed = ctx.get(digest_key)
+        if claimed:
+            from . import issue
+            actual = issue.set_digest(entries, label)
+            if actual != claimed:
+                raise ContextError(
+                    f"{label} set does not match the digest bound in the "
+                    f"context ({claimed}); sets must be written to the policy "
+                    f"directory at issuance")
 
 
 def is_promotion_authorizing(ctx: dict) -> bool:
