@@ -283,10 +283,10 @@ returned REQUEST-CHANGES. Corrected to "NOT closed, awaiting re-verification".
 
 | Gate | Real exit | Result |
 |---|---|---|
-| `python3 -m pytest -q tests/` | 0 | passed — 192 repo-wide (96 coherence: unit 34 / conformance 32 / exitcodes 10 / schema 20) |
+| `python3 -m pytest -q tests/` | 0 | passed — 204 repo-wide (108 coherence: unit 34 / conformance 32 / exitcodes 22 / schema 20) after the r3-independent round below |
 | `regression_check.py --all --pre-commit` | 0 | exit 0, **but PARTIAL: the file-size rule did not evaluate `tests/`** (GD-2). Not evidence that this change's test files are within budget. |
 | `guardrails-scan.mjs` | 0 | passed — 1 pre-existing warning |
-| `semantic-scan.mjs` **NOT_RUN (for this change)** | 1 | **CORRECTED 2026-09-17:** an earlier version of this table claimed exit 0 and "857 violations all in unmodified `zombietoss/`". Both were wrong. Measured: exit **1**, and the violations are spread across ~100 sibling projects under `/mnt/data/git` — only 8 are in `zombietoss/`. Nothing in this change is implicated (zero violations in `hub/coherence`, `tests/test_hub_coherence*`, `fixtures/coherence`), but the scanner's root detection (`scripts/semantic-scan.mjs:33`) resolves to the PARENT of this repo, so **it never scanned this repository at all**. It cannot be cited as a passing gate for this change. See `known-gate-defects.md`. |
+| `semantic-scan.mjs` **NOT_RUN (for this change)** | 1 | **CORRECTED 2026-09-17:** an earlier version of this table claimed exit 0 and "857 violations all in unmodified `zombietoss/`". Both were wrong. Measured: exit **1**, violations spread across ~100 sibling projects under `/mnt/data/git` (a specific "8 in zombietoss" count came from a prior environment where the TS compiler API was briefly installed; not reproducible on the current tree, which reports no counts when it evaluates nothing — treated as a prior-environment observation, not evidence). Nothing in this change is implicated (zero violations in `hub/coherence`, `tests/test_hub_coherence*`, `fixtures/coherence`), but the scanner's root detection (`scripts/semantic-scan.mjs:33`) resolves to the PARENT of this repo, so **it never scanned this repository at all**. It cannot be cited as a passing gate for this change. See `known-gate-defects.md`. |
 | `silent-success-scan.sh` | 0 | passed — 0 hits |
 | `spec_traceability.py --report` | 0 | advisory — 48/99 covered |
 | `openspec validate --strict` | 0 | valid |
@@ -331,3 +331,54 @@ deflected. Substantive findings, all verified by reproduction before fixing:
 Round 3 also confirmed clean: split integrity (59→61 methods, none lost),
 H1 semantic-scan honesty, H3 gate-not-closed correction, and the full
 round-2 mutation battery still caught post-split.
+
+## Round 3-independent (coherence-auditor-3, stood down but reported) — 6 more defects, all fixed
+
+The second dispatched auditor (stand-down requested after it was found the
+first auditor had returned) re-verified against the then-current tree and
+reported six caller-reachable inputs that still killed the CLI with exit 1 +
+raw traceback — the same envelope-honesty class as B1 — plus a schemacheck
+gap. All six reproduced personally before fixing; all seven fixes
+mutation-verified on a /tmp copy:
+
+1. **[high] Zero-findings seal escape** (`evidence.py`): the manifest write was
+   outside the try/except; with zero findings (the fully-PASS shape) it was the
+   only write, and the existing exit-33 battery forced findings, so it stayed
+   green. Fixed + test with the zero-findings shape.
+2. **[high] Success-path emit unwrapped** (`__main__.py`): a blocked result.json
+   (e.g. occupied by a directory) after a clean seal died at exit 1. Routed
+   through `_emit_with_fallback`; decision stands, location announced.
+3. **[high] Policy block missing `root`**: KeyError escaped the PolicyError-only
+   except. Except widened; noted that runtime request-schema validation is the
+   durable fix (no code validates requests against request.schema.json — this
+   is the common root cause of 2-4 in that report; carried to S3).
+4. **[high] Malformed baseline/exceptions.json**: JSONDecodeError escaped the
+   loader and the CLI except (overlay.json was clean — the asymmetry was the
+   tell). Loader now raises PolicyError; CLI except widened.
+5. **[high] Null/absent expected_digest bypassed verification**
+   (`_check_expected` treated a missing claim as "nothing to check" and PASSed
+   with zero identity verification — the b6 claim "now verified against
+   computed content" was true only for *wrong* claims). A non-empty string
+   claim is now mandatory where the reference object is present, per
+   request.schema.json's inputRef (a policy call by the lead; consistent with
+   coh-pol-02 and the spec's requiredness).
+6. **[medium] schemacheck arms unpinned**: disabling enum, type, pattern, or
+   additionalProperties enforcement left the entire suite green — every
+   conformance case validated only documents expected to be valid. Six
+   negative-control tests added, one per enforcement arm.
+
+Mutation round 2 (after first-pass "caught" claims for 4 and 5 proved to be
+defense-in-depth masking): the tests now pin the specific guard by asserting
+the envelope's reason text, and unit-level tests pin the loader wrap directly.
+Verified: removing either the loader wrap or the null-guard is caught.
+
+Counts after this round: **204 repo / 108 coherence** (unit 34 / conformance
+32 / exitcodes 22 / schema 20).
+
+**Approval-scope note:** the round-3 APPROVE was bound to pin 856cbd08 and was
+committed as `7b26d82` before this independent report arrived; the commit and
+its pins were correct at the bytes approved. This round is a new delta
+(`b80df91` carried the S3 checklist; the fixes here follow), so the
+r3-independent findings have NOT yet been through a fresh independent round.
+The next auditor pin must cover them; per the stood-down auditor's own rule,
+any pin must survive >=10 minutes of polling before verdict.

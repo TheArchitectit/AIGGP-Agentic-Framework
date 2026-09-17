@@ -57,7 +57,7 @@ Modules under `hub/coherence/`, each <500 lines, stdlib-only, `# // spec: coh-*`
 - [x] `evidence.py` — minimum-disclosure capture, sealing, per-object + manifest tamper verification (coh-ev-02, coh-ev-03, coh-ev-06).
 - [x] `__main__.py` — CLI; time only from context; protocol guard (exit 40); exit codes per matrix; explicit nulls never fabricated (coh-dec-02, coh-dec-04).
 
-Tests — `tests/test_hub_coherence.py` + `tests/test_hub_coherence_conformance.py` + `tests/fixtures/coherence/` (coherence suite 96 tests: unit 34 / conformance 32 / exitcodes 10 / schema 20; repo total 192 — the gate is the suite result, not a frozen number):
+Tests — `tests/test_hub_coherence.py` + `tests/test_hub_coherence_conformance.py` + `tests/fixtures/coherence/` (coherence suite 108 tests: unit 34 / conformance 32 / exitcodes 22 / schema 20; repo total 204 — the gate is the suite result, not a frozen number):
 
 - [x] Fixture A — coherent repository → PASS; canonical bytes identical across 100 replays.
 - [x] Fixture B — identity drift (synthetic, labeled) → VIOLATED, exact locations, approved-value comparison.
@@ -69,7 +69,7 @@ Tests — `tests/test_hub_coherence.py` + `tests/test_hub_coherence_conformance.
 - [x] Error envelopes — null identities never fabricated; ERROR is never PASS/ADVISORY; no attestation/timestamp/duration fields in canonical result.
 - [ ] Traceability assertion consuming `scripts/spec_traceability.py` marker conventions (repo-specific marker format `<-- id: -->` / `// spec:`) — **NOT IMPLEMENTED**; the planning-time structural traceability check (coh-assert-04) IS implemented against the package's requirement registry, but wiring it to this repository's own marker format remains. Carried to S3.
 
-**Gate:** 96 coherence tests green (repo total 192); regression + guardrails + silent-success clean; **semantic-scan NOT_RUN for this change** (scans the parent directory, not this repo — see `known-gate-defects.md`); **file-size rule did not evaluate `tests/`** (pre-existing scope gap GD-2); 100× replay byte-identical. Status: **criteria met but the S2 gate is NOT closed** — audit round 2 returned REQUEST-CHANGES with blocking items B1 (exit 33 unreachable) and B2 (size gate gap), and round 3's crash-vector finding since addressed and mutation-verified off-tree; awaiting the round-3 auditor's re-verification against the final pin. See `s2-remediation.md`.
+**Gate:** 108 coherence tests green (repo total 204); regression + guardrails + silent-success clean; **semantic-scan NOT_RUN for this change** (scans the parent directory, not this repo — see `known-gate-defects.md`); **file-size rule did not evaluate `tests/`** (pre-existing scope gap GD-2); 100× replay byte-identical. Status: **criteria met but the S2 gate is NOT closed** — audit round 2 returned REQUEST-CHANGES with blocking items B1 (exit 33 unreachable) and B2 (size gate gap), and round 3's crash-vector finding since addressed and mutation-verified off-tree; awaiting the round-3 auditor's re-verification against the final pin. See `s2-remediation.md`.
 
 ## Sprint S3 — slice hardening and pilot-shaped demos
 

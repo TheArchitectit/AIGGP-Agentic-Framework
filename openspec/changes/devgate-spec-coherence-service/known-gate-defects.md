@@ -55,9 +55,11 @@ gap it cannot detect on its own.
   positive evidence that this change's test files are within budget. It is
   recorded as **PARTIAL: file-size rule did not evaluate the tests/ tree**.
 - Action taken in this change: the oversized test file was split into
-  `test_hub_coherence_conformance.py` (518), `test_hub_coherence_exitcodes.py`
-  (138), and `test_hub_coherence_schema.py` (306). **`test_hub_coherence_conformance.py`
-  at 518 lines is still over the 300 *soft* limit**, and under GD-1/GD-2 that is
+  `test_hub_coherence_conformance.py` (519), `test_hub_coherence_exitcodes.py`
+  (338), and `test_hub_coherence_schema.py` (338) as of the r3-indep round;
+  originally 518/138/306 before the envelope-honesty tests were added.
+  **`test_hub_coherence_conformance.py`
+  at 519 lines is still over the 300 *soft* limit**, and under GD-1/GD-2 that is
   currently invisible to the gate. Splitting further is deferred to S3.
 - Fixing GD-1/GD-2 changes gate behavior repo-wide and should be its own change
   with its own audit, not a drive-by during a feature sprint.

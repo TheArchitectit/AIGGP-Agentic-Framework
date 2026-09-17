@@ -49,7 +49,13 @@ def seal(findings: list, output_dir: str) -> str:
 
     manifest = {"api_version": "devgate.spec-coherence.evidence/v1", "objects": objects}
     manifest_digest = canon.digest_obj("evidence-manifest/v1", manifest)
-    (out / "evidence-manifest.json").write_bytes(canon.canon(manifest))
+    # The manifest write is inside the bounded path too (r3-indep item 1):
+    # with zero findings — the common fully-PASS shape — this was the ONLY
+    # seal write, and it escaped unwrapped as exit 1 + PermissionError.
+    try:
+        (out / "evidence-manifest.json").write_bytes(canon.canon(manifest))
+    except OSError as e:
+        raise EvidenceError(f"cannot seal evidence manifest: {e}") from e
     return manifest_digest
 
 

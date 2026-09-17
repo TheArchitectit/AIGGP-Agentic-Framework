@@ -57,10 +57,19 @@ def load_adoption_sets(root: str) -> tuple:
     baseline, exceptions = [], []
     b_path = root_p / "baseline.json"
     if b_path.exists():
-        baseline = json.loads(b_path.read_text())
+        try:
+            baseline = json.loads(b_path.read_text())
+        except (OSError, json.JSONDecodeError) as e:
+            # r3-indep item 4: malformed baseline/exceptions must be policy
+            # resolution errors (exit 31), not raw tracebacks — overlay.json
+            # was already handled cleanly; the asymmetry was the bug.
+            raise PolicyError(f"cannot read baseline set {b_path}: {e}") from e
     e_path = root_p / "exceptions.json"
     if e_path.exists():
-        exceptions = json.loads(e_path.read_text())
+        try:
+            exceptions = json.loads(e_path.read_text())
+        except (OSError, json.JSONDecodeError) as e:
+            raise PolicyError(f"cannot read exception set {e_path}: {e}") from e
     return baseline, exceptions
 
 

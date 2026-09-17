@@ -59,13 +59,22 @@ REQUIRED_REQUEST_FIELDS = ("api_version", "subject", "openspec", "policy",
                            "context", "semantics", "outputs")
 
 
-def _check_expected(claimed: str, actual: str, label: str) -> None:
+def _check_expected(claimed, actual: str, label: str) -> None:
     """Verify a caller-supplied expected digest against computed content.
 
     Round-2 audit finding 6a: these fields were previously carried but never
-    checked, so a wrong expected_digest silently produced PASS.
+    checked. Round-3-independent item 5: a null/absent/empty claim must not
+    silently skip verification — `request.schema.json`'s inputRef makes
+    `expected_digest` required whenever a reference object is present, so a
+    missing claim is invalid input, not a bypass. (A wholly absent subject/
+    openspec/policy/context object is a separate missing-required-field error
+    caught at request parse time.)
     """
-    if claimed and claimed != actual:
+    if not isinstance(claimed, str) or not claimed.strip():
+        raise ValueError(
+            f"{label}.expected_digest is required and must be a non-empty "
+            f"string; verification cannot be skipped")
+    if claimed != actual:
         raise ValueError(
             f"{label} digest mismatch: request expected {claimed}, "
             f"computed {actual}")
@@ -139,11 +148,14 @@ def run(request_path: str) -> int:
         return _fail(out_dir, "policy-resolution", str(e), "context", identities)
 
     # Policy identity is verified against real content; the caller's claimed
-    # digest is never trusted as authority (coh-pol-02).
+    # digest is never trusted as authority (coh-pol-02). KeyError/TypeError
+    # included (r3-indep item 3): a policy block without "root" is a policy
+    # resolution error, not a crash — request schema validation at the
+    # adapter is the durable fix, this is the slice guard.
     try:
         pol = policy.resolve(req["policy"]["root"], req["policy"]["expected_digest"])
         identities["policy_digest"] = pol["policy_digest"]
-    except policy.PolicyError as e:
+    except (policy.PolicyError, KeyError, TypeError) as e:
         return _fail(out_dir, "policy-resolution", str(e), "policy-resolution", identities)
 
     # Slice cannot compute these; explicit nulls, never fabricated (coh-dec-02).
@@ -183,12 +195,14 @@ def run(request_path: str) -> int:
     ledger, findings = eval_out["ledger"], eval_out["findings"]
 
     # Adoption ladder: baseline ratchet + scoped exceptions (coh-pol-04..06).
+    # JSONDecodeError/KeyError/TypeError included (r3-indep item 4): a
+    # malformed baseline/exceptions file is exit 31, never a traceback.
     try:
         baseline, exceptions = policy.load_adoption_sets(req["policy"]["root"])
         adoption_out = adoption.evaluate(
             ledger, findings, planned, baseline, exceptions,
             ctx["stage"], ctx["evaluation_time"])
-    except policy.PolicyError as e:
+    except (policy.PolicyError, json.JSONDecodeError, KeyError, TypeError) as e:
         return _fail(out_dir, "policy-resolution", str(e), "adoption", identities)
     ledger, findings = adoption_out["ledger"], adoption_out["findings"]
 
@@ -205,7 +219,11 @@ def run(request_path: str) -> int:
     res = result.build(ledger, findings, identities, ctx["stage"],
                        ctx.get("semantics", "fresh-promotion"), ev_digest,
                        blocked=adoption_out["blocked"])
-    _emit(f"{out_dir}/result.json", result.to_canonical(res))
+    # Success path goes through the fallback too (r3-indep item 2): if the
+    # decision was computed but result.json cannot be written (occupied by a
+    # directory, dir flipped read-only after seal), the payload lands beside
+    # the request with an stderr announcement — never exit 1 + traceback.
+    _emit_with_fallback(out_dir, result.to_canonical(res))
     _, code = result.decide(ledger, ctx["stage"], blocked=adoption_out["blocked"])
     return code
 
