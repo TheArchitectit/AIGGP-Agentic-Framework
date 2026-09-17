@@ -1,4 +1,4 @@
-# // spec: coh-dec-01, coh-dec-02, coh-dec-04, coh-pol-02
+# // spec: coh-dec-01, coh-dec-02, coh-dec-04, coh-pol-02, coh-pkg-02
 """CLI entry point: python -m hub.coherence --request request.json
 
 Time and stage come only from the evaluation context, never the host clock.
@@ -6,14 +6,29 @@ Exit codes per the frozen decision/exit matrix. Stdlib-only.
 
 Identity fields the slice cannot compute (evaluator image digest, platform
 manifest digest) are carried as explicit nulls, never fabricated (coh-dec-02).
+
+The request is validated against request.schema.json at entry (S3): a
+malformed or wrong-typed request yields the documented invalid-input envelope,
+never a raw traceback — the durable fix behind the r3-indep crash-vector
+family.
 """
 import argparse
 import json
 import sys
 import tempfile
+from functools import lru_cache
 from pathlib import Path
 
-from . import adoption, context, evaluate, evidence, manifest, package, plan, policy, result
+from . import (adoption, context, evaluate, evidence, manifest, package, plan,
+               policy, result, schemacheck)
+
+SCHEMA_DIR = Path(__file__).resolve().parent.parent.parent / \
+    "openspec/changes/devgate-spec-coherence-service/schemas"
+
+
+@lru_cache(maxsize=8)
+def _schema(name: str) -> dict:
+    return json.loads((SCHEMA_DIR / name).read_text())
 
 
 def _emit(path: str, payload: bytes) -> None:
@@ -52,6 +67,15 @@ def _fail(out_dir: str, error_class: str, reason: str, stage: str,
     return code
 
 
+def _require(obj: dict, key: str, where: str):
+    """Fetch a required key with a message that names it (round-4, low):
+    a raw KeyError surfaced as "'root'" in the envelope reason."""
+    try:
+        return obj[key]
+    except KeyError:
+        raise KeyError(f"missing required field: {where}.{key}") from None
+
+
 SUPPORTED_API = "devgate.spec-coherence/v1"
 
 
@@ -80,45 +104,46 @@ def _check_expected(claimed, actual: str, label: str) -> None:
             f"computed {actual}")
 
 
+def _safe_out_dir(req: dict, request_path: str) -> str:
+    """Best-effort envelope location before the request is schema-validated."""
+    raw = req.get("outputs")
+    if isinstance(raw, str) and raw.strip() and "\x00" not in raw:
+        return raw.strip()
+    return str(Path(request_path).resolve().parent)
+
+
 def run(request_path: str) -> int:
-    out_dir = "."
+    out_dir = str(Path(request_path).resolve().parent)
     try:
         req = json.loads(Path(request_path).read_text())
         if not isinstance(req, dict):
             raise ValueError("request must be a JSON object")
-        # `outputs` must be a string with no embedded NUL. A non-string
-        # (JSON array/number/object/bool) or NUL would otherwise crash the
-        # error path itself (AttributeError on .strip, ValueError inside mkdir)
-        # — exit 1 with a raw traceback instead of the documented envelope
-        # (round-3 audit item 2; same class as finding 6b).
+        # Protocol guard before deep validation (coh-dec-04, exit 40): a
+        # foreign api_version must not be judged by this version's schema.
+        if req.get("api_version") != SUPPORTED_API:
+            return _fail(_safe_out_dir(req, request_path), "protocol",
+                         f"unsupported api_version {req.get('api_version')!r}; "
+                         f"supported: {SUPPORTED_API}", "invocation", {})
+        # Validate against the frozen request contract BEFORE any field is
+        # touched (S3 runtime-schema item): structure, required fields,
+        # inputRef shapes, semantics enum, outputs type. Replaces the piecemeal
+        # guards the earlier audit rounds patched in one by one. NUL paths
+        # would raise inside mkdir (not OSError), so they are rejected here too.
+        errors = schemacheck.validate(req, _schema("request.schema.json"))
+        if errors:
+            raise ValueError("invalid request: " + "; ".join(errors[:5]))
         raw_out = req.get("outputs")
-        if raw_out is not None and not isinstance(raw_out, str):
-            raise ValueError(
-                f"outputs must be a string, got {type(raw_out).__name__}")
         if isinstance(raw_out, str) and "\x00" in raw_out:
             raise ValueError("outputs contains an embedded NUL character")
-        # An absent, empty, or whitespace-only `outputs` must NOT silently mean
-        # "the caller's cwd" — that writes results into whatever directory the
-        # process happened to start in. Fall back to the request's own directory.
-        out_dir = (raw_out or "").strip() or str(
-            Path(request_path).resolve().parent)
-        missing = [f for f in REQUIRED_REQUEST_FIELDS if f not in req]
-        if missing:
-            raise ValueError(f"request missing required field(s): {missing}")
-    except (OSError, json.JSONDecodeError, ValueError) as e:
+        # Empty/whitespace outputs must NOT mean "caller's cwd" — fall back to
+        # the request's own directory.
+        out_dir = (raw_out or "").strip() or out_dir
+    except (OSError, json.JSONDecodeError, ValueError, schemacheck.SchemaError) as e:
         # Malformed request must yield an envelope, never a raw traceback
-        # (round-2 audit finding 6b). With no readable `outputs` field, write
-        # beside the request file rather than polluting the working directory.
-        if out_dir == ".":
-            out_dir = str(Path(request_path).resolve().parent)
+        # (round-2 audit finding 6b), written beside the request file rather
+        # than polluting the working directory.
         return _fail(out_dir, "invalid-input", f"malformed request: {e}",
                      "invocation", {})
-
-    # Protocol guard runs before any resolver (coh-dec-02, exit 40).
-    if req.get("api_version") != SUPPORTED_API:
-        return _fail(out_dir, "protocol",
-                     f"unsupported api_version {req.get('api_version')!r}; "
-                     f"supported: {SUPPORTED_API}", "invocation", {})
 
     identities = {}
 
@@ -153,7 +178,8 @@ def run(request_path: str) -> int:
     # resolution error, not a crash — request schema validation at the
     # adapter is the durable fix, this is the slice guard.
     try:
-        pol = policy.resolve(req["policy"]["root"], req["policy"]["expected_digest"])
+        pol = policy.resolve(_require(req["policy"], "root", "policy"),
+                             _require(req["policy"], "expected_digest", "policy"))
         identities["policy_digest"] = pol["policy_digest"]
     except (policy.PolicyError, KeyError, TypeError) as e:
         return _fail(out_dir, "policy-resolution", str(e), "policy-resolution", identities)
@@ -202,7 +228,8 @@ def run(request_path: str) -> int:
         adoption_out = adoption.evaluate(
             ledger, findings, planned, baseline, exceptions,
             ctx["stage"], ctx["evaluation_time"])
-    except (policy.PolicyError, json.JSONDecodeError, KeyError, TypeError) as e:
+    except (policy.PolicyError, json.JSONDecodeError, KeyError, TypeError,
+            ValueError) as e:
         return _fail(out_dir, "policy-resolution", str(e), "adoption", identities)
     ledger, findings = adoption_out["ledger"], adoption_out["findings"]
 

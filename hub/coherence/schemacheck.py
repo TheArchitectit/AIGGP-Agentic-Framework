@@ -9,10 +9,26 @@ Purpose: wire the frozen schemas into a real gate so a result whose emitted
 shape drifts from the contract fails a test rather than reaching a consumer.
 Unsupported keywords are ignored, not silently treated as satisfied.
 """
+import json
 import re
+from datetime import datetime
+from functools import lru_cache
+from pathlib import Path
+
+# The frozen contract schemas live with the change package until S3 publishes
+# them; move this path then, not before — tests read the same files.
+SCHEMA_DIR = Path(__file__).resolve().parent.parent.parent / \
+    "openspec/changes/devgate-spec-coherence-service/schemas"
+
+
+@lru_cache(maxsize=16)
+def load(name: str) -> dict:
+    """Load a frozen schema by file name (e.g. 'request.schema.json')."""
+    return json.loads((SCHEMA_DIR / name).read_text())
 
 SUPPORTED = {"type", "required", "additionalProperties", "properties", "enum",
              "const", "pattern", "minItems", "minimum", "items", "$ref",
+             "format",
              "description", "default", "$schema", "$id", "title", "definitions"}
 
 _TYPES = {
@@ -23,6 +39,17 @@ _TYPES = {
 
 class SchemaError(ValueError):
     """Raised when a document does not satisfy its schema."""
+
+
+def _valid_date_time(val: str) -> bool:
+    try:
+        parsed = datetime.fromisoformat(val.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    return parsed.tzinfo is not None  # date-time requires an offset
+
+
+_FORMATS = {"date-time": _valid_date_time}
 
 
 def _is_type(val, tname) -> bool:
@@ -40,7 +67,12 @@ def _resolve(ref: str, root: dict) -> dict:
         raise SchemaError(f"unsupported $ref form: {ref!r}")
     cur = root
     for part in ref[2:].split("/"):
-        cur = cur[part]
+        try:
+            cur = cur[part]
+        except (KeyError, TypeError):
+            # A dangling pointer must not crash the validator (gate-crash
+            # class); callers surface it as a validation failure.
+            raise SchemaError(f"unresolvable $ref: {ref!r}")
     return cur
 
 
@@ -68,6 +100,9 @@ def validate(doc, schema: dict, root: dict = None, path: str = "$") -> list:
     if isinstance(doc, str) and "pattern" in schema:
         if not re.search(schema["pattern"], doc):
             errs.append(f"{path}: {doc!r} does not match pattern {schema['pattern']!r}")
+    if isinstance(doc, str) and schema.get("format") in _FORMATS:
+        if not _FORMATS[schema["format"]](doc):
+            errs.append(f"{path}: {doc!r} is not a valid {schema['format']}")
 
     if isinstance(doc, (int, float)) and not isinstance(doc, bool):
         if "minimum" in schema and doc < schema["minimum"]:

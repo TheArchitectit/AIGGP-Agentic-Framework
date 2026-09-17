@@ -175,8 +175,12 @@ class TestEnvelopeHonestyIndep(unittest.TestCase):
             self.assertIn("fallback location", p.stderr,
                           "relocated success result must be announced")
 
-    def test_policy_block_without_root_is_exit31(self):
-        """Item 3: KeyError escaped the policy except -> exit 1 traceback."""
+    def test_policy_block_without_root_is_error_envelope(self):
+        """Item 3: KeyError escaped the policy except -> exit 1 traceback.
+        After S3 runtime schema validation the request never reaches the
+        policy resolver at all: a policy block without "root" is invalid
+        input (30), and the reason names the missing key (round-4 low — no
+        bare "'root'" KeyError text)."""
         with tempfile.TemporaryDirectory() as td:
             req, out = fx.build_root(Path(td) / "f")
             r = json.loads(req.read_text())
@@ -186,8 +190,12 @@ class TestEnvelopeHonestyIndep(unittest.TestCase):
                                 "--request", str(req)],
                                capture_output=True, text=True, cwd=str(REPO))
             self.assertNotIn("Traceback", p.stderr)
-            self.assertEqual(p.returncode, result.EXIT_POLICY,
-                             f"expected exit 31, got {p.returncode}")
+            self.assertEqual(p.returncode, result.EXIT_INVALID_INPUT,
+                             f"expected exit 30, got {p.returncode}")
+            env = json.loads((req.parent / "result.json").read_text())
+            self.assertIn("policy", env["error"]["reason"])
+            self.assertIn("'root'", env["error"]["reason"],
+                          "the missing key must be named by the schema guard")
 
     def test_malformed_baseline_is_exit31(self):
         """Item 4: baseline.json/exceptions.json were parsed outside any
@@ -238,10 +246,13 @@ class TestEnvelopeHonestyIndep(unittest.TestCase):
                 self.assertEqual(p.returncode, result.EXIT_INVALID_INPUT,
                                  f"expected_digest={bad!r}: expected exit 30, "
                                  "got silent skip")
-                env = json.loads((out / "result.json").read_text())
-                self.assertIn("required and must be a non-empty",
-                              env["error"]["reason"],
-                              f"expected_digest={bad!r}: wrong guard fired")
+                # Runtime schema validation now fires before the piecemeal
+                # _check_expected guard: null hits its type rule, ""/"   " hit
+                # its pattern rule. Both are exit 30, name the field, and land
+                # beside the request (out_dir isn't trusted until validated).
+                env = json.loads((req.parent / "result.json").read_text())
+                self.assertIn("expected_digest", env["error"]["reason"],
+                              f"expected_digest={bad!r}: field not named")
 
 
 class TestSchemacheckNegativeControls(unittest.TestCase):
@@ -298,6 +309,180 @@ class TestSchemacheckNegativeControls(unittest.TestCase):
         errs = schemacheck.validate({"kind": "a"}, self._SCHEMA)
         self.assertTrue(any("required" in e for e in errs),
                         f"required arm silent: {errs}")
+
+
+class TestRuntimeSchemaValidation(unittest.TestCase):
+    """S3: requests, contexts, and adoption sets are validated against their
+    frozen schemas at load — the durable fix that consolidates the r3-indep
+    and round-4 crash-vector family."""
+
+    def _env(self, req, out):
+        for cand in (out / "result.json", Path(req).parent / "result.json"):
+            if cand.exists():
+                return json.loads(cand.read_text())
+        self.fail("no envelope written anywhere")
+
+    def test_wrong_shape_baseline_dict_is_exit31(self):
+        """Round-4 carry-forward: valid JSON of the wrong shape used to reach
+        adoption.evaluate and crash there with AttributeError."""
+        with tempfile.TemporaryDirectory() as td:
+            req, out = fx.build_root(Path(td) / "f", stage=2)
+            pr = Path(json.loads(req.read_text())["policy"]["root"])
+            (pr / "baseline.json").write_text(json.dumps({"a": 1}))
+            p = subprocess.run([sys.executable, "-m", "hub.coherence",
+                                "--request", str(req)],
+                               capture_output=True, text=True, cwd=str(REPO))
+            self.assertNotIn("Traceback", p.stderr)
+            self.assertEqual(p.returncode, result.EXIT_POLICY,
+                             f"expected exit 31, got {p.returncode}")
+
+    def test_list_of_strings_baseline_is_exit31(self):
+        with tempfile.TemporaryDirectory() as td:
+            req, out = fx.build_root(Path(td) / "f", stage=2)
+            pr = Path(json.loads(req.read_text())["policy"]["root"])
+            (pr / "baseline.json").write_text(json.dumps(["just", "strings"]))
+            p = subprocess.run([sys.executable, "-m", "hub.coherence",
+                                "--request", str(req)],
+                               capture_output=True, text=True, cwd=str(REPO))
+            self.assertNotIn("Traceback", p.stderr)
+            self.assertEqual(p.returncode, result.EXIT_POLICY)
+            env = self._env(req, out)
+            self.assertIn("invalid baseline set", env["error"]["reason"])
+
+    def test_garbage_expires_at_is_exit31_not_crash(self):
+        """The timestamp vector: entry-shape-valid, format-invalid. Pin the
+        reason to the SCHEMA guard — the adoption except's ValueError belt
+        also yields 31, and a test that accepts either lets deleting the
+        arm escape (mutation round 3)."""
+        with tempfile.TemporaryDirectory() as td:
+            req, out = fx.build_root(Path(td) / "f", stage=2)
+            pr = Path(json.loads(req.read_text())["policy"]["root"])
+            exc = [fx.exception_entry("assertion-0", 1, "README.md", "identity-mismatch",
+                                      expires_at="2027-01-01T00:00:00Z")]
+            exc[0]["expires_at"] = "garbage"
+            (pr / "exceptions.json").write_text(json.dumps(exc))
+            p = subprocess.run([sys.executable, "-m", "hub.coherence",
+                                "--request", str(req)],
+                               capture_output=True, text=True, cwd=str(REPO))
+            self.assertNotIn("Traceback", p.stderr)
+            self.assertEqual(p.returncode, result.EXIT_POLICY)
+            env = self._env(req, out)
+            self.assertIn("invalid exception set", env["error"]["reason"],
+                          "schema guard, not the ValueError belt, must fire")
+
+    def test_garbage_context_time_is_exit31_not_crash(self):
+        """The other half of the fix: context schema validation rejects a
+        non-date-time evaluation_time before any resolver runs. The digest
+        claim is recomputed so the schema guard — not the digest-mismatch
+        path, not the adoption ValueError belt — is the thing caught."""
+        with tempfile.TemporaryDirectory() as td:
+            req, out = fx.build_root(Path(td) / "f")
+            cr = Path(json.loads(req.read_text())["context"]["root"])
+            ctx = json.loads((cr / "context.json").read_text())
+            ctx["evaluation_time"] = "last tuesday"
+            (cr / "context.json").write_text(json.dumps(ctx))
+            from hub.coherence import canon
+            r = json.loads(req.read_text())
+            r["context"]["expected_digest"] = canon.digest_obj("context/v1", ctx)
+            req.write_text(json.dumps(r))
+            p = subprocess.run([sys.executable, "-m", "hub.coherence",
+                                "--request", str(req)],
+                               capture_output=True, text=True, cwd=str(REPO))
+            self.assertNotIn("Traceback", p.stderr)
+            self.assertEqual(p.returncode, result.EXIT_POLICY)
+            env = self._env(req, out)
+            self.assertIn("invalid context", env["error"]["reason"],
+                          "context schema guard must fire, not a digest or "
+                          "parse belt (mutation round 3)")
+
+    def test_valid_sets_still_work(self):
+        """The gate must not reject good input: a real baseline+exception pair
+        still evaluates through the ladder (Stage 2, one named debt, advisory)."""
+        with tempfile.TemporaryDirectory() as td:
+            assertions = [fx.assertion(aid="assertion-0")]
+            baseline = [fx.baseline_entry("assertion-0", 1, "README.md",
+                                          "identity-mismatch")]
+            req, out = fx.build_root(Path(td) / "f", declared_name="other",
+                                     approved_name="widget", assertions=assertions,
+                                     baseline=baseline, stage=2)
+            code, res = _run(req, out)
+            self.assertEqual(res["decision"], "ADVISORY")
+
+    def test_date_time_format_arm_is_pinned(self):
+        """format: date-time is enforced by schemacheck itself (the arm that
+        catches 'garbage' before adoption._parse ever sees it)."""
+        from hub.coherence import schemacheck
+        schema = {"type": "string", "format": "date-time"}
+        self.assertTrue(schemacheck.validate("garbage", schema),
+                        "format arm silent on invalid date-time")
+        self.assertTrue(schemacheck.validate("2027-01-01", schema),
+                        "date-only is not a valid date-time")
+        self.assertEqual(schemacheck.validate("2027-01-01T00:00:00Z", schema), [])
+
+    def test_require_names_the_missing_key_directly(self):
+        """_require is a belt (schema validation catches missing keys at the
+        door now); its contract is pinned directly since no CLI path reaches
+        it (mutation round 3)."""
+        from hub.coherence.__main__ import _require
+        with self.assertRaises(KeyError) as c:
+            _require({"a": 1}, "root", "policy")
+        self.assertIn("missing required field: policy.root", str(c.exception))
+
+    def test_context_schema_unavailable_becomes_context_error(self):
+        """If a schema file is missing/unparseable, context.load must fail as
+        a ContextError (-> exit 31), not propagate a raw OSError/JSONDecodeError
+        (mutation round 3: removing the wrap escaped)."""
+        from hub.coherence import context, schemacheck
+        real = schemacheck.load
+        try:
+            def boom(name):
+                raise schemacheck.SchemaError(f"no schema {name}")
+            schemacheck.load = boom
+            with tempfile.TemporaryDirectory() as td:
+                cdir = Path(td)
+                (cdir / "context.json").write_text(json.dumps({
+                    "api_version": "devgate.spec-coherence.context/v1",
+                    "context_id": "x", "evaluation_time": "2026-09-17T00:00:00Z",
+                    "stage": 1, "execution_profile": "p",
+                    "issuance": {"issued_at": "2026-09-17T00:00:00Z",
+                                 "issuer": "cp"}}))
+                with self.assertRaises(context.ContextError):
+                    context.load(str(cdir))
+        finally:
+            schemacheck.load = real
+
+    def test_schemacheck_dangling_ref_raises_schema_error(self):
+        """A broken $ref is a validation failure, never a KeyError leak
+        (mutation round 3)."""
+        from hub.coherence import schemacheck
+        with self.assertRaises(schemacheck.SchemaError):
+            schemacheck.validate({"x": 1}, {"$ref": "#/definitions/nope"},
+                                 root={"definitions": {}})
+
+    def test_exceptions_shape_guard_unit(self):
+        """Direct pin that load_adoption_sets validates entry shape
+        (mutation round 3: CLI path only exercised the format guard)."""
+        from hub.coherence import policy
+        with tempfile.TemporaryDirectory() as td:
+            (Path(td) / "exceptions.json").write_text(json.dumps(["not", "entries"]))
+            with self.assertRaises(policy.PolicyError) as c:
+                policy.load_adoption_sets(td)
+            self.assertIn("invalid exception set", str(c.exception))
+
+    def test_load_validates_via_real_schema_files(self):
+        """The request validator must actually load request.schema.json:
+        a wrong-typed inputRef digest is rejected by the pattern arm."""
+        with tempfile.TemporaryDirectory() as td:
+            req, out = fx.build_root(Path(td) / "f")
+            r = json.loads(req.read_text())
+            r["subject"]["expected_digest"] = "md5:xyz"
+            req.write_text(json.dumps(r))
+            p = subprocess.run([sys.executable, "-m", "hub.coherence",
+                                "--request", str(req)],
+                               capture_output=True, text=True, cwd=str(REPO))
+            self.assertEqual(p.returncode, result.EXIT_INVALID_INPUT)
+            env = self._env(req, out)
+            self.assertIn("expected_digest", env["error"]["reason"])
 
 
 class TestOutputsTypeGuard(unittest.TestCase):

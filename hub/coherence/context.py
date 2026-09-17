@@ -31,6 +31,17 @@ def load(root: str) -> dict:
         raise ContextError(
             f"unsupported context api_version: {ctx.get('api_version')!r}")
 
+    # Shape-validate against the frozen context contract, so a garbage
+    # evaluation_time can never reach adoption._parse (round-4 carry-forward:
+    # unparseable timestamps were a caller-reachable exit-1 crash family).
+    from . import schemacheck
+    try:
+        errors = schemacheck.validate(ctx, schemacheck.load("evaluation-context.schema.json"))
+    except (OSError, json.JSONDecodeError, schemacheck.SchemaError) as e:
+        raise ContextError(f"context schema unavailable: {e}") from e
+    if errors:
+        raise ContextError("invalid context: " + "; ".join(errors[:5]))
+
     stage = ctx.get("stage")
     if stage not in VALID_STAGES:
         raise ContextError(f"invalid stage: {stage!r}")

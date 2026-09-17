@@ -69,23 +69,28 @@ Tests — `tests/test_hub_coherence.py` + `tests/test_hub_coherence_conformance.
 - [x] Error envelopes — null identities never fabricated; ERROR is never PASS/ADVISORY; no attestation/timestamp/duration fields in canonical result.
 - [ ] Traceability assertion consuming `scripts/spec_traceability.py` marker conventions (repo-specific marker format `<-- id: -->` / `// spec:`) — **NOT IMPLEMENTED**; the planning-time structural traceability check (coh-assert-04) IS implemented against the package's requirement registry, but wiring it to this repository's own marker format remains. Carried to S3.
 
-**Gate:** **CLOSED.** 108 coherence tests / 204 repo-wide green; regression, guardrails, silent-success, traceability (48/99 advisory), and strict-validate all exit 0; semantic-scan recorded NOT_RUN-for-change. Audit chain: round 1 REQUEST-CHANGES (7 items) → round 2 REQUEST-CHANGES (B1/B2 + honesty) → round 3 REQUEST-CHANGES then APPROVE at pin 856cbd08 (committed as 7b26d82) → r3-independent findings fixed at dbbb659, APPROVE at pin 59ba3ad8 (stable 14 min, clean tree both ends). Carry-forwards are listed at the head of S3 with their reproduction evidence; none blocks S2 closure. Full ledger: `s2-remediation.md`, `known-gate-defects.md`.
+**Gate:** **CLOSED.** At close: 108 coherence / 204 repo-wide green (current tree after the S3 head: 120 / 216); regression, guardrails, silent-success, traceability (48/99 advisory), and strict-validate all exit 0; semantic-scan recorded NOT_RUN-for-change. Audit chain: round 1 REQUEST-CHANGES (7 items) → round 2 REQUEST-CHANGES (B1/B2 + honesty) → round 3 REQUEST-CHANGES then APPROVE at pin 856cbd08 (committed as 7b26d82) → r3-independent findings fixed at dbbb659, APPROVE at pin 59ba3ad8 (stable 14 min, clean tree both ends). Carry-forwards are listed at the head of S3 with their reproduction evidence; none blocks S2 closure. Full ledger: `s2-remediation.md`, `known-gate-defects.md`.
 
 ## Sprint S3 — slice hardening and pilot-shaped demos
 
 Carried forward from audit rounds 1–3 (recorded in `s2-remediation.md`;
 round-3 APPROVE at pin `856cbd08…` listed these as non-blocking):
 
-- [ ] Schema-file assertion: one test asserting the parsed `result.schema.json`
-  has `additionalProperties: false` on findings — a permissive schema file makes
-  the conformance tests vacuous (round-3 residual 1).
+- [x] Schema-file assertion: `test_frozen_schema_files_are_strict` walks every
+  wire-contract schema file and requires `additionalProperties: false` on every
+  object schema — a relaxed file now fails the suite (verified by relaxing one
+  object on a /tmp copy: test fails). (round-3 residual 1.)
 - [ ] `traceability_completeness` consuming `scripts/spec_traceability.py`
   marker conventions (`<!-- id: -->` ↔ `// spec:`), carried from the original
   S2 criteria (round 1).
 - [ ] Submodule commit-pinning: manifest records `submodule-pinned` entries but
   does not yet capture/verify the pinned commit digest (round-1 partial).
-- [ ] Split `test_hub_coherence_conformance.py` (519 lines > 300 soft; invisible
-  under GD-1/GD-2 until the gate fix lands) (round-2/3 residuals).
+- [ ] Split the large test files: `test_hub_coherence_conformance.py` (519) and
+  `test_hub_coherence_exitcodes.py` (523) both sit between the source limits
+  and the 600 test-hard limit — invisible under GD-1/GD-2 today, and if GD-2
+  lands before GD-1 (tests scanned but still classified as source) both become
+  commit-blockers. Split alongside the gate fix so the ordering is safe
+  (round-2/3 residuals; exitcodes grew during the S3 head).
 - [ ] Wrap the success-path `_emit` at `__main__.py:208` (race-only window)
   (round-3, info).
 - [ ] Close S0 carry-forwards: independent review of R1–R9 and ADR disposition
@@ -98,17 +103,29 @@ Round-4 independent verification of `dbbb659` (pin 59ba3ad8): **APPROVE** —
 all six r3-indep fixes falsified-and-held, masking-mutation round re-run clean,
 no new defects from the fix round. Two findings carried from that pass:
 
-- [ ] Wrong-shape adoption sets crash the CLI: valid JSON that is a dict or
+- [x] Wrong-shape adoption sets crash the CLI: valid JSON that is a dict or
   list[str] where baseline/exception entries are expected, and garbage
   `expires_at` — exit 1 + AttributeError/ValueError outside the except tuples
-  (`adoption.py:16,40,57`; reproduced round 4). Fold into the runtime
-  schema-validation item below: shape-validate in `load_adoption_sets`, wrap
-  `_parse` to PolicyError, negative tests per shape.
-- [ ] Cosmetic: policy-block missing `root` surfaces raw KeyError text
-  (`"'root'"`) as the envelope reason — name the missing key (round 4, low).
+  (`adoption.py:16,40,57`; reproduced round 4). **FIXED with the schema item
+  below:** `load_adoption_sets` shape-validates both sets against their frozen
+  schemas (entry array + per-entry schema + date-time format), and
+  `context.load` validates the context, so `adoption._parse` never sees
+  malformed input; belt widened to include ValueError. 9 new tests; mutation
+  round 3 caught all five first-pass escapes.
+- [x] Cosmetic: policy-block missing `root` surfaces raw KeyError text
+  (`"'root'"`) as the envelope reason — `_require()` now names it
+  (`missing required field: policy.root`); direct unit pin (mutation round 3:
+  the belt was un-reachable via CLI after schema validation, so no
+  end-to-end test could have pinned it).
 
 Sprint work:
 
+- [x] Validate requests against `request.schema.json` at the invocation
+  adapter using the stdlib `schemacheck` (S3 head): structure, required
+  fields, inputRef shapes, semantics enum, outputs type — consolidates the
+  r3-indep/round-4 crash-vector family into one door guard; protocol check
+  (exit 40) still precedes schema validation so a foreign version is not
+  judged by this version's schema.
 - [ ] Context issuance tooling (control-plane stand-in for pilots): signed context files, stage registry, baseline/exception sets with fingerprint schema (coh-ctx-02, coh-pol-05).
 - [ ] Advisory-age and exception-expiry reporting from result + context (coh-pol-03, coh-pol-06).
 - [ ] Replay CLI (`semantics: replay`) demonstrating byte-reproduction of a historical decision, labeled non-promotion-authorizing (coh-ctx-03).

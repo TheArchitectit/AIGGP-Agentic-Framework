@@ -52,25 +52,55 @@ def resolve(root: str, expected_digest: str) -> dict:
 
 
 def load_adoption_sets(root: str) -> tuple:
-    """Load baseline entries and exceptions from the policy root, if present."""
+    """Load baseline entries and exceptions from the policy root, if present.
+
+    Each set is shape-validated against its frozen schema (S3): a valid-JSON
+    dict where a list is expected, entries with missing keys, or garbage
+    timestamps are policy-resolution errors (exit 31) — never a crash deep in
+    adoption.evaluate (round-4 carry-forward).
+    """
     root_p = Path(root).resolve()
     baseline, exceptions = [], []
     b_path = root_p / "baseline.json"
     if b_path.exists():
-        try:
-            baseline = json.loads(b_path.read_text())
-        except (OSError, json.JSONDecodeError) as e:
-            # r3-indep item 4: malformed baseline/exceptions must be policy
-            # resolution errors (exit 31), not raw tracebacks — overlay.json
-            # was already handled cleanly; the asymmetry was the bug.
-            raise PolicyError(f"cannot read baseline set {b_path}: {e}") from e
+        baseline = _load_json_set(b_path, "baseline set")
+        errs = _check_entries(baseline, "baseline-entry.schema.json", "baseline")
+        if errs:
+            raise PolicyError("invalid baseline set: " + "; ".join(errs[:5]))
     e_path = root_p / "exceptions.json"
     if e_path.exists():
-        try:
-            exceptions = json.loads(e_path.read_text())
-        except (OSError, json.JSONDecodeError) as e:
-            raise PolicyError(f"cannot read exception set {e_path}: {e}") from e
+        exceptions = _load_json_set(e_path, "exception set")
+        errs = _check_entries(exceptions, "exception.schema.json", "exception")
+        if errs:
+            raise PolicyError("invalid exception set: " + "; ".join(errs[:5]))
     return baseline, exceptions
+
+
+def _load_json_set(path: Path, label: str) -> list:
+    try:
+        data = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError) as e:
+        # r3-indep item 4: malformed sets are policy errors (exit 31), not raw
+        # tracebacks — overlay.json was already handled cleanly; the asymmetry
+        # was the bug.
+        raise PolicyError(f"cannot read {label} {path}: {e}") from e
+    if not isinstance(data, list):
+        # Preserve the "cannot read {label} {path}:" prefix — a reason-text
+        # pin asserts on it (a rename here would silently break the pin).
+        raise PolicyError(
+            f"cannot read {label} {path}: must be a JSON array, got "
+            f"{type(data).__name__}")
+    return data
+
+
+def _check_entries(entries: list, schema_name: str, label: str) -> list:
+    from . import schemacheck
+    schema = schemacheck.load(schema_name)
+    errs = []
+    for i, entry in enumerate(entries):
+        errs.extend(f"{label}[{i}]: {e}" for e in
+                    schemacheck.validate(entry, schema))
+    return errs
 
 
 def central_required(bundle: dict) -> list:

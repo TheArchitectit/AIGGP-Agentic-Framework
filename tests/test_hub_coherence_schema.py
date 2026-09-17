@@ -83,7 +83,7 @@ class TestErrorEnvelopes(unittest.TestCase):
         cases = [
             ("not json at all", "malformed request"),
             (json.dumps({"api_version": "devgate.spec-coherence/v1"}),
-             "missing required field"),          # exercises the field guard
+             "missing required property"),       # runtime schema validation
             (json.dumps(["a", "list"]), "must be a JSON object"),
         ]
         for i, (body, expect_in_reason) in enumerate(cases):
@@ -276,6 +276,37 @@ class TestSchemaConformance(unittest.TestCase):
         bad = {"api_version": "devgate.spec-coherence.result/v1", "decision": "PASS"}
         errs = schemacheck.validate(bad, self._schema("result.schema.json"))
         self.assertTrue(errs, "validator must reject a result missing required fields")
+
+    def test_frozen_schema_files_are_strict(self):
+        """Round-3 residual: relaxing additionalProperties:false inside a
+        schema FILE makes every conformance test vacuous — the suite validated
+        documents against schemas but never asserted the schemas' own strictness.
+        Every wire-contract schema object must forbid undeclared properties."""
+        strict_files = ["result.schema.json", "request.schema.json",
+                        "error-envelope.schema.json", "attestation.schema.json",
+                        "subject-manifest.schema.json",
+                        "evidence-manifest.schema.json", "package.schema.json",
+                        "assertion.schema.json", "evaluation-context.schema.json",
+                        "policy-bundle.schema.json", "exception.schema.json",
+                        "baseline-entry.schema.json"]
+        def walk(node, src, path):
+            problems = []
+            if isinstance(node, dict):
+                if node.get("type") == "object" and "properties" in node:
+                    if node.get("additionalProperties") is not False:
+                        problems.append(
+                            f"{src} {path}: object schema must set "
+                            f"additionalProperties false")
+                for k, v in node.items():
+                    problems.extend(walk(v, src, f"{path}/{k}"))
+            elif isinstance(node, list):
+                for i, v in enumerate(node):
+                    problems.extend(walk(v, src, f"{path}[{i}]"))
+            return problems
+        errs = []
+        for name in strict_files:
+            errs.extend(walk(self._schema(name), name, "$"))
+        self.assertEqual(errs, [], f"schema files not strict: {errs}")
 
 class TestEnforcementBlocks(unittest.TestCase):
     """End-to-end enforcement outcomes driven through the real CLI. These were
