@@ -1,0 +1,50 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/TheArchitectit/DevGate-Agentic-Framework/openspec/changes/devgate-spec-coherence-service/schemas/subject-manifest.schema.json",
+  "title": "devgate.spec-coherence.subject-manifest/v1",
+  "description": "Immutable subject manifest (coh-id-02). Every considered file addressed by normalized relative path and raw-byte SHA-256; explicit policy outcome per non-regular entry. Composite subjects carry part manifests.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["api_version", "subject_kind", "entries", "subject_digest"],
+  "properties": {
+    "api_version": { "const": "devgate.spec-coherence.subject-manifest/v1" },
+    "subject_kind": { "enum": ["source-tree", "artifact-set", "container-image", "game-build", "world-bundle"] },
+    "entries": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/entry" }
+    },
+    "subject_digest": { "$ref": "#/definitions/digest", "description": "Digest of the canonicalized entry set under the role tag subject-manifest/v1." },
+    "parts": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/part" },
+      "description": "Composite subject parts (e.g. world IR, GLB, scene, build, captures) for world-bundle subjects."
+    }
+  },
+  "definitions": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "kind", "digest"],
+      "properties": {
+        "path": { "type": "string", "description": "Normalized relative path; traversal rejected upstream." },
+        "kind": { "enum": ["file", "symlink", "submodule", "generated", "large", "excluded"] },
+        "digest": { "$ref": "#/definitions/digestOrNull", "description": "Raw-byte digest for files; null for excluded." },
+        "policy_outcome": { "type": ["string", "null"], "description": "Explicit policy outcome for non-file entries, e.g. symlink-forbidden, submodule-pinned." },
+        "size_bytes": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    },
+    "part": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["part_id", "kind", "digest"],
+      "properties": {
+        "part_id": { "type": "string" },
+        "kind": { "enum": ["world-ir", "glb", "engine-scene", "executable-build", "capture", "evaluation-record"] },
+        "digest": { "$ref": "#/definitions/digest" },
+        "capture_config_digest": { "$ref": "#/definitions/digestOrNull" }
+      }
+    },
+    "digestOrNull": { "type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$" }
+  }
+}

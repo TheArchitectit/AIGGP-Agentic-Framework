@@ -1,0 +1,40 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/TheArchitectit/DevGate-Agentic-Framework/openspec/changes/devgate-spec-coherence-service/schemas/attestation.schema.json",
+  "title": "devgate.spec-coherence.attestation/v1 detached attestation",
+  "description": "Detached signed statement binding all decision inputs. Lives OUTSIDE the canonical decision; the envelope references its location (ADR-011 / coh-ev-01, coh-ev-05).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["api_version", "statement_digest", "bound", "signer", "signature"],
+  "properties": {
+    "api_version": { "const": "devgate.spec-coherence.attestation/v1" },
+    "statement_digest": { "$ref": "#/definitions/digest", "description": "Digest of the canonical decision this attestation binds." },
+    "bound": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["subject_digest", "openspec_digest", "policy_digest", "context_digest", "evaluator_image_digest", "evidence_manifest_digest"],
+      "properties": {
+        "subject_digest": { "$ref": "#/definitions/digest" },
+        "openspec_digest": { "$ref": "#/definitions/digest" },
+        "policy_digest": { "$ref": "#/definitions/digest" },
+        "context_digest": { "$ref": "#/definitions/digest" },
+        "evaluator_image_digest": { "$ref": "#/definitions/digest" },
+        "evidence_manifest_digest": { "$ref": "#/definitions/digest" }
+      }
+    },
+    "signer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key_id", "identity"],
+      "properties": {
+        "key_id": { "type": "string" },
+        "identity": { "type": "string", "description": "Approved signer identity checked against current signer set at verification." }
+      }
+    },
+    "signature": { "type": "string", "description": "Detached signature over the bound statement bytes." },
+    "issued_at": { "type": ["string", "null"], "format": "date-time" }
+  },
+  "definitions": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  }
+}

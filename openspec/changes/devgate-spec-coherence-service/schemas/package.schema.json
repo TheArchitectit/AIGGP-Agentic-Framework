@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/TheArchitectit/DevGate-Agentic-Framework/openspec/changes/devgate-spec-coherence-service/schemas/package.schema.json",
+  "title": "devgate.openspec.package/v1 package manifest",
+  "description": "Package manifest. Normative inventory is authenticated; reclassification changes the digest and invalidates approval. Approval itself is a detached control-plane record — no self-referential approved_revision field (coh-pkg-03, coh-pkg-05, coh-ev-07).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "package_id", "package_version", "normative_inventory", "imports"],
+  "properties": {
+    "schema_version": { "const": "devgate.openspec.package/v1" },
+    "package_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$" },
+    "package_version": { "type": "string" },
+    "normative_inventory": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/inventoryEntry" }
+    },
+    "imports": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/importEntry" }
+    }
+  },
+  "definitions": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "inventoryEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "kind", "digest"],
+      "properties": {
+        "path": { "type": "string" },
+        "kind": { "enum": ["normative", "informative"] },
+        "digest": { "$ref": "#/definitions/digest", "description": "Digest of the file content at freeze time." }
+      }
+    },
+    "importEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["package_id", "digest"],
+      "properties": {
+        "package_id": { "type": "string" },
+        "digest": { "$ref": "#/definitions/digest", "description": "Resolved package digest; imports resolve to digested content before evaluation." }
+      }
+    }
+  }
+}

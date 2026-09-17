@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/TheArchitectit/DevGate-Agentic-Framework/openspec/changes/devgate-spec-coherence-service/schemas/request.schema.json",
+  "title": "devgate.spec-coherence/v1 request",
+  "description": "Invocation request. Carries only digested immutable inputs plus correlation id and semantics. No caller-supplied mode, time, or stage (see evaluation-context).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["api_version", "subject", "openspec", "policy", "context", "semantics", "outputs"],
+  "properties": {
+    "api_version": { "const": "devgate.spec-coherence/v1" },
+    "request_id": {
+      "description": "Caller-supplied stable id for correlation only; excluded from decision semantics.",
+      "type": "string"
+    },
+    "subject": { "$ref": "#/definitions/inputRef" },
+    "openspec": { "$ref": "#/definitions/inputRef" },
+    "policy": { "$ref": "#/definitions/inputRef" },
+    "context": { "$ref": "#/definitions/inputRef" },
+    "semantics": {
+      "description": "fresh-promotion checks current authority/revocation/expiry and may authorize; replay reproduces a historical decision and is non-authorizing unless re-attested.",
+      "enum": ["fresh-promotion", "replay"]
+    },
+    "outputs": { "type": "string", "description": "Designated bounded output location." }
+  },
+  "definitions": {
+    "inputRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["root", "expected_digest"],
+      "properties": {
+        "kind": { "type": "string", "description": "Subject kind, e.g. source-tree, artifact-set, world-bundle. Required for subject in practice." },
+        "root": { "type": "string" },
+        "expected_digest": { "$ref": "#/definitions/digest" }
+      }
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    }
+  }
+}

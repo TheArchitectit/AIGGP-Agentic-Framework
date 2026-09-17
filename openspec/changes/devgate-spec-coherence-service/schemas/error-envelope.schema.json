@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/TheArchitectit/DevGate-Agentic-Framework/openspec/changes/devgate-spec-coherence-service/schemas/error-envelope.schema.json",
+  "title": "devgate.spec-coherence.result/v1 error envelope",
+  "description": "Structured error payload for runs that cannot produce a trustworthy decision. Never a PASS/ADVISORY decision; identities that could not be computed are explicitly null, never fabricated (R3 / coh-dec-02).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["api_version", "decision", "error", "identities"],
+  "properties": {
+    "api_version": { "const": "devgate.spec-coherence.result/v1" },
+    "decision": { "const": "ERROR" },
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["class", "reason", "stage"],
+      "properties": {
+        "class": { "enum": ["invalid-input", "policy-resolution", "evaluator", "execution", "evidence", "attestation", "protocol"] },
+        "reason": { "type": "string" },
+        "stage": { "type": "string", "description": "Pipeline stage that raised, e.g. invocation, subject-resolution, package-resolution, planning, evaluation, sealing, attestation." }
+      }
+    },
+    "identities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["subject_digest", "openspec_digest", "policy_digest", "context_digest", "evaluator_image_digest"],
+      "properties": {
+        "subject_digest": { "$ref": "#/definitions/digestOrNull" },
+        "openspec_digest": { "$ref": "#/definitions/digestOrNull" },
+        "policy_digest": { "$ref": "#/definitions/digestOrNull" },
+        "context_digest": { "$ref": "#/definitions/digestOrNull" },
+        "evaluator_image_digest": { "$ref": "#/definitions/digestOrNull" }
+      }
+    }
+  },
+  "definitions": {
+    "digestOrNull": { "type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$" }
+  }
+}

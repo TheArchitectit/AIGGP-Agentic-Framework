@@ -1,0 +1,82 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/TheArchitectit/DevGate-Agentic-Framework/openspec/changes/devgate-spec-coherence-service/schemas/result.schema.json",
+  "title": "devgate.spec-coherence.result/v1 canonical result",
+  "description": "Canonical decision payload. Contains NO attestation fields, timestamps, durations, or host identity (those live in the run envelope and detached attestation). Sealed before any attestation (ADR-011).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["api_version", "decision", "semantics", "subject_digest", "openspec_digest", "policy_digest", "context_digest", "evaluator_image_digest", "platform", "assertion_summary", "assertion_results", "findings", "evidence_manifest_digest", "error"],
+  "properties": {
+    "api_version": { "const": "devgate.spec-coherence.result/v1" },
+    "decision": { "enum": ["PASS", "ADVISORY", "FAIL", "ERROR"] },
+    "semantics": { "enum": ["fresh-promotion", "replay"] },
+    "subject_digest": { "$ref": "#/definitions/digest" },
+    "openspec_digest": { "$ref": "#/definitions/digest" },
+    "policy_digest": { "$ref": "#/definitions/digest" },
+    "context_digest": { "$ref": "#/definitions/digest" },
+    "evaluator_image_digest": { "$ref": "#/definitions/digest" },
+    "platform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["index_digest", "manifest_digest", "profile"],
+      "properties": {
+        "index_digest": { "$ref": "#/definitions/digestOrNull" },
+        "manifest_digest": { "$ref": "#/definitions/digest" },
+        "profile": { "type": "string" }
+      }
+    },
+    "assertion_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["planned", "satisfied", "violated", "unresolved"],
+      "properties": {
+        "planned": { "type": "integer", "minimum": 0 },
+        "satisfied": { "type": "integer", "minimum": 0 },
+        "violated": { "type": "integer", "minimum": 0 },
+        "unresolved": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "assertion_results": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/assertionResult" }
+    },
+    "findings": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/finding" }
+    },
+    "evidence_manifest_digest": { "$ref": "#/definitions/digest" },
+    "error": { "type": "null", "description": "Canonical result always carries null error; error runs use error-envelope.schema.json instead." }
+  },
+  "definitions": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "digestOrNull": { "type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$" },
+    "assertionResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["assertion_id", "version", "outcome", "reason", "enforcement"],
+      "properties": {
+        "assertion_id": { "type": "string" },
+        "version": { "type": "integer", "minimum": 1 },
+        "outcome": { "enum": ["SATISFIED", "VIOLATED", "UNRESOLVED"] },
+        "reason": { "type": ["string", "null"], "description": "Stable reason code when not satisfied, e.g. dependency-blocked, selector-empty, evaluator-crash." },
+        "enforcement": { "enum": ["BLOCK", "ADVISORY", "EXCEPTION-ADVISORY"] }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["assertion_id", "finding_key", "outcome", "enforcement", "severity", "subject_locations", "expected", "observed", "evidence_refs"],
+      "properties": {
+        "assertion_id": { "type": "string" },
+        "finding_key": { "type": "string" },
+        "outcome": { "enum": ["VIOLATED"] },
+        "enforcement": { "enum": ["BLOCK", "ADVISORY", "EXCEPTION-ADVISORY"] },
+        "severity": { "enum": ["critical", "high", "medium", "low"] },
+        "subject_locations": { "type": "array", "items": { "type": "string" } },
+        "expected": { "type": "string" },
+        "observed": { "type": "string" },
+        "evidence_refs": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

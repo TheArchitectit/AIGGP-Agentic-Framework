@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/TheArchitectit/DevGate-Agentic-Framework/openspec/changes/devgate-spec-coherence-service/schemas/baseline-entry.schema.json",
+  "title": "devgate.spec-coherence.baseline/v1",
+  "description": "A single fingerprinted baseline debt entry. Baselines are SETS of fingerprints, not counts (coh-pol-04, coh-pol-05, ADR-019).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["fingerprint", "severity", "adopted_at", "owner", "status", "remediation_deadline"],
+  "properties": {
+    "fingerprint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["assertion_id", "assertion_version", "subject_location", "violation_key"],
+      "properties": {
+        "assertion_id": { "type": "string" },
+        "assertion_version": { "type": "integer", "minimum": 1 },
+        "subject_location": { "type": "string" },
+        "violation_key": { "type": "string" }
+      }
+    },
+    "severity": { "enum": ["critical", "high", "medium", "low"] },
+    "adopted_at": { "type": "string", "format": "date-time" },
+    "owner": { "type": "string" },
+    "status": { "enum": ["open", "remediated", "exception"] },
+    "remediation_deadline": { "type": "string", "format": "date-time" },
+    "remediation_ref": { "type": ["string", "null"], "description": "Reference to accepted remediation; set when status becomes remediated." }
+  }
+}

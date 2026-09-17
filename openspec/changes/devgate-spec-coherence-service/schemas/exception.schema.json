@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/TheArchitectit/DevGate-Agentic-Framework/openspec/changes/devgate-spec-coherence-service/schemas/exception.schema.json",
+  "title": "devgate.spec-coherence.exception/v1",
+  "description": "Scoped, expiring, attributable exception. Wildcards forbidden; expired/mismatched/malformed exceptions FAIL in enforced modes; never rewrites a violation to SATISFIED (coh-pol-06).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["exception_id", "subject_ref", "assertion_id", "finding_fingerprint", "owner", "reason", "approving_authority", "created_at", "expires_at", "enforcement_treatment", "remediation_ref"],
+  "properties": {
+    "exception_id": { "type": "string" },
+    "subject_ref": { "type": "string", "description": "Repository or subject identity; no wildcard." },
+    "assertion_id": { "type": "string", "description": "Single assertion; no wildcard." },
+    "subject_path": { "type": ["string", "null"] },
+    "finding_fingerprint": { "$ref": "#/definitions/fingerprint" },
+    "owner": { "type": "string" },
+    "reason": { "type": "string", "minLength": 1 },
+    "approving_authority": { "type": "string" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "expires_at": { "type": "string", "format": "date-time" },
+    "enforcement_treatment": { "enum": ["EXCEPTION-ADVISORY"] },
+    "remediation_ref": { "type": "string" }
+  },
+  "definitions": {
+    "fingerprint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["assertion_id", "assertion_version", "subject_location", "violation_key"],
+      "properties": {
+        "assertion_id": { "type": "string" },
+        "assertion_version": { "type": "integer", "minimum": 1 },
+        "subject_location": { "type": "string" },
+        "violation_key": { "type": "string", "description": "Content-derived violation key, never a whole-subject digest or timestamp." }
+      }
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "api_version": "devgate.spec-coherence.golden-vectors/v1",
+  "profile": {
+    "hash": "sha256",
+    "canonical_json": "rfc8785-subset: sorted-keys, no-dup-keys, utf-8, int64-integers, no-floats",
+    "file_hashing": "raw-bytes",
+    "domain_separator": "<role-tag>\\x00<payload>"
+  },
+  "vectors": {
+    "hello_lf_raw": "sha256:ba4cd2cb08663c620738c919d1227d4482b5eceb83225387b1f39c6f1c0838c0",
+    "hello_crlf_raw": "sha256:60db2c772aafe0638d84fc03773e97764e06b20e477393d3d2da090404864fb5",
+    "hello_lf_eq_crlf": false,
+    "canonical_sample_bytes": "{\"assertion_summary\":{\"planned\":1,\"satisfied\":1,\"unresolved\":0,\"violated\":0},\"decision\":\"PASS\",\"error\":null,\"findings\":[],\"semantics\":\"fresh-promotion\"}",
+    "canonical_sample_digest": "sha256:0918930fb74d9c46fd8485cea42420b6393e5512e30c4d0b3cb148859628da9f",
+    "role_file": "sha256:ba4cd2cb08663c620738c919d1227d4482b5eceb83225387b1f39c6f1c0838c0",
+    "role_subject": "sha256:d90da2b9378a2359cf22cabff9d1decb0f540f4edb05a4802e913e06207dea0c",
+    "roles_differ": true
+  }
+}

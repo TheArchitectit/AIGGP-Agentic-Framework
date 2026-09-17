@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/TheArchitectit/DevGate-Agentic-Framework/openspec/changes/devgate-spec-coherence-service/schemas/evidence-manifest.schema.json",
+  "title": "devgate.spec-coherence.evidence/v1 evidence manifest",
+  "description": "Manifest of all sealed evidence objects. Does NOT hash itself or any downstream object (decision, attestation, envelope) — acyclic sealing (coh-ev-01, coh-ev-02).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["api_version", "objects"],
+  "properties": {
+    "api_version": { "const": "devgate.spec-coherence.evidence/v1" },
+    "objects": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/evidenceObject" }
+    }
+  },
+  "definitions": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "evidenceObject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "digest", "media_type", "assertion_id", "retention_class"],
+      "properties": {
+        "path": { "type": "string" },
+        "digest": { "$ref": "#/definitions/digest" },
+        "media_type": { "type": "string" },
+        "assertion_id": { "type": ["string", "null"] },
+        "retention_class": { "type": "string" },
+        "redacted": { "type": "boolean", "default": false }
+      }
+    }
+  }
+}

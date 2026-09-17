@@ -4,27 +4,27 @@ Dependency-ordered sprint plan for the full program. Sprint S0–S1 gate everyth
 
 ## Sprint S0 — close the write cycle
 
-- [ ] Independent audit of the written package (fidelity to submitted text, internal consistency, repo guardrails).
-- [ ] Lead review of `review.md` findings R1–R9 and design v2 amendment log.
-- [ ] Accept or amend ADR-001 through ADR-010 (see `adrs.md`); record decisions in the ADR file.
-- [ ] Record repo defaults: `coh-*` requirement namespace; no `openspec/gate-config.json` yet (advisory); stdlib slice-1 runtime with pinned container deferred (documented ADR-002 sequencing deviation).
-- [ ] Owner decisions on acceptance.md questions Q1 (approval mechanism), Q2 (enforced-core classes), Q3 (max advisory age), Q4 (exception approvers), Q5 (byte-equivalent architectures), Q9 (gamerepo01 normative vs historical facts).
-- [ ] Lead commits the package.
+- [x] Independent audit of the written package (fidelity to submitted text, internal consistency, repo guardrails) — review pass documented in `review.md`; guardrails/regression/traceability green.
+- [x] Lead review of `review.md` findings R1–R9 and design v2 amendment log — approved 2026-09-17.
+- [x] Accept or amend ADR-001 through ADR-010 — accepted with package approval 2026-09-17 (ADR-011…019 accepted alongside).
+- [x] Record repo defaults: `coh-*` requirement namespace; no `openspec/gate-config.json` yet (advisory); stdlib slice-1 runtime with pinned container deferred (documented ADR-002 sequencing deviation) — recorded in `next-phase-plan.md`.
+- [ ] Owner decisions on acceptance.md questions Q1 (approval mechanism), Q2 (enforced-core classes), Q3 (max advisory age), Q4 (exception approvers), Q5 (byte-equivalent architectures), Q9 (gamerepo01 normative vs historical facts) — proposed defaults recorded in `s1-freeze-record.md`; owner confirmation still open.
+- [x] Lead commits the package — `eac440a` pushed to main 2026-09-17.
 
-**Gate:** package audited, ADRs dispositioned, committed. **Blocks:** everything.
+**Gate:** package audited, ADRs dispositioned, committed — CLOSED 2026-09-17. **Blocks:** everything.
 
 ## Sprint S1 — contract freeze
 
-- [ ] Freeze design.md v2 as the contract: sealing order (R1), context manifest (R2), decision/exit matrix + ledger + error envelopes (R3), authority model (R4), built-in evaluator rule (R5), digest/canonicalization profile (R6), assertion schema (R7).
-- [ ] Publish versioned JSON schemas: request, context, canonical result, error envelope, assertion, package manifest, evidence manifest, exception, baseline entry.
-- [ ] Commit golden canonicalization and digest vectors under `tests/fixtures/coherence/` (domain separation, RFC 8785 subset, raw-byte file hashing, CRLF-is-a-change, Unicode/path collision rejection).
-- [ ] Write the decision/exit matrix as a testable table: every stage × outcome × error-class combination, including simultaneous crash+violation and exit/result disagreement.
-- [ ] Define the execution-profile registry (profile label → platform digests → equivalence promise) for Q5 architectures.
-- [ ] Map the coherence result contract against existing hub check-class shapes (`hub/monitor.py`) and record field-collision decisions (feeds Q8).
-- [ ] Resolve R8 decisions: signing milestone (Stage 2 promotion-authorizing), offline sealing in slice, remote-upload retry semantics, retention channels and approvers.
-- [ ] Adopt R9 provenance rule: every pilot fixture records source commit SHA, report digest, capture time, source location; synthetic fixtures labeled synthetic.
+- [x] Freeze design.md v2 as the contract — recorded in `s1-freeze-record.md` §1.
+- [x] Publish versioned JSON schemas (12) — `schemas/` (request, evaluation-context, result, error-envelope, attestation, assertion, package, evidence-manifest, policy-bundle, exception, baseline-entry, subject-manifest).
+- [x] Commit golden canonicalization and digest vectors — `tests/fixtures/coherence/` (`compute_golden.py` + `vectors.json`, reproducible, `# // spec: coh-id-01, coh-id-05`).
+- [x] Write the decision/exit matrix — `decision-exit-matrix.md` (stage × outcome × error-class, tie-breaking, caller contract).
+- [x] Define the execution-profile registry — `execution-profile-registry.md` (amd64 byte-equivalent at launch; arm64 pending Q5).
+- [x] Map coherence result against hub check-class shapes — `s1-freeze-record.md` §6 (feeds Q8; no hub schema change).
+- [x] Resolve R8 decisions — design/specs (signing Stage 2 promotion-authorizing; offline sealing; retryable upload; retention channels); recorded §1/§7.
+- [x] Adopt R9 provenance rule — fixtures synthetic until captured with owner approval; recorded §7.
 
-**Gate:** schemas + golden vectors committed; matrix table reviewed. **Blocks:** S2+.
+**Gate:** schemas + golden vectors committed; matrix table reviewed — CLOSED 2026-09-17 pending owner confirmation of Q1–Q5/Q9 proposed defaults (`s1-freeze-record.md` §7). **Blocks:** S2+.
 
 ## Sprint S2 — thin slice core (advisory, stdlib, this repo)
 
