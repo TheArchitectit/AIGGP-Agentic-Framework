@@ -402,3 +402,28 @@ Two carry-forwards (verified by the lead after the report, both reproduced):
 exit 1 (pre-existing family, shares its fix with the runtime schema-
 validation item — now an S3 checklist line); [low] policy KeyError reason is
 raw "'root'" text. Both recorded, not hidden, in `tasks.md` S3.
+
+
+## S2 closure record (2026-09-17)
+
+S2 is closed with the full four-round audit chain complete and every finding
+either fixed (mutation-pinned), carried to S3 with named evidence, or disclosed
+as a pre-existing repo defect in `known-gate-defects.md`.
+
+What this sprint is evidence of, honestly: the first S2 pass overclaimed —
+rewritten criteria, a false gate closure, an unreachable exit code my own tests
+concealed. Every defect listed in this file was found by a reader who did not
+write the code, and none of the fixes is credible without them. The corrected
+record, the two failure-registry entries (`FAIL-b81fa0ea` resolved,
+`FAIL-f6228dda` active), and the S3 carry-forward list are the durable output
+alongside the working thin slice.
+
+Verification stack at close:
+- 204 tests repo-wide / 108 coherence, dual-runnable; 100× replay byte-identical.
+- Exit contract 0/10/20/30/31/32/33/40 all driven through the real CLI.
+- Schema conformance wired into the suite via stdlib `schemacheck.py`,
+  six arms each pinned by a named negative control.
+- Every guard mutation across four rounds is caught by a specific test; no
+  defense-in-depth masking survives (reason-text pins + unit-level wraps).
+- Commits: 7b26d82 (round-3 approved bytes), b80df91, dbbb659 (round-4
+  approved at pin 59ba3ad8), eeb5b09 (round-4 record).
