@@ -94,6 +94,19 @@ round-3 APPROVE at pin `856cbd08…` listed these as non-blocking):
   declare it out of service for this repo — do not keep a permanently-red or
   silently-parent-scanning gate (GD-adjacent, round 2–3).
 
+Round-4 independent verification of `dbbb659` (pin 59ba3ad8): **APPROVE** —
+all six r3-indep fixes falsified-and-held, masking-mutation round re-run clean,
+no new defects from the fix round. Two findings carried from that pass:
+
+- [ ] Wrong-shape adoption sets crash the CLI: valid JSON that is a dict or
+  list[str] where baseline/exception entries are expected, and garbage
+  `expires_at` — exit 1 + AttributeError/ValueError outside the except tuples
+  (`adoption.py:16,40,57`; reproduced round 4). Fold into the runtime
+  schema-validation item below: shape-validate in `load_adoption_sets`, wrap
+  `_parse` to PolicyError, negative tests per shape.
+- [ ] Cosmetic: policy-block missing `root` surfaces raw KeyError text
+  (`"'root'"`) as the envelope reason — name the missing key (round 4, low).
+
 Sprint work:
 
 - [ ] Context issuance tooling (control-plane stand-in for pilots): signed context files, stage registry, baseline/exception sets with fingerprint schema (coh-ctx-02, coh-pol-05).

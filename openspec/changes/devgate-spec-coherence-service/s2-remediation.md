@@ -382,3 +382,23 @@ its pins were correct at the bytes approved. This round is a new delta
 r3-independent findings have NOT yet been through a fresh independent round.
 The next auditor pin must cover them; per the stood-down auditor's own rule,
 any pin must survive >=10 minutes of polling before verdict.
+
+
+## Round 4 (independent, coherence-auditor-4) — APPROVE at dbbb659
+
+Pin verified at audit start AND end; stable 14 minutes; tree clean both ends.
+All six r3-indep fixes independently reproduced through the real CLI (zero-
+findings seal exit 33 with the *new* manifest-wrap reason proving which wrap
+fired; blocked success-path emit relocates with decision intact; policy/
+baseline/exceptions envelope paths; expected_digest non-empty mandate with no
+b6 regression; all six schemacheck arms each pinned by a named negative
+control). Masking mutations re-run: no defense-in-depth masking survived.
+No new defects introduced by the fix round; except tuples concrete; all
+write sites guarded. Recorded nuance: null context expected_digest yields 31
+(matrix-consistent policy-resolution mapping), not 30.
+
+Two carry-forwards (verified by the lead after the report, both reproduced):
+[medium] wrong-shape adoption sets and garbage timestamps still crash at
+exit 1 (pre-existing family, shares its fix with the runtime schema-
+validation item — now an S3 checklist line); [low] policy KeyError reason is
+raw "'root'" text. Both recorded, not hidden, in `tasks.md` S3.
