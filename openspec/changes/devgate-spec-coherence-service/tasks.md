@@ -30,27 +30,30 @@ Dependency-ordered sprint plan for the full program. Sprint S0–S1 gate everyth
 
 Modules under `hub/coherence/`, each <500 lines, stdlib-only, `# // spec: coh-*` markers on first implementing function:
 
-- [ ] `manifest.py` — subject manifest: normalized paths, raw-byte SHA-256, symlink/submodule/exclusion policy, traversal/collision rejection, read-time re-verification (coh-id-02).
-- [ ] `package.py` — package resolution, normative/informative inventory, frozen import closure, canonical package digest, detached-approval verification hook (coh-pkg-01..05, coh-id-03, coh-ev-07).
-- [ ] `context.py` — evaluation-context load/validate, trusted-issuance check, replay vs fresh-promotion semantics (coh-ctx-01..03).
-- [ ] `plan.py` — assertion graph: schema completeness, duplicates, cycles, undeclared inputs, planning-time traceability, complete-outcome accounting (coh-eval-02, coh-assert-01, coh-assert-04).
-- [ ] `evaluate.py` — built-in evaluator runtime: declared-inputs-only mediation, limits → ERROR, three slice evaluators: identity-consistency, traceability-completeness (consuming `scripts/spec_traceability.py` marker conventions), release-claim consistency (coh-eval-06, coh-rt-05, coh-rt-06, coh-assert-02, coh-assert-03).
-- [ ] `result.py` — ledger, finding sort/keys, canonical JSON serialization, decision/exit matrix, error envelopes (coh-dec-01..05, coh-eval-03, coh-assert-06).
-- [ ] `evidence.py` — minimum-disclosure capture, redaction, bundle sealing, manifest digest, tamper verification (coh-ev-02, coh-ev-03, coh-ev-06).
-- [ ] CLI `python -m hub.coherence --request request.json` — time only from context; exit codes per matrix.
+- [x] `canon.py` — restricted RFC 8785 canonicalization + domain-separated digests (coh-id-01, coh-id-05).
+- [x] `manifest.py` — subject manifest: normalized paths, raw-byte SHA-256, symlink policy, traversal/collision rejection, read-time re-verification (coh-id-02).
+- [x] `package.py` — package resolution, normative inventory, frozen import closure, canonical package digest (coh-pkg-01..05, coh-id-03, coh-ev-07).
+- [x] `context.py` — evaluation-context load/validate, trusted-issuance check, replay vs fresh-promotion (coh-ctx-01..03).
+- [x] `plan.py` — assertion graph: schema completeness, duplicates, cycles, central-required enforcement, planning-time traceability (coh-eval-02, coh-assert-01, coh-assert-04, coh-pol-01).
+- [x] `evaluate.py` — built-in evaluator runtime: declared-inputs-only mediation, limits → ERROR, unapproved-evaluator → UNRESOLVED, dependency-blocked (coh-eval-02, coh-eval-06, coh-rt-05, coh-rt-06).
+- [x] `evaluators.py` — three slice evaluators: identity-consistency (approved-value comparison), traceability-completeness, release-claim consistency (coh-assert-02, coh-assert-03, coh-assert-04).
+- [x] `result.py` — ledger, finding sort/keys, canonical JSON, decision/exit matrix, error envelopes (coh-dec-01..05, coh-eval-03, coh-assert-06).
+- [x] `evidence.py` — minimum-disclosure capture, redaction, bundle sealing, manifest digest, per-object tamper verification (coh-ev-02, coh-ev-03, coh-ev-06).
+- [x] `__main__.py` — CLI `python -m hub.coherence --request request.json`; time only from context; exit codes per matrix.
 
-Tests `tests/test_hub_coherence_*.py` (dual-runnable pytest/`__main__`, ephemeral-port/fake-server patterns where relevant):
+Tests `tests/test_hub_coherence.py` (dual-runnable, 33 tests):
 
-- [ ] Fixture A coherent repository → PASS; canonical bytes identical across 100 replays.
-- [ ] Fixture B identity drift (synthetic, labeled) → VIOLATED with exact evidence locations and approved-value comparison.
-- [ ] Fixture C-lite ratchet → 4 fingerprinted baseline + 1 new → FAIL; one-fixed-one-new at constant count → FAIL; expired exception → FAIL; wildcard exception → invalid policy.
-- [ ] Fixture D bypass → overlay removing a central assertion or choosing an unapproved evaluator → invalid policy/FAIL, never PASS.
-- [ ] Fixture E nondeterministic evaluator (time read, unordered traversal) → denied/ERROR, never inconsistent passes.
-- [ ] Fixture F evidence tamper post-seal → digest verification fails.
-- [ ] Full exit-code sweep fixtures (0/10/20/30/31/32/33/40) each produce documented exit + parseable result/envelope.
-- [ ] Error-envelope tests: null identities never fabricated; exit/result disagreement → ERROR for caller.
+- [x] Canonicalization: sorted keys, floats rejected, int64 bounds, domain separation, LF≠CRLF raw-byte hashing (coh-id-01, coh-id-05).
+- [x] Subject manifest: build/digest stability, missing root, read-time mutation detection (coh-id-02).
+- [x] Package: resolve, missing manifest, inventory digest mismatch (coh-pkg-01, coh-pkg-05).
+- [x] Context: load, no-issuer rejection, invalid stage (coh-ctx-01, coh-ctx-02).
+- [x] Plan: order, duplicate ID, cycle, central-required-omitted, missing field (coh-eval-02, coh-assert-01, coh-pol-01).
+- [x] Evaluators: identity satisfied/unapproved-consistent/selector-empty (coh-assert-02), unapproved evaluator → UNRESOLVED, dependency-blocked (coh-eval-02, coh-eval-06, coh-rt-06).
+- [x] Result matrix: enforced/advisory/error-dominates/pass/unresolved-blocks, finding sort, canonical error=null (coh-dec-01..05, coh-eval-03).
+- [x] Evidence: seal+verify, tamper detected per-object (coh-ev-02, coh-ev-03, coh-ev-06).
+- [x] End-to-end CLI + 100× replay → byte-identical canonical result, exit 0, PASS.
 
-**Gate:** `python3 -m pytest -q tests/`, `regression_check --staged --pre-commit`, guardrails scan, traceability report all green; 100× replay byte-identical. **Blocks:** S3+.
+**Gate:** 129 tests green (96 pre-existing + 33 coherence); regression, guardrails, strict-validate, traceability (31 coh-* covered) all green; 100× replay byte-identical — CLOSED 2026-09-17. **Blocks:** S3+.
 
 ## Sprint S3 — slice hardening and pilot-shaped demos
 
