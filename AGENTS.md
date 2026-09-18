@@ -34,6 +34,7 @@ your-project/               ← YOUR project code lives here (any structure, any
     │   ├── silent-success-allowlist.json
     │   └── prevention-rules/
     ├── docs/
+    │   ├── NEW_REPO_ONBOARDING.md  ← Wiring DevGate into a new repository
     │   ├── RELEASE_GATE.md         ← Release stages and why each exists
     │   └── WRITE_AUDIT_REVIEW.md   ← The four-gate agent process
     ├── scripts/
@@ -121,7 +122,7 @@ run-tests.mjs runs your tests; it cannot judge whether they prove anything. When
 - Never round-trip a hand-written literal and claim it validates save/load (or any) code. Build fixtures by CALLING the real function, or delete the test.
 - Expose a seam (e.g. `window.__hooks`) so tests can exercise real logic instead of copies of it.
 
-See **[docs/WRITE_AUDIT_REVIEW.md](docs/WRITE_AUDIT_REVIEW.md)** for the full process, the auditor checklist, and the acceptance-report contract. Release-specific gates are in **[docs/RELEASE_GATE.md](docs/RELEASE_GATE.md)**.
+See **[docs/WRITE_AUDIT_REVIEW.md](docs/WRITE_AUDIT_REVIEW.md)** for the full process, the auditor checklist, and the acceptance-report contract. Release-specific gates are in **[docs/RELEASE_GATE.md](docs/RELEASE_GATE.md)**. Wiring DevGate into a new repository — submodule path contract, the `.guardrails/` overlay, OpenSpec package digests, CI ordering, and secrets boundaries — is in **[docs/NEW_REPO_ONBOARDING.md](docs/NEW_REPO_ONBOARDING.md)**.
 
 ## When You Fix a Bug
 
