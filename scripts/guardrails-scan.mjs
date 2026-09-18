@@ -352,6 +352,12 @@ function main() {
 		const reportedGenDirs = new Set();
 		for (const t of tracked) {
 			const base = basename(t);
+			// .guardrailsignore scopes the tracked-file checks too, with ONE
+			// carve-out: a bare `.env` can never be ignored — that check is the
+			// framework's leak tripwire and the ignore file must not become a
+			// bypass for it. Hygiene variants (.env.testing, .env-redacted, …)
+			// stay ignorable.
+			if (base !== ".env" && isIgnored(t, projectRoot, ignorePatterns)) continue;
 			if (base.startsWith(".env") && !/\.(example|template|sample)$/.test(base) && !/template/i.test(base)) {
 				console.error(`[GUARDRAILS][critical] COMMITTED-ENV ${t}:1 — .env file tracked in git`);
 				violations++;

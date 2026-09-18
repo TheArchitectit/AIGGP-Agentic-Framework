@@ -259,6 +259,22 @@ makeProject(dir10, {});
 }
 rmSync(dir10, { recursive: true, force: true });
 
+// --- 10b. COMMITTED-ENV honors .guardrailsignore, EXCEPT bare .env -----------
+const dir10b = mkdtempSync(join(tmpdir(), "devgate-scan-"));
+makeProject(dir10b, {});
+{
+	execFileSync("git", ["init", "-q"], { cwd: dir10b });
+	execFileSync("git", ["add", "go.mod"], { cwd: dir10b });
+	writeFileSync(join(dir10b, ".env"), "SECRET=real\n");
+	writeFileSync(join(dir10b, ".env.testing"), "SECRET=fixture\n");
+	writeFileSync(join(dir10b, ".guardrailsignore"), ".env.testing\n");
+	execFileSync("git", ["add", ".env", ".env.testing", ".guardrailsignore"], { cwd: dir10b });
+	r = runScan(dir10b);
+	check("ignore: .env.testing not reported", !r.err.includes(".env.testing"));
+	check("carve-out: bare .env still fires despite ignore entry", r.err.includes("COMMITTED-ENV .env"));
+}
+rmSync(dir10b, { recursive: true, force: true });
+
 // --- 11. --strict blocks on warnings -----------------------------------------
 const dir11 = mkdtempSync(join(tmpdir(), "devgate-scan-"));
 makeProject(dir11, {

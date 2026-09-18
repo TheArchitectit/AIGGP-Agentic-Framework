@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Gates:** tracked-artifact checks (COMMITTED-ENV/COMMITTED-GENERATED) now
+  honor `.guardrailsignore` like the walk-based checks. One carve-out: a bare
+  `.env` can never be ignored — that check is the framework's leak tripwire.
+  Hygiene variants (.env.testing, .env-redacted) stay ignorable.
 - **Gates:** file-size gate exempts generated files — a source file whose
   first 1KB contains a "Code generated" marker is skipped from line counting
   (build artifacts, not hand-maintained code). Validated on rad-gateway:
