@@ -1,4 +1,4 @@
-# // spec: coh-eval-02, coh-assert-01, coh-assert-04, coh-pol-01
+# // spec: coh-eval-02, coh-assert-01, coh-assert-04, coh-eval-04, coh-pol-01
 """Assertion graph planning: schema completeness, duplicates, cycles, undeclared
 inputs, planning-time traceability, complete-outcome accounting. Runs before
 any evaluator.

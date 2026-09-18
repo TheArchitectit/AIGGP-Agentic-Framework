@@ -72,7 +72,7 @@ in `s2-remediation.md`).
 
 | Item | Why open | Lands in |
 |---|---|---|
-| `traceability_completeness` consuming this repo's marker conventions (`<!-- id: -->` ↔ `// spec:`) | structural planning check exists (coh-assert-04); repo-marker wiring is the remaining half | S3 tail / S4 head |
+| ~~`traceability_completeness` consuming this repo's marker conventions (`<!-- id: -->` ↔ `// spec:`)~~ **LANDED 2026-09-18** — see "S3 tail progress" below | ~~structural planning check exists (coh-assert-04); repo-marker wiring is the remaining half~~ | done |
 | Submodule commit-pinning (manifest records `submodule-pinned` entries but not the pinned commit digest) | round-1 partial; needs a fixture repo with a real submodule | S3 tail |
 | Split `test_hub_coherence_conformance.py` (519) / `test_hub_coherence_exitcodes.py` (523) | sequencing hazard with GD-1/GD-2 (see decision 5) | with gate fix |
 | Wrap success-path `_emit` at `__main__.py` (race-only window) | round-3 info-severity | any batch |
@@ -139,3 +139,31 @@ The S3 gate reads: *"ladder demo reviewed by lead; published spec traceable."*
 
   **S3 remains DELIVERED, not ACCEPTED**: the fresh-round blocker is cleared;
   architect sign-off on the ladder demo is the remaining clause.
+
+## S3 tail progress (post-round-5, 2026-09-18)
+
+- **Repo-marker wiring LANDED.** `traceability_completeness`
+  (`devgate.builtin.traceability-completeness`) gained an opt-in
+  `parameters.marker_scan` that consumes this repo's marker convention:
+  testable requirement ids in the package registry must be claimed by a
+  `// spec: <id>` marker in subject source, using the exact grammar of
+  `scripts/spec_traceability.py` (comma-anchored multi-id marker lines;
+  trailing prose such as `// spec: a-01 -- why` cannot fake coverage;
+  `target/node_modules/.git/openspec/.devgate` skipped; `.rs .py .mjs .js
+  .ts` scanned). A missing subject tree raises UNRESOLVED
+  (`subject-root-missing`), never VIOLATED, per coh-assert-02 — a scan of a
+  nonexistent tree would otherwise report every requirement unmarked.
+  Findings are `unmarked-requirement`, one per requirement id with the id as
+  location so `finding_key` stays distinct (coh-assert-06).
+- **coh-eval-04 marker gap closed.** The bidirectional registry rule
+  ("every testable requirement MUST trace to at least one assertion") was
+  already enforced by `plan.check_traceability` and the evaluator's
+  `orphan-requirement` half, but carried no `// spec:` marker — the
+  round-5 traceability report listed it UNCOVERED. Markers added to
+  `evaluators.py` and `plan.py`. Repo-wide traceability: 50/100 (was 49/100
+  at `0db45ed`; the +1 is exactly coh-eval-04).
+- **Verification:** pytest 257 (+6 marker-scan tests, all in
+  `TestTraceabilityMarkerScan`); regression exit 0 (2 soft warnings);
+  mutation checks on `/tmp` copies only — marker branch disabled (4 tests
+  fail), UNRESOLVED guard dropped (1 fails), marker regex loosened (2 fail);
+  working tree never mutated.

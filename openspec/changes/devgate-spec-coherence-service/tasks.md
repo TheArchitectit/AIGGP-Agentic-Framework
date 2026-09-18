@@ -80,9 +80,18 @@ round-3 APPROVE at pin `856cbd08…` listed these as non-blocking):
   wire-contract schema file and requires `additionalProperties: false` on every
   object schema — a relaxed file now fails the suite (verified by relaxing one
   object on a /tmp copy: test fails). (round-3 residual 1.)
-- [ ] `traceability_completeness` consuming `scripts/spec_traceability.py`
+- [x] `traceability_completeness` consuming `scripts/spec_traceability.py`
   marker conventions (`<!-- id: -->` ↔ `// spec:`), carried from the original
-  S2 criteria (round 1).
+  S2 criteria (round 1). **LANDED 2026-09-18 (post-round-5 tail):** opt-in
+  `parameters.marker_scan` on the `devgate.builtin.traceability-completeness`
+  builtin scans subject source with the spec_traceability.py grammar
+  (comma-anchored multi-id marker lines, vendored dirs skipped, trailing prose
+  not captured); a missing subject tree is UNRESOLVED, never VIOLATED
+  (coh-assert-02). 6 tests; 3/3 mutations caught on /tmp copies (branch
+  disabled, Unresolved guard dropped, regex loosened). `coh-eval-04` — whose
+  bidirectional registry rule the orphan half already enforced — gained its
+  source marker on evaluators.py and plan.py; repo-wide traceability moved
+  49/100 → 50/100.
 - [ ] Submodule commit-pinning: manifest records `submodule-pinned` entries but
   does not yet capture/verify the pinned commit digest (round-1 partial).
 - [ ] Split the large test files: `test_hub_coherence_conformance.py` (519) and

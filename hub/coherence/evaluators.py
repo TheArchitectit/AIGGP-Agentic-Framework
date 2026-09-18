@@ -1,4 +1,4 @@
-# // spec: coh-assert-02, coh-assert-03, coh-assert-04, coh-assert-06, coh-eval-06
+# // spec: coh-assert-02, coh-assert-03, coh-assert-04, coh-assert-06, coh-eval-04, coh-eval-06
 """Built-in slice evaluators: product-identity consistency, traceability
 completeness, release-claim consistency. Deterministic, no network, no secrets.
 Each returns a list of findings (empty = satisfied).
@@ -41,7 +41,11 @@ def identity_consistency(assertion: dict, package: dict, subject_root: str) -> l
 
 
 # Traceability: every testable requirement has an assertion; every assertion
-# traces to a normative requirement (coh-assert-04). Planning-time structure.
+# traces to a normative requirement (coh-assert-04, coh-eval-04). The
+# registry half runs here; the planning-time half runs in plan.py.
+# parameters.marker_scan additionally consumes this repo's marker
+# convention (mirrors scripts/spec_traceability.py): a testable requirement
+# id must be claimed by a `// spec: <id>` marker in subject source.
 def traceability_completeness(assertion: dict, package: dict, subject_root: str) -> list:
     findings = []
     reqs = package.get("normative_requirements") or {}
@@ -49,7 +53,45 @@ def traceability_completeness(assertion: dict, package: dict, subject_root: str)
         if meta.get("testable") and not meta.get("assertion_ids"):
             findings.append(_mk(assertion, "orphan-requirement",
                                 expected="an assertion", observed=f"requirement {rid} untestable"))
+    if assertion.get("parameters", {}).get("marker_scan"):
+        marked = _source_markers(subject_root)
+        for rid, meta in reqs.items():
+            if meta.get("testable") and rid not in marked:
+                findings.append(_mk(assertion, "unmarked-requirement",
+                                    expected=f"// spec: {rid} in subject source",
+                                    observed="no marker in subject tree",
+                                    locations=[rid]))
     return findings
+
+
+# Marker grammar copied from scripts/spec_traceability.py: one marker line
+# may carry several comma-separated ids, and the comma anchor keeps a
+# trailing comment (`// spec: a-01 -- why`) out of the captured ids.
+MARKER_RE = re.compile(r"//\s*spec:[ \t]*([a-z0-9-]+(?:[ \t]*,[ \t]*[a-z0-9-]+)*)")
+MARKER_ID_RE = re.compile(r"[a-z0-9-]+")
+MARKER_EXTS = {".rs", ".py", ".mjs", ".js", ".ts"}
+MARKER_SKIP = {"target", "node_modules", ".git", "openspec", ".devgate"}
+
+
+def _source_markers(subject_root: str) -> set:
+    root = Path(subject_root)
+    if not root.is_dir():
+        # Unresolvable input is UNRESOLVED, never VIOLATED (coh-assert-02):
+        # scanning a missing tree would report every requirement unmarked.
+        raise Unresolved(f"subject-root-missing:{subject_root}")
+    markers = set()
+    for path in root.rglob("*"):
+        if not path.is_file() or path.suffix not in MARKER_EXTS:
+            continue
+        if MARKER_SKIP & set(path.parts):
+            continue
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        for group in MARKER_RE.findall(text):
+            markers.update(MARKER_ID_RE.findall(group))
+    return markers
 
 
 # Release-claim: bind manifest to inner payload digest, forbid self-reference
