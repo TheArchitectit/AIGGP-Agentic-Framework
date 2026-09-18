@@ -190,6 +190,69 @@ Advisory is for adoption. A capability with an owner and a deadline should be
 
 ---
 
+## Step 4b — The spec-to-code workflow (one sealed package, markers as proof)
+
+**Write the specs once, seal them, then implement against them.** Do not write a
+new spec per commit, and do not re-seal the package as work progresses.
+
+The sealed package *is* the contract. Proof that the code satisfies it is the
+requirement-ID marker in the source, which the traceability gate resolves. This
+is why the normative/informative split exists: a spec document is normative and
+frozen; a task list is informative and churns.
+
+### The cycle
+
+```
+1. AUTHOR     write specs/<capability>.md with <!-- id: ... --> markers
+              write package.json with raw-byte SHA-256 for each file
+              gate-config.json -> "blocking"
+2. SEAL       verify-all-packages.sh exits 0    ← contract is now frozen
+3. PROVE      spec_traceability.py exits 1, naming every uncovered ID
+              ← this is the work list, and it is generated, not hand-written
+4. IMPLEMENT  add `// spec: <id>` at each enforcement site as you write it
+5. VERIFY     spec_traceability.py converges 0/N -> N/N with no spec edits
+6. COMMIT     code + markers together
+```
+
+The digest is updated **only when a normative spec file genuinely changes** —
+when you discover the contract itself was wrong or incomplete. That is a real
+event and should be visible in its own commit:
+
+```
+spec: correct mode-end-01 — Blitz rush starts at 10s remaining, not 8
+
+Normative change: package digest sha256:old... -> sha256:new...
+Approval does not bind to the prior revision.
+```
+
+### The three rules that make this work
+
+1. **A requirement is not "done" because a checkbox is ticked.** It is done when
+   the traceability gate finds its marker in a source file. `tasks.md` records
+   intent; the gate records fact. Never mark a task complete while its
+   requirement is still reported UNCOVERED.
+
+2. **Adding an implementation detail is not a normative change.** If the spec
+   says *Blitz ends at 30 seconds* and you implement it, the spec does not change
+   — you added code, not contract. Only edit a normative spec when the
+   requirement itself was wrong.
+
+3. **A stale digest is a stop, not a formality.** If `verify-all-packages.sh`
+   fails, either you changed a normative spec (re-seal it in that commit and say
+   so) or something edited it that shouldn't have. Do not "just update the
+   digest" without knowing which of those happened — that erases the only signal
+   the seal provides.
+
+### Why not a spec per step
+
+Re-sealing the same capability set at every commit produces digest churn that
+carries no information: the gate fires constantly for a reason that is not a
+contract change, people learn to update the digest reflexively, and the one time
+it matters the signal is indistinguishable from the noise. Seal the contract
+once; let markers carry the per-step proof.
+
+---
+
 ## Step 5 — CI wiring
 
 Run the gates **before** the test job so a spec/pattern violation fails fast.
@@ -248,3 +311,12 @@ when the bug is genuinely generic to the framework. Entries are append-only.
 - [ ] CI runs identity → traceability → pattern → build → test
 - [ ] No secrets, tokens, host names, or IPs in any tracked file
 - [ ] `failure-registry.jsonl` overlay receives project bugs (not the baseline)
+
+### Per-work-cycle checklist (Step 4b)
+
+- [ ] Package sealed **before** implementation begins
+- [ ] Uncovered IDs treated as the work list, not as failures to suppress
+- [ ] Every enforcement site carries its `// spec: <id>` marker
+- [ ] No task marked complete while its requirement is UNCOVERED
+- [ ] Digest updated only for a genuine normative change, in its own commit
+- [ ] Digest update commit states old → new and why approval no longer binds
