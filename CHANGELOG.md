@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Gates:** file-size gate exempts generated files — a source file whose
+  first 1KB contains a "Code generated" marker is skipped from line counting
+  (build artifacts, not hand-maintained code). Validated on rad-gateway:
+  3 generated files left the report, hand-written oversize files unchanged.
 - **Gates:** `regression_check.py` no longer crashes on repositories with
   non-UTF-8 bytes in git diff output (`UnicodeDecodeError` before any summary
   was printed). `run_git_command` now decodes with `errors="replace"`, so the

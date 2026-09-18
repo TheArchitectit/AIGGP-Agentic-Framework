@@ -84,6 +84,12 @@ def check_file_sizes(repo_root: Path, source_dirs: list[str],
             return
         try:
             with open(abs_path, encoding="utf-8", errors="replace") as f:
+                # Generated files ("// Code generated ... DO NOT EDIT.") are
+                # build artifacts, not hand-maintained code — exempt from
+                # line limits (they otherwise keep --all permanently red).
+                if "code generated" in f.read(1024).lower():
+                    return
+                f.seek(0)
                 line_count = sum(1 for _ in f)
         except OSError:
             return
