@@ -1,0 +1,5 @@
+schema: spec-driven
+# Pure implementation change: the requirements this implements are already
+# live in openspec/specs/{hub-architecture,runner-monitoring,
+# enrollment-and-alerting}/ — no spec deltas expected (tasks.md header).
+skip_specs: true

@@ -1,6 +1,8 @@
 # Spec: Adding a runner to an existing fleet
 
-## Requirement: Documented N+1th runner procedure
+## ADDED Requirements
+
+### Requirement: Documented N+1th runner procedure
 <!-- id: fleet-add-01 -->
 The runner templates SHALL include a walkthrough for adding a runner to a
 fleet that already has runners, a shared entrypoint, and a monitor-hub. The
