@@ -214,6 +214,27 @@ check("test file: warning rule still fires", r.err.includes("PREVENT-RS-TODO") &
 check("test file: non-strict exit 0 (warning non-blocking)", r.code === 0);
 rmSync(dir9, { recursive: true, force: true });
 
+// --- 9c. Rust sibling test-module FILES: crates use tests.rs / *_tests.rs ----
+// (memory/cortex style: unit tests per module in <name>_tests.rs included via
+// #[cfg(test)] mod tests; not inside a tests/ directory).
+const dir9c = mkdtempSync(join(tmpdir(), "devgate-scan-"));
+makeProject(dir9c, {
+	"src/memory/tests.rs": "fn it() { let z = v.unwrap(); } // TODO: flaky\n",
+	"src/vector/rollout_tests.rs": "fn it2() { let y = v.unwrap(); } // TODO: slow\n",
+});
+mkdirSync(join(dir9c, ".guardrails", "prevention-rules"), { recursive: true });
+const rules9cPath = join(dir9c, ".guardrails", "prevention-rules", "pattern-rules.json");
+writeFileSync(rules9cPath, JSON.stringify({
+	rules: [
+		{ rule_id: "PREVENT-RS-UNWRAP", enabled: true, pattern: "\\.(unwrap|expect)\\s*\\(", severity: "error", file_glob: ["**/*.rs"], message: "unwrap", suggestion: "-" },
+		{ rule_id: "PREVENT-RS-TODO", enabled: true, pattern: "// TODO", severity: "warning", file_glob: ["**/*.rs"], message: "TODO", suggestion: "-" },
+	],
+}));
+r = runScan(dir9c, { rulesEnv: rules9cPath });
+check("sibling tests.rs: error rule silent", !r.err.includes("PREVENT-RS-UNWRAP"));
+check("sibling tests.rs: warnings still fire (2)", r.err.includes("2 warning(s)"));
+rmSync(dir9c, { recursive: true, force: true });
+
 // --- 10. COMMITTED-ENV / COMMITTED-GENERATED via git index -------------------
 // The walk misses files present in the index but deleted from the working
 // tree; and local-but-untracked files must NOT fail the gate.

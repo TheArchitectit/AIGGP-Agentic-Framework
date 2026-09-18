@@ -152,6 +152,7 @@ function isTestFile(rel) {
 	const base = basename(rel);
 	if (/(^|\/)tests?\//.test(rel)) return true; // Rust integration + pytest dirs
 	if (base.endsWith("_test.go") || base.endsWith("_test.rs") || base.endsWith("_test.py")) return true;
+	if (base === "tests.rs" || /_tests\.rs$/.test(base)) return true; // Rust sibling cfg(test) modules
 	if (/^(conftest|test_.*|.*\.test\.|.*\.spec\.)/.test(base)) return true;
 	return false;
 }
