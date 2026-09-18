@@ -27,8 +27,8 @@ def load(name: str) -> dict:
     return json.loads((SCHEMA_DIR / name).read_text())
 
 SUPPORTED = {"type", "required", "additionalProperties", "properties", "enum",
-             "const", "pattern", "minItems", "minimum", "items", "$ref",
-             "format",
+             "const", "pattern", "minItems", "minimum", "minLength", "items",
+             "$ref", "format",
              "description", "default", "$schema", "$id", "title", "definitions"}
 
 _TYPES = {
@@ -100,6 +100,9 @@ def validate(doc, schema: dict, root: dict = None, path: str = "$") -> list:
     if isinstance(doc, str) and "pattern" in schema:
         if not re.search(schema["pattern"], doc):
             errs.append(f"{path}: {doc!r} does not match pattern {schema['pattern']!r}")
+    if isinstance(doc, str) and "minLength" in schema:
+        if len(doc) < schema["minLength"]:
+            errs.append(f"{path}: length {len(doc)} below minLength {schema['minLength']}")
     if isinstance(doc, str) and schema.get("format") in _FORMATS:
         if not _FORMATS[schema["format"]](doc):
             errs.append(f"{path}: {doc!r} is not a valid {schema['format']}")

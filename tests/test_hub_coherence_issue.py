@@ -94,6 +94,18 @@ class TestIssuance(unittest.TestCase):
             with self.assertRaises(ValueError):
                 self._issue(Path(td), baseline_set=["not", "entries"])
 
+    def test_empty_reason_exception_rejected_at_issuance(self):
+        """Round-5 finding 2 at the set door: exception.schema.json declares
+        reason minLength 1, but schemacheck did not implement the keyword — an
+        empty reason sailed through. The set door must reject it now."""
+        with tempfile.TemporaryDirectory() as td:
+            exc = [fx.exception_entry("a1", 1, "README.md", "identity-mismatch",
+                                      expires_at="2027-01-01T00:00:00Z")]
+            exc[0]["reason"] = ""
+            with self.assertRaises(ValueError) as c:
+                issue.set_digest(exc, "exception")
+            self.assertIn("minLength", str(c.exception))
+
     def test_end_to_end_with_issued_context(self):
         """Issued context + issued baseline feeds a real CLI run end-to-end:
         named baseline debt at Stage 2 is ADVISORY (coh-pol-04)."""

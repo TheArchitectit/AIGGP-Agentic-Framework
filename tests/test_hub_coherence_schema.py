@@ -308,6 +308,52 @@ class TestSchemaConformance(unittest.TestCase):
             errs.extend(walk(self._schema(name), name, "$"))
         self.assertEqual(errs, [], f"schema files not strict: {errs}")
 
+    def test_frozen_schemas_use_no_unenforced_vocabulary(self):
+        """Round-5 finding 2, class-level lock: a constraint keyword the stdlib
+        checker does not implement is silently ignored — a schema that LOOKS
+        strict but enforces nothing (minLength shipped this way). Every
+        standard constraint keyword used by a frozen file must be in
+        schemacheck.SUPPORTED, so adding vocabulary without an enforcement
+        arm fails here."""
+        from hub.coherence import schemacheck
+        vocab = {"maxLength", "maxItems", "maximum", "exclusiveMinimum",
+                 "exclusiveMaximum", "multipleOf", "uniqueItems",
+                 "minProperties", "maxProperties", "patternProperties",
+                 "additionalItems", "oneOf", "anyOf", "allOf", "not", "if",
+                 "then", "else", "dependencies", "propertyNames", "contains",
+                 "minLength"}
+        used = {}
+        for name in ["result.schema.json", "request.schema.json",
+                     "error-envelope.schema.json", "attestation.schema.json",
+                     "subject-manifest.schema.json",
+                     "evidence-manifest.schema.json", "package.schema.json",
+                     "assertion.schema.json", "evaluation-context.schema.json",
+                     "policy-bundle.schema.json", "exception.schema.json",
+                     "baseline-entry.schema.json"]:
+            def collect(node):
+                if isinstance(node, dict):
+                    for k, v in node.items():
+                        if k == "properties" and isinstance(v, dict):
+                            # Keys here are property NAMES, not schema
+                            # keywords (assertion.schema.json legitimately has
+                            # a "dependencies" property); only their values
+                            # are schemas.
+                            for pv in v.values():
+                                collect(pv)
+                            continue
+                        if k in vocab:
+                            used.setdefault(k, set()).add(name)
+                        collect(v)
+                elif isinstance(node, list):
+                    for i in node:
+                        collect(i)
+            collect(self._schema(name))
+        unenforced = {k: sorted(v) for k, v in used.items()
+                      if k not in schemacheck.SUPPORTED}
+        self.assertEqual(unenforced, {},
+                         "frozen schemas use vocabulary schemacheck ignores: "
+                         f"{unenforced}")
+
 class TestEnforcementBlocks(unittest.TestCase):
     """End-to-end enforcement outcomes driven through the real CLI. These were
     misgrouped under the schema class by the file split."""

@@ -107,9 +107,35 @@ The S3 gate reads: *"ladder demo reviewed by lead; published spec traceable."*
   cannot close inside S3 without either accepting inflated traceability
   numbers or building the GD-3 fix early. Disposition proposed: gate clause
   moves to S8; S3 closes on the demo-review clause + this record.
-- **Independent verification:** none of the four S3 commits has been through
-  a fresh auditor round — commit messages say so explicitly. Policy (round-4
-  findings): freeze → pin must survive ≥10 minutes of polling with a clean
-  tree → dispatch round 5 over `c9a34c5..HEAD`. **Until that APPROVE lands,
-  S3 is DELIVERED, not ACCEPTED**, and S4 work may start in parallel on the
-  container but S3 cannot be marked closed.
+- **Independent verification:** **Round 5 COMPLETE — APPROVE** (fresh agent
+  session, 2026-09-18, pin `0db45ed` == origin/main, tree clean, all
+  mutations confined to `/tmp/dg-mut` and `/tmp/dg-r5-audit/`). All six
+  falsification experiments confirmed the batch: protocol-before-schema
+  (foreign api_version → exit 40), HMAC battery (tamper/wrong-key/unsigned
+  refused with key set), set-swap fail-closed (exit 31 with bound-digest
+  reason), replay (byte-identical re-run; fresh-vs-replay diff confined to
+  context_digest+semantics; summarize non-authorizing), clock independence
+  (no now()/utcnow()/time.time in report.py), and 6/6 guard mutations caught
+  on a /tmp copy. Gates re-verified: pytest 248, strict-valid, regression
+  exit 0 (exactly 2 soft warnings), guardrails exit 0 (exactly 1 nonblocking
+  PREVENT-024 at tests/test_regression_check.py:46), silent-success exit 0.
+
+  Two minor findings, both remediated same-day:
+  1. design.md repo-wide traceability number unpinned/stale (observed 49/100
+     at HEAD vs claimed 48/99; delta: `b24ef75` marker → +1 covered,
+     `a2fc2a0` add-runner-to-fleet → +1 total). FIXED: number re-pinned with
+     explicit volatility note — re-measure at every gate.
+  2. `exception.schema.json` declared `reason minLength 1` but
+     `schemacheck.SUPPORTED` omitted the keyword — the set door silently
+     accepted an empty reason. FIXED: minLength implemented in schemacheck,
+     class-level lock added (`test_frozen_schemas_use_no_unenforced_vocabulary`
+     — any constraint keyword used by a frozen file must be in SUPPORTED),
+     set-door pin added (`test_empty_reason_exception_rejected_at_issuance`),
+     arm test added to `TestSchemacheckNegativeControls`. Mutation on a /tmp
+     copy (arm disabled) fails all three. These remediations are post-APPROVE
+     and ride into the next audit round with the S3 tail.
+  Info-only: 1 pre-existing PytestUnhandledThreadExceptionWarning outside the
+  audited range (tests/test_hub_monitor.py::test_github_client_backoff).
+
+  **S3 remains DELIVERED, not ACCEPTED**: the fresh-round blocker is cleared;
+  architect sign-off on the ladder demo is the remaining clause.

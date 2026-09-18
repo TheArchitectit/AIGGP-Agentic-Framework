@@ -298,6 +298,19 @@ class TestSchemacheckNegativeControls(unittest.TestCase):
         self.assertTrue(any("unexpected property" in e for e in errs),
                         f"additionalProperties arm silent: {errs}")
 
+    def test_min_length_arm_enforced(self):
+        """Round-5 finding 2: minLength was in exception.schema.json but
+        absent from SUPPORTED — the set door silently accepted an empty
+        reason. The arm must reject below-minimum strings."""
+        from hub.coherence import schemacheck
+        schema = {"type": "object", "additionalProperties": False,
+                  "required": ["reason"],
+                  "properties": {"reason": {"type": "string", "minLength": 1}}}
+        errs = schemacheck.validate({"reason": ""}, schema)
+        self.assertTrue(any("minLength" in e for e in errs),
+                        f"minLength arm silent: {errs}")
+        self.assertEqual(schemacheck.validate({"reason": "x"}, schema), [])
+
     def test_minimum_arm_enforced(self):
         from hub.coherence import schemacheck
         errs = schemacheck.validate({"kind": "a", "size": -3}, self._SCHEMA)
