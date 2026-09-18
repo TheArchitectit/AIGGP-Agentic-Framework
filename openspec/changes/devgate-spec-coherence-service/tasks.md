@@ -107,12 +107,22 @@ round-3 APPROVE at pin `856cbd08…` listed these as non-blocking):
   `submodule-pinned` claim). Scope note: content-vs-commit verification of
   the checked-out tree remains with the attestation slice (coh-ev-*), which
   is where sealed evidence can bind a submodule tree to its pin.
-- [ ] Split the large test files: `test_hub_coherence_conformance.py` (519) and
+- [x] Split the large test files: `test_hub_coherence_conformance.py` (519) and
   `test_hub_coherence_exitcodes.py` (523) both sit between the source limits
   and the 600 test-hard limit — invisible under GD-1/GD-2 today, and if GD-2
   lands before GD-1 (tests scanned but still classified as source) both become
   commit-blockers. Split alongside the gate fix so the ordering is safe
   (round-2/3 residuals; exitcodes grew during the S3 head).
+  **CLOSED AS MOOTED 2026-09-18 (lead):** GD-1+GD-2 landed atomically in
+  `7e559ba` ("fix(gates): size gate now discovers and classifies pytest test
+  files", on origin/main at `e9ea400`) — a single commit fixes both scanner
+  ordering and classification, so the GD-2-before-GD-1 commit-blocker hazard
+  is void by construction. Under the corrected gate every coherence test file
+  classifies as a test (soft=None, hard=600) and all comply:
+  test_hub_coherence.py 575, test_hub_coherence_exitcodes.py 536,
+  test_hub_coherence_conformance.py 523 — all < 600, regression gate exit 0.
+  The split was gate-driven hygiene, not a budget breach; no split performed,
+  no code change.
 - [x] Wrap the success-path `_emit` at `__main__.py:208` (race-only window)
   (round-3, info). **CLOSED AS DUPLICATE 2026-09-18 (lead):** at the round-3
   pin `7b26d82`, line 208 was the bare unwrapped success-path

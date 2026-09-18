@@ -66,7 +66,8 @@ in `s2-remediation.md`).
 5. **Test-file split deferred alongside the GD-1/GD-2 gate fix.** Splitting
    now, before the scanner ordering is fixed, risks both files becoming
    commit-blockers if GD-2 lands before GD-1. Ordering rationale stays in the
-   open checklist item below.
+   open checklist item below. (RESOLVED 2026-09-18: see "S3 tail progress" —
+   closed as mooted by the landed fix, no split needed.)
 
 ## Open items (carried out of S3)
 
@@ -74,7 +75,7 @@ in `s2-remediation.md`).
 |---|---|---|
 | ~~`traceability_completeness` consuming this repo's marker conventions (`<!-- id: -->` ↔ `// spec:`)~~ **LANDED 2026-09-18** — see "S3 tail progress" below | ~~structural planning check exists (coh-assert-04); repo-marker wiring is the remaining half~~ | done |
 | ~~Submodule commit-pinning~~ **LANDED 2026-09-18** — see "S3 tail progress" below | ~~round-1 partial; needs a fixture repo with a real submodule~~ | done |
-| Split `test_hub_coherence_conformance.py` (519) / `test_hub_coherence_exitcodes.py` (523) | sequencing hazard with GD-1/GD-2 (see decision 5) | with gate fix |
+| ~~Split `test_hub_coherence_conformance.py` (519) / `test_hub_coherence_exitcodes.py` (523)~~ **CLOSED AS MOOTED 2026-09-18** — see "S3 tail progress" below | ~~sequencing hazard with GD-1/GD-2 (see decision 5)~~ | done |
 | ~~Wrap success-path `_emit` at `__main__.py` (race-only window)~~ **CLOSED AS DUPLICATE 2026-09-18** — round-3 info site (`7b26d82` line 208) is the same defect r3-indep item 2 fixed at [high] (`_emit_with_fallback`, round-4 verified) | round-3 info-severity | done |
 | ADR-001…019 clause dispositions + owner-decision confirmations (Q1–Q5/Q9, defaults in `s1-freeze-record.md` §7) | architect-only; audit covered code, not clause acceptance | architect |
 | `semantic-scan.mjs` root detection (resolves to repo PARENT; never scanned this repo) | GD-adjacent; either scope it here or declare out of service — do not keep a silently-parent-scanning gate | separate tooling change |
@@ -186,3 +187,17 @@ The S3 gate reads: *"ladder demo reviewed by lead; published spec traceable."*
   `_emit_with_fallback` (round-4 verified: "blocked success-path emit
   relocates with decision intact"). Disposition recorded in tasks.md; no
   code change.
+- **Test-file split closed as MOOTED (parallel-session gate fix).** GD-1+GD-2
+  were fixed atomically by the architect's parallel session in `7e559ba`
+  ("fix(gates): size gate now discovers and classifies pytest test files",
+  change package `openspec/changes/fix-size-gate-test-scope/`; on origin/main
+  at `e9ea400` together with the registry resolution `e9ea400`). One commit
+  fixes both scanner ordering and `test_*.py` classification, so the
+  GD-2-before-GD-1 commit-blocker hazard this item was sequenced against is
+  void. Measured under the corrected gate: every coherence test file
+  classifies (soft=None, hard=600) and the largest, `test_hub_coherence.py`,
+  is 575 < 600 (exitcodes 536, conformance 523);
+  `scripts/regression_check.py` exit 0. The split was gate-driven hygiene,
+  not a budget breach — no split, no code change. This also removes the S4
+  precondition risk: no coherence test file can become a size-gate
+  commit-blocker as S4 grows the suite.
