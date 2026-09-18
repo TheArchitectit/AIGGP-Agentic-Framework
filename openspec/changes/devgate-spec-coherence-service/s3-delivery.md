@@ -75,7 +75,7 @@ in `s2-remediation.md`).
 | ~~`traceability_completeness` consuming this repo's marker conventions (`<!-- id: -->` ↔ `// spec:`)~~ **LANDED 2026-09-18** — see "S3 tail progress" below | ~~structural planning check exists (coh-assert-04); repo-marker wiring is the remaining half~~ | done |
 | Submodule commit-pinning (manifest records `submodule-pinned` entries but not the pinned commit digest) | round-1 partial; needs a fixture repo with a real submodule | S3 tail |
 | Split `test_hub_coherence_conformance.py` (519) / `test_hub_coherence_exitcodes.py` (523) | sequencing hazard with GD-1/GD-2 (see decision 5) | with gate fix |
-| Wrap success-path `_emit` at `__main__.py` (race-only window) | round-3 info-severity | any batch |
+| ~~Wrap success-path `_emit` at `__main__.py` (race-only window)~~ **CLOSED AS DUPLICATE 2026-09-18** — round-3 info site (`7b26d82` line 208) is the same defect r3-indep item 2 fixed at [high] (`_emit_with_fallback`, round-4 verified) | round-3 info-severity | done |
 | ADR-001…019 clause dispositions + owner-decision confirmations (Q1–Q5/Q9, defaults in `s1-freeze-record.md` §7) | architect-only; audit covered code, not clause acceptance | architect |
 | `semantic-scan.mjs` root detection (resolves to repo PARENT; never scanned this repo) | GD-adjacent; either scope it here or declare out of service — do not keep a silently-parent-scanning gate | separate tooling change |
 | Independent verification of `c9a34c5..HEAD` | see below | round 5 |

@@ -100,8 +100,18 @@ round-3 APPROVE at pin `856cbd08…` listed these as non-blocking):
   lands before GD-1 (tests scanned but still classified as source) both become
   commit-blockers. Split alongside the gate fix so the ordering is safe
   (round-2/3 residuals; exitcodes grew during the S3 head).
-- [ ] Wrap the success-path `_emit` at `__main__.py:208` (race-only window)
-  (round-3, info).
+- [x] Wrap the success-path `_emit` at `__main__.py:208` (race-only window)
+  (round-3, info). **CLOSED AS DUPLICATE 2026-09-18 (lead):** at the round-3
+  pin `7b26d82`, line 208 was the bare unwrapped success-path
+  `_emit(...)` — the same site r3-independent item 2 escalated to [high]
+  ("success-path emit unwrapped: a blocked result.json after a clean seal
+  died at exit 1"). Fixed by routing through `_emit_with_fallback` (payload
+  relocates with stderr announcement), round-4 independently verified
+  ("blocked success-path emit relocates with decision intact"), and the
+  exit-code battery still drives the real CLI through the unwritable
+  shapes. No separate code change was needed; the only residual window is
+  the fallback-of-the-fallback (`mkdtemp` itself failing), which has no
+  writable floor left to fall back to and is out of contract scope.
 - [ ] Close S0 carry-forwards: independent review of R1–R9 and ADR disposition
   (round-1 process debt; audit covered code, not the ADR clause decisions).
 - [ ] `semantic-scan.mjs` root detection: either scope it to this repo or
