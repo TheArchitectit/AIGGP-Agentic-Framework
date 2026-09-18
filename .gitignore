@@ -73,3 +73,9 @@ Cargo.lock
 # Temp
 tmp/
 .pi/
+
+# Machine-specific runner/fleet details (hostnames, IPs, token drop-ins,
+# volume layout, incident log) live in the operator's private infra repo.
+# The public DevGate repo stays generic by design — see the
+# "add-a-runner-to-fleet" OpenSpec change and the private infra record
+# for the real fleet topology per mon-registry-01.

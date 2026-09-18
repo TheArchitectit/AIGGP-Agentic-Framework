@@ -107,3 +107,9 @@ hub is noticed by a machine that is still up. Check it with
 ---
 
 *Last Updated: 2026-09-14*
+
+## Already have a fleet?
+
+If you already have runners on a host and want to add the N+1th (shared
+entrypoint, durability, submodule transport), see
+[add-a-runner.md](add-a-runner.md).
