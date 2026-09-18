@@ -268,6 +268,31 @@ Ordering that works:
 4. project build + tests
 5. Playwright / visual gates
 
+### A gate that cannot go green is a defect, not a chore
+
+Before wiring any browser or visual gate into CI, run it once on a **clean clone**
+and confirm it can pass at all. The failure modes seen in practice:
+
+- **Screenshot assertions with no committed baselines.** `toHaveScreenshot()`
+  fails on first run by design, and the generated `*-snapshots/` directory is
+  frequently gitignored or simply never committed. The gate then fails forever
+  and everyone learns to ignore it.
+- **Stub bodies.** A test whose body only sets an unused global and then
+  screenshots an unrelated screen is green-looking and asserts nothing. Search
+  for `waitForTimeout` + `evaluate` pairs that set state nothing reads.
+- **Missing browser binaries.** `npx playwright install chromium` and
+  `chromium-headless-shell` are *separate* downloads; a headless run needs the
+  latter. Pin the install line to what the suite actually launches.
+- **Unreachable target states.** A test asserting a game-over screen must drive
+  the real state machine to game over. Expose a seam (`window.__hooks`) in the
+  entry point and call it — do not hand-build a copy of the state, which tests
+  the copy, not the code.
+
+A gate that cannot pass trains the reader to ignore red. That is the same
+failure class as a vacuous green (`gate-vacuous-01`) approached from the other
+side: both leave the team without a signal, one by never firing and one by
+always firing.
+
 **CI secrets never live in any repo.** A Cloudflare/registry deploy token belongs
 in the hosting platform's secret store or the operator's on-box drop-in — not in
 `.github/workflows/`, not in `.guardrails/`, not in `.devgate/`. Machine-specific
@@ -309,6 +334,9 @@ when the bug is genuinely generic to the framework. Entries are append-only.
 - [ ] `gate-config.json` sets owned capabilities to `blocking`
 - [ ] Source markers use the file's own comment syntax
 - [ ] CI runs identity → traceability → pattern → build → test
+- [ ] Every browser/visual gate has been run once on a clean clone and passed
+- [ ] Screenshot baselines are committed (`git ls-files '*-snapshots/*'`)
+- [ ] No stub test bodies; state targets are reached via a real seam
 - [ ] No secrets, tokens, host names, or IPs in any tracked file
 - [ ] `failure-registry.jsonl` overlay receives project bugs (not the baseline)
 
