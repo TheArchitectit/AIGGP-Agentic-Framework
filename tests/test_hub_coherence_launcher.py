@@ -3,13 +3,17 @@
 profile, self-report reconciliation, and enforced podman arg derivation.
 All fixtures synthetic (R9).
 """
+import shutil
+import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from hub.coherence.launcher import LaunchError, podman_args, validate_launch
+from hub.coherence.launcher import (LaunchError, podman_args, run,
+                                    validate_launch)
 
 SHA = "sha256:" + "a" * 64
 SHA_B = "sha256:" + "b" * 64
@@ -28,7 +32,7 @@ def base_cfg():
                     "readonly": True}],
         "scratch": {"size": "512m"},
         "limits": {"memory": "512m", "cpus": "1.0", "time_s": 600,
-                   "pids": 128, "output_bytes": 1048576},
+                   "pids": 128, "nofile": 256, "output_bytes": 1048576},
         "profile": "linux/amd64-baseline",
         "image_index_digest": SHA,
         "image_manifest_digest": SHA_B,
@@ -173,7 +177,8 @@ class TestLauncherValidation(unittest.TestCase):
         self.assertEqual(str(cm.exception), "missing-limit:output_bytes")
 
     def test_bad_limit_rejected(self):
-        for k, v in (("time_s", 0), ("cpus", "x"), ("pids", -1)):
+        for k, v in (("time_s", 0), ("cpus", "x"), ("pids", -1),
+                     ("nofile", 0)):
             cfg = base_cfg()
             cfg["limits"][k] = v
             with self.assertRaises(LaunchError) as cm:
@@ -204,6 +209,16 @@ class TestLauncherValidation(unittest.TestCase):
                 validate_launch(cfg, PROFILES)
             self.assertEqual(str(cm.exception), f"bad-{k}")
 
+    def test_missing_manifest_digest_rejected(self):
+        # coh-id-04: the executed platform manifest digest is a
+        # MUST-distinguish field, unlike the index digest ("if any").
+        cfg = base_cfg()
+        del cfg["image_manifest_digest"]
+        with self.assertRaises(LaunchError) as cm:
+            validate_launch(cfg, PROFILES)
+        self.assertEqual(str(cm.exception),
+                         "missing-field:image_manifest_digest")
+
     # --- coh-rt-02: self-report not trusted ---
     def test_self_report_mismatch_rejected(self):
         for declared in ({"network": "bridge"},
@@ -231,21 +246,30 @@ class TestLauncherValidation(unittest.TestCase):
 class TestLauncherPodmanArgs(unittest.TestCase):
     def setUp(self):
         self.ctx = validate_launch(base_cfg(), PROFILES)
-        self.args = podman_args(self.ctx, scratch_dir=Path("/tmp/sc"),
-                                output_dir=Path("/tmp/out"))
+        self.args = podman_args(self.ctx, output_dir=Path("/tmp/out"))
 
     def test_args_enforce_isolation(self):
         for flag in ("--read-only", "--read-only-tmpfs", "--user=1000:1000",
                      "--cap-drop=ALL", "--network=none",
                      "--security-opt=no-new-privileges",
-                     "--memory=512000000", "--cpus=1.0", "--pids-limit=128"):
+                     "--memory=512000000", "--cpus=1.0", "--pids-limit=128",
+                     "nofile=256:256", "--shm-size=64m"):
             self.assertIn(flag, self.args)
 
-    def test_scratch_and_output_binds(self):
-        self.assertIn("--tmpfs", self.args)
-        self.assertIn("/scratch:size=512000000,noexec,nodev", self.args)
-        self.assertIn("/tmp/sc:/scratch", self.args)
+    def test_every_writable_target_is_bounded(self):
+        # coh-rt-07: the only writable space is the bounded scratch set plus
+        # the designated output bind. Every tmpfs target carries an explicit
+        # size; /dev/shm is pinned; there is NO scratch bind (tmpfs-only
+        # scratch — a round-6 HIGH: duplicate /scratch destination made
+        # every derived invocation unrunnable).
+        for target in ("/scratch:size=512000000,noexec,nodev",
+                       "/tmp:size=512000000,noexec,nodev",
+                       "/run:size=512000000,noexec,nodev"):
+            self.assertIn(target, self.args)
         self.assertIn("/tmp/out:/output", self.args)
+        for a in self.args:
+            self.assertFalse(a.startswith("/tmp/sc:"),
+                             "no host bind may target /scratch")
 
     def test_input_mounts_readonly_and_sorted(self):
         cfg = base_cfg()
@@ -254,12 +278,91 @@ class TestLauncherPodmanArgs(unittest.TestCase):
             {"source": "/srv/a", "target": "/a", "readonly": True},
         ]
         args = podman_args(validate_launch(cfg, PROFILES),
-                           scratch_dir=Path("/s"), output_dir=Path("/o"))
+                           output_dir=Path("/o"))
         binds = [a for a in args if a.startswith("/srv/")]
         self.assertEqual(binds, ["/srv/a:/a:ro", "/srv/b:/z:ro"])
 
     def test_image_is_last_arg(self):
         self.assertEqual(self.args[-1], "ghcr.io/example/coherence@" + SHA)
+
+
+@unittest.skipUnless(shutil.which("podman"), "podman not available")
+class TestLauncherRun(unittest.TestCase):
+    """Real-podman run() tests: the derived args must actually execute
+    (round-6 HIGH: an arg list podman rejects is an unusable launcher), and
+    the time/output limit enforcement must kill, not truncate."""
+
+    IMAGE = "localhost/devgate-coherence"
+
+    def setUp(self):
+        r = subprocess.run(["podman", "image", "exists", self.IMAGE],
+                           capture_output=True)
+        if r.returncode != 0:
+            self.skipTest("devgate-coherence image not built locally")
+        # Use the digest the local image really has: a synthetic digest
+        # makes podman attempt a registry pull.
+        r = subprocess.run(["podman", "image", "inspect", "--format",
+                            "{{.Digest}}", self.IMAGE],
+                           capture_output=True, text=True)
+        digest = r.stdout.strip()
+        if not digest.startswith("sha256:"):
+            self.skipTest("could not resolve local image digest")
+        self.cfg = base_cfg()
+        self.cfg["image"] = self.IMAGE + "@" + digest
+        self.out = Path(tempfile.mkdtemp(prefix="dg-run-"))
+        self.inp = Path(tempfile.mkdtemp(prefix="dg-in-"))
+        (self.inp / "placeholder.txt").write_text("synthetic input (R9)\n")
+        self.cfg["mounts"] = [{"source": str(self.inp),
+                               "target": "/input", "readonly": True}]
+
+    def tearDown(self):
+        shutil.rmtree(self.out, ignore_errors=True)
+        shutil.rmtree(self.inp, ignore_errors=True)
+
+    def _ctx(self):
+        return validate_launch(self.cfg, PROFILES)
+
+    def test_derived_args_actually_run(self):
+        rr = run(self._ctx(), output_dir=self.out, container_args=["--help"])
+        self.assertEqual(rr.status, "completed")
+        self.assertEqual(rr.returncode, 0, rr.output.decode(errors="replace"))
+        self.assertIn(b"usage: hub.coherence", rr.output)
+
+    def test_output_overflow_kills_not_truncates(self):
+        cfg = base_cfg()
+        cfg["image"] = self.IMAGE + "@" + SHA
+        cfg["limits"]["output_bytes"] = 1
+        rr = run(validate_launch(cfg, PROFILES), output_dir=self.out,
+                 container_args=["--help"])
+        self.assertEqual(rr.status, "output-overflow")
+        self.assertNotEqual(rr.returncode, 0)
+
+    def test_timeout_kills_hung_container(self):
+        # No deterministic in-image hang exists (the CLI fails honest on a
+        # non-regular request file), so the deadline is exercised against a
+        # real pipe that never delivers data: select must hit the time
+        # limit, kill the process, and report timeout — never completed.
+        import os
+        from unittest import mock
+        import hub.coherence.launcher as L
+        cfg = dict(self.cfg)
+        cfg["limits"] = dict(self.cfg["limits"], time_s=1)
+        ctx = validate_launch(cfg, PROFILES)
+        rfd, wfd = os.pipe()
+        fake = mock.MagicMock()
+        fake.stdout = os.fdopen(rfd, "rb")
+        fake.returncode = -9
+        try:
+            with mock.patch.object(L.subprocess, "Popen",
+                                   return_value=fake) as popen:
+                rr = run(ctx, output_dir=self.out, container_args=["--help"])
+        finally:
+            os.close(wfd)
+            fake.stdout.close()
+        self.assertEqual(rr.status, "timeout")
+        self.assertEqual(rr.returncode, -9)
+        fake.kill.assert_called_once()
+        self.assertEqual(popen.call_args[0][0][:2], ["podman", "run"])
 
 
 if __name__ == "__main__":

@@ -1,21 +1,41 @@
 # // spec: coh-rt-01, coh-rt-02, coh-rt-05, coh-rt-07, coh-id-04
 """Reference launcher: validates a launch configuration against the
-isolation profile OUTSIDE the container and derives the enforced Podman
-security context from the validated fields only.
+isolation profile OUTSIDE the container, derives the enforced Podman
+security context from the validated fields only, and executes the derived
+invocation under the configured time and output limits.
 
 The container never self-certifies (coh-rt-02): every isolation property
 is either declared in the launch config and re-derived here, or rejected.
-A config claiming isolation it does not receive is a launch failure. A
-declared execution profile outside the supported set is rejected before
-assertions run (coh-id-04, exit-30 class at the CLI layer).
+A launch configuration claiming isolation it does not receive is a launch
+failure for the reconciliation fields (user, rootfs, network, capability
+drop, profile); declared mounts/scratch/limits are out of the
+reconciliation contract — they are enforced regardless of what is
+declared. The executed platform image manifest digest is required
+(coh-id-04 MUST-distinguish); the index digest is optional ("if any").
+
+Writable space: every ephemeral tmpfs target the launcher creates
+(/scratch, /tmp, /run) is size-bounded by the launch config's scratch
+bound, and /dev/shm is pinned via --shm-size. Output goes to the single
+designated bound mount. Time and output limits are enforced by this
+process in run(): timeout and overflow both kill the container and are
+reported as non-completed statuses, never as a truncated pass.
 """
+import os
 import re
+import select
+import subprocess
+import time
+from collections import namedtuple
 from pathlib import Path
 
 _DIGEST_RE = re.compile(r"sha256:[0-9a-f]{64}")
 _USER_RE = re.compile(r"(\d{1,10})(?::(\d{1,10}))?")
-_LIMIT_KEYS = ("memory", "cpus", "time_s", "pids", "output_bytes")
+_LIMIT_KEYS = ("memory", "cpus", "time_s", "pids", "nofile", "output_bytes")
 _SIZE_SUFFIX = {"k": 10**3, "m": 10**6, "g": 10**9}
+_TMPFS_TARGETS = ("/scratch", "/tmp", "/run")
+
+LaunchRun = namedtuple("LaunchRun", "returncode output status")
+# status: "completed" | "timeout" | "output-overflow"
 
 
 class LaunchError(ValueError):
@@ -65,7 +85,7 @@ def _validate_user(u) -> str:
     uid, gid = int(m.group(1)), int(m.group(2) or m.group(1))
     if uid == 0 or gid == 0:
         raise LaunchError("root-user")
-    return u.strip()
+    return s
 
 
 def _validate_mounts(mounts) -> list:
@@ -107,8 +127,10 @@ def _validate_limits(limits) -> dict:
 
 def _check_declared(cfg: dict, ctx: dict) -> None:
     """Reconcile a container-declared isolation block (self-report) against
-    the launcher-derived context. The launcher's derivation wins; any
-    disagreement is a launch failure, not a warning (coh-rt-02)."""
+    the launcher-derived context for the reconciliation fields only
+    (user, read_only_rootfs, network, cap_drop, profile — coh-rt-02). The
+    launcher's derivation wins; any disagreement is a launch failure, not
+    a warning."""
     declared = cfg.get("declared")
     if declared is None:
         return
@@ -168,26 +190,29 @@ def validate_launch(cfg: dict, supported_profiles) -> dict:
     if profile not in supported_profiles:
         raise LaunchError(f"undeclared-profile:{profile}")
     ctx["profile"] = profile
-    for k in ("image_index_digest", "image_manifest_digest"):
-        v = cfg.get(k)
-        if v is not None:
-            if not isinstance(v, str) or not _DIGEST_RE.fullmatch(v):
-                raise LaunchError(f"bad-{k}")
-        ctx[k] = v
+    manifest = cfg.get("image_manifest_digest")
+    if manifest is None:
+        raise LaunchError("missing-field:image_manifest_digest")
+    if not isinstance(manifest, str) or not _DIGEST_RE.fullmatch(manifest):
+        raise LaunchError("bad-image_manifest_digest")
+    ctx["image_manifest_digest"] = manifest
+    idx = cfg.get("image_index_digest")
+    if idx is not None:
+        if not isinstance(idx, str) or not _DIGEST_RE.fullmatch(idx):
+            raise LaunchError("bad-image_index_digest")
+    ctx["image_index_digest"] = idx
     _check_declared(cfg, ctx)
     return ctx
 
 
-def podman_args(ctx: dict, *, scratch_dir: Path, output_dir: Path) -> list:
+def podman_args(ctx: dict, *, output_dir: Path) -> list:
     """Derive the enforced `podman run` argument list from a validated
-    context. Every isolation property is expressed as a launcher-side flag;
-    nothing is delegated to the image's own configuration. Time and output
-    limits are enforced by the orchestrating process (subprocess timeout,
-    output cap), not by podman flags.
+    context. Every isolation property is expressed as a launcher-side
+    flag; nothing is delegated to the image's own configuration. Each
+    writable tmpfs target gets the launch config's scratch bound as its
+    per-mount size; /dev/shm is pinned explicitly.
     """
-    mem = ctx["limits"]["memory"]
-    cpus = ctx["limits"]["cpus"]
-    pids = ctx["limits"]["pids"]
+    lim = ctx["limits"]
     args = [
         "podman", "run", "--rm",
         "--read-only", "--read-only-tmpfs",
@@ -195,14 +220,52 @@ def podman_args(ctx: dict, *, scratch_dir: Path, output_dir: Path) -> list:
         "--cap-drop=ALL",
         "--security-opt=no-new-privileges",
         "--network=none",
-        f"--memory={mem}",
-        f"--cpus={cpus}",
-        f"--pids-limit={pids}",
-        "--tmpfs", f"/scratch:size={ctx['scratch_bytes']},noexec,nodev",
-        "-v", f"{scratch_dir}:/scratch",
-        "-v", f"{output_dir}:/output",
+        f"--memory={lim['memory']}",
+        f"--cpus={lim['cpus']}",
+        f"--pids-limit={lim['pids']}",
+        "--ulimit", f"nofile={lim['nofile']}:{lim['nofile']}",
+        "--shm-size=64m",
     ]
+    for target in _TMPFS_TARGETS:
+        args += ["--tmpfs", f"{target}:size={ctx['scratch_bytes']},noexec,nodev"]
+    args += ["-v", f"{output_dir}:/output"]
     for mt in ctx["mounts"]:
         args += ["-v", f"{mt['source']}:{mt['target']}:ro"]
     args.append(ctx["image"])
     return args
+
+
+def run(ctx: dict, *, output_dir: Path, container_args=None) -> LaunchRun:
+    """Execute the derived invocation under the configured limits (coh-rt-05):
+    the container is killed when the time limit or the output cap is
+    exhausted, and the LaunchRun status says so — a killed run is never
+    reported as completed. Output limits apply to the merged stdout+stderr
+    stream; the decision contract (result bundle in /output) is unaffected.
+    """
+    args = podman_args(ctx, output_dir=output_dir) + list(container_args or [])
+    cap = ctx["limits"]["output_bytes"]
+    deadline = time.monotonic() + ctx["limits"]["time_s"]
+    proc = subprocess.Popen(args, stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT)
+    buf = bytearray()
+    status = "completed"
+    fd = proc.stdout.fileno()
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            status = "timeout"
+            break
+        ready, _, _ = select.select([fd], [], [], min(remaining, 0.5))
+        if not ready:
+            continue
+        chunk = os.read(fd, 65536)
+        if not chunk:
+            break
+        buf += chunk
+        if len(buf) > cap:
+            status = "output-overflow"
+            break
+    if status != "completed":
+        proc.kill()
+    proc.wait()
+    return LaunchRun(proc.returncode, bytes(buf), status)

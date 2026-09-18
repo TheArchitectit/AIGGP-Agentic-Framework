@@ -288,7 +288,8 @@ class TestSchemaConformance(unittest.TestCase):
                         "evidence-manifest.schema.json", "package.schema.json",
                         "assertion.schema.json", "evaluation-context.schema.json",
                         "policy-bundle.schema.json", "exception.schema.json",
-                        "baseline-entry.schema.json"]
+                        "baseline-entry.schema.json",
+                        "execution-profiles.schema.json"]
         def walk(node, src, path):
             problems = []
             if isinstance(node, dict):
@@ -329,7 +330,8 @@ class TestSchemaConformance(unittest.TestCase):
                      "evidence-manifest.schema.json", "package.schema.json",
                      "assertion.schema.json", "evaluation-context.schema.json",
                      "policy-bundle.schema.json", "exception.schema.json",
-                     "baseline-entry.schema.json"]:
+                     "baseline-entry.schema.json",
+                     "execution-profiles.schema.json"]:
             def collect(node):
                 if isinstance(node, dict):
                     for k, v in node.items():
