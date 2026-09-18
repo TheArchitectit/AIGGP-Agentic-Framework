@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Gates:** `regression_check.py` no longer crashes on repositories with
+  non-UTF-8 bytes in git diff output (`UnicodeDecodeError` before any summary
+  was printed). `run_git_command` now decodes with `errors="replace"`, so the
+  file-size gate runs to completion and reports real counts on such trees.
+
 ### Added
 
 - **Runner monitor hub** (`hub/`) — a stdlib-only Python service that watches
