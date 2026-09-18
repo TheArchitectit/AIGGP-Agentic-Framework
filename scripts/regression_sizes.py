@@ -59,8 +59,14 @@ def _classify_file(rel_path: str) -> tuple[int | None, int | None]:
         if rel_path.endswith(suf):
             return (None, None)
     is_test = rel_path.endswith((".test.ts", ".test.tsx", ".test.js", ".spec.ts",
-                                 ".spec.js", "_test.py", "test_*.py", "_test.go",
+                                 ".spec.js", "_test.py", "_test.go",
                                  ".test.rs", ".test.gd"))
+    # pytest naming is a PREFIX convention ("test_*.py") — endswith() can never
+    # express it, and a glob passed to endswith() is a dead literal that
+    # silently classified every pytest file as source (FAIL-f6228dda).
+    base = os.path.basename(rel_path)
+    if base.startswith("test_") and base.endswith(".py"):
+        is_test = True
     if is_test:
         return (None, TEST_HARD)
     return (SRC_SOFT, SRC_HARD)

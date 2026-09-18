@@ -1,0 +1,4 @@
+schema: spec-driven
+# Pure implementation change: the requirement this conforms to is already live
+# in openspec/specs/scanner-parsing/ (gate-size-01) — no spec deltas expected.
+skip_specs: true
