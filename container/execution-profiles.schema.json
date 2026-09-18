@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "execution-profiles registry",
+  "description": "coh-id-04 identity registry: the built service image digests per execution profile. The image index digest is present only when a multi-platform manifest list was published; a single-platform build records per-profile platform manifest digests only.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "image", "profiles"],
+  "properties": {
+    "schema": {"type": "string", "const": "execution-profiles"},
+    "image": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Image reference the digests belong to (registry path or local tag)."
+    },
+    "image_index_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "Digest of the multi-platform manifest list, when one exists."
+    },
+    "profiles": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["label", "platform", "image_manifest_digest", "base_image", "semantic_equivalence_group", "built"],
+        "properties": {
+          "label": {"type": "string", "minLength": 1},
+          "platform": {"type": "string", "pattern": "^linux/(amd64|arm64)$"},
+          "image_manifest_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+          "base_image": {
+            "type": "string",
+            "pattern": "^[a-z0-9._/-]+@sha256:[0-9a-f]{64}$",
+            "description": "Base image pinned by index digest at build time."
+          },
+          "semantic_equivalence_group": {"type": "string", "minLength": 1},
+          "built": {"type": "string", "format": "date"}
+        }
+      }
+    }
+  }
+}

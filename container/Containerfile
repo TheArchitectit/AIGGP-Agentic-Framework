@@ -1,0 +1,32 @@
+# DevGate Spec Coherence Service — pinned evaluation image.
+#
+# Stdlib-only Python service: no pip install, no network at runtime, no
+# writable layer use in production (the launcher applies --read-only,
+# non-root, cap-drop ALL; see hub/coherence/launcher.py).
+#
+# The base is pinned by INDEX digest (resolved via the registry
+# Docker-Content-Digest header, verified by an actual pull) so every
+# platform resolves the same upstream manifest list — coh-rt-01 requires
+# digest-pinned invocation, never a tag.
+#
+# Build (reproducible-ish; fixed timestamps):
+#   podman build --timestamp 0 -t devgate-coherence -f container/Containerfile .
+#   podman image inspect --format '{{.Digest}}' devgate-coherence
+# Record the resulting manifest digest + platform in
+# container/execution-profiles.json (coh-id-04 identity registry).
+
+FROM docker.io/library/python@sha256:78387bc3881b8273120a12ebe6c1ab22b018ccc2c9adf565ae1ac9b536e184ea
+
+RUN groupadd --system coherence \
+    && useradd --system --gid coherence --home /tmp coherence
+
+WORKDIR /app
+
+# Copy the service package (stdlib only).
+COPY hub/ ./hub/
+
+USER coherence
+
+# One evaluation per invocation; the launcher passes --request / output
+# binds and enforces network=none outside the container.
+ENTRYPOINT ["python3", "-m", "hub.coherence"]
