@@ -1,0 +1,5 @@
+schema: spec-driven
+# Docs-only package while BLOCKED (DEP-001/DEP-002): proposal + task plan,
+# no spec deltas. Deltas are materialized after devgate-spec-coherence-service
+# acceptance per the package handoff (step 7).
+skip_specs: true
