@@ -73,7 +73,7 @@ in `s2-remediation.md`).
 | Item | Why open | Lands in |
 |---|---|---|
 | ~~`traceability_completeness` consuming this repo's marker conventions (`<!-- id: -->` ↔ `// spec:`)~~ **LANDED 2026-09-18** — see "S3 tail progress" below | ~~structural planning check exists (coh-assert-04); repo-marker wiring is the remaining half~~ | done |
-| Submodule commit-pinning (manifest records `submodule-pinned` entries but not the pinned commit digest) | round-1 partial; needs a fixture repo with a real submodule | S3 tail |
+| ~~Submodule commit-pinning~~ **LANDED 2026-09-18** — see "S3 tail progress" below | ~~round-1 partial; needs a fixture repo with a real submodule~~ | done |
 | Split `test_hub_coherence_conformance.py` (519) / `test_hub_coherence_exitcodes.py` (523) | sequencing hazard with GD-1/GD-2 (see decision 5) | with gate fix |
 | ~~Wrap success-path `_emit` at `__main__.py` (race-only window)~~ **CLOSED AS DUPLICATE 2026-09-18** — round-3 info site (`7b26d82` line 208) is the same defect r3-indep item 2 fixed at [high] (`_emit_with_fallback`, round-4 verified) | round-3 info-severity | done |
 | ADR-001…019 clause dispositions + owner-decision confirmations (Q1–Q5/Q9, defaults in `s1-freeze-record.md` §7) | architect-only; audit covered code, not clause acceptance | architect |
@@ -167,3 +167,22 @@ The S3 gate reads: *"ladder demo reviewed by lead; published spec traceable."*
   mutation checks on `/tmp` copies only — marker branch disabled (4 tests
   fail), UNRESOLVED guard dropped (1 fails), marker regex loosened (2 fail);
   working tree never mutated.
+- **Submodule commit-pinning LANDED.** `manifest._gitlink_commit` resolves an
+  initialized submodule's pinned commit from gitdir metadata via pure file
+  reads (`.git` file `gitdir:` pointer → HEAD → detached SHA, loose ref, or
+  packed-refs; no git execution, deterministic). Entries record
+  `submodule-pinned:<sha>`; unresolvable pins record `submodule-unresolved`
+  — never a `submodule-pinned` claim without naming the pin. Verified with
+  7 unit tests (detached/loose/packed/absolute gitdir, dangling ref, missing
+  gitdir) and a REAL `git submodule add` fixture whose captured pin must
+  equal the gitlink SHA git itself records in the index. 2/2 mutations
+  caught on /tmp copies. Content-vs-commit verification of the checked-out
+  tree stays with the attestation slice (coh-ev-*), where sealed evidence
+  can bind a submodule tree to its pin — recorded in tasks.md, not silently
+  dropped.
+- **Round-3 `_emit` info item closed as duplicate.** At the round-3 pin
+  `7b26d82`, `__main__.py:208` was the bare unwrapped success-path emit —
+  the same site r3-indep item 2 escalated to [high] and fixed via
+  `_emit_with_fallback` (round-4 verified: "blocked success-path emit
+  relocates with decision intact"). Disposition recorded in tasks.md; no
+  code change.

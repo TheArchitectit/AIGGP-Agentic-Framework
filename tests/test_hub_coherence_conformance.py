@@ -217,7 +217,11 @@ class TestSubjectManifestPolicy(unittest.TestCase):
             by_path = {e["path"]: e for e in m["entries"]}
             self.assertIn("vendor-lib", by_path)
             self.assertEqual(by_path["vendor-lib"]["kind"], "submodule")
-            self.assertEqual(by_path["vendor-lib"]["policy_outcome"], "submodule-pinned")
+            # The fixture's gitdir does not exist, so the pin cannot be
+            # resolved: fail-honest `submodule-unresolved`, never a
+            # `submodule-pinned` claim without a named pin.
+            self.assertEqual(by_path["vendor-lib"]["policy_outcome"],
+                             "submodule-unresolved")
             self.assertIsNone(by_path["vendor-lib"]["digest"])
             self.assertNotIn("vendor-lib/lib.py", by_path,
                              "submodule content must not be digested")

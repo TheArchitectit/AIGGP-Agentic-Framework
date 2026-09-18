@@ -92,8 +92,21 @@ round-3 APPROVE at pin `856cbd08…` listed these as non-blocking):
   bidirectional registry rule the orphan half already enforced — gained its
   source marker on evaluators.py and plan.py; repo-wide traceability moved
   49/100 → 50/100.
-- [ ] Submodule commit-pinning: manifest records `submodule-pinned` entries but
+- [x] Submodule commit-pinning: manifest records `submodule-pinned` entries but
   does not yet capture/verify the pinned commit digest (round-1 partial).
+  **LANDED 2026-09-18 (post-round-5 tail):** `manifest._gitlink_commit`
+  resolves the pinned commit from gitdir metadata via pure file reads (`.git`
+  file's `gitdir:` pointer → HEAD → detached SHA / loose ref / packed-refs; no
+  git execution, deterministic). Entries now record
+  `submodule-pinned:<sha>`; an unresolvable pin records
+  `submodule-unresolved` — never a `submodule-pinned` claim without naming
+  the pin. 7 unit tests (detached/loose/packed/absolute gitdir, dangling ref,
+  missing gitdir) plus a REAL `git submodule add` fixture asserting the
+  captured pin equals the gitlink SHA git recorded in the index. 2/2
+  mutations caught on /tmp copies (capture disabled; bare unverified
+  `submodule-pinned` claim). Scope note: content-vs-commit verification of
+  the checked-out tree remains with the attestation slice (coh-ev-*), which
+  is where sealed evidence can bind a submodule tree to its pin.
 - [ ] Split the large test files: `test_hub_coherence_conformance.py` (519) and
   `test_hub_coherence_exitcodes.py` (523) both sit between the source limits
   and the 600 test-hard limit — invisible under GD-1/GD-2 today, and if GD-2

@@ -5,10 +5,13 @@ read-time re-verification. Deterministic traversal (sorted).
 """
 import hashlib
 import os
+import re
 import unicodedata
 from pathlib import Path
 
 from . import canon
+
+_SHA_RE = re.compile(r"[0-9a-f]{40,64}")
 
 
 class SubjectError(ValueError):
@@ -41,6 +44,48 @@ def _escapes(fp: Path, root: Path) -> bool:
     return root not in resolved.parents and resolved != root
 
 
+def _gitlink_commit(subdir: Path):
+    """Resolve the pinned commit of an initialized submodule from its gitdir
+    metadata: the `.git` file's `gitdir:` pointer, then HEAD (detached SHA or
+    `ref:` resolved through loose refs, then packed-refs). Pure file reads —
+    no git execution, deterministic. Returns None when the pin cannot be
+    resolved; the entry is then recorded `submodule-unresolved` rather than
+    silently claiming a pin it cannot name (round-1 partial).
+    """
+    try:
+        raw = (subdir / ".git").read_text(errors="replace").strip()
+    except OSError:
+        return None
+    if not raw.startswith("gitdir:"):
+        return None
+    target = raw[len("gitdir:"):].strip()
+    gd = Path(target)
+    gitdir = gd if gd.is_absolute() else (subdir / gd)
+    try:
+        head = (gitdir / "HEAD").read_text(errors="replace").strip()
+    except OSError:
+        return None
+    if _SHA_RE.fullmatch(head):
+        return head
+    if not head.startswith("ref:"):
+        return None
+    ref = head[len("ref:"):].strip()
+    try:
+        val = (gitdir / ref).read_text(errors="replace").strip()
+        if _SHA_RE.fullmatch(val):
+            return val
+    except OSError:
+        pass
+    try:
+        for line in (gitdir / "packed-refs").read_text(errors="replace").splitlines():
+            parts = line.split()
+            if len(parts) == 2 and parts[1] == ref and _SHA_RE.fullmatch(parts[0]):
+                return parts[0]
+    except OSError:
+        pass
+    return None
+
+
 def _check_collision(seen: dict, rel: str) -> None:
     """Reject path normalization collisions (case/Unicode) (coh-id-02)."""
     key = rel.casefold()
@@ -67,10 +112,12 @@ def build(root: str, subject_kind: str = "source-tree",
     """Build the immutable subject manifest for a directory tree.
 
     Submodules (a `.git` file in a subdirectory, i.e. a gitlink) are recorded as
-    `submodule` entries with their commit recorded in policy_outcome; they are
-    never descended. Excluded directories (build outputs, VCS metadata,
-    dependency trees) are recorded as `excluded` without digests so the manifest
-    is explicit about what it did not consider (coh-id-02).
+    `submodule` entries with their pinned commit in policy_outcome
+    (`submodule-pinned:<sha>`, or `submodule-unresolved` when the gitdir
+    metadata cannot resolve it); they are never descended. Excluded
+    directories (build outputs, VCS metadata, dependency trees) are recorded
+    as `excluded` without digests so the manifest is explicit about what it
+    did not consider (coh-id-02).
     """
     root_p = Path(root).resolve()
     if not root_p.is_dir():
@@ -97,12 +144,18 @@ def build(root: str, subject_kind: str = "source-tree",
                 })
                 dirnames.remove(dname)
                 continue
-            # Submodule (gitlink): a `.git` FILE inside the directory.
+            # Submodule (gitlink): a `.git` FILE inside the directory. The
+            # pinned commit is captured from gitdir metadata when resolvable;
+            # an unresolvable pin is recorded `submodule-unresolved` — never
+            # `submodule-pinned` without naming the pin (round-1 partial).
             if (link / ".git").is_file():
                 _check_collision(seen_paths, rel)
+                sha = _gitlink_commit(link)
                 entries.append({
                     "path": rel, "kind": "submodule", "digest": None,
-                    "policy_outcome": "submodule-pinned", "size_bytes": None,
+                    "policy_outcome": (f"submodule-pinned:{sha}" if sha
+                                       else "submodule-unresolved"),
+                    "size_bytes": None,
                 })
                 dirnames.remove(dname)
                 continue
