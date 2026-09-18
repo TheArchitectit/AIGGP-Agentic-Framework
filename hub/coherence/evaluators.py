@@ -1,4 +1,4 @@
-# // spec: coh-assert-02, coh-assert-03, coh-assert-04, coh-eval-06
+# // spec: coh-assert-02, coh-assert-03, coh-assert-04, coh-assert-06, coh-eval-06
 """Built-in slice evaluators: product-identity consistency, traceability
 completeness, release-claim consistency. Deterministic, no network, no secrets.
 Each returns a list of findings (empty = satisfied).
