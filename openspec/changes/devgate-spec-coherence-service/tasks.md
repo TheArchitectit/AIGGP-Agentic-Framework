@@ -181,12 +181,59 @@ Sprint work:
 ## Sprint S4 — container and evaluator boundary (submitted Phase 2)
 
 - [ ] Build multi-architecture pinned service image (Podman; runners already report `podman_ok`); record index vs platform digests per execution-profile registry (coh-id-04).
+  PROGRESS 2026-09-18: `container/Containerfile` builds on `python:3.12-slim` pinned by verified **index** digest
+  (`sha256:78387bc3…`, resolved via registry `Docker-Content-Digest`, confirmed by pull); image built
+  `--timestamp 0` → amd64 manifest `sha256:5e73b5bd…` recorded with the base index digest in
+  `container/execution-profiles.json` (strict schema, in the frozen schemas dir since `e9e200b`).
+  `hub/coherence/profiles.py` loads/shape-checks the registry and cross-checks launch digests. OPEN: arm64
+  platform entry (needs emulation or a runner build) and the publish-to-registry step; single-platform build
+  honestly records no service-image index digest.
 - [ ] Launcher-validated isolation: non-root, read-only root/inputs, dropped capabilities, no host sockets/network; launcher rejects violating configs; self-report not trusted (coh-rt-01, coh-rt-02).
+  PROGRESS 2026-09-18: `hub/coherence/launcher.py` (271 lines) validates every rejection class, requires the
+  platform manifest digest, and `run()` executes the derived invocation under the time/output limits. OPEN:
+  CLI-layer mapping of `LaunchError`/timeout/overflow to the exit-code contract (exit 30 / ERROR classes),
+  and the plugins-by-digest clause (launch config `plugins` field).
 - [ ] Bounded scratch + designated output location; atomic export; partial-output = ERROR (coh-rt-05, coh-rt-07).
+  PROGRESS 2026-09-18: all writable tmpfs targets (`/scratch`, `/tmp`, `/run`) explicitly size-bounded by the
+  config scratch bound; `/dev/shm` pinned 64m; single `/output` bind. OPEN: in-container atomic export
+  (seal-then-rename inside scratch → /output) — needs the evaluate/seal path wired to the container.
 - [ ] Default-deny egress with capture-step grants; captured responses become context facts (coh-rt-03, coh-ctx-04).
 - [ ] Scoped secret injection + redaction tests (coh-rt-04).
 - [ ] Built-in evaluator allowlist enforcement: repository-supplied executable rejected (coh-rt-06).
 - [ ] Isolation test suite against the approved launcher and supported sandbox, not Dockerfile inspection alone.
+  PROGRESS 2026-09-18: real-Podman tests exist at two levels — image smoke under the enforced flag set, and
+  `run()` tests executing the launcher-derived args (overflow kill, mocked-deadline kill, args-actually-run).
+  OPEN: capture/secret/allowlist failure-injection tests land with their items; full suite green on supported
+  runners is the S4 gate.
+
+**Round-6 independent audit (2026-09-18, fresh session, pin `5ea1535`): REJECT — remediated same day at
+`e9e200b`, rides into the next audit round.** Validation half was confirmed solid (all rejection classes
+live-tested, 6/6 mutations killed). Findings and dispositions:
+- [HIGH] `podman_args` emitted duplicate `/scratch` destination (tmpfs + bind); podman refuses (exit 125,
+  empirically reproduced) → **FIXED `e9e200b`**: tmpfs-only scratch; new tests execute the REAL derived args
+  against the REAL local image so an unrunnable arg list can no longer pass.
+- [MEDIUM] `--read-only-tmpfs` left `/tmp`,`/run` at half-RAM (measured 15.5G) → **FIXED `e9e200b`**: explicit
+  per-mount bounds for `/scratch`,`/tmp`,`/run`; `--shm-size=64m`.
+- [MEDIUM] coh-rt-05 file limit missing → **FIXED `e9e200b`**: `nofile` in the required limit set, emitted as
+  `--ulimit nofile=n:n`.
+- [MEDIUM] `time_s`/`output_bytes` validated but never enforced (no orchestrator existed) → **FIXED `e9e200b`**:
+  `run()` enforces both (select deadline + cap; kill on exhaustion; status never a truncated pass).
+- [MEDIUM/LOW] coh-id-04 manifest digest optional → **FIXED `e9e200b`**: `image_manifest_digest` required;
+  index digest stays optional per spec grammar.
+- [LOW] `_check_declared` reconciles only 5 fields → **ACKNOWLEDGED, no change**: declared
+  mounts/scratch/limits are out of the reconciliation contract; effective policy is enforced regardless of
+  what is declared, so no isolation loss. Module docstring narrowed to say exactly this (`e9e200b`).
+- [LOW] host-socket check is basename `.sock` only → **ACKNOWLEDGED, no change**: all mounts are readonly and
+  connecting a unix socket needs write access to the inode, so readonly binds block use. Defense-in-depth note.
+- [INFO] plugins-by-digest unaddressed → **OPEN** with the launcher item (launch config `plugins` field).
+- [INFO] no CLI exit-30 mapping yet → **OPEN** with the CLI wiring item.
+- [INFO] auditor ran `regression_check.py` on a clean tree (vacuous) → **PROCESS NOTE**: audit briefs must say
+  `--all`.
+- Battery at `e9e200b`: pytest 310 green (2 pre-existing hub-server thread warnings in
+  test_hub_enroll_heartbeat.py — outside the S4 range, recorded here for the next audit), regression exit 0
+  (`--all`), guardrails exit 0, traceability 54/100. Launcher 271 lines, launcher tests 369 — within budgets.
+  5/5 new-guard mutations caught on /tmp copies (overflow cap, deadline, nofile set, manifest requirement,
+  `/run` bound).
 
 **Gate:** isolation suite green on supported runners. **Blocks:** S6 enforced pilots.
 
