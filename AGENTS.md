@@ -113,6 +113,7 @@ A gate that evaluated zero inputs is not a passed gate:
 - `regression_check.py --staged` on a clean checkout has NOTHING to scan (it only sees uncommitted work). It prints a NOTHING SCANNED notice; treat that as no evidence. To audit committed content, run `--base <ref>` (e.g. `--base origin/main`) or `--all`. In CI use `--fail-if-empty` so zero-input runs fail the job.
 - `semantic-scan.mjs` without the `typescript` parser FAILS (it could not evaluate your files). If the project knowingly cannot provide the parser, set `DEVGATE_SEMANTIC_REQUIRED=0` and report the gate as SKIPPED, never as green.
 - Run the gates AT THE HEAD YOU PUSH. A green run on an earlier commit that later commits broke is a stale result — re-run after every change, before pushing.
+- **When working on DevGate itself:** CI runs your commit's gates in `.github/workflows/ci.yml` (tests, self-gates, spec traceability, image build). Watch it before calling work done — a local green run that CI never saw is not evidence the branch is clean.
 
 ## Tests That Prove Something
 

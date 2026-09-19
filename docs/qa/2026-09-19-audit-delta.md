@@ -57,3 +57,12 @@ that fails on the old behavior (no config-only or doc-only "fixes").
   surfaced a doc bug: AGENTS.md's preceding-line annotation example does not
   match the scanner's same-line contract; tracked for the consolidation
   package).
+
+## Closed by `add-framework-ci-pipeline`
+
+| Finding | Status | Evidence |
+|---|---|---|
+| M9 the framework's own PRs run no checks (no CI executed tests/) | **closed** | `.github/workflows/ci.yml`: `tests` (pytest + node fixture suites + the framework's own per-file runner), `self-gates` (guardrails/semantic/regression-with-range/ silent-success/registry), `specs` (traceability counts; openspec validate informational until the migration lands), `container-image` (builds the pinned image and proves schemas resolve inside it — the F1 regression, fw-ci/coh-rt-08) |
+| Unpinned actions in the framework's own workflows | **closed** | all uses SHA-pinned (checkout / setup-python / setup-node resolved via the GitHub API and recorded with version comments); `drift-scan.yml` setup-node pinned |
+| Semantic scan in CI had no parser installed (would fail closed on TS consumers) | **closed** | self-gates installs `typescript@5` before the scan |
+| F12-adjacent: collection could silently shrink | **closed** | `tests/__init__.py` + `conftest.py` land in the container-contract commit; the `tests` job fails on any collection error |

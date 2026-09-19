@@ -353,6 +353,13 @@ does not drive that scanner.
 
 ## CI Integration
 
+DevGate runs its own gates on itself: see [.github/workflows/ci.yml](.github/workflows/ci.yml)
+for the reference implementation (full test suite with deterministic collection,
+pattern + semantic + regression + silent-success scans against the framework's
+own tree, registry hygiene, spec traceability counts, and a container-image
+job that proves the evaluator image carries its frozen schemas). Their CI is
+the honest baseline for yours — copy the shape, not just the commands.
+
 Add to your `.github/workflows/ci.yml`:
 
 ```yaml
