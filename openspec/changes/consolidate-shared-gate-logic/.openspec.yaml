@@ -1,0 +1,4 @@
+schema: spec-driven
+# Behavior-preserving consolidation; the contracts being unified are already
+# live in gate-configuration-contract / scanner-parsing / rule-coverage-truth.
+skip_specs: true

@@ -1,0 +1,4 @@
+schema: spec-driven
+# Test-infra conformance; fw-ci-01 and gate-execution-contract already
+# mandate honest execution. No spec deltas.
+skip_specs: true

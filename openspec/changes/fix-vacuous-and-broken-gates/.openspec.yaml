@@ -1,0 +1,5 @@
+schema: spec-driven
+# Pure implementation change: every behavior fixed here is already mandated by
+# live specs (gate-execution-contract, scanner-parsing, rule-coverage-truth,
+# doc-truth) — same pattern as fix-size-gate-test-scope. No spec deltas.
+skip_specs: true
