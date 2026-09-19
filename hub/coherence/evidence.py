@@ -98,7 +98,7 @@ def seal(findings: list, output_dir: str, redact: list = None,
     objects = []
     for f in findings:
         aid = f["assertion_id"]
-        if not isinstance(aid, str) or not _ASSERTION_ID_RE.match(aid):
+        if not isinstance(aid, str) or not _ASSERTION_ID_RE.fullmatch(aid):
             raise EvidenceError(f"bad-assertion-id:{aid!r}")
         days = ret_map.get(aid)
         cls = f"retention:{days}d" if isinstance(days, int) else "standard"

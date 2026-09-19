@@ -98,7 +98,12 @@ def validate(doc, schema: dict, root: dict = None, path: str = "$") -> list:
             return errs  # type mismatch makes deeper checks meaningless
 
     if isinstance(doc, str) and "pattern" in schema:
-        if not re.search(schema["pattern"], doc):
+        # JSON Schema patterns are ECMA-262: the regex must match the whole
+        # string. re.search differs — Python's `$` also matches before a
+        # trailing newline, so `"id\n"` would pass `"^[a-z]+$"`. Every frozen
+        # pattern here is explicitly ^…$-anchored, making fullmatch the
+        # faithful reading (and it rejects the trailing-newline slip).
+        if not re.fullmatch(schema["pattern"], doc):
             errs.append(f"{path}: {doc!r} does not match pattern {schema['pattern']!r}")
     if isinstance(doc, str) and "minLength" in schema:
         if len(doc) < schema["minLength"]:

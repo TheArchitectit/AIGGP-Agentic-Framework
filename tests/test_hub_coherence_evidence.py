@@ -167,6 +167,22 @@ class TestEvidencePathIntegrity(unittest.TestCase):
             self.assertEqual(strays, [],
                              f"seal wrote outside the output dir: {strays}")
 
+    def test_id_with_trailing_newline_fails_closed_at_seal(self):
+        """C1 audit: `_ASSERTION_ID_RE.match` with a trailing `$` lets Python
+        match `"a1\n"` (the `$` sits before the final newline), naming a file
+        `a1\n--….json`. That contradicts the planning gate — C1 fixed the
+        same slip in schemacheck with re.fullmatch — and two guards on
+        opposite ends of the pipeline disagreeing on the same grammar is the
+        round-9 family. seal's copy must reject what the schema rejects."""
+        with tempfile.TemporaryDirectory() as td:
+            out = Path(td) / "run"
+            out.mkdir()
+            with self.assertRaises(evidence.EvidenceError) as cm:
+                evidence.seal([_finding("a1\n", "x", "e", "o")], str(out))
+            self.assertIn("bad-assertion-id", str(cm.exception))
+            self.assertEqual(list((out / "evidence").rglob("*")), [],
+                             "a rejected id must not leave a half-sealed bundle")
+
     def test_escaping_manifest_path_is_a_verify_failure(self):
         """The read side: a manifest whose object path traverses outside the
         bundle must fail verify even when the out-of-bounds file's digest

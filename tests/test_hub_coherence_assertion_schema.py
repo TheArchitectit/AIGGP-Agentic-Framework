@@ -121,6 +121,18 @@ class TestSchemaCompleteness(unittest.TestCase):
         with self.assertRaises(plan.PlanError):
             _plan(a)
 
+    def test_an_id_with_a_trailing_newline_is_rejected(self):
+        """C1 audit: JSON Schema `pattern` is ECMA-262 — `$` means
+        end-of-string only. Python's `$` also matches before a trailing `\\n`,
+        so a repository id like "a1\\n" passed `re.search` and planned clean,
+        then reached evidence.seal and named a file with a literal newline —
+        bytes a strict JSON-Schema consumer rejects against this very schema.
+        The gate must be as strong as the contract it enforces."""
+        a = _good()
+        a["id"] = "a1\n"
+        with self.assertRaises(plan.PlanError):
+            _plan(a)
+
 
 class TestEvaluatorAllowlistPreserved(unittest.TestCase):
     """C1 wires the schema check; it does not *replace* the allowlist, which

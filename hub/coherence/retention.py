@@ -40,7 +40,7 @@ class RetentionError(RuntimeError):
 
 
 def _check_ref(ref) -> str:
-    if not isinstance(ref, str) or not _REF_RE.match(ref):
+    if not isinstance(ref, str) or not _REF_RE.fullmatch(ref):
         raise RetentionError(f"retention-bad-ref:{ref!r}")
     return ref
 

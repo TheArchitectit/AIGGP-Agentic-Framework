@@ -201,7 +201,12 @@ class TestContentIntegrity(RetentionTestCase):
             token = retention.issue("sha256:" + "a" * 64)  # any token will do
             for bad in ("../../etc/shadow", "not-a-digest", "", None,
                         "sha256:xyz", "sha256:" + "a" * 63,
-                        "sha256:" + "g" * 64):
+                        "sha256:" + "g" * 64,
+                        # C1 audit: `.match` + trailing `$` in Python also
+                        # accepts a trailing newline, and the ref names a
+                        # path on disk — `"…<64hex>\n"` would build a
+                        # filename with a literal newline in it.
+                        "sha256:" + "a" * 64 + "\n"):
                 with self.subTest(ref=bad):
                     with self.assertRaises(retention.RetentionError) as cm:
                         retention.read(root, bad, as_of=FIXED,
