@@ -190,9 +190,19 @@ Sprint work:
   honestly records no service-image index digest.
 - [ ] Launcher-validated isolation: non-root, read-only root/inputs, dropped capabilities, no host sockets/network; launcher rejects violating configs; self-report not trusted (coh-rt-01, coh-rt-02).
   PROGRESS 2026-09-18: `hub/coherence/launcher.py` (271 lines) validates every rejection class, requires the
-  platform manifest digest, and `run()` executes the derived invocation under the time/output limits. OPEN:
-  CLI-layer mapping of `LaunchError`/timeout/overflow to the exit-code contract (exit 30 / ERROR classes),
-  and the plugins-by-digest clause (launch config `plugins` field).
+  platform manifest digest, and `run()` executes the derived invocation under the time/output limits.
+  CLI-layer mapping CLOSED 2026-09-18 (`0701be7`): `hub/coherence/container_exec.py` (`--launch-config`)
+  validates the launch config against the profile registry OUTSIDE the container (coh-rt-02), rewrites roots
+  to container
+  mount targets, and maps failure classes onto the frozen exit-code contract (coh-dec-04) — launch rejection
+  before assertions → exit 30, limit-kill → exit 32 (coh-rt-05: exhaustion is ERROR), non-contract or
+  disagreeing exit/decision → exit 32 (coh-dec-01: never resolved in favor of the permissive signal),
+  coherent runs relay the container exit code; 11 mapping tests + 1 real-Podman relay test, 4/4 driver
+  mutations killed. Supporting changes (no behavior change): `_emit`/`_emit_with_fallback` consolidated into
+  `result.emit`/`result.emit_with_fallback` (round-2 B1 fallback rule now single-sourced); the driver stages
+  the rewritten request INSIDE the output bind (`request.container.json`) because the in-container CLI emits
+  envelopes beside its request file — staging anywhere read-only would lose in-container error envelopes.
+  OPEN: plugins-by-digest clause (launch config `plugins` field).
 - [ ] Bounded scratch + designated output location; atomic export; partial-output = ERROR (coh-rt-05, coh-rt-07).
   PROGRESS 2026-09-18: all writable tmpfs targets (`/scratch`, `/tmp`, `/run`) explicitly size-bounded by the
   config scratch bound; `/dev/shm` pinned 64m; single `/output` bind. OPEN: in-container atomic export
