@@ -23,6 +23,7 @@ reported as non-completed statuses, never as a truncated pass.
 import os
 import re
 import select
+import stat
 import subprocess
 import time
 from collections import namedtuple
@@ -92,17 +93,35 @@ def _validate_mounts(mounts) -> list:
     if not isinstance(mounts, list):
         raise LaunchError("missing-field:mounts")
     out = []
+    seen_targets = set()
     for mt in mounts:
         if not isinstance(mt, dict):
             raise LaunchError("bad-mount")
         src, tgt = mt.get("source"), mt.get("target")
         if not isinstance(src, str) or not isinstance(tgt, str) or not src or not tgt:
             raise LaunchError("bad-mount")
-        if src.split("/")[-1].endswith(".sock"):
+        # Two mounts claiming the same target would yield conflicting -v
+        # flags (round-7 finding 2): an ambiguous bind set is rejected.
+        if tgt in seen_targets:
+            raise LaunchError(f"duplicate-mount-target:{tgt}")
+        seen_targets.add(tgt)
+        # Socket binds are structural, not lexical (round-7 finding 5): a
+        # Unix socket named mysock is a socket; a regular file named
+        # docker.sock is not. An absent source cannot yet be a socket.
+        try:
+            is_sock = stat.S_ISSOCK(os.lstat(src).st_mode)
+        except OSError:
+            is_sock = False
+        if is_sock:
             raise LaunchError(f"host-socket-bind:{src}")
         if mt.get("readonly") is not True:
             raise LaunchError(f"writable-mount:{tgt}")
-        out.append({"source": src, "target": tgt, "readonly": True})
+        # Record the RESOLVED source (round-7 finding 2): validation, the
+        # root-rewrite prefix match, and the podman -v bind all share one
+        # path identity — a symlinked source can no longer pass validation
+        # while the kernel binds (or the rewriter matches) elsewhere.
+        out.append({"source": os.path.realpath(src), "target": tgt,
+                    "readonly": True})
     out.sort(key=lambda m: (m["target"], m["source"]))
     return out
 

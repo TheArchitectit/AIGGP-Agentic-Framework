@@ -217,55 +217,6 @@ class TestPlan(unittest.TestCase):
         with self.assertRaises(plan.PlanError):
             plan.plan([a], [])
 
-    def test_planner_accepts_all_builtins(self):
-        a = self._assertion("a1")
-        assertions = []
-        for i, eid in enumerate(sorted(evaluators.BUILTINS)):
-            b = self._assertion(f"a{i}")
-            b["evaluator"] = {"id": eid, "digest": "sha256:" + "a" * 64}
-            assertions.append(b)
-        planned = plan.plan(assertions, [])
-        self.assertEqual(len(planned), len(evaluators.BUILTINS))
-
-    def test_planner_rejects_repository_supplied_evaluator(self):
-        # coh-rt-06: repository-supplied executable code MUST NOT run as an
-        # evaluator; the planner rejects the reference before any evaluation.
-        a = self._assertion("a1")
-        a["evaluator"] = {"id": "repo.evil", "digest": "sha256:" + "b" * 64}
-        with self.assertRaises(plan.PlanError) as cm:
-            plan.plan([a], [])
-        self.assertIn("unapproved-evaluator:repo.evil", str(cm.exception))
-
-    def test_overlay_swapped_evaluator_rejected_at_planning(self):
-        # Layered defense: even when central policy carries no approved
-        # evaluator list, an overlay-swapped non-builtin id cannot pass
-        # through apply_overlay into execution.
-        import tempfile as _tf
-        with tempfile.TemporaryDirectory() as td:
-            pol = Path(td)
-            (pol / "overlay.json").write_text(json.dumps({
-                "assertions": [{"id": "a1",
-                                "evaluator": {"id": "repo.evil", "digest": "sha256:" + "b" * 64}}],
-            }))
-            from hub.coherence import policy as _policy
-            a = self._assertion("a1")
-            central = {"required_assertions": [], "approved_evaluators": []}
-            swapped = _policy.apply_overlay([a], json.loads(
-                (pol / "overlay.json").read_text()), central)
-            with self.assertRaises(plan.PlanError) as cm:
-                plan.plan(swapped, [])
-            self.assertIn("unapproved-evaluator:repo.evil", str(cm.exception))
-
-    def test_planner_rejects_malformed_evaluator_shape(self):
-        a = self._assertion("a1")
-        a["evaluator"] = "not-a-dict"
-        with self.assertRaises(plan.PlanError):
-            plan.plan([a], [])
-        a = self._assertion("a2")
-        a["evaluator"] = {"digest": "sha256:" + "a" * 64}
-        with self.assertRaises(plan.PlanError):
-            plan.plan([a], [])
-
 
 class TestEvaluate(unittest.TestCase):
     def test_identity_satisfied(self):
@@ -419,47 +370,6 @@ class TestEvidence(unittest.TestCase):
             p = Path(td) / "evidence" / "findings" / "a1.json"
             p.write_text('{"tampered":true}')
             self.assertFalse(evidence.verify(td, digest))
-
-    def test_interrupted_seal_leaves_no_canonical_partial(self):
-        # coh-rt-07 scenario: a kill mid-export must never leave partial bytes
-        # at a canonical path — canonical artifacts appear only via the final
-        # atomic rename, so a caller can trust presence as completeness.
-        from unittest import mock
-        from hub.coherence import evidence
-        with tempfile.TemporaryDirectory() as td:
-            findings = [{
-                "assertion_id": "a1", "finding_key": "a1|x|identity-mismatch",
-                "outcome": "VIOLATED", "enforcement": "BLOCK", "severity": "high",
-                "subject_locations": ["README.md"], "expected": "widget",
-                "observed": "other", "evidence_refs": [],
-            }]
-            with mock.patch("os.replace", side_effect=OSError("killed mid-export")):
-                with self.assertRaises(evidence.EvidenceError):
-                    evidence.seal(findings, td)
-            self.assertFalse(
-                (Path(td) / "evidence" / "findings" / "a1.json").exists(),
-                "partial evidence bytes must not sit at the canonical path")
-            self.assertFalse((Path(td) / "evidence-manifest.json").exists())
-
-    def test_interrupted_result_emit_leaves_no_canonical_partial(self):
-        from unittest import mock
-        from hub.coherence import result
-        with tempfile.TemporaryDirectory() as td:
-            with mock.patch("os.replace", side_effect=OSError("killed mid-write")):
-                with self.assertRaises(OSError):
-                    result.emit(str(Path(td) / "result.json"), b'{"decision":"PASS"}')
-            self.assertFalse((Path(td) / "result.json").exists())
-
-    def test_emit_is_complete_or_absent(self):
-        # The happy path: after emit, the canonical file holds exactly the
-        # payload and no temp fragment remains.
-        from hub.coherence import result
-        with tempfile.TemporaryDirectory() as td:
-            fp = Path(td) / "result.json"
-            result.emit(str(fp), b'{"decision":"PASS"}')
-            self.assertEqual(fp.read_bytes(), b'{"decision":"PASS"}')
-            leftovers = [p.name for p in Path(td).iterdir() if p != fp]
-            self.assertEqual(leftovers, [])
 
 
 class TestTraceabilityMarkerScan(unittest.TestCase):

@@ -1,9 +1,10 @@
-# // spec: coh-rt-03, coh-rt-04, coh-ctx-04
+# // spec: coh-rt-03, coh-rt-04, coh-rt-07, coh-ctx-04
 """Runtime-boundary slice increments: the source-level default-deny network
 proof (kernel-level denial lives in the launcher's enforced --network=none),
 digest-verified captured-fact mediation with UNRESOLVED-never-SATISFIED
-semantics, scoped fact exposure per evaluator, and secret redaction at the
-seal. All fixtures synthetic (R9).
+semantics, scoped fact exposure per evaluator, secret redaction at the seal,
+and atomic artifact export (coh-rt-07 — presence of a canonical file is
+completeness). All fixtures synthetic (R9).
 """
 import json
 import re
@@ -228,6 +229,46 @@ class TestSecretRedactionAtSeal(unittest.TestCase):
             self.assertIn("token=super-secret-123", sealed,
                           "without a granted-value list nothing is invented "
                           "to redact")
+
+
+class TestAtomicArtifactExport(unittest.TestCase):
+    """coh-rt-07: every canonical artifact appears via fsync-then-rename; a
+    kill mid-export can leave a temp fragment but never partial bytes at a
+    canonical path — callers can treat presence as completeness."""
+
+    FINDINGS = [{
+        "assertion_id": "a1", "finding_key": "a1|x|identity-mismatch",
+        "outcome": "VIOLATED", "enforcement": "BLOCK", "severity": "high",
+        "subject_locations": ["README.md"], "expected": "widget",
+        "observed": "other", "evidence_refs": [],
+    }]
+
+    def test_interrupted_seal_leaves_no_canonical_partial(self):
+        with tempfile.TemporaryDirectory() as td:
+            with mock.patch("os.replace", side_effect=OSError("killed mid-export")):
+                with self.assertRaises(evidence.EvidenceError):
+                    evidence.seal(self.FINDINGS, td)
+            self.assertFalse(
+                (Path(td) / "evidence" / "findings" / "a1.json").exists(),
+                "partial evidence bytes must not sit at the canonical path")
+            self.assertFalse((Path(td) / "evidence-manifest.json").exists())
+
+    def test_interrupted_result_emit_leaves_no_canonical_partial(self):
+        with tempfile.TemporaryDirectory() as td:
+            with mock.patch("os.replace", side_effect=OSError("killed mid-write")):
+                with self.assertRaises(OSError):
+                    result.emit(str(Path(td) / "result.json"), b'{"decision":"PASS"}')
+            self.assertFalse((Path(td) / "result.json").exists())
+
+    def test_emit_is_complete_or_absent(self):
+        # The happy path: after emit, the canonical file holds exactly the
+        # payload and no temp fragment remains.
+        with tempfile.TemporaryDirectory() as td:
+            fp = Path(td) / "result.json"
+            result.emit(str(fp), b'{"decision":"PASS"}')
+            self.assertEqual(fp.read_bytes(), b'{"decision":"PASS"}')
+            leftovers = [p.name for p in Path(td).iterdir() if p != fp]
+            self.assertEqual(leftovers, [])
 
 
 if __name__ == "__main__":

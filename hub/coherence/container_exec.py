@@ -121,9 +121,23 @@ def run_containerized(request_path: str, launch_cfg_path: str,
         profiles.resolve_profile(reg, ctx["profile"])
         profiles.check_launch_digest(reg, ctx["profile"],
                                      ctx["image_manifest_digest"])
+        # Staging inside a mount source would write the request (and every
+        # in-container envelope) into the very input tree being evaluated
+        # (round-7 finding 4): the designated output bind must lie outside
+        # every input source. Validation already realpath-normalized the
+        # sources, so the comparison is identity-exact.
+        real_out = os.path.realpath(host_out)
+        for mt in ctx["mounts"]:
+            src = mt["source"]
+            if real_out == src or real_out.startswith(src + os.sep):
+                return _fail(host_out, "invalid-input",
+                             f"outputs-inside-mount-source:{src}", "launch")
         container_req = _rewrite_roots(req, ctx["mounts"])
-        (Path(host_out) / STAGED_REQUEST_NAME).write_text(
-            json.dumps(container_req, sort_keys=True))
+        # Staged through result.emit (round-7): a canonical path never holds
+        # partial bytes — an interrupted staging leaves a temp fragment,
+        # never a half-written request.
+        result.emit(str(Path(host_out) / STAGED_REQUEST_NAME),
+                    json.dumps(container_req, sort_keys=True).encode("utf-8"))
     except (profiles.ProfileRegistryError, launcher.LaunchError, OSError,
             ValueError, TypeError) as e:
         return _fail(host_out, "invalid-input", f"launch rejected: {e}",
@@ -164,4 +178,12 @@ def run_containerized(request_path: str, launch_cfg_path: str,
                      f"container exited {rr.returncode} without a result "
                      f"bundle agreeing with the exit-code contract "
                      f"(decision: {decision!r})", "launch", ids)
+    # coh-dec-01 (round-7 finding 3): a success-family exit whose bundle
+    # still carries an error field is an exit/result disagreement — never
+    # resolved in favor of the permissive signal.
+    if rr.returncode in (0, 10, 20) and parsed.get("error") is not None:
+        return _fail(host_out, "execution",
+                     f"container exited {rr.returncode} with decision "
+                     f"{decision!r} but a non-null error field in the result "
+                     f"bundle", "launch", ids)
     return rr.returncode

@@ -342,6 +342,65 @@ class TestContainerExec(unittest.TestCase):
         self.assertIn("NUL", self._envelope()["error"]["reason"])
         m.assert_not_called()
 
+    def test_outputs_inside_mount_source_rejected(self):
+        # Round-7 finding 4: staging (or writing any envelope) inside a
+        # mount source would pollute the input tree being evaluated — the
+        # output bind must lie outside every input source.
+        inputs = self.tmp / "inputs"
+        inputs.mkdir()
+        cfg = launch_cfg()
+        cfg["mounts"] = [{"source": str(inputs), "target": "/input",
+                          "readonly": True}]
+        req = driver_request()
+        req["subject"]["root"] = str(inputs / "pkg")
+        for outs in (str(inputs / "results"), str(inputs)):
+            req["outputs"] = outs
+            rc, m = self._run(req, cfg)
+            self.assertEqual(rc, 30)
+            # The rejection envelope lands in the caller-declared outputs
+            # dir itself (inside the mount source, as declared).
+            env = json.loads((Path(outs) / "result.json").read_text())
+            self.assertIn("outputs-inside-mount-source",
+                          env["error"]["reason"])
+            m.assert_not_called()
+
+    def test_contradictory_error_field_is_error(self):
+        # Round-7 finding 3 (coh-dec-01): exit 0 with decision PASS but a
+        # non-null error field is an exit/result disagreement — never
+        # relayed as the permissive signal.
+        def fake_run(ctx, *, output_dir, container_args):
+            (output_dir / "result.json").write_text(
+                json.dumps({"decision": "PASS",
+                           "error": {"class": "execution", "reason": "hidden",
+                                     "stage": "evaluation"}}))
+            return LaunchRun(0, b"", "completed")
+
+        rc, _ = self._run(driver_request(), launch_cfg(), fake_run)
+        self.assertEqual(rc, 32)
+        env = self._envelope()
+        self.assertEqual(env["error"]["class"], "execution")
+        self.assertIn("error field", env["error"]["reason"])
+
+    def test_staged_request_written_atomically(self):
+        # Round-7: the staged request goes through result.emit (fsync +
+        # rename) — an interrupted staging leaves a temp fragment, never a
+        # half-written canonical request.
+        emitted = []
+        real_emit = ce.result.emit
+
+        def spy(path, payload):
+            emitted.append(Path(path).name)
+            return real_emit(path, payload)
+
+        def fake_run(ctx, *, output_dir, container_args):
+            (output_dir / "result.json").write_text('{"decision": "PASS"}')
+            return LaunchRun(0, b"", "completed")
+
+        with mock.patch.object(ce.result, "emit", side_effect=spy):
+            rc, _ = self._run(driver_request(), launch_cfg(), fake_run)
+        self.assertEqual(rc, 0)
+        self.assertIn(ce.STAGED_REQUEST_NAME, emitted)
+
 
 @unittest.skipUnless(shutil.which("podman"), "podman not available")
 class TestContainerExecReal(unittest.TestCase):

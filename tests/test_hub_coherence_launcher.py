@@ -167,13 +167,68 @@ class TestLauncherValidation(unittest.TestCase):
         self.assertEqual(str(cm.exception), "writable-mount:/input")
 
     def test_host_socket_bind_rejected(self):
-        for src in ("/var/run/docker.sock", "/run/podman/podman.sock"):
-            cfg = base_cfg()
-            cfg["mounts"] = [{"source": src, "target": "/sock",
-                              "readonly": True}]
-            with self.assertRaises(LaunchError) as cm:
-                validate_launch(cfg, PROFILES)
-            self.assertEqual(str(cm.exception), f"host-socket-bind:{src}")
+        # Round-7 finding 5: socket binds are detected structurally
+        # (S_ISSOCK), not lexically — the source here is a REAL Unix socket
+        # whose name carries no .sock suffix.
+        import socket
+        td = Path(tempfile.mkdtemp(prefix="dg-sock-"))
+        self.addCleanup(shutil.rmtree, td, ignore_errors=True)
+        sock_path = td / "mysock"
+        s = socket.socket(socket.AF_UNIX)
+        s.bind(str(sock_path))
+        self.addCleanup(s.close)
+        cfg = base_cfg()
+        cfg["mounts"] = [{"source": str(sock_path), "target": "/sock",
+                          "readonly": True}]
+        with self.assertRaises(LaunchError) as cm:
+            validate_launch(cfg, PROFILES)
+        self.assertEqual(str(cm.exception),
+                         f"host-socket-bind:{sock_path}")
+
+    def test_regular_file_named_sock_not_rejected(self):
+        # The lexical inverse: a regular file named docker.sock is not a
+        # socket and must not be mistaken for one.
+        td = Path(tempfile.mkdtemp(prefix="dg-sockf-"))
+        self.addCleanup(shutil.rmtree, td, ignore_errors=True)
+        fp = td / "docker.sock"
+        fp.write_text("not a socket\n")
+        cfg = base_cfg()
+        cfg["mounts"] = [{"source": str(fp), "target": "/sock",
+                          "readonly": True}]
+        ctx = validate_launch(cfg, PROFILES)
+        self.assertEqual(ctx["mounts"][0]["source"], str(fp))
+
+    def test_duplicate_mount_target_rejected(self):
+        # Round-7 finding 2: two mounts claiming one target produce
+        # conflicting -v flags — an ambiguous bind set is rejected.
+        cfg = base_cfg()
+        cfg["mounts"] = [
+            {"source": "/srv/a", "target": "/input", "readonly": True},
+            {"source": "/srv/b", "target": "/input", "readonly": True},
+        ]
+        with self.assertRaises(LaunchError) as cm:
+            validate_launch(cfg, PROFILES)
+        self.assertEqual(str(cm.exception), "duplicate-mount-target:/input")
+
+    def test_symlink_source_normalized_to_realpath(self):
+        # Round-7 finding 2: validation records the RESOLVED source, so the
+        # validated context, the root-rewrite prefix match, and the podman
+        # -v bind all share one path identity.
+        import os
+        td = Path(tempfile.mkdtemp(prefix="dg-sym-"))
+        self.addCleanup(shutil.rmtree, td, ignore_errors=True)
+        real = td / "real_inputs"
+        real.mkdir()
+        link = td / "sym_inputs"
+        os.symlink(str(real), str(link))
+        cfg = base_cfg()
+        cfg["mounts"] = [{"source": str(link), "target": "/input",
+                          "readonly": True}]
+        ctx = validate_launch(cfg, PROFILES)
+        self.assertEqual(ctx["mounts"][0]["source"], str(real))
+        args = podman_args(ctx, output_dir=Path("/o"))
+        self.assertIn(f"{real}:/input:ro", args)
+        self.assertNotIn(f"{link}:/input:ro", args)
 
     # --- coh-rt-07: bounded scratch ---
     def test_unbounded_scratch_rejected(self):
