@@ -52,8 +52,13 @@ def find_project_root():
     wrong two ways: run from a subdir (go/) it shrank the scan to that subdir,
     and run from a bare directory with no markers it walked up into unrelated
     sibling repos. DevGate standalone (script not under a .devgate/) is its own
-    project.
+    project. DEVGATE_PROJECT_ROOT overrides, matching regression_check.py and
+    failure_registry_check.py (tests and CI use it to point at a fixture tree).
     """
+    import os
+    env = os.environ.get("DEVGATE_PROJECT_ROOT")
+    if env:
+        return Path(env).resolve()
     script_parent = Path(__file__).resolve().parent.parent  # <root>/.devgate
     if script_parent.name == ".devgate":
         return script_parent.parent
@@ -216,6 +221,8 @@ def main():
     parser.add_argument("--unstaged", action="store_true", help="Scan unstaged changes")
     parser.add_argument("--all", action="store_true", help="Scan all source files")
     parser.add_argument("--pre-commit", action="store_true", help="Exit 1 on any hard violation")
+    parser.add_argument("--fail-if-empty", action="store_true",
+                        help="Exit 2 when the scope evaluated zero files (CI)")
     args = parser.parse_args()
 
     root = find_project_root()
@@ -236,8 +243,12 @@ def main():
     files = [f for f in files if not is_ignored(f, root, ignore_patterns)]
 
     if not files:
-        print("[game-regression] no files to scan")
-        sys.exit(0)
+        # No vacuous green (gate-execution-contract): zero files is NOTHING
+        # SCANNED, never a clean pass. Default stays non-blocking for
+        # non-game consumers; --fail-if-empty turns it into exit 2 for CI.
+        print("[game-regression] NOTHING SCANNED — the scope evaluated zero "
+              "files. This is not evidence of health.")
+        sys.exit(2 if args.fail_if_empty else 0)
 
     print(f"[game-regression] scanning {len(files)} file(s)")
     all_issues = []

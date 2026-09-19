@@ -1,21 +1,42 @@
-# Per-Screen Feature Tracking + Button Validation
+# Per-screen feature tracking
 
-Status: Proposed. Enforcement layer invoked by game-type-phase-matrix.
+## Purpose
 
-## Inventory
-Every game screen = each .tscn scene. Scanner builds/manages:
-- `scenes.json` — scene path, node tree hash, screen role (menu/combat/map/shop/etc).
-- `buttons.json` — per scene, every Button node + its `pressed` handler binding.
+The absorbed scene-inventory tooling lives in this framework as
+`scripts/scene_inventory.py`: a static gate that parses Godot text scenes,
+inventories Button nodes, and fails scenes whose `pressed` signals have no
+connected handler. This spec covers that static inventory. Engine-execution
+gates named by the original game-framework proposal — scene-load smoke runs,
+node budgets, screen reachability, phase-matrix feature attribution — are
+planned work for consuming game repos and are explicitly NOT implemented in
+this repository.
 
-## Gates (fail closed)
-1. **Scene-load smoke** — every scene instantiates clean, 0 SCRIPT ERRORs, no orphan resources.
-2. **Button handler validation** — every Button has a connected/signaled handler; orphaned
-   `pressed` signals (signal declared, no connected handler) are a blocking failure.
-3. **Node budget** — per-scene node count within band (config); oversized scenes fail.
-4. **Screen reachability** — every screen reachable via navigation (no unreachable scenes).
-5. **Feature-per-screen attribution** — each phase-matrix required screen maps to a real scene;
-   missing required screen at that phase => gate red.
+## Requirements
 
-## Seeding
-Port from reference: Sword of Hope `scene_load_check.gd`, `integration_runner.gd`, `demo_manager_screens.gd`.
-Detect engine flavor (Godot .tscn / Bevy / Unity) from the manifest and use the matching scanner.
+### Requirement: Scene inventory and orphan detection
+<!-- id: screen-inv-01 -->
+The scene inventory gate SHALL discover `.tscn` scenes under the project's
+`src/` and `scenes/` trees and root, parse them as Godot text scenes (per
+gate-tscn-01), report every Button node and `pressed` connection, and exit 1
+when any Button's `pressed` signal has no connected handler, naming the
+orphan.
+
+#### Scenario: fully wired scene passes
+- **WHEN** every Button in a discovered scene has a `pressed` connection
+- **THEN** the gate reports the scene OK and exits 0
+
+#### Scenario: orphaned button fails the gate
+- **WHEN** a Button has no `pressed` handler connection
+- **THEN** the gate names the orphan and exits 1
+
+### Requirement: Empty scene scope is not a pass
+<!-- id: screen-inv-02 -->
+When no `.tscn` files are discovered the gate SHALL print an explicit NOTHING
+SCANNED notice rather than a clean pass; `--fail-if-empty` SHALL turn the
+empty scope into exit 2 for CI, and the default empty-scope exit SHALL remain
+0 so non-Godot consumers are not blocked.
+
+#### Scenario: non-Godot repository
+- **WHEN** the gate runs in a repository with no scenes
+- **THEN** it prints NOTHING SCANNED and exits 0, or exits 2 with
+  `--fail-if-empty`

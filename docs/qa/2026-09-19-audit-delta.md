@@ -92,3 +92,15 @@ that fails on the old behavior (no config-only or doc-only "fixes").
 | Quadlet secrets docs unparseable / three-way contradictory | **closed** | both quadlets declare `EnvironmentFile=` (raw env file, `-` optional); runner README, add-a-runner.md, and the hub runbook match it; supply-chain test rejects raw-env-in-`.container.d` instructions |
 | runner-enroll JSON by string interpolation; token echoed; unbounded curl | **closed** | `json_payload` via `json.dumps` (hostile-label fixture), `response_summary` filters secrets, every curl time-bounded, identity fields validated before unit generation; sandboxed harness `tests/test_runner_enroll.sh` (15 checks) |
 | detect-host-ci redaction false-positives; rglob crashes; `*.yaml` ignored | **closed** | lookaround-based redaction (RUNNER_TOKEN still caught, `blacksmith-2x` not), bounded walk with OSError skip, both extensions, `FROM --platform` parsing; `tests/test_detect_host_ci.py` |
+
+## Closed by `migrate-specs-to-openspec-conventions`
+
+| Finding | Status | Evidence |
+|---|---|---|
+| `openspec validate --strict` failed 15/15 main specs; CLI read requirements as 0 everywhere | **closed** | all 15 specs converted (Purpose + Requirements + `### Requirement:` + SHALL/MUST); `validate --all --strict` 26/26; `openspec list --specs` non-zero for every capability — both parsers agree |
+| Game specs were foreign documents (no ids, gates that don't exist) | **closed** | rewritten per base-specs-01: game-regression (game-reg-01..03), per-screen-tracking (screen-inv-01..02) describe the real, tested scanner contracts; game-type-phase-matrix reduced to one requirement explicitly marked planned (game-matrix-01); game-framework-README rewritten (no submodule instruction) |
+| Two ✓ Complete changes unarchived; delivered ids invisible to the CLI | **closed** | `openspec archive` for add-runner-to-fleet (fleet-add-01 now in main specs) and fix-size-gate-test-scope |
+| ai01 missing proposal.md + broken archive pointer (×2) | **closed** | proposal.md derived from plan.md; both pointers now name `archive/2026-09-13-runner-monitor` |
+| mon-local-01 lost in archive→main migration | **closed** | restored verbatim into hub-architecture |
+| Rules/schema file contradictions (extracted-rules.json shipped vs rule-coverage-truth; missing semantic-rules.schema.json; dangling AGENT_GUARDRAILS.md refs) | **closed** | extracted-rules.json deleted (was schema-violating, loaded by nothing); semantic-rules $schema pointer removed; skills now point at AGENTS.md |
+| Spec-format drift could recur silently | **closed** | CI specs job now hard-fails on `openspec validate --all --strict` (@fission-ai/openspec pinned install) + traceability counts; spec-fmt-01..03 published into main specs |

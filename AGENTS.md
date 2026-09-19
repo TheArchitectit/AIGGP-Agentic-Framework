@@ -106,6 +106,35 @@ DevGate's scanners catch *known* failure patterns. They cannot tell whether the 
 
 Never report a check as passed when it failed, was skipped, or was never run. Use `NOT_RUN` with the blocker stated — a gate falsely reported green is worse than one that was never run, because it removes the reason to look.
 
+## OpenSpec Conventions
+
+The spec tree is the source of truth for gate behavior, and two tools must
+agree on it: the OpenSpec CLI (`openspec validate --all --strict`, which CI
+runs as a hard gate) and the marker gate (`scripts/spec_traceability.py`).
+
+- **Spec format**: every capability spec under `openspec/specs/` carries a
+  `## Purpose` section, a `## Requirements` section with `### Requirement:`
+  headings, and `#### Scenario:` blocks with **WHEN/THEN** bullets.
+- **Requirement IDs**: every requirement carries an `<!-- id: <req-id> -->`
+  marker right under its heading. ID namespaces: `mon-*` (monitor hub),
+  `gate-*`, `base-*`, `doc-*`, `pub-*`, `rel-*`, `rule-*`, `scan-*`,
+  `fw-ci-*`, `game-*`, `screen-*`, `coh-*` (spec-coherence service), and the
+  security requirements (`coh-sec-*`, `mon-sec-*`, `ci-sec-*`).
+- **Source markers**: enforcing code carries `// spec: <id>` (C-family, JS)
+  or `# spec: <id>` (Python/Ruby/shell) — both comment styles count; the
+  marker line may carry several comma-separated IDs.
+- **Changes** land through `openspec/changes/<change>/` (proposal, tasks,
+  optional design + spec deltas). While a change is ACTIVE, its spec deltas
+  are the authoritative draft for the capabilities they touch; publication
+  into `openspec/specs/` happens at archive time together with a
+  traceability re-run so requirement IDs are never double-counted. This is
+  deliberate (the coherence service's GD-3): main specs and active-change
+  deltas diverging is not drift.
+- **Archive ceremony**: mark tasks complete → `openspec archive <change>`
+  → `openspec validate --all --strict` → re-run `spec_traceability.py` →
+  update CHANGELOG. A change whose tasks are all checked but which is not
+  archived is process debt and shows up in audits.
+
 ## Gate Honesty (No Vacuous Green)
 
 A gate that evaluated zero inputs is not a passed gate:

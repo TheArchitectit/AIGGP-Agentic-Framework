@@ -401,3 +401,10 @@ claims independently reproduced and killed; 7 adversarial inputs constructed. Fi
   resolution, new in-image schema-load + valid-request-PASS smoke evidence,
   rejection reasons asserted to name the invalid input. Unblocks S8: the
   archive step no longer affects runtime schema resolution.
+
+- [x] S8-publish-01: The spec-publication step follows the archive ceremony
+  now codified in AGENTS.md (OpenSpec Conventions) and
+  `migrate-specs-to-openspec-conventions` task 4: `openspec archive` →
+  `openspec validate --all --strict` → traceability re-run (no requirement-ID
+  double-counting; schemas already moved to `hub/coherence/schemas/` so the
+  archive cannot affect runtime).

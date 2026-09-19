@@ -126,3 +126,16 @@ if __name__ == "__main__":
             print(f"FAIL - {t.__name__}: {e}")
     print("\nALL TESTS PASSED" if failed == 0 else f"\n{failed} TEST(S) FAILED")
     sys.exit(1 if failed else 0)
+
+
+def test_zero_files_is_nothing_scanned_not_pass(tmp_path, capsys):
+    """No vacuous green: an empty scope prints NOTHING SCANNED and exits 0 by
+    default (non-game consumers), 2 with --fail-if-empty (CI)."""
+    import subprocess, sys
+    script = Path(__file__).resolve().parent.parent / "scripts" / "game_regression.py"
+    r = subprocess.run(
+        [sys.executable, str(script), "--all", "--pre-commit", "--fail-if-empty"],
+        capture_output=True, text=True,
+        env={"DEVGATE_PROJECT_ROOT": str(tmp_path), "PATH": "/usr/bin:/bin"})
+    assert r.returncode == 2, (r.stdout, r.stderr)
+    assert "NOTHING SCANNED" in r.stdout

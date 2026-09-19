@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Spec platform migration (`migrate-specs-to-openspec-conventions`).**
+  `openspec validate --all --strict` passes 26/26 and the CLI now sees every
+  capability's requirements (previously 15/15 specs failed and all read as 0
+  requirements — two tools, two truths). All 17 main specs carry Purpose +
+  Requirements + RFC-2119 SHALL/MUST; the three game specs were rewritten to
+  describe the tooling that actually ships here (the phase matrix is marked
+  planned, owned by the consuming game repo); two stale complete changes were
+  archived (`fleet-add-01` published); the lost `mon-local-01` local-only
+  posture requirement is restored; `ai01-runner-monitor-impl` gained its
+  missing proposal and correct archive pointers; AGENTS.md documents the
+  OpenSpec conventions and archive ceremony; CI enforces strict validation as
+  a hard gate. Also: `extracted-rules.json` deleted (required absent by
+  `rule-coverage-truth`, schema-violating, loaded by nothing);
+  `game_regression.py` gained the standard `--fail-if-empty` /
+  NOTHING SCANNED contract and honors `DEVGATE_PROJECT_ROOT`.
+
 ### Fixed
 
 - **2026-09-19 audit remediation part 2 (`harden-security-boundaries`).**

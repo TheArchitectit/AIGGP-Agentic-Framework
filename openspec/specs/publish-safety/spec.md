@@ -1,10 +1,17 @@
-# Spec: Publish leg safety
+# Publish leg safety
 
-## Requirement: Upload exactly once
+## Purpose
+
+The deploy pipeline orders every reversible step before the one immutable publish: clean tree, gates, version bump, commit, tag, push, tag-reached-remote verification, and artifact verification all precede publishing, so any failure aborts with nothing published.
+
+## Requirements
+
+
+### Requirement: Upload exactly once
 <!-- id: rel-upload-01 -->
-For every registry leg, a successful upload shall be attempted exactly once;
-a failed upload shall abort the pipeline before any byte is published; the
-pipeline's exit status shall be 0 only when the publish fully succeeded and
+For every registry leg, a successful upload SHALL be attempted exactly once;
+a failed upload SHALL abort the pipeline before any byte is published; the
+pipeline's exit status SHALL be 0 only when the publish fully succeeded and
 every post-publish step succeeded.
 
 #### Scenario: successful PyPI publish
@@ -16,11 +23,11 @@ every post-publish step succeeded.
 - **WHEN** the build step fails
 - **THEN** no upload is attempted and the pipeline exits non-zero
 
-## Requirement: No vacuous artifact verify
+### Requirement: No vacuous artifact verify
 <!-- id: rel-artifact-01 -->
-When a release-artifact contract file exists, it shall declare at least one
-`must_contain` entry; otherwise the stage shall fail as a configuration
-error. When no contract file exists, the stage shall print its documented
+When a release-artifact contract file exists, it SHALL declare at least one
+`must_contain` entry; otherwise the stage SHALL fail as a configuration
+error. When no contract file exists, the stage SHALL print its documented
 skip notice and continue.
 
 #### Scenario: empty contract
@@ -28,9 +35,9 @@ skip notice and continue.
   or missing `must_contain`
 - **THEN** deploy.sh exits 1 naming the contract file as misconfigured
 
-## Requirement: fix_commit verification
+### Requirement: fix_commit verification
 <!-- id: rel-fixcommit-01 -->
-Any hex `fix_commit` of 7-40 characters shall be verified to exist in the
+Any hex `fix_commit` of 7-40 characters SHALL be verified to exist in the
 git history of the repository that owns the registry entry; documented
 sentinel values are exempt.
 

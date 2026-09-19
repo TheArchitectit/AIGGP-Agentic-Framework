@@ -1,6 +1,6 @@
 # Implementation Plan — monitor-hub runner monitor
 
-Maps to `openspec/changes/archive/2026-09-13-ai01-runner-monitor/{design,tasks}.md`
+Maps to `openspec/changes/archive/2026-09-13-runner-monitor/{design,tasks}.md`
 and the live specs under `openspec/specs/{hub-architecture,runner-monitoring,enrollment-and-alerting}/`.
 Locked decisions D1–D7 are treated as fixed. Q1–Q3 implemented as **config with
 defaults** (GitHub issues / 5 min / monitor-only), flagged for owner confirmation
