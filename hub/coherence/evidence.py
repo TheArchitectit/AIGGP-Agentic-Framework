@@ -32,14 +32,16 @@ class EvidenceError(RuntimeError):
     """Evidence sealing failure (exit-33 class)."""
 
 
-def _contained(out: Path, rel) -> Path:
+def contained(out: Path, rel) -> Path:
     """Resolve a bundle-relative artifact path, refusing anything landing
-    outside the bundle.
+    outside the bundle (exit-33 class on violation).
 
     Both directions cross a boundary: `seal` builds the name from a
     repository-declared assertion id, `verify` reads a `path` field out of a
     manifest a tamperer may have edited. resolve() collapses `..` and follows
-    symlinks, so neither can name a file beyond the run directory.
+    symlinks, so neither can name a file beyond the run directory. Other
+    bundle consumers that trust a manifest path (store.upload) must go
+    through this one gate — the containment rule is per-bundle, not per-module.
     """
     if not isinstance(rel, str) or not rel:
         raise EvidenceError("evidence-path-malformed")
@@ -115,7 +117,7 @@ def seal(findings: list, output_dir: str, redact: list = None,
         # The digest suffix is what makes one-file-per-finding hold: two
         # findings of one assertion differ in content, so they differ in name.
         rel = f"evidence/findings/{aid}--{digest[7:7 + _NAME_DIGIT_CHARS]}.json"
-        _contained(out, rel)
+        contained(out, rel)
         try:
             result.emit(str(out / rel), payload)
         except OSError as e:
@@ -156,7 +158,7 @@ def verify(output_dir: str, expected_manifest_digest: str) -> bool:
         # bundle is a verification failure, never a window to read outside it
         # (verify's boolean is otherwise a content-matches-digest oracle).
         try:
-            fp = _contained(out, obj.get("path"))
+            fp = contained(out, obj.get("path"))
         except EvidenceError:
             return False
         if not fp.is_file():

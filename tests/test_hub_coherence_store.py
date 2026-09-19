@@ -20,7 +20,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from hub.coherence import evidence, store
+from hub.coherence import canon, evidence, store
 
 
 def _seal_one_finding(td: str) -> Path:
@@ -137,6 +137,56 @@ class TestUploadResendsSealedBytes(unittest.TestCase):
             store.upload(str(out), flaky)
             self.assertEqual(sent, expected,
                              "after a retry every artifact has been sent once")
+
+
+class TestUploadBoundsManifestPaths(unittest.TestCase):
+    """The round-9 fix in `evidence.verify` established that a manifest's
+    `path` field is attacker-influenceable — a tamperer may edit it after
+    sealing. The store reads the same field, so it inherits the same
+    boundary, and the failure mode is worse here: a boolean oracle becomes an
+    arbitrary-file read handed to whatever transport the caller passes in."""
+
+    def test_a_manifest_path_that_escapes_the_bundle_is_refused(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            out = root / "run"
+            (out / "evidence" / "findings").mkdir(parents=True)
+            # Plant a "secret" outside the bundle and point the manifest at
+            # it via traversal.
+            secret = root / "outside-secret.json"
+            secret.write_text("leak-me")
+            manifest = {
+                "api_version": "devgate.spec-coherence.evidence/v1",
+                "objects": [{"path": "../outside-secret.json",
+                             "digest": "sha256:" + "0" * 64,
+                             "media_type": "application/json",
+                             "assertion_id": "a", "retention_class": "standard",
+                             "redacted": True}],
+            }
+            (out / "evidence-manifest.json").write_bytes(canon.canon(manifest))
+            sent: list = []
+            with self.assertRaises(store.UploadError) as cm:
+                store.upload(str(out), lambda n, p: sent.append((n, p)))
+            self.assertIn("out-of-bounds", str(cm.exception))
+            self.assertEqual(sent, [],
+                             "no bytes may reach the transport for an escaping path")
+
+    def test_a_non_string_manifest_path_is_refused(self):
+        """`out / obj['path']` would TypeError on a non-string, surfacing as a
+        raw crash rather than the documented UploadError contract."""
+        with tempfile.TemporaryDirectory() as td:
+            out = Path(td) / "run"
+            (out / "evidence" / "findings").mkdir(parents=True)
+            manifest = {
+                "api_version": "devgate.spec-coherence.evidence/v1",
+                "objects": [{"path": None, "digest": "sha256:" + "0" * 64,
+                             "media_type": "application/json",
+                             "assertion_id": "a", "retention_class": "standard",
+                             "redacted": True}],
+            }
+            (out / "evidence-manifest.json").write_bytes(canon.canon(manifest))
+            with self.assertRaises(store.UploadError):
+                store.upload(str(out), lambda n, p: None)
 
 
 if __name__ == "__main__":

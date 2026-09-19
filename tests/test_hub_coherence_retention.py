@@ -188,6 +188,26 @@ class TestContentIntegrity(RetentionTestCase):
                 retention.read(root, ref, as_of=FIXED, authorization=token)
             self.assertIn("retention-tampered", str(cm.exception))
 
+    def test_a_ref_that_is_not_a_bundle_digest_is_rejected_before_touching_disk(self):
+        """The read path interpolates `ref` into the bundle/record file names.
+        A caller-supplied traversal ref would be caught downstream by the
+        content-digest check — but the same round-9 principle applies: a
+        path-shaped input must be rejected at the boundary, not saved by an
+        implicit invariant elsewhere, or the failure mode drifts into a
+        filesystem-existence oracle as the file layout evolves.
+        """
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / "retention-store"
+            token = retention.issue("sha256:" + "a" * 64)  # any token will do
+            for bad in ("../../etc/shadow", "not-a-digest", "", None,
+                        "sha256:xyz", "sha256:" + "a" * 63,
+                        "sha256:" + "g" * 64):
+                with self.subTest(ref=bad):
+                    with self.assertRaises(retention.RetentionError) as cm:
+                        retention.read(root, bad, as_of=FIXED,
+                                       authorization=token)
+                    self.assertIn("retention-bad-ref", str(cm.exception))
+
     def test_retain_is_idempotent_for_identical_bytes(self):
         """Re-retaining the same input is a no-op: the digest is the bundle
         identity, so no duplicate blob or new record is created."""

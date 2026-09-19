@@ -21,18 +21,28 @@ import hashlib
 import hmac
 import json
 import os
-from datetime import datetime, timedelta, timezone
+import re
+from datetime import datetime, timedelta
 from pathlib import Path
 
 KEY_ENV = "HUB_COHERENCE_RETENTION_KEY"
 _TOKEN_PREFIX = "hmac-sha256:"
 _AUTH_ROLE = b"retention-authorization/v1"
+# A bundle ref is the content digest retain() minted it from; anything else
+# (a traversal segment, a malformed or non-string value) is not a ref.
+_REF_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 
 
 class RetentionError(RuntimeError):
     """Refused to reveal a retained bundle; fail-closed. Reason codes:
     retention-unauthorized, retention-expired, retention-tampered,
-    retention-unknown, retention-bad-time."""
+    retention-unknown, retention-bad-time, retention-bad-ref."""
+
+
+def _check_ref(ref) -> str:
+    if not isinstance(ref, str) or not _REF_RE.match(ref):
+        raise RetentionError(f"retention-bad-ref:{ref!r}")
+    return ref
 
 
 def _key() -> bytes:
@@ -99,15 +109,12 @@ def retain(store_root, subject_digest: str, payload: bytes, *,
     return content_ref
 
 
-def exists(store_root, ref: str) -> bool:
-    return _bundle_path(store_root, ref).is_file()
-
-
 def read(store_root, ref: str, *, as_of: str, authorization) -> bytes:
     """Retrieve a retained bundle's bytes. Every failure raises RetentionError
     with a distinct reason so the caller can tell unauthorized from expired
     from tampered; the cache layer keys off this to invalidate entries whose
     input retention has lapsed. Never consults the host clock."""
+    _check_ref(ref)
     bundle = _bundle_path(store_root, ref)
     if not bundle.is_file():
         raise RetentionError("retention-unknown")

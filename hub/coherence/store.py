@@ -14,7 +14,7 @@ rewrites them (coh-ev-02's retry scenario).
 import json
 from pathlib import Path
 
-from . import canon
+from . import canon, evidence
 
 
 class UploadError(RuntimeError):
@@ -29,16 +29,25 @@ _BUNDLE_FILES = ("result.json", "attestation.json", "evidence-manifest.json")
 
 
 def artifacts(run_dir) -> list:
-    """The bundle artifacts present on disk, as Paths under run_dir."""
+    """The bundle artifacts present on disk, as Paths under run_dir.
+
+    The manifest enumerates evidence objects by a `path` field a tamperer can
+    edit after seal — `evidence.contained` is the one gate that decides what
+    "inside the bundle" means, and store.upload must route through it the
+    same way evidence.verify does (round-9 finding, applied here by the
+    fresh-eyes audit). A malformed or escaping path raises UploadError: the
+    store never hands out-of-bounds bytes to a transport.
+    """
     out = Path(run_dir)
     found = [out / name for name in _BUNDLE_FILES if (out / name).is_file()]
-    # Evidence objects sit under evidence/findings/; enumerate via the
-    # manifest so the path shape stays the manifest's source of truth.
     manifest_path = out / "evidence-manifest.json"
     if manifest_path.is_file():
         manifest = json.loads(manifest_path.read_text())
         for obj in manifest.get("objects", []):
-            fp = out / obj["path"]
+            try:
+                fp = evidence.contained(out, obj.get("path"))
+            except evidence.EvidenceError as e:
+                raise UploadError(str(e)) from e
             if fp.is_file():
                 found.append(fp)
     return found
