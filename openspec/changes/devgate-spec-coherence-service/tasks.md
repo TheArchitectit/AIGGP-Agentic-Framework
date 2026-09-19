@@ -330,6 +330,64 @@ claims independently reproduced and killed; 7 adversarial inputs constructed. Fi
   traceability 57/100; strict validate valid. 6/6 new-guard mutations killed on /tmp copies (duplicate
   targets, S_ISSOCK, realpath normalization, outputs overlap, error-field agreement, atomic staging).
 
+**Round-8 independent audit (2026-09-18, fresh Sonnet session, pin `53d5744`): PASS-WITH-FINDINGS —
+findings remediated same day.** Full spec-vs-code divergence audit of the S2–S4 scope before S5:
+46 covered requirements (33 SATISFIED / 6 PARTIAL / 7 DIVERGENT), 18 uncovered all mapped to planned
+sprints. Findings and dispositions:
+- [HIGH] coh-dec-01: `decide([UNRESOLVED, VIOLATED], 2)` returned FAIL/20 where the auditor expected
+  ERROR/32 → **CONFIRMED-REFINED + FIXED**: the frozen matrix's FAIL row is "UNRESOLVED (evaluation
+  completed cleanly)" — that half of the repro is correct behavior, now pinned by a guard test. The
+  real defect: evaluator crashes and dependency-blocked required assertions surfaced as plain ledger
+  UNRESOLVED (FAIL-class) instead of ERROR-execution. `evaluate.run` now reports `error` (first
+  ERROR-execution condition) beside the ledger; `__main__` short-circuits to exit 32 before the
+  adoption ladder and sealing, relaying the ledger through the error envelope (extended with the
+  frozen `assertionResult` subschema); tie-break 2 keeps both condition classes visible; repeated
+  runs stay byte-identical.
+- [HIGH] coh-rt-01: the registry pin bound the declared `image_manifest_digest` but never the
+  executed ref — a config declaring the pinned digest while pointing the ref at other bytes would
+  run unverified content → **FIXED**: `container_exec` rejects `image-ref-digest-mismatch` (exit 30)
+  before launch.
+- [MEDIUM] coh-pol-01 marker gap → **REJECTED**: `policy.py:1` carries the marker; the substantive
+  gaps are the anti-rollback rejection and fleet-report visibility halves → **PLANNED-S6** (anti-
+  rollback line extended with the explicit-grandfathering window and fleet-report visibility).
+- [MEDIUM] coh-assert-02: no test exercised the artifact-metadata empty-selector path → **FIXED**:
+  direct tests added (identity evaluator, artifact-metadata kind, and ledger-level
+  UNRESOLVED-not-VIOLATED).
+- [MEDIUM] coh-rt-03 marker on evaluate.py → **REJECTED**: evaluate.py implements the
+  replay-mediation half (declared-facts-only exposure); the default-deny kernel half lives in
+  launcher.py (`--network=none`). NO CHANGE.
+- [MEDIUM] coh-rt-06 plugin bypass of the launcher → **NO CHANGE**: the planner is the spec's
+  rejection boundary (non-built-in evaluator ids exit 30 at planning); launcher validation is
+  defense-in-depth.
+- [MEDIUM] coh-dec-02: `__init__.py` carried coh-dec-01/coh-dec-02 markers over a docstring-only
+  module → **FIXED**: false markers removed; the implementing markers on `__main__.py`/`result.py`
+  stand.
+- PARTIAL dispositions: coh-pol-03 advisory-age blocking transition → **PLANNED-S6** (new line
+  below); coh-eval-01 → marker hygiene **FIXED** (markers on canon.py + conformance tests; the
+  runtime time-capability denial half is container-scope, rides the S5/S6 launcher boundary);
+  coh-rt-04 named-capability injection + credential lifecycle → **PLANNED-S6** (existing line);
+  coh-rt-05 → **NO CHANGE** (by architecture: the runtime bounds `max_evaluators`; CPU/memory/
+  time/file/process/output limits are the launcher's container-level job); coh-pkg-03 independent
+  normative classifier → **REJECTED as specified**: the authenticated inventory's `kind` field IS
+  the classification — an independent classifier would second-guess the signed manifest (see the
+  in-round finding for the real defect); coh-ctx-05 → **PLANNED-S5** (line above).
+- In-round lead finding (surfaced while designing the mutation guards, beyond the audit):
+  `package.py` computed the normative closure but never fed it into the digest, and the identity's
+  inventory list included informative entries' recorded digests — an informative-only content
+  change (recorded digest honestly updated) MOVED the normative package digest, violating
+  coh-pkg-03's stable-digest scenario, and a kind-filter mutation survived the round-8 tests →
+  **FIXED**: identity inventory filtered to normative entries; closure bytes folded into
+  `canon.digest("package/v1", canon.canon(package) + normative_bytes)`; third boundary test added
+  (informative-entry content change leaves the digest stable). Fixtures derive approval digests via
+  `package.resolve`, so the formula change carried through without fixture edits.
+- Battery after remediation: pytest 363 green (2 pre-existing thread warnings, out of scope);
+  size report 0 hard violations (2 pre-existing soft: regression_check.py 475, monitor.py 359);
+  guardrails exit 0 (1 pre-existing PREVENT-024 warning); traceability 58/100 (47/64 package-scoped;
+  uncovered are S5+ scope); strict validate valid. 5/5 new-guard mutations killed on /tmp copies
+  (crash signal, dep-block signal, ref-pin check, selector-empty raise, normative-filter revert);
+  1 documented equivalent mutant (closure-bytes removal — subsumed by the load-verified recorded
+  digests already inside the filtered identity inventory; the closure is defense-in-depth).
+
 **Gate:** isolation suite green on supported runners. **Blocks:** S6 enforced pilots.
 
 ## Sprint S5 — attestation and evidence store (submitted Phase 3)
@@ -346,8 +404,13 @@ claims independently reproduced and killed; 7 adversarial inputs constructed. Fi
 ## Sprint S6 — adoption ladder and fleet integration (submitted Phases 4–5)
 
 - [ ] Implement inventory/advisory/ratchet/enforced-core/enforced-full modes with authoritative stage record; requested-mode weakening rejected (coh-ctx-02, coh-pol-01).
-- [ ] Anti-rollback policy selection; trusted-but-obsolete bundle rejection (coh-pol-01, coh-pol-02).
+- [ ] Anti-rollback policy selection; trusted-but-obsolete bundle rejection; an older, genuinely
+      signed central bundle with weaker requirements is rejected unless the control plane explicitly
+      grandfathers it within a recorded window, and the attempt is visible in fleet reporting
+      (coh-pol-01, coh-pol-02).
 - [ ] Fingerprinted baselines; severity-escalation and recurrence-after-fix behavior (coh-pol-04, coh-pol-05).
+- [ ] Advisory-age enforcement transition: at maximum advisory age with no approved renewal, new AND
+      existing required violations block per the central escalation policy (coh-pol-03).
 - [ ] External enforcement boundary: required checks/rulesets/promotion-controller binding; workflow-deletion test (coh-pol-07).
 - [ ] Hub integration: add a fifth `MonitorLoop` check class `_check_spec_coherence(repo, owner)` alongside the existing four (`_check_runner_status`, `_check_queue_drain`, `_check_gate_results`, `_check_drift_scan`), polling the check-runs API for a coherence workflow conclusion on `HUB_WATCHED_BRANCHES` and alerting via `_raise_alert(repo, "coherence_failure", runner, detail)` → existing `AlertSink` dedup `(repo, check-class, runner)`; hub endpoints and `runners.schema.json` unchanged unless the S1 field-collision map says otherwise (coh-int-02, coh-int-07).
 - [ ] CI workflow following `templates/github-workflows/drift-scan.yml` pattern, `runs-on: devgate` (or repo labels like `devgate-game`), pinned runtime invocation + event wiring only; gate executes or reports explicit SKIPPED per `ci-run-01` (coh-int-01, coh-int-06).
