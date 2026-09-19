@@ -72,6 +72,25 @@ class TestLauncherValidation(unittest.TestCase):
         ctx = validate_launch(cfg, PROFILES)
         self.assertEqual(ctx["image"], cfg["image"])
 
+    def test_declared_plugins_rejected(self):
+        # coh-rt-06: no approved plugin sandbox exists, so no plugin can
+        # execute — a declared plugin would be silently inert. Fail closed.
+        for plugins in (["localhost/evil@sha256:" + "c" * 64],
+                        {"name": "x"}, "evil"):
+            cfg = base_cfg()
+            cfg["plugins"] = plugins
+            with self.assertRaises(LaunchError) as cm:
+                validate_launch(cfg, PROFILES)
+            self.assertEqual(str(cm.exception),
+                             "plugins-unsupported:no-approved-plugin-sandbox")
+
+    def test_empty_or_absent_plugins_accepted(self):
+        for plugins in ([], None):
+            cfg = base_cfg()
+            if plugins is not None:
+                cfg["plugins"] = plugins
+            validate_launch(cfg, PROFILES)
+
     def test_bad_digest_rejected(self):
         for dig in ("sha256:" + "z" * 64, "sha256:" + "a" * 32,
                     "sha256:" + "A" * 64, "md5:" + "a" * 64):

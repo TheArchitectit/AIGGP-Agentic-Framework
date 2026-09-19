@@ -160,6 +160,14 @@ def validate_launch(cfg: dict, supported_profiles) -> dict:
         raise LaunchError("bad-profile-registry")
     ctx = {}
     ctx["image"] = _validate_image(cfg.get("image"))
+    # Fail-closed plugin boundary (coh-rt-06): until a separately approved
+    # plugin sandbox exists (its own ADR), no plugin mechanism exists — a
+    # declared plugin would be silently inert, which is exactly the
+    # silent-cap anti-pattern. The by-digest form validation (coh-rt-01's
+    # "plugins by digest") is implemented with that ADR, when there is a
+    # plugin to validate. An absent or empty `plugins` list is fine.
+    if cfg.get("plugins"):
+        raise LaunchError("plugins-unsupported:no-approved-plugin-sandbox")
     if "user" not in cfg:
         raise LaunchError("missing-field:user")
     ctx["user"] = _validate_user(cfg["user"])
