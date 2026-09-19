@@ -63,4 +63,4 @@ Validate the current git state against the commit standards above. Check staged 
 ## References
 
 - `skills/scope-validator/SKILL.md` — Scope rules for staged changes
-- `docs/AGENT_GUARDRAILS.md` — Core safety protocols
+- AGENTS.md — Core safety protocols

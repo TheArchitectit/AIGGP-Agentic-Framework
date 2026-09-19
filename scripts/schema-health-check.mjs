@@ -23,8 +23,14 @@ import { resolve } from "node:path";
 import { homedir } from "node:os";
 
 // --- configuration -----------------------------------------------------------
-// Set DB_ADAPTER to match your database engine. Use "none" if your project
-// doesn't use a relational database — the script will exit 0 gracefully.
+// Configuration resolution (project overlay FIRST — consumers never edit the
+// submodule): <project>/.guardrails/schema-health.json
+//   { "adapter": "sqlite" | "postgres" | "mysql" | "none",
+//     "expected_columns": [["table", "column", "type_decl"], ...] }
+// then the constants below (which a maintainer may tune), then "none".
+// NOTE on the MySQL adapter template below: fkCheck() as written selects ALL
+// FK constraints from KEY_COLUMN_USAGE, not violations — enabling it fails
+// every schema with foreign keys. Fix the query before relying on it.
 const DB_ADAPTER = "none"; // "sqlite" | "postgres" | "mysql" | "none"
 
 // --- column registry (customize for your schema) -----------------------------
@@ -36,6 +42,40 @@ const EXPECTED_COLUMNS = [
 	// ["users", "email", "TEXT NOT NULL UNIQUE"],
 	// ["users", "created_at", "TEXT NOT NULL DEFAULT (datetime('now'))"],
 ];
+
+// Load the project overlay config when present. The project root is the
+// directory containing .devgate/ (layout contract, same as the other gates).
+import { readFileSync } from "node:fs";
+import { basename, dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+function loadProjectConfig() {
+	const devgateRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+	// DEVGATE_PROJECT_ROOT overrides (parity with regression_check.py and the
+	// other gates); otherwise the layout contract: a script inside .devgate/
+	// serves the containing project, a standalone clone is its own project.
+	const projectRoot = process.env.DEVGATE_PROJECT_ROOT
+		? resolve(process.env.DEVGATE_PROJECT_ROOT)
+		: basename(devgateRoot) === ".devgate"
+			? resolve(devgateRoot, "..")
+			: devgateRoot;
+	const cfgPath = join(projectRoot, ".guardrails", "schema-health.json");
+	if (!existsSync(cfgPath)) return null;
+	try {
+		const cfg = JSON.parse(readFileSync(cfgPath, "utf-8"));
+		if (typeof cfg !== "object" || cfg === null) return null;
+		return cfg;
+	} catch (err) {
+		console.error(`[schema-health-check] ERROR: config file ${cfgPath} is not valid JSON: ${err?.message ?? err}`);
+		process.exit(1);
+	}
+}
+
+const projectConfig = loadProjectConfig();
+const ADAPTER = projectConfig?.adapter ?? DB_ADAPTER;
+const COLUMNS = Array.isArray(projectConfig?.expected_columns)
+	? projectConfig.expected_columns
+	: EXPECTED_COLUMNS;
 
 // --- database adapters -------------------------------------------------------
 // Each adapter provides: open(connStr), close(), integrityCheck(),
@@ -142,16 +182,28 @@ for (let i = 0; i < args.length; i++) {
 	}
 }
 
-// If no adapter configured or no columns registered, skip gracefully.
-if (DB_ADAPTER === "none" || EXPECTED_COLUMNS.length === 0) {
+// Unconfigured = BOTH absent: skip green. Half-configured (adapter without
+// columns, or columns without an adapter) asserts nothing and used to skip
+// green — that is an error, not a skip.
+if (ADAPTER === "none" && COLUMNS.length === 0) {
 	console.log("[schema-health-check] No database configured — skipping.");
-	console.log("[schema-health-check] To enable: set DB_ADAPTER and EXPECTED_COLUMNS in scripts/schema-health-check.mjs");
+	console.log('[schema-health-check] To enable: create <project>/.guardrails/schema-health.json with {"adapter": "...", "expected_columns": [...]} (see AGENTS.md).');
 	process.exit(0);
+}
+if (ADAPTER !== "none" && COLUMNS.length === 0) {
+	console.error("[schema-health-check] ERROR: adapter configured but expected_columns is empty — the gate would assert nothing.");
+	console.error('[schema-health-check] Add columns to <project>/.guardrails/schema-health.json, or set adapter to "none" to skip explicitly.');
+	process.exit(1);
+}
+if (ADAPTER === "none" && COLUMNS.length > 0) {
+	console.error('[schema-health-check] ERROR: expected_columns configured but adapter is "none" — the gate would assert nothing.');
+	console.error("[schema-health-check] Set the adapter in <project>/.guardrails/schema-health.json, or remove expected_columns to skip explicitly.");
+	process.exit(1);
 }
 
 if (!adapter) {
-	console.error("[schema-health-check] ERROR: DB_ADAPTER is set but no adapter is configured.");
-	console.error("[schema-health-check] Uncomment the adapter block for your database engine in this script.");
+	console.error(`[schema-health-check] ERROR: adapter "${ADAPTER}" is configured but no adapter implementation is enabled.`);
+	console.error("[schema-health-check] Uncomment the adapter block for your database engine in scripts/schema-health-check.mjs (engine CODE lives here; project CONFIG lives in .guardrails/schema-health.json).");
 	process.exit(1);
 }
 
@@ -194,7 +246,7 @@ try {
 	}
 
 	// 3. Column audit (contract vs. DB)
-	for (const [table, column] of EXPECTED_COLUMNS) {
+	for (const [table, column] of COLUMNS) {
 		try {
 			const columns = await adapter.tableColumns(table);
 			if (!columns.includes(column)) {

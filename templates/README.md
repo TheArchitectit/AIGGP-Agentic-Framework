@@ -15,7 +15,11 @@ templates/
 │   └── drift-scan.yml               # Scheduled full-tree sweep, host-aware runner targeting
 ├── runner/                          # Self-hosted runner standard (ghcr.io + Podman/Docker)
 │   ├── README.md                    # The standard: official image, quadlet, secrets hygiene
+│   ├── add-a-runner.md              # Adding the N+1th runner to an existing fleet
 │   └── self-hosted-runner.container # Podman quadlet template (ghcr.io/actions/actions-runner)
+├── runner-monitor/                  # Monitor-hub deployment (see docs/runner-monitor-monitor-hub.md)
+│   ├── Containerfile                # Hub service image (digest-pinned, non-root, HEALTHCHECK)
+│   └── devgate-hub.container        # Podman quadlet for the hub
 └── skills/                          # Agent-behavior skill templates
     ├── four-laws/                   # The Four Laws of Agent Safety (mandatory)
     ├── scope-validator/             # Stay-in-scope enforcement

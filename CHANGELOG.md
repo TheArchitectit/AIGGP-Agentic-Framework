@@ -7,6 +7,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Spec coherence service** (`hub/coherence/` + `container/`) — turns an
+  OpenSpec package + policy + signed evaluation context into a canonical,
+  deterministic accept/reject decision with sealed evidence and a frozen
+  exit-code matrix (0 PASS / 10 ADVISORY / 20 FAIL / 30-40 ERROR classes).
+  Domain-separated canonical digests, digest-verified packages/contexts/
+  policy, an overlay that can strengthen but never weaken central policy, a
+  fingerprinted baseline ratchet with expiring exceptions, four built-in
+  evaluators, atomic artifact emission with a temp-dir fallback, and a
+  reference launcher + containerized driver enforcing digest-pinned,
+  read-only, non-root, network-none Podman execution with an
+  execution-profile identity registry. 13 frozen JSON schemas ship with the
+  service (`hub/coherence/schemas/`); 60+ `coh-*` requirements live under
+  `openspec/changes/devgate-spec-coherence-service/` (S1-S4 of 8 sprints
+  delivered; S5 signing, S6 fleet integration, S7 3D slice, S8 release
+  remain). ~4k lines of stdlib-only Python with behavioral conformance,
+  exit-code, ladder, launcher, and container test suites.
+
+- **Runner monitor hub** (`hub/`) — a stdlib-only Python service that watches
+  the self-hosted runner fleet from one machine. Endpoints `/enroll`,
+  `/heartbeat`, `/revoke`, `/health`; one-time enrollment tokens and
+  per-runner revocable heartbeat tokens (constant-time compared); an atomic
+  `runners.json` registry on a hub volume that is never committed. Polls the
+  GitHub API per registered repo for runner online state, queue-drain age, the
+  latest check-run conclusion per watched branch, and scheduled drift-scan
+  recency, combining that with spoke heartbeats as **independent** evidence
+  channels. Alerts are deduplicated by `(repo, check-class, runner)`: one
+  GitHub issue per key, recurrence as a comment, every event appended to an
+  append-only JSONL log. Ships `scripts/runner-enroll.sh` (enroll / `--revoke`
+  / systemd user timer), a Containerfile + Podman quadlet template under
+  `templates/runner-monitor/`, a spoke-side hub watchdog, and the
+  deployment runbook `docs/runner-monitor-monitor-hub.md`. The hub is
+  monitor-only by default and binds loopback unless deliberately widened; see
+  the runbook's TLS and firewall notes before exposing it.
+- `spec_traceability.py`: a marker line may now carry several requirement IDs
+  (`// spec: a-01, b-02, c-03`). The pattern previously captured only the first
+  ID, so a multi-ID marker silently covered one requirement and reported the
+  rest as uncovered.
+- **Spoke-side hub watchdog** (`scripts/hub-watchdog.sh` + a
+  `devgate-hub-watchdog.timer` installed by `runner-enroll.sh`) — the inverted
+  dead-man switch (`mon-deadman-01`). The hub cannot report its own death and a
+  GitHub-scheduled workflow cannot report its own absence, so each spoke polls
+  the hub's `/health` on a timer and fails its own systemd unit when the hub is
+  unreachable or its poll loop has gone stale. Local-only by design: no token
+  on the spoke, no GitHub issue. `/health` now also reports
+  `polling_enabled` / `poll_interval_sec` so a watchdog can tell "no PAT,
+  polling off by design" (`last_poll_at` null, warn) from a wedged poll loop
+  (`last_poll_at` stale, fail) rather than reading an unconfigured hub as a dead
+  one. `monitor.py` now actually records `last_poll_at` each cycle (it was
+  declared but never written).
+- `.github/workflows/hub-health-probe.yml` — the former
+  `devgate-monitor-deadman.yml`, converted from a scheduled "dead-man switch"
+  that only ever printed an `echo` line (its header claimed it would open a
+  GitHub issue if the schedule stopped firing; nothing in GitHub Actions or in
+  the file did so) into an honest `workflow_dispatch` hub probe. It shares the
+  watchdog's verdict logic so a manual probe and the spoke check cannot
+  disagree. No `schedule:`, since a workflow cannot report its own absence.
+
+
+- `regression_check.py`: a scope that scanned zero files now prints an
+  explicit NOTHING SCANNED notice instead of the clean-pass line
+  (no-vacuous-green); new `--fail-if-empty` (exit 2 on zero-input runs, for
+  CI) and `--base REF` (scan committed content as `diff REF...HEAD`) flags;
+  `--json` output gains `files_scanned` and `vacuous`.
+- `semantic-scan.mjs`: missing TypeScript parser error now states the gate
+  evaluated nothing, and `DEVGATE_SEMANTIC_REQUIRED=0` opts into an explicit
+  SKIPPED exit-0 for projects that cannot provide the parser.
+- README/AGENTS.md: "Evidence quality" guidance — presence/substring-only
+  tests are weak evidence, and hand-written-literal round-trips prove nothing
+  about the real save/load path.
+
+
 ### Changed
 
 - **Spec platform migration (`migrate-specs-to-openspec-conventions`).**
@@ -24,6 +96,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `rule-coverage-truth`, schema-violating, loaded by nothing);
   `game_regression.py` gained the standard `--fail-if-empty` /
   NOTHING SCANNED contract and honors `DEVGATE_PROJECT_ROOT`.
+
 
 ### Fixed
 
@@ -130,49 +203,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   was printed). `run_git_command` now decodes with `errors="replace"`, so the
   file-size gate runs to completion and reports real counts on such trees.
 
-### Added
-
-- **Runner monitor hub** (`hub/`) — a stdlib-only Python service that watches
-  the self-hosted runner fleet from one machine. Endpoints `/enroll`,
-  `/heartbeat`, `/revoke`, `/health`; one-time enrollment tokens and
-  per-runner revocable heartbeat tokens (constant-time compared); an atomic
-  `runners.json` registry on a hub volume that is never committed. Polls the
-  GitHub API per registered repo for runner online state, queue-drain age, the
-  latest check-run conclusion per watched branch, and scheduled drift-scan
-  recency, combining that with spoke heartbeats as **independent** evidence
-  channels. Alerts are deduplicated by `(repo, check-class, runner)`: one
-  GitHub issue per key, recurrence as a comment, every event appended to an
-  append-only JSONL log. Ships `scripts/runner-enroll.sh` (enroll / `--revoke`
-  / systemd user timer), a Containerfile + Podman quadlet template under
-  `templates/runner-monitor/`, a spoke-side hub watchdog, and the
-  deployment runbook `docs/runner-monitor-monitor-hub.md`. The hub is
-  monitor-only by default and binds loopback unless deliberately widened; see
-  the runbook's TLS and firewall notes before exposing it.
-- `spec_traceability.py`: a marker line may now carry several requirement IDs
-  (`// spec: a-01, b-02, c-03`). The pattern previously captured only the first
-  ID, so a multi-ID marker silently covered one requirement and reported the
-  rest as uncovered.
-- **Spoke-side hub watchdog** (`scripts/hub-watchdog.sh` + a
-  `devgate-hub-watchdog.timer` installed by `runner-enroll.sh`) — the inverted
-  dead-man switch (`mon-deadman-01`). The hub cannot report its own death and a
-  GitHub-scheduled workflow cannot report its own absence, so each spoke polls
-  the hub's `/health` on a timer and fails its own systemd unit when the hub is
-  unreachable or its poll loop has gone stale. Local-only by design: no token
-  on the spoke, no GitHub issue. `/health` now also reports
-  `polling_enabled` / `poll_interval_sec` so a watchdog can tell "no PAT,
-  polling off by design" (`last_poll_at` null, warn) from a wedged poll loop
-  (`last_poll_at` stale, fail) rather than reading an unconfigured hub as a dead
-  one. `monitor.py` now actually records `last_poll_at` each cycle (it was
-  declared but never written).
-- `.github/workflows/hub-health-probe.yml` — the former
-  `devgate-monitor-deadman.yml`, converted from a scheduled "dead-man switch"
-  that only ever printed an `echo` line (its header claimed it would open a
-  GitHub issue if the schedule stopped firing; nothing in GitHub Actions or in
-  the file did so) into an honest `workflow_dispatch` hub probe. It shares the
-  watchdog's verdict logic so a manual probe and the spoke check cannot
-  disagree. No `schedule:`, since a workflow cannot report its own absence.
-
-### Fixed
 
 - `regression_check.py --all` no longer crashes on repositories with no tags
   and 20 or fewer commits (`RuntimeError: could not diff HEAD~20...HEAD`); it
@@ -183,20 +213,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   distinguishes "no spec files found" from "spec files found but 0
   requirement IDs in the <!-- id: --> format" instead of reporting both as
   "no specs found under openspec/specs/".
-
-### Added (gates)
-
-- `regression_check.py`: a scope that scanned zero files now prints an
-  explicit NOTHING SCANNED notice instead of the clean-pass line
-  (no-vacuous-green); new `--fail-if-empty` (exit 2 on zero-input runs, for
-  CI) and `--base REF` (scan committed content as `diff REF...HEAD`) flags;
-  `--json` output gains `files_scanned` and `vacuous`.
-- `semantic-scan.mjs`: missing TypeScript parser error now states the gate
-  evaluated nothing, and `DEVGATE_SEMANTIC_REQUIRED=0` opts into an explicit
-  SKIPPED exit-0 for projects that cannot provide the parser.
-- README/AGENTS.md: "Evidence quality" guidance — presence/substring-only
-  tests are weak evidence, and hand-written-literal round-trips prove nothing
-  about the real save/load path.
 
 ## [1.2.0] - 2026-09-04
 

@@ -63,5 +63,5 @@ Evaluate the current task against the Production-First Rule. Ensure production c
 
 ## References
 
-- `docs/AGENT_GUARDRAILS.md` — Core safety protocols
+- AGENTS.md — Core safety protocols
 - `skills/four-laws/SKILL.md` — Law 1: Read Before Editing, Law 3: Verify Before Committing

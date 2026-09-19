@@ -131,4 +131,4 @@ Apply the Four Laws of Agent Safety to the current operation. Evaluate whether a
 
 ## Reference
 
-Full documentation: `docs/AGENT_GUARDRAILS.md`
+Full documentation: AGENTS.md

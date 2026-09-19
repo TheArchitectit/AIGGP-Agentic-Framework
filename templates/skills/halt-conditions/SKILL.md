@@ -116,5 +116,5 @@ Evaluate the current situation against the halt conditions above. If any conditi
 
 ## References
 
-- `docs/AGENT_GUARDRAILS.md` - Core safety protocols
+- AGENTS.md - Core safety protocols
 - `skills/three-strikes/SKILL.md` - Failure tracking and escalation

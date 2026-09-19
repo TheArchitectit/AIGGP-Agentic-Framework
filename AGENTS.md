@@ -68,7 +68,7 @@ DevGate scripts auto-detect your project's technology stack. You do NOT need to 
    ```bash
    grep -f <(echo "your_file.py") .devgate/.guardrails/failure-registry.jsonl
    ```
-3. **Understand the rules** — scan `.devgate/.guardrails/prevention-rules/pattern-rules.json` for the 29 prevention rules across 10+ languages
+3. **Understand the rules** — scan `.devgate/.guardrails/prevention-rules/pattern-rules.json` for the 32 prevention rules across 10+ languages
 
 ## Before You Commit
 
@@ -191,7 +191,10 @@ The reason text is required. Audited exceptions should be deliberate.
 
 ## Adding Custom Rules
 
-Add to `.devgate/.guardrails/prevention-rules/pattern-rules.json`:
+Add rules to YOUR PROJECT's overlay — `<project>/.guardrails/prevention-rules/pattern-rules.json`
+— never inside `.devgate/` (the submodule is upstream-owned; the overlay MERGES
+with the bundled baseline by rule id, and a same-id overlay entry replaces the
+bundled one in place). See the README's overlay contract section:
 
 ```json
 {
@@ -222,16 +225,23 @@ When a file hits the soft limit, split it. Don't squeeze toward the hard limit.
 
 ## Database Configuration (Optional)
 
-If your project uses a database, edit `scripts/schema-health-check.mjs`:
+If your project uses a database, configure the adapter via the project
+config file — `<project>/.guardrails/schema-health.json` (create it; never
+edit files inside `.devgate/`):
 
-```javascript
-const DB_ADAPTER = "postgres"; // "sqlite" | "postgres" | "mysql" | "none"
-const EXPECTED_COLUMNS = [
-    ["your_table", "your_column", "expected_type"],
-];
+```json
+{
+  "adapter": "postgres",
+  "expected_columns": [
+    ["your_table", "your_column", "expected_type"]
+  ]
+}
 ```
 
-Uncomment the adapter block for your database engine. If you don't use a database, leave `DB_ADAPTER = "none"` — the script skips gracefully.
+If no config file exists the gate skips gracefully (`DB_ADAPTER = "none"`).
+Note: until the config-file surface lands in `schema-health-check.mjs`
+(tracked in the audit roadmap), the gate reads only its built-in constants —
+do not hand-edit the script; flag the gap instead.
 
 **DevGate will NOT change your database engine or suggest one.** It only validates schema integrity for whatever engine you've chosen.
 

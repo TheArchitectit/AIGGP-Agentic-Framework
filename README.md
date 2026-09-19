@@ -29,42 +29,28 @@ git clone https://github.com/TheArchitectit/DevGate-Agentic-Framework.git .devga
 ├── .guardrails/
 │   ├── failure-registry.jsonl          # Append-only bug history
 │   ├── pre-work-check.md               # Mandatory pre-work checklist
+│   ├── silent-success-allowlist.json   # Simulated-success markers (per-project; baseline ships empty)
 │   └── prevention-rules/
-│       ├── pattern-rules.json          # Regex-based rules (29 rules, 10+ languages)
+│       ├── pattern-rules.json          # Regex-based rules (32 rules, 10+ languages)
 │       ├── pattern-rules.schema.json   # JSON schema for custom rules
-│       ├── semantic-rules.json         # AST-based rules
-│       └── extracted-rules.json        # Git/system/security rules
-├── scripts/
-│   ├── deploy.sh                       # Gated publish pipeline (auto-detects package manager)
-│   ├── findings_to_spec.py             # Gate findings -> openspec requirement skeletons
-│   ├── guardrails-scan.mjs             # Pattern scanner (all languages)
-│   ├── regression_check.py             # Regression + file-size + package audit
-│   ├── run-tests.mjs                   # Isolated per-file test runner (JS + Python)
-│   ├── schema-health-check.mjs         # Database schema validation (adapter-based)
-│   ├── semantic-scan.mjs               # AST-based TS/JS scanner
-│   └── detect-host-ci.py               # Host-repo CI/runner detector (secrets-redacted)
-├── templates/
-│   ├── README.md                       # Template index and usage guide
-│   ├── github-workflows/               # Drop-in CI workflow templates
-│   │   ├── guardrails-compliance.yml   # Process gates (scope, forbidden files, commits, AI attribution)
-│   │   ├── secret-validation.yml       # Gitleaks + .env + credential + hardcoded-secret scan
-│   │   ├── file-size-check.yml         # CI-enforced source-file line-count limit
-│   │   ├── smoke-gate.yml              # Headless run + completion-sentinel validation
-│   │   └── drift-scan.yml              # Scheduled full-tree sweep, host-aware runner targeting
-│   ├── runner/                         # Self-hosted runner standard (ghcr.io + Podman/Docker)
-│   │   ├── README.md                   # The standard: official image, quadlet, secrets hygiene
-│   │   └── self-hosted-runner.container # Podman quadlet template (ghcr.io/actions/actions-runner)
-│   └── skills/                         # Agent-behavior skill templates
-│       ├── four-laws/                  # The Four Laws of Agent Safety (mandatory)
-│       ├── scope-validator/            # Stay-in-scope enforcement
-│       ├── halt-conditions/            # When to stop and ask the user
-│       ├── three-strikes/              # Halt after 3 failed attempts
-│       ├── commit-validator/           # Conventional commit + AI-attribution rules
-│       └── production-first/           # Production code before tests/infrastructure
+│       ├── semantic-rules.json         # AST-rule catalog (advisory path; scanner implements SEMANTIC-001)
+│       └── silent-success-rules.json   # Simulated-success detector families (ship disabled)
+├── scripts/                            # The gates (see "Components" below)
+├── hub/                                # Runner-monitor hub + spec-coherence service (Python, stdlib-only)
+├── container/                          # Pinned evaluator image + execution-profile registry
+├── templates/                          # CI workflows, runner standard, runner-monitor, agent skills
+├── openspec/                           # Capability specs + change packages (the source of truth)
+├── tests/                              # Behavioral test suite (pytest + node fixture harnesses)
+├── docs/                               # Onboarding, release gate, audit process, runbooks, QA records
+├── .github/workflows/                  # The framework's own CI (runs the gates on itself)
 ├── AGENTS.md                           # Directions for AI agents
 ├── LICENSE                             # BSD 3-Clause
 └── README.md                           # This file
 ```
+
+See the tree in full — this README names the highlights; `scripts/` holds the
+gates listed under [Components](#components), `hub/` holds the two services
+below, and `openspec/specs/` is the normative contract each gate implements.
 
 ### Run the gates
 
@@ -207,7 +193,11 @@ fetch("https://api.example.com/data");
 AST-based scanner using the TypeScript compiler API. If your project has no TypeScript/JavaScript files, it exits 0 with "no matching files found."
 
 - `SEMANTIC-001`: Promise `.then()` chains without `.catch()`
-- `SEMANTIC-005`: React `useEffect` with missing dependencies
+
+That is the only AST rule the scanner implements. The other rules declared in
+`.guardrails/prevention-rules/semantic-rules.json` are a catalog, not
+enforcement — they feed `regression_check.py`'s advisory path only; do not
+rely on them as scanner coverage.
 
 The parser (`typescript@5`) is loaded lazily. When TS/JS files exist but the
 parser is unavailable, the gate FAILS with the install command — a gate that
@@ -231,18 +221,24 @@ Generic gated publish pipeline. Auto-detects your project's package manager:
 
 ### Schema Health (`scripts/schema-health-check.mjs`)
 
-Database-agnostic schema validation. Ships with adapter templates for SQLite, PostgreSQL, and MySQL, but defaults to `"none"` (skips gracefully) so it never breaks if you don't use a database or use a different engine.
+Database-agnostic schema validation. Engine adapter templates ship for SQLite, PostgreSQL, and MySQL; the gate defaults to unconfigured (skips gracefully) so it never breaks if you don't use a database or use a different engine.
 
-To enable, edit `scripts/schema-health-check.mjs`:
-```javascript
-const DB_ADAPTER = "postgres"; // "sqlite" | "postgres" | "mysql" | "none"
-const EXPECTED_COLUMNS = [
+To enable, create `<project>/.guardrails/schema-health.json` — never edit files inside `.devgate/`:
+
+```json
+{
+  "adapter": "postgres",
+  "expected_columns": [
     ["users", "id", "TEXT NOT NULL PRIMARY KEY"],
-    ["users", "email", "TEXT NOT NULL UNIQUE"],
-];
+    ["users", "email", "TEXT NOT NULL UNIQUE"]
+  ]
+}
 ```
 
-Uncomment the adapter block for your database engine. The script auto-skips if `DB_ADAPTER` is `"none"` or `EXPECTED_COLUMNS` is empty.
+A half-configured gate (adapter without columns, or columns without an
+adapter) fails loudly instead of asserting nothing; a config naming an adapter
+whose engine code is not enabled in the script also fails with instructions.
+`--db <path>` (or `DEVGATE_DB_PATH`) supplies the connection string.
 
 ### Failure Registry (`.guardrails/failure-registry.jsonl`)
 
@@ -282,6 +278,40 @@ it into a spec requirement → the fix carries `// spec: <id>` →
 enforcing code. Re-runs are idempotent: existing spec files are only ever
 APPENDED to, findings are recognized by their provenance line, hand edits
 survive.
+
+## Runner Monitor Hub (`hub/`)
+
+A stdlib-only Python service that watches your self-hosted runner fleet from
+one machine. Spokes enroll with one-time tokens and heartbeat with per-runner
+revocable tokens (constant-time compared; only salted hashes are stored at
+rest). The hub polls the GitHub API per registered repo for runner online
+state, queue-drain age, check-run conclusions on watched branches, and
+drift-scan recency, combining that with spoke heartbeats as **independent**
+evidence channels. Alerts are deduplicated by `(repo, check-class, runner)`:
+one GitHub issue per key, recurrence as a comment, every event appended to an
+append-only JSONL log. A spoke-side watchdog (`scripts/hub-watchdog.sh`)
+fails its own systemd unit when the hub dies — the hub cannot report its own
+death. Binds loopback by default; see
+[docs/runner-monitor-monitor-hub.md](docs/runner-monitor-monitor-hub.md) for
+deployment, TLS, and firewall notes before exposing it.
+
+## Spec Coherence Service (`hub/coherence/` + `container/`)
+
+The gate suite catches known-bad patterns; the coherence service evaluates
+whether a repository actually MEETS its OpenSpec specifications. You build an
+OpenSpec package (assertions + normative inventory, digest-pinned), a policy
+bundle (required assertions, severity floors, baseline ratchet, expiring
+exceptions), and a signed evaluation context (time, stage, and captured
+external facts come only from the context — never the host clock or
+network). `python -m hub.coherence --request` then produces a canonical
+result with a frozen exit-code matrix (0 PASS / 10 ADVISORY / 20 FAIL /
+30-40 ERROR classes) plus sealed, secret-redacted evidence. `--launch-config`
+runs the same evaluation inside a digest-pinned, read-only, non-root,
+network-none Podman container whose isolation is derived host-side — the
+container never self-certifies. Deterministic by construction: the same
+inputs produce byte-identical results. See
+`openspec/changes/devgate-spec-coherence-service/` for the 60+ requirement
+contract.
 
 ## Configuration
 

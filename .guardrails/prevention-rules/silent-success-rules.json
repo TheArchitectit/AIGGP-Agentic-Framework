@@ -66,7 +66,7 @@
       "file_glob": [
         "*.go"
       ],
-      "enabled": true,
+      "enabled": false,
       "note": "Error assigned to _ and then success returned: the failure is discarded and the caller is told everything worked. [gamerepo01: enabled 2026-09-07 \u2014 existing occurrences allowlisted in silent-success-allowlist.json; new ones fail CI]"
     },
     {
@@ -89,7 +89,7 @@
       "file_glob": [
         "*.py"
       ],
-      "enabled": true,
+      "enabled": false,
       "note": "A function body that is a TODO returns None and reads as success to every caller. [gamerepo01: enabled 2026-09-07 \u2014 existing occurrences allowlisted in silent-success-allowlist.json; new ones fail CI]"
     },
     {

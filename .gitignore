@@ -32,7 +32,6 @@ out/
 # Runner-monitor instance state (hub volume on monitor-hub) — NEVER commit (mon-registry-01)
 runners.json
 alerts/*.jsonl
-~/.devgate-heartbeat.env
 .devgate-heartbeat.env
 # Database files (if using SQLite — add your own DB patterns here)
 *.db
@@ -50,8 +49,6 @@ alerts/*.jsonl
 .clawd-todos.json
 
 # Python bytecode
-__pycache__/
-*.pyc
 
 # Rust build artifacts
 **/target/

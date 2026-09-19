@@ -6,7 +6,8 @@
 #
 # SETUP:
 #   - Copy this file into your repo at .github/workflows/file-size-check.yml
-#   - Copy scripts/check_file_sizes.sh into your repo (or reference the DevGate version)
+#   - Self-contained: no framework script required. For the full gate (soft/hard
+#     limits, test-file classification) run .devgate/scripts/regression_check.py instead.
 #   - Customize the following placeholders:
 #     SOURCE_DIRS    — space-separated list of directories to scan (default: "src")
 #     FILE_PATTERN   — glob for source files (default: "*.gd" for Godot; change to

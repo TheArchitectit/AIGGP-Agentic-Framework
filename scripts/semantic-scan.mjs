@@ -5,7 +5,8 @@
 // language-specific AST parser to be implemented.
 //
 // SEMANTIC-001: detects Promise.then() chains that lack a .catch() handler.
-// SEMANTIC-005: detects React useEffect with missing dependencies.
+// (SEMANTIC-002..010 in semantic-rules.json are a catalog for the advisory
+// path — NOT implemented by this AST scanner.)
 //
 // This scanner auto-detects the project root and scans TS/JS files there
 // (not inside .devgate/ itself). If your project has no TypeScript/JavaScript,

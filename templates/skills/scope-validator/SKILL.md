@@ -82,4 +82,4 @@ Validate that the proposed file modifications are within authorized scope. Check
 ## References
 
 - `skills/four-laws/SKILL.md` — Law 2: Stay in Scope
-- `docs/AGENT_GUARDRAILS.md` — Core safety protocols
+- AGENTS.md — Core safety protocols

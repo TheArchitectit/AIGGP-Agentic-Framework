@@ -104,3 +104,24 @@ that fails on the old behavior (no config-only or doc-only "fixes").
 | mon-local-01 lost in archive→main migration | **closed** | restored verbatim into hub-architecture |
 | Rules/schema file contradictions (extracted-rules.json shipped vs rule-coverage-truth; missing semantic-rules.schema.json; dangling AGENT_GUARDRAILS.md refs) | **closed** | extracted-rules.json deleted (was schema-violating, loaded by nothing); semantic-rules $schema pointer removed; skills now point at AGENTS.md |
 | Spec-format drift could recur silently | **closed** | CI specs job now hard-fails on `openspec validate --all --strict` (@fission-ai/openspec pinned install) + traceability counts; spec-fmt-01..03 published into main specs |
+
+## Closed by `docs-and-data-truth-pass`
+
+| Finding | Status | Evidence |
+|---|---|---|
+| H3 1,726-entry foreign allowlist in the shared baseline | **closed** | purged (12,093 → ~740 bytes); the baseline ships empty by design and the scan says so; consuming repos own their overlay entries |
+| M3 silent-success-rules preamble lied (two families shipped enabled) | **closed** | all families ship `enabled: false`; the scan prints an explicit no-families skip |
+| README described half the repo; coherence service undiscoverable | **closed** | tree reflects the full repo; new Runner Monitor Hub and Spec Coherence Service sections |
+| SEMANTIC-005 advertised, unimplemented (H1's user-facing half) | **closed** | README + scanner header de-advertise; the rules file is documented as advisory catalog, not scanner coverage (full H1 rule-count reconciliation remains for the rules-data owner) |
+| Schema-health config required editing the submodule (M2 half) | **closed** | `<project>/.guardrails/schema-health.json` overlay config implemented (adapter + expected_columns); half-configured and malformed configs fail loud, never skip green; `DEVGATE_PROJECT_ROOT` parity; `tests/test_schema_health_config.mjs` (6 checks) |
+| AGENTS.md instructed consumers to violate the overlay contract (M10) | **closed** | custom-rules section points at the project overlay; database section points at the config file; rule counts corrected 29 → 32 |
+| templates/README omitted runner-monitor + add-a-runner; phantom `check_file_sizes.sh` ref | **closed** | tree completed; SETUP header now describes the self-contained workflow and the real regression gate |
+| Dangling `docs/AGENT_GUARDRAILS.md` in all six skills; dangling `semantic-rules.schema.json` pointer | **closed** | skills point at AGENTS.md; `$schema` pointer removed (schema doesn't ship); NOTE: these were briefly false-checked-off in the migration change and are now genuinely fixed — the delta table is the source of truth |
+| .gitignore dead tilde pattern + duplicate entries | **closed** | deduped |
+| pre-work-check rule table listed 14 of 32 rules | **closed** | regenerated from `pattern-rules.json` (32 rows, derived not hand-copied) |
+| CHANGELOG missing the coherence service; duplicate section headings | **closed** | coherence-service entry added; Unreleased normalized to one Added/Changed/Fixed each |
+
+Semantics note (H1 remainder): the SEMANTIC-005 de-advertisement and rules-
+file-as-catalog clarification close the user-facing half of H1; reconciling
+the 9 unimplemented semantic RULES themselves (implement or re-home) is a
+rules-data decision tracked for the rules owner, not silently dropped.
