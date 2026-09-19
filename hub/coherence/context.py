@@ -67,6 +67,40 @@ def load(root: str) -> dict:
     return ctx
 
 
+def load_captured_facts(root: str, ctx: dict) -> dict:
+    """Digest-verified content for the context's captured facts (coh-rt-03,
+    coh-ctx-04). Each bound record carries (fact_id, digest); the captured
+    response content lives at <root>/facts/<fact_id>.json and is verified
+    against the bound digest — replay consumes the captured content, never a
+    live fetch (default-deny: no network path exists in the service). A
+    record with a null digest binds no content and is omitted here; the
+    runner resolves any assertion depending on it as UNRESOLVED.
+    """
+    base = Path(root).resolve()
+    out = {}
+    for rec in ctx.get("captured_facts") or []:
+        if not isinstance(rec, dict) or not rec.get("fact_id"):
+            raise ContextError("captured fact record missing fact_id")
+        fid = rec["fact_id"]
+        if "/" in fid or fid in (".", ".."):
+            raise ContextError(f"captured-fact-bad-id:{fid}")
+        dig = rec.get("digest")
+        if not dig:
+            continue
+        fp = base / "facts" / fid
+        try:
+            raw = fp.read_bytes()
+        except OSError:
+            raise ContextError(f"captured-fact-content-missing:{fid}") from None
+        if canon.digest_bytes("file/v1", raw) != dig:
+            raise ContextError(f"captured-fact-tampered:{fid}")
+        try:
+            out[fid] = json.loads(raw)
+        except json.JSONDecodeError:
+            raise ContextError(f"captured-fact-unparseable:{fid}") from None
+    return out
+
+
 def verify_bound_sets(ctx: dict, baseline: list, exceptions: list) -> None:
     """Cross-check bound set digests (coh-ctx-01): when the context names a
     baseline/exception digest, the sets actually loaded from the policy must

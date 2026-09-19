@@ -1,7 +1,9 @@
-# // spec: coh-assert-02, coh-assert-03, coh-assert-04, coh-assert-06, coh-eval-04, coh-eval-06
+# // spec: coh-assert-02, coh-assert-03, coh-assert-04, coh-assert-06, coh-eval-04, coh-eval-06, coh-rt-03, coh-ctx-04
 """Built-in slice evaluators: product-identity consistency, traceability
-completeness, release-claim consistency. Deterministic, no network, no secrets.
-Each returns a list of findings (empty = satisfied).
+completeness, release-claim consistency, captured-fact consistency.
+Deterministic, no network, no secrets. Each returns a list of findings
+(empty = satisfied). All take (assertion, package, subject_root, facts) —
+`facts` carries only the captured facts the assertion's subjects declared.
 """
 import re
 from pathlib import Path
@@ -22,7 +24,8 @@ class Unresolved(Exception):
 
 # Identity: compare declared fields against the approved package value, not
 # merely against each other (coh-assert-02).
-def identity_consistency(assertion: dict, package: dict, subject_root: str) -> list:
+def identity_consistency(assertion: dict, package: dict, subject_root: str,
+                         facts: dict = None) -> list:
     findings = []
     approved_ref = assertion["parameters"].get("approved_value_ref")
     approved = _dig(package, approved_ref) if approved_ref else None
@@ -46,7 +49,8 @@ def identity_consistency(assertion: dict, package: dict, subject_root: str) -> l
 # parameters.marker_scan additionally consumes this repo's marker
 # convention (mirrors scripts/spec_traceability.py): a testable requirement
 # id must be claimed by a `// spec: <id>` marker in subject source.
-def traceability_completeness(assertion: dict, package: dict, subject_root: str) -> list:
+def traceability_completeness(assertion: dict, package: dict, subject_root: str,
+                              facts: dict = None) -> list:
     findings = []
     reqs = package.get("normative_requirements") or {}
     for rid, meta in reqs.items():
@@ -96,7 +100,8 @@ def _source_markers(subject_root: str) -> set:
 
 # Release-claim: bind manifest to inner payload digest, forbid self-reference
 # (coh-assert-03).
-def release_claim_consistency(assertion: dict, package: dict, subject_root: str) -> list:
+def release_claim_consistency(assertion: dict, package: dict, subject_root: str,
+                              facts: dict = None) -> list:
     findings = []
     manifest = package.get("release_manifest")
     if manifest is None:
@@ -111,10 +116,40 @@ def release_claim_consistency(assertion: dict, package: dict, subject_root: str)
     return findings
 
 
+# Captured-fact consistency (coh-rt-03, coh-ctx-04): the approved external
+# lookup ran OUTSIDE the evaluator as a capture step; its digest-verified
+# response content is bound in the context and replayed here — never a live
+# fetch (default-deny: this module has no network path at all).
+def captured_fact_consistency(assertion: dict, package: dict, subject_root: str,
+                              facts: dict = None) -> list:
+    facts = facts or {}
+    approved_ref = assertion["parameters"].get("approved_value_ref")
+    approved = _dig(package, approved_ref) if approved_ref else None
+    if approved is None:
+        raise Unresolved(f"approved-value-missing:{approved_ref}")
+    field = assertion["parameters"].get("response_field", "value")
+    findings = []
+    for sel in assertion["subjects"]:
+        if sel.get("kind") != "captured-fact":
+            continue
+        fact = facts.get(sel.get("fact_id"))
+        if fact is None:
+            raise Unresolved(f"captured-fact-missing:{sel.get('fact_id')}")
+        observed = _dig(fact, field) if isinstance(fact, dict) else None
+        if observed is None:
+            raise Unresolved(f"captured-fact-field-empty:{field}")
+        if observed != approved:
+            findings.append(_mk(assertion, "captured-fact-mismatch",
+                                expected=str(approved), observed=str(observed),
+                                locations=[_loc(sel)]))
+    return findings
+
+
 BUILTINS = {
     "devgate.builtin.identity-consistency": identity_consistency,
     "devgate.builtin.traceability-completeness": traceability_completeness,
     "devgate.builtin.release-claim-consistency": release_claim_consistency,
+    "devgate.builtin.captured-fact-consistency": captured_fact_consistency,
 }
 
 

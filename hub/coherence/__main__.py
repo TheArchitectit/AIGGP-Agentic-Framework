@@ -142,6 +142,9 @@ def run(request_path: str) -> int:
         identities["context_digest"] = ctx["context_digest"]
         _check_expected(req["context"].get("expected_digest"),
                         ctx["context_digest"], "context")
+        # Captured-fact content is digest-verified at load (coh-rt-03):
+        # replay reads the bound content, never a live fetch.
+        facts = context.load_captured_facts(req["context"]["root"], ctx)
     except (context.ContextError, ValueError, KeyError, TypeError) as e:
         return _fail(out_dir, "policy-resolution", str(e), "context", identities)
 
@@ -188,7 +191,8 @@ def run(request_path: str) -> int:
         return _fail(out_dir, "invalid-input", str(e), "planning", identities)
 
     try:
-        eval_out = evaluate.run(planned, pkg, req["subject"]["root"])
+        eval_out = evaluate.run(planned, pkg, req["subject"]["root"],
+                                captured_facts=facts)
     except evaluate.EvaluatorError as e:
         return _fail(out_dir, "execution", str(e), "evaluation", identities)
     ledger, findings = eval_out["ledger"], eval_out["findings"]

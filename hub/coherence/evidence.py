@@ -1,8 +1,10 @@
-# // spec: coh-ev-02, coh-ev-03, coh-ev-06, coh-rt-07
+# // spec: coh-ev-02, coh-ev-03, coh-ev-06, coh-rt-07, coh-rt-04
 """Evidence bundle: minimum-disclosure capture, redaction, sealing, manifest
 digest. Every artifact is written atomically: fsync to a same-directory temp
 file, then rename onto the canonical path (coh-rt-07 — a canonical path never
-holds partial bytes; a partial temp fragment is never a decision).
+holds partial bytes; a partial temp fragment is never a decision). Granted
+secret values are redacted before sealing (coh-rt-04); an unredacted secret in
+sealed evidence is an evidence ERROR, never a silent seal.
 """
 import json
 from pathlib import Path
@@ -14,17 +16,35 @@ class EvidenceError(RuntimeError):
     """Evidence sealing failure (exit-33 class)."""
 
 
-def seal(findings: list, output_dir: str) -> str:
+def redact_values(obj, values: list):
+    """Scrub every occurrence of each granted secret value from strings
+    anywhere in the structure (module-level so the fail-safe is testable)."""
+    if isinstance(obj, str):
+        for r in values:
+            obj = obj.replace(r, "[REDACTED]")
+        return obj
+    if isinstance(obj, list):
+        return [redact_values(v, values) for v in obj]
+    if isinstance(obj, dict):
+        return {k: redact_values(v, values) for k, v in obj.items()}
+    return obj
+
+
+def seal(findings: list, output_dir: str, redact: list = None) -> str:
     """Seal evidence for each finding; return the evidence manifest digest.
 
     Minimum disclosure (coh-ev-06): evidence stores only the assertion id,
     finding key, locations, expected/observed — never full source payloads.
+    `redact` lists granted secret values (coh-rt-04): each is scrubbed before
+    sealing, and the payload is re-checked so a scrub bypass is an evidence
+    error rather than a sealed secret.
     """
     out = Path(output_dir)
     try:
         out.mkdir(parents=True, exist_ok=True)
     except OSError as e:
         raise EvidenceError(f"cannot create evidence directory {output_dir}: {e}") from e
+    values = [r for r in (redact or []) if isinstance(r, str) and r]
     objects = []
     for f in findings:
         ev = {
@@ -34,7 +54,12 @@ def seal(findings: list, output_dir: str) -> str:
             "expected": f["expected"],
             "observed": f["observed"],
         }
+        ev = redact_values(ev, values)
         payload = canon.canon(ev)
+        # Fail-safe (coh-rt-04): the THEN clause makes an unredacted secret in
+        # sealed evidence an evidence error — never a silent seal.
+        if any(r in payload.decode("utf-8") for r in values):
+            raise EvidenceError("unredacted-secret-in-sealed-evidence")
         digest = canon.digest_bytes("evidence-manifest/v1", payload)
         rel = f"evidence/findings/{f['assertion_id']}.json"
         try:

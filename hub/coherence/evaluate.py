@@ -1,6 +1,7 @@
-# // spec: coh-eval-06, coh-rt-05, coh-rt-06, coh-eval-02
+# // spec: coh-eval-06, coh-rt-05, coh-rt-06, coh-eval-02, coh-rt-03, coh-ctx-04
 """Evaluator runtime: built-in evaluators only, declared-inputs-only mediation,
-limits -> ERROR, complete-outcome accounting. No repository executable code.
+limits -> ERROR, complete-outcome accounting. No repository executable code,
+no network, no secrets.
 """
 from . import evaluators
 
@@ -9,19 +10,25 @@ class EvaluatorError(RuntimeError):
     """Evaluator/execution failure (exit-32 class)."""
 
 
-def _mediated_call(fn, assertion, package, subject_root, declared):
+def _mediated_call(fn, assertion, package, subject_root, facts):
     # Declared-inputs-only mediation (coh-eval-06): the evaluator receives
-    # only the package content and the subject root it declared. Built-ins do
-    # not receive ambient environment, clock, or network.
-    return fn(assertion, package, subject_root)
+    # only the package content, the subject root it declared, and the captured
+    # facts its subjects declared (digest-verified by the context loader).
+    # Built-ins do not receive ambient environment, clock, or network.
+    return fn(assertion, package, subject_root, facts)
 
 
-def run(planned: list, package: dict, subject_root: str, limits: dict = None) -> dict:
+def run(planned: list, package: dict, subject_root: str, limits: dict = None,
+        captured_facts: dict = None) -> dict:
     """Execute planned assertions. Returns ledger + findings.
 
     limits: {"max_evaluators": int} — a bound; exhaustion is ERROR.
+    captured_facts: {fact_id: verified content} from the context loader. Each
+    evaluator is exposed ONLY the facts its own subjects declared; a declared
+    fact that is not bound is UNRESOLVED, never SATISFIED (coh-rt-03).
     """
     limits = limits or {}
+    captured_facts = captured_facts or {}
     max_evals = limits.get("max_evaluators", 10_000)
     if len(planned) > max_evals:
         raise EvaluatorError(
@@ -45,6 +52,25 @@ def run(planned: list, package: dict, subject_root: str, limits: dict = None) ->
             done[a["id"]] = "UNRESOLVED"
             continue
 
+        # Captured-fact mediation (coh-rt-03): scope exposure to the declared
+        # fact ids; an unbound declared fact cannot satisfy.
+        declared_facts = [s.get("fact_id") for s in a["subjects"]
+                          if isinstance(s, dict)
+                          and s.get("kind") == "captured-fact"]
+        missing = next((fid for fid in declared_facts
+                        if not isinstance(fid, str) or fid not in captured_facts),
+                       None)
+        if missing is not None:
+            ledger.append({
+                "assertion_id": a["id"], "version": a["version"],
+                "outcome": "UNRESOLVED",
+                "reason": f"captured-fact-missing:{missing}",
+                "enforcement": "BLOCK",
+            })
+            done[a["id"]] = "UNRESOLVED"
+            continue
+        facts = {fid: captured_facts[fid] for fid in declared_facts}
+
         # Dependency-blocked: a dependency that did not SATISFY blocks this one.
         dep_block = next((d for d in a["dependencies"] if done.get(d) != "SATISFIED"), None)
         if dep_block is not None:
@@ -57,7 +83,7 @@ def run(planned: list, package: dict, subject_root: str, limits: dict = None) ->
             continue
 
         try:
-            fs = _mediated_call(fn, a, package, subject_root, a["subjects"])
+            fs = _mediated_call(fn, a, package, subject_root, facts)
         except evaluators.Unresolved as e:
             # Unresolvable input (coh-assert-02) — distinct from a crash.
             ledger.append({
