@@ -92,20 +92,42 @@ def evaluate(ledger: list, findings: list, planned: list, baseline: list,
 
     # Ledger enforcement mirrors findings; unresolved required assertions are
     # incomplete execution and block at enforced stages.
-    by_aid = {f["assertion_id"]: f for f in findings}
+    # One ledger row per assertion, but the engine emits many findings per
+    # assertion (design.md section 8) — the row mirrors the STRICTEST
+    # enforcement among them (a BLOCK must never be displayed away behind an
+    # ADVISORY sibling), and `reason` names the softer classes that collapsed
+    # into it so the single row is honest about what it represents.
+    # Enforcement order is fixed (never a set membership), so rendering is
+    # independent of finding order.
+    _ENFORCEMENT_ORDER = {"ADVISORY": 0, "EXCEPTION-ADVISORY": 1, "BLOCK": 2}
+    by_aid = {}
+    for f in findings:
+        by_aid.setdefault(f["assertion_id"], []).append(f)
     for e in ledger:
         if e["outcome"] == "SATISFIED":
             e["enforcement"] = "ADVISORY"
         elif e["outcome"] == "VIOLATED":
-            f = by_aid.get(e["assertion_id"])
-            if f is None:
+            fs = by_aid.get(e["assertion_id"])
+            if not fs:
                 # coh-eval-03: VIOLATED with no finding detail is itself an
                 # evidence defect for enforced assertions, and blocks.
                 e["enforcement"] = "BLOCK"
                 e["reason"] = "violation-without-finding-detail"
                 blocked = True
             else:
-                e["enforcement"] = f["enforcement"]
+                strictest = max(fs,
+                                key=lambda f: _ENFORCEMENT_ORDER[f["enforcement"]])
+                e["enforcement"] = strictest["enforcement"]
+                counts = {}
+                for f in fs:
+                    counts[f["enforcement"]] = counts.get(f["enforcement"], 0) + 1
+                softer = sorted(set(counts) - {e["enforcement"]},
+                                key=lambda name: _ENFORCEMENT_ORDER[name])
+                if softer:
+                    e["reason"] = (
+                        f"multi-finding:{len(fs)} mirrors:{e['enforcement']}"
+                        + "".join(f" softer:{name}x{counts[name]}"
+                                  for name in softer))
                 if e["enforcement"] == "BLOCK":
                     blocked = True
         else:  # UNRESOLVED: incomplete execution (coh-eval-02)
