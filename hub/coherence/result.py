@@ -3,6 +3,10 @@
 decision/exit matrix. No timestamps, durations, host identity, or attestation
 fields in the canonical payload.
 """
+import sys
+import tempfile
+from pathlib import Path
+
 from . import canon
 
 # Exit codes per the frozen matrix (decision-exit-matrix.md).
@@ -109,3 +113,31 @@ def error_envelope(error_class: str, reason: str, stage: str, identities: dict) 
 def to_canonical(obj: dict) -> bytes:
     """Serialize under the frozen canonical profile (coh-dec-03)."""
     return canon.canon(obj)
+
+
+def emit(path: str, payload: bytes) -> None:
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    Path(path).write_bytes(payload)
+
+
+def emit_with_fallback(out_dir: str, payload: bytes) -> str:
+    """Write the canonical payload, falling back to a temp location.
+
+    The error paths must never depend on the same directory that just failed:
+    if `out_dir` is unwritable (a regular file, read-only, or nested under a
+    file) writing there raises and the process dies with a traceback instead of
+    returning the documented exit code (audit round 2, B1 — this made exit 33
+    unreachable).
+    """
+    try:
+        emit(f"{out_dir}/result.json", payload)
+        return out_dir
+    except OSError:
+        # The envelope must remain findable: announce the fallback location on
+        # stderr so the operator holding exit 33 can locate the payload
+        # (round-3 audit: an unfound envelope only half-meets the criterion).
+        fallback = tempfile.mkdtemp(prefix="devgate-coherence-")
+        emit(f"{fallback}/result.json", payload)
+        print(f"result written to fallback location: {fallback}/result.json",
+              file=sys.stderr)
+        return fallback

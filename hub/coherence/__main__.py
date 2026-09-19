@@ -15,15 +15,16 @@ family.
 import argparse
 import json
 import sys
-import tempfile
 from functools import lru_cache
 from pathlib import Path
 
-from . import (adoption, context, evaluate, evidence, manifest, package, plan,
-               policy, result, schemacheck)
+from . import (adoption, container_exec, context, evaluate, evidence, manifest,
+               package, plan, policy, result, schemacheck)
 
 SCHEMA_DIR = Path(__file__).resolve().parent.parent.parent / \
     "openspec/changes/devgate-spec-coherence-service/schemas"
+PROFILE_REGISTRY = Path(__file__).resolve().parent.parent.parent / \
+    "container/execution-profiles.json"
 
 
 @lru_cache(maxsize=8)
@@ -31,38 +32,10 @@ def _schema(name: str) -> dict:
     return json.loads((SCHEMA_DIR / name).read_text())
 
 
-def _emit(path: str, payload: bytes) -> None:
-    Path(path).parent.mkdir(parents=True, exist_ok=True)
-    Path(path).write_bytes(payload)
-
-
-def _emit_with_fallback(out_dir: str, payload: bytes) -> str:
-    """Write the envelope, falling back to a temp location.
-
-    The error paths must never depend on the same directory that just failed:
-    if `out_dir` is unwritable (a regular file, read-only, or nested under a
-    file) writing there raises and the process dies with a traceback instead of
-    returning the documented exit code (audit round 2, B1 — this made exit 33
-    unreachable).
-    """
-    try:
-        _emit(f"{out_dir}/result.json", payload)
-        return out_dir
-    except OSError:
-        # The envelope must remain findable: announce the fallback location on
-        # stderr so the operator holding exit 33 can locate the payload
-        # (round-3 audit: an unfound envelope only half-meets the criterion).
-        fallback = tempfile.mkdtemp(prefix="devgate-coherence-")
-        _emit(f"{fallback}/result.json", payload)
-        print(f"result written to fallback location: {fallback}/result.json",
-              file=sys.stderr)
-        return fallback
-
-
 def _fail(out_dir: str, error_class: str, reason: str, stage: str,
           identities: dict) -> int:
     env = result.error_envelope(error_class, reason, stage, identities)
-    _emit_with_fallback(out_dir, result.to_canonical(env))
+    result.emit_with_fallback(out_dir, result.to_canonical(env))
     _, code = result.decide([], 0, error_class=error_class)
     return code
 
@@ -254,7 +227,7 @@ def run(request_path: str) -> int:
     # decision was computed but result.json cannot be written (occupied by a
     # directory, dir flipped read-only after seal), the payload lands beside
     # the request with an stderr announcement — never exit 1 + traceback.
-    _emit_with_fallback(out_dir, result.to_canonical(res))
+    result.emit_with_fallback(out_dir, result.to_canonical(res))
     _, code = result.decide(ledger, ctx["stage"], blocked=adoption_out["blocked"])
     return code
 
@@ -273,7 +246,16 @@ def _load_assertions(openspec_root: str) -> list:
 def main() -> int:
     ap = argparse.ArgumentParser(prog="hub.coherence")
     ap.add_argument("--request", required=True, help="Path to request JSON")
+    ap.add_argument("--launch-config",
+                    help="Host-side containerized execution: validate the "
+                         "launch config against the execution-profile "
+                         "registry, run the evaluation inside the pinned "
+                         "image, and map launch failures to the exit-code "
+                         "contract (coh-rt-05/07, coh-dec-04)")
     args = ap.parse_args()
+    if args.launch_config:
+        return container_exec.run_containerized(
+            args.request, args.launch_config, str(PROFILE_REGISTRY))
     return run(args.request)
 
 
