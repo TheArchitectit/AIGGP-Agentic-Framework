@@ -8,7 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **Spec coherence service** (`hub/coherence/` + `container/`) — turns an
+- **Test-suite hardening** (`harden-test-suite`) — the coherence golden
+  vectors are load-bearing: `compute_golden.py` imports the real canon module
+  (verified byte-identical) and `test_hub_coherence_golden.py` asserts the
+  frozen vectors plus the profile-rejection contract; a collection-floor
+  meta-test fails when discovered test files shrink (the F12 class);
+  chmod-based exit-33 tests skip under root; regression-check fixtures moved
+  out of the repo tree.
+- **Runner monitor hub** (`hub/coherence/` + `container/`) — turns an
   OpenSpec package + policy + signed evaluation context into a canonical,
   deterministic accept/reject decision with sealed evidence and a frozen
   exit-code matrix (0 PASS / 10 ADVISORY / 20 FAIL / 30-40 ERROR classes).

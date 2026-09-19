@@ -84,6 +84,9 @@ class TestExitCodeSweep(unittest.TestCase):
         with self.assertRaises(evidence.EvidenceError):
             evidence.seal(findings, "/proc/definitely/not/writable")
 
+    @unittest.skipIf(hasattr(os, "geteuid") and os.geteuid() == 0,
+                     "running as root: chmod-based unwritable dirs are writable, "
+                     "so the exit-33 shapes cannot be exercised")
     def test_33_reachable_through_the_real_cli(self):
         """B1 (audit round 2): exit 33 was UNREACHABLE via the CLI — the error
         path wrote its envelope into the same unwritable directory that had
@@ -138,6 +141,9 @@ class TestEnvelopeHonestyIndep(unittest.TestCase):
     """Round-3-independent items 1-5: caller-reachable inputs that killed the
     process with exit 1 + traceback instead of a documented envelope."""
 
+    @unittest.skipIf(hasattr(os, "geteuid") and os.geteuid() == 0,
+                     "running as root: chmod-based unwritable dirs are writable, "
+                     "so the exit-33 shapes cannot be exercised")
     def test_zero_findings_unwritable_out_is_exit33(self):
         """Item 1: the fully-PASS shape has no findings, so the manifest write
         was the only seal write — and it was outside the try/except. The

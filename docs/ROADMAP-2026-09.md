@@ -144,13 +144,20 @@ independent of each other and can run in parallel once Phase 1 lands.
 | `fix-vacuous-and-broken-gates` | P0 | **landed** — C1-C4/C6/C7, H6/H8 and two new vacuous-green defects closed; 7 regression tests + 2 fixture harnesses added | `8a797b2` |
 | `add-framework-ci-pipeline` | P0 | **landed** — CI runs the suite + self-gates + spec counts + image build; container smoke on the fleet remains publish-gated | `0346fd8` |
 | `harden-security-boundaries` | P1 | **landed** — containment, SIGTERM, enroll atomicity, body cap, hashed tokens, monitor field fixes, container reaper, supply-chain pins, canonical quadlet secrets | `756c1d7` |
-| `migrate-specs-to-openspec-conventions` | P1 | not started | — |
-| `consolidate-shared-gate-logic` | P2 | not started (root-detection contract already unified) | — |
-| `docs-and-data-truth-pass` | P2 | not started | — |
-| `harden-test-suite` | P2 | partially pre-paid (tests/__init__, conftest, new suites); task list open | — |
+| `migrate-specs-to-openspec-conventions` | P1 | **landed + archived** — 26/26 strict, both parsers agree, game specs dispositioned, ceremony codified | this branch |
+| `consolidate-shared-gate-logic` | P2 | **OPEN — the one remaining package.** Root-detection contract unified; 3 overlay merges, 4 glob engines, 5 SKIP_DIRS, annotation parity matrix remain. Deliberately left for a focused follow-up: structural refactor, best not rushed | — |
+| `docs-and-data-truth-pass` | P2 | **landed** — allowlist decontaminated, README whole-repo truth, schema-health config surface, AGENTS overlay consistency, CHANGELOG normalized | this branch |
+| `harden-test-suite` | P2 | **landed** — golden vectors load-bearing (F13), collection-floor meta-test, root-skip guards, tmp-dir fixtures; clock seams deferred with rationale | this branch |
 
 Verification at `756c1d7`: `pytest` 410 passed / 7 skipped; both JS fixture
 suites and the shell harness green; self-gates (guardrails, registry hygiene,
 silent-success, regression `--base origin/main`) clean; failure registry
 FAIL-2026091901..12 resolved with prevention patterns; every package's
 tasks.md checked except items marked environment-gated above.
+
+**Final state (audit branch, 2026-09-19):** 7 of 8 packages landed and
+archived where applicable; `openspec validate --all --strict` 26/26;
+traceability no-regression verified; 415+ tests green; every fix locked by a
+test that fails on the old behavior; failure registry FAIL-2026091901..12
+resolved; deferred items (clock seams, hub/main env-wiring tests, arm64+
+publish, 1.3.0 release cut) recorded with owners or rationale, never dropped.

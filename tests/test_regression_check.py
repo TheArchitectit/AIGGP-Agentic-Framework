@@ -228,7 +228,9 @@ def test_empty_pattern_is_skipped():
 
 def test_resolved_entries_are_enforced_active_only_for_advisory(tmp_path=None):
     """Patterns enforce active+resolved; the advisory list stays active-only."""
-    reg = Path(__file__).resolve().parent / "_tmp_registry.jsonl"
+    import tempfile
+    _td = tempfile.mkdtemp(prefix="dg-regcheck-")
+    reg = Path(_td) / "_tmp_registry.jsonl"
     reg.write_text(
         '{"failure_id":"F1","status":"resolved","regression_pattern":"x"}\n'
         '{"failure_id":"F2","status":"active","regression_pattern":"y"}\n'
@@ -358,7 +360,8 @@ def test_one_blocking_entry_amid_advisories_blocks():
 
 def test_hard_size_blocks_touched_but_warns_untouched(tmp_path=None):
     """Oversize files: touched => error, untouched => warning (legacy debt)."""
-    root = Path(__file__).resolve().parent / "_tmp_sizes"
+    import tempfile
+    root = Path(tempfile.mkdtemp(prefix="dg-sizes-"))
     src = root / "src"
     src.mkdir(parents=True, exist_ok=True)
     big_a = src / "touched.py"
