@@ -185,9 +185,16 @@ Sprint work:
   (`sha256:78387bc3…`, resolved via registry `Docker-Content-Digest`, confirmed by pull); image built
   `--timestamp 0` → amd64 manifest `sha256:5e73b5bd…` recorded with the base index digest in
   `container/execution-profiles.json` (strict schema, in the frozen schemas dir since `e9e200b`).
-  `hub/coherence/profiles.py` loads/shape-checks the registry and cross-checks launch digests. OPEN: arm64
-  platform entry (needs emulation or a runner build) and the publish-to-registry step; single-platform build
-  honestly records no service-image index digest.
+  `hub/coherence/profiles.py` loads/shape-checks the registry and cross-checks launch digests. arm64 entry +
+  publish step: NOT materializable on this host (2026-09-18, verified — no qemu user-mode emulation installed
+  and the Containerfile's `RUN groupadd/useradd` requires target-arch execution, so a cross-arch build fails
+  with exit 125/exec-format). Explicit unblock paths, both requiring actions the lead will not take
+  unilaterally: (a) install `qemu-user-static` + register binfmt (system-level change), or (b) build on an
+  arm64 runner with `--timestamp 0` and append the manifest digest to `container/execution-profiles.json`;
+  publish additionally needs the registry choice + credentials (architect/OD decision, external shared
+  state). The REACHABLE normative half is complete and tested: coh-id-04's MUST-distinguish identity fields,
+  the undeclared-profile rejection before assertions (exit 30, never PASS), strict registry schema, and the
+  cross-architecture equivalence machinery — a second platform can be appended without further code.
 - [x] Launcher-validated isolation: non-root, read-only root/inputs, dropped capabilities, no host sockets/network; launcher rejects violating configs; self-report not trusted (coh-rt-01, coh-rt-02).
   PROGRESS 2026-09-18: `hub/coherence/launcher.py` (271 lines) validates every rejection class, requires the
   platform manifest digest, and `run()` executes the derived invocation under the time/output limits.
