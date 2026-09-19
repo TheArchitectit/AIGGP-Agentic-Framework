@@ -11,7 +11,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from hub.coherence import context, issue, report
+from hub.coherence import attest, context, issue, report
 from hub.coherence import result
 from tests.fixtures.coherence import fixtures as fx
 
@@ -94,6 +94,23 @@ class TestIssuance(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             with self.assertRaises(ValueError):
                 self._issue(Path(td), baseline_set=["not", "entries"])
+
+    def test_signer_set_bind_produces_the_context_digest(self):
+        """Round-11 follow-up: coh-ctx-05's cache consumes a context's
+        signer_set_digest, but the issuance path that writes it
+        (issue_context(signer_set=...)) had never been exercised — it raised
+        CanonError: unknown digest role tag 'signer-set/v1'. The context must
+        carry the same digest attest.signer_set_digest computes from the set,
+        so the signer-validity gate the cache consults is actually wired."""
+        with tempfile.TemporaryDirectory() as td:
+            base = Path(td)
+            ss_path = base / "signers.json"
+            set_doc = fx.signer_set("a" * 64)
+            ss_path.write_text(json.dumps(set_doc))
+            self._issue(base, signer_set=str(ss_path))
+            ctx = json.loads((base / "ctx" / "context.json").read_text())
+            self.assertEqual(ctx["signer_set_digest"],
+                             attest.signer_set_digest(set_doc))
 
     def test_empty_reason_exception_rejected_at_issuance(self):
         """Round-5 finding 2 at the set door: exception.schema.json declares

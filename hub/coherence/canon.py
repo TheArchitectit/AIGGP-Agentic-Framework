@@ -20,6 +20,9 @@ ROLE_TAGS = frozenset({
     "evidence-manifest/v1",
     "decision/v1",
     "file/v1",
+    # Domain separation: a signer set is its own identity — attest's
+    # signer_set_digest must not be conflatable with any other role's digest.
+    "signer-set/v1",
 })
 
 
