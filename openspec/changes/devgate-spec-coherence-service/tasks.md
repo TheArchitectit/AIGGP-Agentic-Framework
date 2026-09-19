@@ -209,7 +209,18 @@ Sprint work:
   (seal-then-rename inside scratch → /output) — needs the evaluate/seal path wired to the container.
 - [ ] Default-deny egress with capture-step grants; captured responses become context facts (coh-rt-03, coh-ctx-04).
 - [ ] Scoped secret injection + redaction tests (coh-rt-04).
-- [ ] Built-in evaluator allowlist enforcement: repository-supplied executable rejected (coh-rt-06).
+- [x] Built-in evaluator allowlist enforcement: repository-supplied executable rejected (coh-rt-06).
+  CLOSED 2026-09-18 (`665344b`): enforced at the PLANNER (`plan.py`), matching the normative scenario's
+  placement ("WHEN
+  the planner resolves evaluators, THEN the reference is rejected") — a non-builtin `evaluator.id` is
+  PlanError → invalid-input/exit 30 at any stage; execution remains decided solely by the `BUILTINS` lookup,
+  the claimed evaluator digest stays declaration-only (never authority, mirroring coh-pol-02); malformed
+  evaluator shapes are PlanError, not TypeError. `evaluate.run` keeps its `unapproved-evaluator` →
+  UNRESOLVED fallback as defense in depth for direct unplanned calls. Tests: planner accepts all built-ins,
+  rejects repo-supplied ids, rejects overlay-swapped ids even with an empty central approved list, rejects
+  malformed shapes; the old repo.evil→UNRESOLVED/ADVISORY/FAIL pins were re-pointed at the new normative
+  behavior (empty-selector vehicle preserves the stage-blocking property they actually pinned). 1 mutation
+  (strip the allowlist) killed by 4 tests.
 - [ ] Isolation test suite against the approved launcher and supported sandbox, not Dockerfile inspection alone.
   PROGRESS 2026-09-18: real-Podman tests exist at two levels — image smoke under the enforced flag set, and
   `run()` tests executing the launcher-derived args (overflow kill, mocked-deadline kill, args-actually-run).
