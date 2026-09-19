@@ -502,7 +502,11 @@ class TestFixtureF_EvidenceTamper(unittest.TestCase):
                 "observed": "other", "evidence_refs": [],
             }]
             digest = evidence.seal(findings, td)
-            (Path(td) / "evidence" / "findings" / "a1.json").write_text('{"tampered":1}')
+            # Object names are content-derived (one file per finding): resolve
+            # the real path from the manifest so the tamper lands on the sealed
+            # bytes instead of creating a stray file the bundle ignores.
+            m = json.loads((Path(td) / "evidence-manifest.json").read_text())
+            (Path(td) / m["objects"][0]["path"]).write_text('{"tampered":1}')
             self.assertFalse(evidence.verify(td, digest))
 
     def test_manifest_tamper_fails_verification(self):

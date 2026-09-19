@@ -382,8 +382,13 @@ class TestEvidence(unittest.TestCase):
                 "observed": "other", "evidence_refs": [],
             }]
             digest = evidence.seal(findings, td)
-            # Tamper with the sealed finding.
-            p = Path(td) / "evidence" / "findings" / "a1.json"
+            # Tamper with the sealed finding. Object names are content-derived
+            # (one file per finding), so resolve the path from the manifest
+            # rather than reconstructing it — a guessed name would silently
+            # create a stray file and leave the real object untouched.
+            manifest = json.loads((Path(td) / "evidence-manifest.json").read_text())
+            p = Path(td) / manifest["objects"][0]["path"]
+            self.assertTrue(p.is_file(), "manifest must point at a real object")
             p.write_text('{"tampered":true}')
             self.assertFalse(evidence.verify(td, digest))
 

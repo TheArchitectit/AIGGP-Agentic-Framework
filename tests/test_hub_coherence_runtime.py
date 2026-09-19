@@ -204,10 +204,17 @@ class TestSecretRedactionAtSeal(unittest.TestCase):
         "evidence_refs": [],
     }]
 
+    def _sealed_object(self, td):
+        """The single sealed evidence object's text, resolved through the
+        manifest (object names are content-derived, not reconstructible)."""
+        m = json.loads((Path(td) / "evidence-manifest.json").read_text())
+        self.assertEqual(len(m["objects"]), 1)
+        return (Path(td) / m["objects"][0]["path"]).read_text()
+
     def test_secret_scrubbed_before_sealing(self):
         with tempfile.TemporaryDirectory() as td:
             digest = evidence.seal(self.FINDINGS, td, redact=["super-secret-123"])
-            sealed = (Path(td) / "evidence" / "findings" / "a1.json").read_text()
+            sealed = self._sealed_object(td)
             self.assertNotIn("super-secret-123", sealed)
             self.assertIn("[REDACTED]", sealed)
             self.assertTrue(evidence.verify(td, digest))
@@ -220,14 +227,17 @@ class TestSecretRedactionAtSeal(unittest.TestCase):
                     evidence.seal(self.FINDINGS, td, redact=["super-secret-123"])
             self.assertIn("unredacted-secret-in-sealed-evidence",
                           str(cm.exception))
-            self.assertFalse(
-                (Path(td) / "evidence" / "findings" / "a1.json").exists(),
-                "a failed seal must not leave canonical evidence bytes")
+            # Assert over the directory, not one filename: a hardcoded name
+            # would pass vacuously once the real object is named differently.
+            leftover = list((Path(td) / "evidence" / "findings").glob("*.json")) \
+                if (Path(td) / "evidence" / "findings").is_dir() else []
+            self.assertEqual(leftover, [],
+                             "a failed seal must not leave canonical evidence bytes")
 
     def test_no_redact_values_unchanged(self):
         with tempfile.TemporaryDirectory() as td:
             evidence.seal(self.FINDINGS, td)
-            sealed = (Path(td) / "evidence" / "findings" / "a1.json").read_text()
+            sealed = self._sealed_object(td)
             self.assertIn("token=super-secret-123", sealed,
                           "without a granted-value list nothing is invented "
                           "to redact")
@@ -250,9 +260,15 @@ class TestAtomicArtifactExport(unittest.TestCase):
             with mock.patch("os.replace", side_effect=OSError("killed mid-export")):
                 with self.assertRaises(evidence.EvidenceError):
                     evidence.seal(self.FINDINGS, td)
-            self.assertFalse(
-                (Path(td) / "evidence" / "findings" / "a1.json").exists(),
-                "partial evidence bytes must not sit at the canonical path")
+            # Over the directory, not a hardcoded name: object names are
+            # content-derived now, so `a1.json` never exists and asserting on
+            # it would pass vacuously without proving the canonical bytes are
+            # absent. os.replace is patched to always fail, so no rename ever
+            # lands; the findings dir must hold nothing.
+            findings = Path(td) / "evidence" / "findings"
+            leftover = list(findings.glob("*.json")) if findings.is_dir() else []
+            self.assertEqual(leftover, [],
+                             "partial evidence bytes must not sit at a canonical path")
             self.assertFalse((Path(td) / "evidence-manifest.json").exists())
 
     def test_interrupted_result_emit_leaves_no_canonical_partial(self):

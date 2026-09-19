@@ -5,15 +5,49 @@ file, then rename onto the canonical path (coh-rt-07 — a canonical path never
 holds partial bytes; a partial temp fragment is never a decision). Granted
 secret values are redacted before sealing (coh-rt-04); an unredacted secret in
 sealed evidence is an evidence ERROR, never a silent seal.
+
+One file per finding, and every path inside the bundle: the engine emits
+zero-or-many findings per assertion (design.md section 8), so naming objects by
+assertion id alone would let each finding after the first overwrite the
+previous bytes while keeping its own digest, and `verify` would then reject a
+legitimately sealed bundle. Both the id that names a file and the manifest path
+read back from disk are boundary inputs and are bounded here.
 """
 import json
+import re
 from pathlib import Path
 
 from . import canon, result
 
+# The assertion-id grammar already frozen in assertion.schema.json:10. That
+# schema is not loaded at runtime and plan._check_assertion never checks the id
+# shape, so seal — the last gate before any write — enforces it.
+_ASSERTION_ID_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
+# Hex chars of an object's own digest used to name its file: content-derived,
+# so stable across repeats and independent of finding order.
+_NAME_DIGIT_CHARS = 16
+
 
 class EvidenceError(RuntimeError):
     """Evidence sealing failure (exit-33 class)."""
+
+
+def _contained(out: Path, rel) -> Path:
+    """Resolve a bundle-relative artifact path, refusing anything landing
+    outside the bundle.
+
+    Both directions cross a boundary: `seal` builds the name from a
+    repository-declared assertion id, `verify` reads a `path` field out of a
+    manifest a tamperer may have edited. resolve() collapses `..` and follows
+    symlinks, so neither can name a file beyond the run directory.
+    """
+    if not isinstance(rel, str) or not rel:
+        raise EvidenceError("evidence-path-malformed")
+    root = out.resolve()
+    p = (out / rel).resolve()
+    if root not in p.parents:
+        raise EvidenceError(f"evidence-path-out-of-bounds:{rel}")
+    return p
 
 
 def redact_values(obj, values: list):
@@ -47,8 +81,11 @@ def seal(findings: list, output_dir: str, redact: list = None) -> str:
     values = [r for r in (redact or []) if isinstance(r, str) and r]
     objects = []
     for f in findings:
+        aid = f["assertion_id"]
+        if not isinstance(aid, str) or not _ASSERTION_ID_RE.match(aid):
+            raise EvidenceError(f"bad-assertion-id:{aid!r}")
         ev = {
-            "assertion_id": f["assertion_id"],
+            "assertion_id": aid,
             "finding_key": f["finding_key"],
             "subject_locations": f["subject_locations"],
             "expected": f["expected"],
@@ -61,7 +98,10 @@ def seal(findings: list, output_dir: str, redact: list = None) -> str:
         if any(r in payload.decode("utf-8") for r in values):
             raise EvidenceError("unredacted-secret-in-sealed-evidence")
         digest = canon.digest_bytes("evidence-manifest/v1", payload)
-        rel = f"evidence/findings/{f['assertion_id']}.json"
+        # The digest suffix is what makes one-file-per-finding hold: two
+        # findings of one assertion differ in content, so they differ in name.
+        rel = f"evidence/findings/{aid}--{digest[7:7 + _NAME_DIGIT_CHARS]}.json"
+        _contained(out, rel)
         try:
             result.emit(str(out / rel), payload)
         except OSError as e:
@@ -98,8 +138,14 @@ def verify(output_dir: str, expected_manifest_digest: str) -> bool:
     except (OSError, json.JSONDecodeError):
         return False
     for obj in manifest.get("objects", []):
-        fp = out / obj["path"]
-        if not fp.exists():
+        # The manifest path is attacker-influenceable; a path that escapes the
+        # bundle is a verification failure, never a window to read outside it
+        # (verify's boolean is otherwise a content-matches-digest oracle).
+        try:
+            fp = _contained(out, obj.get("path"))
+        except EvidenceError:
+            return False
+        if not fp.is_file():
             return False
         if canon.digest_bytes("evidence-manifest/v1", fp.read_bytes()) != obj["digest"]:
             return False
