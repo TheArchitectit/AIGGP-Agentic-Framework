@@ -261,11 +261,11 @@ Sprint work:
   malformed shapes; the old repo.evil→UNRESOLVED/ADVISORY/FAIL pins were re-pointed at the new normative
   behavior (empty-selector vehicle preserves the stage-blocking property they actually pinned). 1 mutation
   (strip the allowlist) killed by 4 tests.
-- [ ] Isolation test suite against the approved launcher and supported sandbox, not Dockerfile inspection alone.
-  PROGRESS 2026-09-18: real-Podman tests exist at two levels — image smoke under the enforced flag set, and
-  `run()` tests executing the launcher-derived args (overflow kill, mocked-deadline kill, args-actually-run).
-  OPEN: capture/secret/allowlist failure-injection tests land with their items; full suite green on supported
-  runners is the S4 gate.
+- [x] Isolation test suite against the approved launcher and supported sandbox, not Dockerfile inspection alone.
+  CLOSED 2026-09-18: two real-Podman levels (image smoke under the enforced flag set; `run()` tests executing
+  the launcher-derived args — overflow kill, mocked-deadline kill, args-actually-run against the REAL local
+  image) plus the capture/secret/allowlist failure-injection tests; full suite green (351) on the supported
+  linux/amd64 runner and confirmed by the round-7 independent audit. arm64 stays environment-gated (below).
 
 **Round-6 independent audit (2026-09-18, fresh session, pin `5ea1535`): REJECT — remediated same day at
 `e9e200b`, rides into the next audit round.** Validation half was confirmed solid (all rejection classes
@@ -297,6 +297,38 @@ live-tested, 6/6 mutations killed). Findings and dispositions:
   (`--all`), guardrails exit 0, traceability 54/100. Launcher 271 lines, launcher tests 369 — within budgets.
   5/5 new-guard mutations caught on /tmp copies (overflow cap, deadline, nofile set, manifest requirement,
   `/run` bound).
+
+**Round-7 independent audit (2026-09-18, fresh Sonnet session, pin `1e05dcd`): PASS — findings remediated
+same day, ride into the next audit round.** Battery confirmed (pytest 345 green; guardrails exit 0 with
+1 pre-existing non-blocking warning; traceability 57/100 advisory; strict validate valid); all 10 mutation
+claims independently reproduced and killed; 7 adversarial inputs constructed. Findings and dispositions:
+- [MEDIUM] `tests/test_hub_coherence.py` crossed the 600-line test hard limit across in-scope commits
+  (`665344b`, `7d9e635` took it 575 → 665) → **FIXED**: the size gate's report said ERROR all along, but
+  plain `--all` only fails on size violations under `--pre-commit`, so "exit 0" was a false green. The
+  battery now reads the FILE-SIZE report; the file is back to 575 (planner-allowlist tests →
+  `test_hub_coherence_allowlist.py`, atomic-export tests → `test_hub_coherence_runtime.py`).
+- [MEDIUM] `_validate_mounts` accepted duplicate mount targets and symlink sources while the root rewriter
+  matched on realpath — a config that passed validation could fail (or bind elsewhere) at run → **FIXED**:
+  `duplicate-mount-target:<t>` rejection; sources realpath-normalized at validation, so validation, the
+  rewrite prefix-match, and the podman `-v` bind share one path identity.
+- [MEDIUM] the exit-code agreement checked `decision` but not a contradictory `error` field — exit 0 with
+  `{"decision":"PASS","error":{...}}` relayed as PASS → **FIXED**: success-family exits (0/10/20) whose
+  bundle carries a non-null error field are exit-32 disagreements (coh-dec-01: never permissive).
+- [MEDIUM] the driver staged the request into any caller-declared `outputs`, including a directory inside
+  an input mount source — writing into the very tree under evaluation → **FIXED**:
+  `outputs-inside-mount-source:<src>` rejected before staging.
+- [LOW] socket detection was lexical (`.sock` suffix) → **FIXED**: `stat.S_ISSOCK` via lstat — a Unix socket
+  named `mysock` is rejected, a regular file named `docker.sock` is not.
+- [adversarial] `evaluate.run` raises TypeError on a list evaluator id when called directly, bypassing the
+  planner → **NO CHANGE**: unreachable through the frozen entry point — `__main__.run` always plans first
+  and the planner rejects non-dict/non-str evaluator shapes as exit 30; a regression case for the list
+  shape was added to the malformed-shape planner test. The planner is the assertion-shape boundary;
+  `evaluate.run` trusts planned input by design.
+- [adversarial] the staged request write was non-atomic (`write_text`) → **FIXED**: staged through
+  `result.emit` (fsync + rename); a spy test pins the atomic path.
+- Battery after remediation: pytest 351 green; size report 0 hard violations; guardrails exit 0;
+  traceability 57/100; strict validate valid. 6/6 new-guard mutations killed on /tmp copies (duplicate
+  targets, S_ISSOCK, realpath normalization, outputs overlap, error-field agreement, atomic staging).
 
 **Gate:** isolation suite green on supported runners. **Blocks:** S6 enforced pilots.
 
