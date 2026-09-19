@@ -44,8 +44,17 @@ if ! [[ "$NEW_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
 fi
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PROJECT_ROOT="$(cd "$ROOT/.." && pwd)"
-cd "$ROOT"
+# Layout detection (fix-vacuous-and-broken-gates, QA C7): the old line
+# unconditionally assumed the submodule layout, so a standalone DevGate clone
+# resolved PROJECT_ROOT to the repo's PARENT and the clean-tree gate aborted
+# claiming unstaged changes (git diff on a non-repo exits 128). Same contract
+# as detect-host-ci.py and guardrails-scan.mjs.
+if [[ "$(basename "$ROOT")" == ".devgate" ]]; then
+	PROJECT_ROOT="$(cd "$ROOT/.." && pwd)"
+else
+	PROJECT_ROOT="$ROOT"
+fi
+cd "$PROJECT_ROOT"
 
 echo "[deploy] DevGate publish pipeline → v$NEW_VERSION"
 echo "[deploy] DevGate dir: $ROOT"
@@ -61,12 +70,24 @@ if ! git -C "$PROJECT_ROOT" diff --cached --quiet; then
 	echo "[deploy] ERROR: index has staged but uncommitted changes." >&2
 	exit 1
 fi
+# Untracked files were previously invisible to the clean-tree gate — the
+# release commit's `git add -A` then swept in whatever happened to be lying
+# around (build droppings, scratch notes) into an immutable tagged release.
+UNTRACKED="$(git -C "$PROJECT_ROOT" ls-files --others --exclude-standard | head -5)"
+if [ -n "$UNTRACKED" ]; then
+	echo "[deploy] ERROR: untracked files present (would be swept into the release commit by git add -A):" >&2
+	printf '%s\n' "$UNTRACKED" >&2
+	echo "[deploy] commit, add to .gitignore, or remove them." >&2
+	exit 1
+fi
 echo "[deploy] git tree clean."
 
 # --- 2. full gate -------------------------------------------------------------
 echo "[deploy] running gate: regression + guardrails"
 
-# Run regression check (auto-detects project root and package manager)
+# Run regression check. Script-location anchoring (QA C7 fix) resolves the
+# PROJECT tree — the same tree guardrails-scan below evaluates. A release must
+# gate the code being published, not the gate framework itself.
 python3 "$ROOT/scripts/regression_check.py" --all --pre-commit || {
 	echo "[deploy] FAIL: regression check failed — aborting deploy"
 	exit 1
@@ -104,8 +125,17 @@ else
 fi
 
 # --- 3. schema health (if configured) -----------------------------------------
+# Blocking when a database contract is configured (RELEASE_GATE lists it as a
+# gate; its own report says "Deploy blocked"): a schema failure must not
+# publish. Unconfigured (DB_ADAPTER="none", the default) exits 0, so non-DB
+# projects are unaffected — a skip is green-by-design, never a suppressed
+# failure.
 if [ -f "$ROOT/scripts/schema-health-check.mjs" ]; then
-	node "$ROOT/scripts/schema-health-check.mjs" && echo "[deploy] schema health OK." || { echo "[deploy] WARN: schema check skipped or failed (non-blocking for non-DB projects)"; }
+	node "$ROOT/scripts/schema-health-check.mjs" || {
+		echo "[deploy] FAIL: schema health check failed — aborting deploy"
+		exit 1
+	}
+	echo "[deploy] schema health OK."
 fi
 
 echo "[deploy] gate complete."
@@ -346,7 +376,19 @@ elif [ -f "Cargo.toml" ]; then
 	cargo publish
 elif [ -f "pyproject.toml" ] || [ -f "setup.py" ]; then
 	echo "[deploy] publishing to PyPI"
-	python3 -m twine upload dist/* 2>/dev/null || python3 -m build && python3 -m twine upload dist/*
+	# H7 fix: the old line — `twine upload dist/* 2>/dev/null || python3 -m
+	# build && twine upload dist/*` — parsed as (A || B) && C, so a SUCCESSFUL
+	# first upload was followed by a second upload of the same files; twine
+	# rejected the duplicate and set -e aborted AFTER the immutable publish.
+	# `2>/dev/null` also hid the real error. Now: upload the just-released
+	# version's artifacts only (PyPI filenames embed the version — a stale
+	# dist/ can never be re-published); on failure, build once and retry
+	# with visible stderr; a second failure aborts the pipeline loudly.
+	if ! python3 -m twine upload "dist"/*-"$NEW_VERSION"* 2>&1; then
+		echo "[deploy] twine upload failed — building sdist/wheel and retrying once" >&2
+		python3 -m build
+		python3 -m twine upload "dist"/*-"$NEW_VERSION"*
+	fi
 else
 	echo "[deploy] no recognized package manager — tag v$NEW_VERSION is pushed. Publish manually if needed."
 fi

@@ -29,7 +29,14 @@ def _detect_package_manager(repo_root: Path) -> str | None:
 
 
 def check_npm_audit(repo_root: Path) -> tuple[int, int, list[dict]]:
-    """Run npm audit if the project uses npm. Non-blocking if not present."""
+    """Run npm audit if the project uses npm. Non-blocking if not present.
+
+    Failure honesty (fix-vacuous-and-broken-gates, QA C6-adjacent): npm
+    missing, a timeout, empty output, or unparseable JSON previously returned
+    (0, 0, []) — indistinguishable from "no vulnerabilities". Those now
+    surface as a warning-headed issue list so the report says what actually
+    happened instead of printing a green "no vulnerabilities found".
+    """
     pkg_manager = _detect_package_manager(repo_root)
     if pkg_manager != "npm":
         return (0, 0, [])  # Skip for non-npm projects
@@ -37,16 +44,28 @@ def check_npm_audit(repo_root: Path) -> tuple[int, int, list[dict]]:
     try:
         result = subprocess.run(["npm", "audit", "--json"], capture_output=True,
                                 text=True, cwd=str(repo_root), timeout=120)
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        return (0, 0, [])
+    except FileNotFoundError:
+        return (0, 1, [{"name": "npm-audit-unavailable", "severity": "warning",
+                        "is_runtime": False, "advisory": "npm not found",
+                        "fix_available": False, "effects": []}])
+    except subprocess.TimeoutExpired:
+        return (0, 1, [{"name": "npm-audit-timeout", "severity": "warning",
+                        "is_runtime": False, "advisory": "npm audit timed out after 120s",
+                        "fix_available": False, "effects": []}])
 
     raw = result.stdout.strip()
     if not raw:
-        return (0, 0, [])
+        return (0, 1, [{"name": "npm-audit-empty", "severity": "warning",
+                        "is_runtime": False,
+                        "advisory": f"npm audit produced no output (exit {result.returncode})",
+                        "fix_available": False, "effects": []}])
     try:
         audit = json.loads(raw)
     except json.JSONDecodeError:
-        return (0, 0, [])
+        return (0, 1, [{"name": "npm-audit-unparseable", "severity": "warning",
+                        "is_runtime": False,
+                        "advisory": "npm audit output was not valid JSON",
+                        "fix_available": False, "effects": []}])
 
     pkg_path = repo_root / "package.json"
     runtime_deps: set[str] | None = set()
@@ -61,7 +80,18 @@ def check_npm_audit(repo_root: Path) -> tuple[int, int, list[dict]]:
     for name, info in vuln_map.items():
         severity = str(info.get("severity", "unknown")).lower()
         effects = info.get("effects") or []
-        is_runtime = any(eff in (runtime_deps or set()) for eff in effects) if runtime_deps is not None else True
+        # QA C6 fix: npm's `effects` lists a vulnerability's DEPENDENTS and is
+        # [] for a direct dependency, so `any(eff in runtime_deps ...)` classified
+        # a HIGH vuln in a direct runtime dependency as dev-only (verified live:
+        # lodash@4.17.15, isDirect=true, effects=[]). The direct signal is npm's
+        # own isDirect flag; for transitive vulns, an effect chain reaching a
+        # runtime dependency still makes it runtime-reachable.
+        is_direct = bool(info.get("isDirect"))
+        is_runtime = (
+            is_direct
+            or (name in runtime_deps if runtime_deps is not None else True)
+            or any(eff in (runtime_deps or set()) for eff in effects)
+        ) if runtime_deps is not None else True
         issues.append({"name": name, "severity": severity, "is_runtime": is_runtime,
                        "advisory": str(info.get("via", ""))[:80],
                        "fix_available": bool(info.get("fixAvailable")), "effects": effects})

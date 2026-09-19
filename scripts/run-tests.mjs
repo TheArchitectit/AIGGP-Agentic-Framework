@@ -16,29 +16,25 @@
  */
 
 import { spawn } from "node:child_process";
-import { readdirSync, statSync, mkdtempSync, rmSync, mkdirSync, existsSync } from "node:fs";
-import { join, relative, resolve, basename, extname } from "node:path";
+import { readdirSync, lstatSync, mkdtempSync, rmSync, existsSync } from "node:fs";
+import { join, relative, resolve, basename, extname, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import os from "node:os";
 
-const DEVGATE_ROOT = join(fileURLToPath(import.meta.url), "..", "..");
+const DEVGATE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
-// Auto-detect project root (parent of .devgate/)
-function findProjectRoot(startDir) {
-	let dir = startDir;
-	for (let i = 0; i < 10; i++) {
-		for (const marker of ["package.json", "Cargo.toml", "pyproject.toml", "setup.py", "go.mod", "project.godot", ".git"]) {
-			if (existsSync(join(dir, marker))) return dir;
-		}
-		const parent = resolve(dir, "..");
-		if (parent === dir) break;
-		dir = parent;
-	}
-	return startDir;
-}
-
-const PROJECT_ROOT = findProjectRoot(resolve(DEVGATE_ROOT, ".."));
+// Project root is the directory that CONTAINS the .devgate/ submodule — by
+// layout contract, never an ancestor of it. The old implementation walked UP
+// from .devgate's parent looking for a marker file and returned the walk's
+// start directory when none was found — which on a standalone DevGate clone
+// is the repo's PARENT: discovery found none of dist/test/tests/src and the
+// runner reported "0 passed, 0 failed across 0 files", exit 0, while the
+// repo's own tests sat unrun (the flagship silent-success failure mode, in
+// the runner that exists to prevent it). DevGate standalone IS its own
+// project — same contract as guardrails-scan.mjs.
+const isSubmoduleLayout = basename(DEVGATE_ROOT) === ".devgate";
+const PROJECT_ROOT = isSubmoduleLayout ? resolve(DEVGATE_ROOT, "..") : DEVGATE_ROOT;
 
 const PER_FILE_TIMEOUT_MS = Number(process.env.DEVGATE_TEST_TIMEOUT ?? 120_000);
 const HARD_CAP_MS = PER_FILE_TIMEOUT_MS + 10_000;
@@ -47,31 +43,64 @@ const POOL = Math.max(1, Math.min(Number(process.env.DEVGATE_TEST_POOL ?? os.cpu
 
 const SKIP_DIRS = ["node_modules", "dist", "target", ".git", ".claude", ".crew", "__pycache__", ".devgate", "vendor", "build", "out", ".next", ".nuxt", "venv", ".venv"];
 
-// Test file patterns by language
+// Test file patterns by language. Covers both naming conventions per
+// ecosystem: suffix style (.test.js / .spec.mjs / .test.tsx …) and the
+// pytest/cargo prefix style (test_*.py, test_*.mjs — the repo's own JS
+// fixture suite is test_guardrails_scan.mjs and was invisible to this
+// runner until the prefix forms were added).
 function isTestFile(filename) {
+	const base = filename.toLowerCase();
 	return (
-		filename.endsWith(".test.js") ||
-		filename.endsWith(".spec.js") ||
-		filename.endsWith(".test.mjs") ||
-		filename.endsWith(".test.ts") ||
-		filename.endsWith("_test.py") ||
-		filename.endsWith("_test.rs") ||
-		filename.endsWith("_tests.rs") ||
-		filename.startsWith("test_") && filename.endsWith(".py")
+		base.endsWith(".test.js") ||
+		base.endsWith(".spec.js") ||
+		base.endsWith(".test.mjs") ||
+		base.endsWith(".spec.mjs") ||
+		base.endsWith(".test.ts") ||
+		base.endsWith(".spec.ts") ||
+		base.endsWith(".test.tsx") ||
+		base.endsWith(".spec.tsx") ||
+		base.endsWith("_test.py") ||
+		base.endsWith("_test.rs") ||
+		base.endsWith("_tests.rs") ||
+		(base.startsWith("test_") && base.endsWith(".py"))
 	);
 }
+// Prefix-style JS suites (test_*.mjs / test_*.js) — separate guard so the
+// Python pytest prefix rule above stays byte-comparable to its own tests.
+// tests/test_guardrails_scan.mjs is the repo's strongest scanner suite and
+// was executed by NOTHING until this form existed (audit finding, QA-adjacent).
+function isPrefixTestFile(filename) {
+	const base = filename.toLowerCase();
+	return base.startsWith("test_") && (base.endsWith(".mjs") || base.endsWith(".js"));
+}
 
-// Serial lane: tests that share resources (ports, CPU)
-const SERIAL_GLOB = /(?:^|\/)(?:dashboard|perf|budget|server|integration)[^/]*\.(test|spec)\.(js|mjs|ts|py)$/i;
+// Serial lane: tests that share resources (ports, CPU). Matches both the
+// dotted JS convention (perf.test.js) and the pytest underscore convention
+// (perf_test.py) — before this, serial-unsafe Python tests ran in the
+// parallel pool because the regex required a ".test."/" .spec." middle dot.
+const SERIAL_GLOB = /(?:^|\/)(?:dashboard|perf|budget|server|integration)[^/]*(?:\.(?:test|spec)\.(?:js|mjs|cjs|ts|tsx)|_test\.py)$/i;
 
 function collectTestFiles(dir, acc = []) {
 	if (!existsSync(dir)) return acc;
-	for (const entry of readdirSync(dir)) {
+	let entries;
+	try {
+		entries = readdirSync(dir);
+	} catch {
+		return acc; // unreadable directory — skipped, not fatal
+	}
+	for (const entry of entries) {
 		const full = join(dir, entry);
-		const st = statSync(full);
+		let st;
+		try {
+			st = lstatSync(full);
+		} catch {
+			continue;
+		}
 		if (st.isDirectory()) {
+			// Symlinked directories are never descended (cycle/escape guard).
+			if (st.isSymbolicLink()) continue;
 			if (!SKIP_DIRS.includes(entry)) collectTestFiles(full, acc);
-		} else if (isTestFile(entry)) {
+		} else if (st.isFile() && (isTestFile(entry) || isPrefixTestFile(entry))) {
 			acc.push(full);
 		}
 	}
@@ -88,13 +117,17 @@ function runOne(file) {
 
 		let cmd, args;
 		if (isRust) {
-			// Rust tests: run cargo test filtered to the test file's module.
-			// *_test.rs files are compiled into cargo test binaries; we match by
-			// the file stem (e.g. plugin_smoke_tests -> plugin_smoke_tests).
+			// Rust tests: select the integration-test TARGET by file stem.
+			// `cargo test -- <stem>` matches test FUNCTION names, not files —
+			// an integration file whose functions don't contain the stem ran
+			// zero tests and cargo exited 0 ("0 passed"), so the file reported
+			// ✓ while testing nothing (QA C4). `--test <stem>` names the
+			// target itself; a file that is not a cargo target now fails loud
+			// (no test target named <stem>) instead of passing vacuously.
 			cmd = "cargo";
 			const stem = basename(file, ".rs");
 			args = ["test", "--manifest-path", join(PROJECT_ROOT, "Cargo.toml"),
-				"--", "--test-threads=1", stem];
+				"--test", stem, "--", "--test-threads=1"];
 		} else if (isPython) {
 			cmd = "python3";
 			args = ["-m", "pytest", "-v", "--tb=short", file];
@@ -105,10 +138,16 @@ function runOne(file) {
 				"--test-force-exit", `--test-timeout=${PER_FILE_TIMEOUT_MS}`, file];
 		}
 
+		// Per-file scratch space (the advertised isolation, now load-bearing):
+		// the child's TMPDIR points at its own temp dir, so temp-heavy tests
+		// cannot collide across pool workers. The test process itself still
+		// runs with cwd=PROJECT_ROOT (pytest collection and cargo need it).
 		const iso = mkdtempSync(join(tmpdir(), "dg-test-iso-"));
-		mkdirSync(iso, { recursive: true });
-		const env = { ...process.env };
+		const env = { ...process.env, TMPDIR: iso };
 		const child = spawn(cmd, args, { cwd: PROJECT_ROOT, env });
+		child.on("close", () => {
+			setTimeout(() => { try { rmSync(iso, { recursive: true, force: true }); } catch { /* best-effort */ } }, 500);
+		});
 
 		let out = "";
 		let tapDone = false;
@@ -181,18 +220,14 @@ function runOne(file) {
 function fmt(ms) { return (ms / 1000).toFixed(1) + "s"; }
 
 async function main() {
-	// Collect test files from the project root (not .devgate/)
-	const distDir = join(PROJECT_ROOT, "dist");
-	const testDir = join(PROJECT_ROOT, "test");
-	const testsDir = join(PROJECT_ROOT, "tests");
-	const srcDir = join(PROJECT_ROOT, "src");
-
-	const all = [
-		...collectTestFiles(distDir),
-		...collectTestFiles(testDir),
-		...collectTestFiles(testsDir),
-		...collectTestFiles(srcDir),
-	].sort();
+	// Discover test files ANYWHERE in the project (the documented contract —
+	// README/AGENTS promise tests "found anywhere in your project"). The old
+	// four-directory allowlist (dist/test/tests/src) silently never ran tests
+	// living under pkg/, scripts/, or the repo root. SKIP_DIRS keeps vendored
+	// and generated trees out; .devgate/ is skipped so the framework's own
+	// gates don't double-run in a submodule layout (in a standalone checkout
+	// the repo's own tests ARE the project's tests and are discovered).
+	const all = collectTestFiles(PROJECT_ROOT);
 
 	// Deduplicate
 	const seen = new Set();

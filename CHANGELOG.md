@@ -9,6 +9,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **2026-09-19 audit remediation (`fix-vacuous-and-broken-gates`,
+  `fix-coherence-container-contract`).** Full-repo review findings F1 and the
+  still-open C-series/H-series from `docs/qa/2026-09-13-full-qa.md` are closed;
+  each fix is locked by a test that fails on the old behavior. See
+  `docs/qa/2026-09-19-audit-delta.md` for the itemized record.
+  - **Container contract (F1, critical):** the pinned evaluator image could
+    not load its frozen schemas (`SCHEMA_DIR` resolved through a change-package
+    path the image never carried) — every in-container request died exit 30
+    with a misleading reason, and the only real-container test asserted that
+    same exit for an invalid request. Schemas moved to `hub/coherence/schemas/`
+    with package-relative resolution; smoke evidence now includes an
+    in-image schema load and a valid-request PASS case; rejection reasons must
+    name the invalid input.
+  - **Scanner root anchoring (C2/C3):** `semantic-scan.mjs` and
+    `run-tests.mjs` no longer escape to the parent of a standalone clone
+    (EACCES crash / stranger trees / "0 tests across 0 files" exit 0 while the
+    repo's own tests sat unrun). All scanners now share the layout contract;
+    `tests/test_scanner_root_anchor.mjs` locks it.
+  - **Test runner:** Rust files run via `cargo test --test <stem>` (the old
+    positional filter matched function names, so integration files ran zero
+    tests and passed); discovery covers `test_*.mjs` and the whole project
+    tree — `tests/test_guardrails_scan.mjs` now executes under the runner.
+  - **npm audit (C6):** a HIGH/CRITICAL vuln in a DIRECT runtime dependency
+    is blocking again (npm's `effects` is empty for direct deps; classification
+    now uses `isDirect` + dependency name + effect chains). Tooling failures
+    (npm missing, timeout, empty/unparseable output) surface as warnings with
+    a named reason instead of reading as "no vulnerabilities".
+  - **Deploy (C7/H7):** `deploy.sh` detects standalone vs submodule layout and
+    gates the PROJECT tree (regression_check/failure_registry_check/
+    scene_inventory/log_failure anchored by layout contract, with
+    `DEVGATE_PROJECT_ROOT` override); the twine upload no longer double-publishes
+    (`(A||B)&&C` precedence bug aborted the pipeline after a successful
+    immutable publish) and uploads only the just-released version's artifacts;
+    the clean-tree gate includes untracked files; schema health blocks when a
+    database is configured instead of silently warning.
+  - **Markers (H6):** spec traceability accepts `# spec: <id>` alongside
+    `// spec: <id>`, mirrored in the coherence evaluator's grammar;
+    `findings_to_spec.py` emits per-language advice.
+  - **Registry targeting (H8):** `log_failure.py` defaults to the project
+    overlay (the bundled baseline needs `--baseline`); an explicitly named
+    registry path that does not exist fails the hygiene gate instead of
+    passing vacuously.
+  - **scene_inventory (C1):** no more `xml.etree` dead-end (every valid
+    `.tscn` reported "parse error"); connections match by node-path segment;
+    empty scope prints NOTHING SCANNED and `--fail-if-empty` exits 2.
+  - **Test collection:** `tests/__init__.py` + `conftest.py` — a foreign
+    `tests` package on the machine silently dropped the five conformance files
+    from collection; discovered live during this audit.
+  - **Test-infra:** `tests/test_regression_audit.py`,
+    `tests/test_log_failure.py`, `tests/test_failure_registry_check.py`,
+    `tests/test_scene_inventory.py` added; PREVENT-024 false positives on
+    local module imports annotated with audited same-line exceptions.
 - **Gates:** tracked-artifact checks (COMMITTED-ENV/COMMITTED-GENERATED) now
   honor `.guardrailsignore` like the walk-based checks. One carve-out: a bare
   `.env` can never be ignored — that check is the framework's leak tripwire.

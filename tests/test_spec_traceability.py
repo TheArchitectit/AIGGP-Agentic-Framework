@@ -130,3 +130,35 @@ def test_both_layouts_merge(tmp_path):
     assert result.returncode == 0
     assert "router-req-01" in result.stdout and "net-req-01" in result.stdout
     assert "2/2 requirements covered" not in result.stdout  # nothing marked yet
+
+
+def test_hash_marker_covers_python_requirement(tmp_path):
+    """H6 fix: `# spec: <id>` must count for Python/Ruby/shell sources. The
+    `//`-only grammar meant a Python consumer in blocking mode could never
+    reach coverage no matter how the code was annotated."""
+    write(tmp_path / "openspec/specs/router/spec.md", SPEC)
+    write(tmp_path / "router/src/loader.py",
+          "# spec: router-req-01\ndef load():\n    return True\n")
+    result = run(tmp_path, "--report")
+    assert result.returncode == 0
+    assert "router-req-01: covered" in result.stdout
+
+
+def test_hash_marker_blocks_clean_when_present(tmp_path):
+    write(tmp_path / "openspec/specs/router/spec.md", SPEC)
+    write(tmp_path / "openspec/gate-config.json",
+          json.dumps({"default_mode": "blocking", "specs": {}}))
+    write(tmp_path / "router/src/loader.py", "# spec: router-req-01\n")
+    result = run(tmp_path)
+    assert result.returncode == 0, result.stdout
+    assert "1/1 requirements covered" in result.stdout
+
+
+def test_hash_marker_multiple_ids(tmp_path):
+    for name in ("alpha-req-01", "beta-req-02"):
+        write(tmp_path / f"openspec/specs/{name}/spec.md",
+              SPEC.replace("router-req-01", name))
+    write(tmp_path / "lib/run.py", "# spec: alpha-req-01, beta-req-02\n")
+    result = run(tmp_path, "--report")
+    assert "alpha-req-01: covered" in result.stdout
+    assert "beta-req-02: covered" in result.stdout

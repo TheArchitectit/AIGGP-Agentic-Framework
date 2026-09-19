@@ -13,27 +13,21 @@
 //
 // Supports inline allow: // guardrails-allow SEMANTIC-001: <reason>
 
-import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
-import { join, dirname, resolve } from "node:path";
+import { readFileSync, readdirSync, lstatSync, existsSync } from "node:fs";
+import { join, dirname, resolve, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const devgateRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 
-// Auto-detect project root (parent of .devgate/)
-function findProjectRoot(startDir) {
-	let dir = startDir;
-	for (let i = 0; i < 10; i++) {
-		for (const marker of ["package.json", "Cargo.toml", "pyproject.toml", "setup.py", "go.mod", "project.godot", ".git"]) {
-			if (existsSync(join(dir, marker))) return dir;
-		}
-		const parent = resolve(dir, "..");
-		if (parent === dir) break;
-		dir = parent;
-	}
-	return startDir;
-}
-
-const root = findProjectRoot(resolve(devgateRoot, ".."));
+// Project root is the directory that CONTAINS the .devgate/ submodule — by
+// layout contract, never an ancestor of it. The old implementation walked UP
+// from .devgate's parent looking for a marker file and returned the walk's
+// start directory when none was found — which on a standalone DevGate clone
+// is the repo's PARENT, so the scan crashed on a sibling's EACCES or silently
+// scanned stranger trees. DevGate standalone IS its own project (same
+// contract as guardrails-scan.mjs).
+const isSubmoduleLayout = basename(devgateRoot) === ".devgate";
+const root = isSubmoduleLayout ? resolve(devgateRoot, "..") : devgateRoot;
 
 const SKIP_DIRS = ["node_modules", "dist", "target", ".git", ".claude", ".crew", "__pycache__", ".devgate", "vendor", "build", "out", ".next", ".nuxt", "venv", ".venv"];
 
@@ -87,10 +81,24 @@ function isIgnored(file) {
 }
 
 function walk(dir, acc = []) {
-	if (!existsSync(dir)) return acc;
-	for (const name of readdirSync(dir)) {
+	let entries;
+	try {
+		entries = readdirSync(dir);
+	} catch {
+		return acc; // unreadable directory (EACCES etc.) — skipped, not fatal
+	}
+	for (const name of entries) {
 		const p = join(dir, name);
-		if (statSync(p).isDirectory()) {
+		let st;
+		try {
+			st = lstatSync(p);
+		} catch {
+			continue;
+		}
+		if (st.isDirectory()) {
+			// Symlinked directories are never descended: no cycle, no escape
+			// outside the resolved project root.
+			if (st.isSymbolicLink()) continue;
 			if (!SKIP_DIRS.includes(name) && !isIgnored(p)) walk(p, acc);
 		} else if ((name.endsWith(".ts") || name.endsWith(".tsx") || name.endsWith(".js") || name.endsWith(".jsx")) && !name.endsWith(".d.ts") && !name.endsWith(".test.ts") && !name.endsWith(".spec.ts") && !isIgnored(p)) {
 			acc.push(p);

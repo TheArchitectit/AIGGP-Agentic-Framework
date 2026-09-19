@@ -20,15 +20,25 @@ The ordering principle: **everything reversible happens before the one irreversi
 
 | # | Stage | What it does | Failure means |
 |---|-------|--------------|---------------|
-| 1 | **Clean tree** | rejects unstaged changes and a dirty index | Abort; nothing changed |
+| 1 | **Clean tree** | rejects unstaged changes, a dirty index, **and untracked files** (they would be swept into the release commit by `git add -A`) | Abort; nothing changed |
 | 2 | **Gate suite** | regression check, guardrails scan, then the project's own build/test/lint | Abort; nothing changed |
-| 3 | **Schema health** | validates DB schema when an adapter is configured; skips otherwise | Warn only (non-blocking) |
+| 3 | **Schema health** | validates DB schema when an adapter is configured; **exits 0 by design when unconfigured** (`DB_ADAPTER="none"`) | Abort when a configured schema fails; skip-is-green when unconfigured |
 | 4 | **Version bump** | writes the new version into the detected manifest | Abort; revert the bump |
 | 5 | **Commit + tag + push** | commit, **annotated** tag, push with captured stderr | Abort **before** publish |
 | 5b | **Tag-reached-remote verify** | `git ls-remote` proves the tag is upstream; explicit retry, then re-verify | Abort **before** publish |
 | 5c | **ARTIFACT VERIFY** | packs and proves the required files are really inside the artifact | Abort **before** publish |
-| 6 | **Publish** | `npm publish` / `cargo publish` / `twine upload` / tag-only | Version number is burned |
+| 6 | **Publish** | `npm publish` / `cargo publish` / `twine upload` (version-scoped artifacts only) / tag-only | Version number is burned |
 | 7 | **GitHub release** | `gh release create` with notes from the commit log | Warn only (best-effort) |
+
+**Gate vs. warning, explicitly.** Blocking: clean tree, regression scan,
+guardrails scan, project build/test (npm build+test, cargo build+test, pytest,
+go build+test), schema health, artifact verify, publish. Non-blocking warnings
+(printed with a `WARN` prefix and the reason): `npm run lint` / `cargo clippy`
+when not configured or failing, and the GitHub-release step. If you need lint
+to gate your releases, wire it into your project's own `test` script — the
+pipeline will then treat it as a blocking stage. A gate that is documented as
+blocking but runs as `|| echo WARN` is exactly the drift this table exists to
+prevent.
 
 ### Per-stack detection
 

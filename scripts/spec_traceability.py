@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Spec traceability gate: every openspec requirement ID needs a `// spec: <id>`
-marker in a source file. Modes: advisory (exit 0, report) / blocking (exit 1).
+"""Spec traceability gate: every openspec requirement ID needs a spec marker
+(`// spec: <id>` or `# spec: <id>` — both comment styles count) in a source
+file. Modes: advisory (exit 0, report) / blocking (exit 1).
 Per-spec override via openspec/gate-config.json: {"specs": {"<capability>": "blocking"}}.
 Exit codes: 0 pass, 1 uncovered in blocking mode, 2 usage/config error.
 
@@ -20,7 +21,11 @@ REQ_ID = re.compile(r"<!--\s*id:\s*([a-z0-9-]+)\s*-->")
 # One marker line may carry several IDs: `// spec: a-01, b-02, c-03`.
 # Anchored to the ID shape and comma-separated so a trailing comment
 # (`// spec: a-01 -- why`) is not swallowed into the match.
-MARKER = re.compile(r"//\s*spec:[ \t]*([a-z0-9-]+(?:[ \t]*,[ \t]*[a-z0-9-]+)*)")
+# Both `//` (C-family, JS) and `#` (Python, Ruby, shell, TOML) comment
+# prefixes are accepted — H6: the `//`-only grammar locked Python consumers
+# out of blocking mode forever, because `.py` is scanned but `# spec:` never
+# matched. `# // spec:` (the style used inside this repo) matches via `#`.
+MARKER = re.compile(r"(?://|#)\s*spec:[ \t]*([a-z0-9-]+(?:[ \t]*,[ \t]*[a-z0-9-]+)*)")
 ID = re.compile(r"[a-z0-9-]+")
 SCAN_EXTS = {".rs", ".py", ".mjs", ".js", ".ts"}
 SCAN_SKIP = {"target", "node_modules", ".git", "openspec", ".devgate"}

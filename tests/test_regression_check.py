@@ -43,7 +43,7 @@ from regression_diff import (  # noqa: E402
     resolve_all_base,
 )
 from regression_check import is_blocking  # noqa: E402
-from regression_sizes import check_file_sizes  # noqa: E402
+from regression_sizes import check_file_sizes  # noqa: E402  # guardrails-allow PREVENT-024: local sibling module, not a registry package
 
 # --- fixtures ---------------------------------------------------------------
 

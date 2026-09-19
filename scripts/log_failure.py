@@ -41,20 +41,35 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-# scripts/ lives directly under the DevGate root, so the registry is a sibling
-# of this script's parent. This matches regression_check.py's devgate_root.
+# scripts/ lives directly under the DevGate root. DEFAULT target (H8 fix,
+# fix-vacuous-and-broken-gates): the PROJECT's own overlay registry at
+# <project>/.guardrails/failure-registry.jsonl — a consumer's bugs belong in
+# the consumer's overlay, not in the shared baseline shipped to everyone (the
+# old default wrote into the submodule and is how the shipped registry
+# accumulated entries referencing other repos' files). Consumers of DevGate
+# ITSELF (this repo, standalone layout) resolve to the same file the old
+# default used. Opt into the baseline explicitly with --baseline.
+# FAILURE_REGISTRY_PATH still overrides everything.
 DEVGATE_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_REGISTRY = DEVGATE_ROOT / ".guardrails" / "failure-registry.jsonl"
+if DEVGATE_ROOT.name == ".devgate":
+    PROJECT_ROOT = DEVGATE_ROOT.parent
+else:
+    PROJECT_ROOT = DEVGATE_ROOT
+DEFAULT_REGISTRY = PROJECT_ROOT / ".guardrails" / "failure-registry.jsonl"
+BASELINE_REGISTRY = DEVGATE_ROOT / ".guardrails" / "failure-registry.jsonl"
 
 CATEGORIES = ("build", "runtime", "test", "type", "lint", "deploy", "config", "regression")
 SEVERITIES = ("low", "medium", "high", "critical")
 STATUSES = ("active", "resolved", "deprecated")
 
 
-def registry_path() -> Path:
-    """The registry to append to: FAILURE_REGISTRY_PATH, else the default."""
+def registry_path(baseline: bool = False) -> Path:
+    """The registry to append to: FAILURE_REGISTRY_PATH, else the project
+    overlay (or the bundled baseline with --baseline)."""
     override = os.environ.get("FAILURE_REGISTRY_PATH")
-    return Path(override) if override else DEFAULT_REGISTRY
+    if override:
+        return Path(override)
+    return BASELINE_REGISTRY if baseline else DEFAULT_REGISTRY
 
 
 def build_entry(args: argparse.Namespace) -> dict:
@@ -122,6 +137,19 @@ def main() -> int:
         default="",
         help="explicit failure_id (default: generated FAIL-<uuid8>)",
     )
+    ap.add_argument(
+        "--baseline",
+        action="store_true",
+        help="append to the bundled DevGate baseline registry instead of the "
+             "project overlay (for maintainers of DevGate itself)",
+    )
+    ap.add_argument(
+        "--registry",
+        dest="registry",
+        default=None,
+        metavar="PATH",
+        help="explicit registry path (same as FAILURE_REGISTRY_PATH env)",
+    )
     args = ap.parse_args()
 
     entry = build_entry(args)
@@ -132,7 +160,7 @@ def main() -> int:
         print("error: serialized entry contains a newline", file=sys.stderr)
         return 1
 
-    path = registry_path()
+    path = Path(args.registry) if args.registry else registry_path(args.baseline)
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         existing = path.read_text(encoding="utf-8") if path.exists() else ""

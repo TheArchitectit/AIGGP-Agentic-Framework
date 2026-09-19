@@ -46,12 +46,18 @@ VALID_STATUSES = frozenset({"active", "resolved", "deprecated"})
 
 
 def _find_project_root() -> Path:
-    """Walk up from CWD to find a project root marker."""
-    cwd = Path.cwd()
-    for d in [cwd] + list(cwd.parents):
-        if (d / ".git").exists():
-            return d
-    return cwd
+    """Resolve the consumer project root by layout contract (same anchoring as
+    regression_check.py / guardrails-scan.mjs — QA C7 class): the old CWD walk
+    resolved to the .devgate submodule itself when invoked from inside it, so
+    the overlay was looked for in the wrong tree. DEVGATE_PROJECT_ROOT or an
+    explicit registry path overrides."""
+    env = os.environ.get("DEVGATE_PROJECT_ROOT")
+    if env:
+        return Path(env).resolve()
+    devgate_root = Path(__file__).resolve().parent.parent
+    if devgate_root.name == ".devgate":
+        return devgate_root.parent
+    return devgate_root
 
 
 def _git_cat_file_t(repo_root: Path, sha: str) -> bool:
@@ -132,6 +138,12 @@ def check(registry_path: Path | None = None) -> tuple[int, list[str]]:
     devgate_root = Path(__file__).resolve().parent.parent
 
     if registry_path is not None:
+        # An EXPLICITLY named registry that does not exist is a configuration
+        # error, never a skip (audit finding: a typo'd FAILURE_REGISTRY_PATH
+        # yielded zero entries, zero errors, exit 0 — a vacuous green from the
+        # hygiene gate itself). The old guard only covered the "devgate" label.
+        if not registry_path.exists():
+            return 1, [f"registry not found: {registry_path}"]
         sources = [("registry", registry_path, project_root)]
     else:
         sources = [("devgate", devgate_root / ".guardrails" / "failure-registry.jsonl", devgate_root)]

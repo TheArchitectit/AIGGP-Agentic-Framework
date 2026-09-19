@@ -80,16 +80,30 @@ from regression_diff import (  # noqa: E402
 )
 
 # --- Auto-detect project root ------------------------------------------------
-def find_project_root():
-    """Walk up from CWD to find a project marker."""
-    cwd = Path.cwd()
-    markers = ["package.json", "Cargo.toml", "pyproject.toml", "setup.py",
-               "go.mod", "project.godot", ".git"]
-    for d in [cwd] + list(cwd.parents):
-        for m in markers:
-            if (d / m).exists():
-                return d
-    return cwd
+def find_project_root() -> Path:
+    """Resolve the project root by LAYOUT CONTRACT, not by CWD (QA C7,
+    fix-vacuous-and-broken-gates): the old walk-up from the current working
+    directory stopped at the first `.git`, so when deploy.sh cd'd into the
+    `.devgate` submodule before invoking this script, the release gate
+    audited DevGate's own tree instead of the project being published —
+    while the adjacent guardrails-scan (script-location anchored) evaluated
+    the project. Two gates, two repositories.
+
+    Resolution order:
+      1. DEVGATE_PROJECT_ROOT env — explicit override, single source.
+      2. Submodule layout (this file is <project>/.devgate/scripts/…):
+         the project root is the directory CONTAINING .devgate.
+      3. Standalone (scripts/ inside the repo itself, e.g. DevGate's own
+         tree): the repo IS the project.
+    """
+    env = os.environ.get("DEVGATE_PROJECT_ROOT")
+    if env:
+        return Path(env).resolve()
+    devgate_root = Path(__file__).resolve().parent.parent
+    if devgate_root.name == ".devgate":
+        return devgate_root.parent
+    return devgate_root
+
 
 PROJECT_ROOT = find_project_root()
 
