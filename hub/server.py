@@ -29,7 +29,14 @@ REPO_RE = re.compile(r"^[^/]+/[^/]+$")
 
 
 class HubState:
-    """Shared mutable state: registry + liveness timestamps."""
+    """Shared mutable state: registry + liveness timestamps.
+
+    Threading contract: HTTP handler threads mutate the registry ONLY through
+    `with_registry` (which holds `_lock`); the monitor poll thread reads
+    through `snapshot_runners` under the same lock. Never iterate
+    `registry.runners()` directly from a non-HTTP thread — a save() racing an
+    unlocked read can raise or observe torn state (audit finding F10).
+    """
 
     def __init__(self, config: Config) -> None:
         self.config = config
@@ -62,11 +69,18 @@ class HubState:
                 self.registry.save()
             return result
 
+    def snapshot_runners(self) -> list[dict]:
+        """Copy of the runner list, taken under the lock (F10)."""
+        with self._lock:
+            return [dict(r) for r in self.registry.runners()]
 
-def _parse_ts(value: str | None) -> datetime | None:
-    if not value:
-        return None
-    return datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+
+class _BadBody(Exception):
+    """Request body rejected before parsing (oversized / bad length)."""
+
+    def __init__(self, code: int, error: str, detail: str):
+        super().__init__(detail)
+        self.code, self.error, self.detail = code, error, detail
 
 
 class HubHandler(BaseHTTPRequestHandler):
@@ -81,9 +95,29 @@ class HubHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def _read_json(self) -> dict | None:
+        """Parse the JSON body, enforcing the configured size cap (F9).
+
+        Raises _BadBody for a missing/invalid/negative Content-Length or a
+        body above config.max_body_bytes — rejected BEFORE any read, so an
+        unauthenticated request can never force an unbounded buffer.
+        Returns None for an empty or unparseable body (callers answer 400)."""
+        raw_len = self.headers.get("Content-Length")
+        if raw_len is None:
+            return None
         try:
-            length = int(self.headers.get("Content-Length", 0))
-            return json.loads(self.rfile.read(length).decode()) if length else None
+            length = int(raw_len)
+        except ValueError:
+            raise _BadBody(400, "bad_request", "invalid Content-Length") from None
+        if length < 0:
+            raise _BadBody(400, "bad_request", "negative Content-Length")
+        cap = self.server.hub_state.config.max_body_bytes
+        if length > cap:
+            raise _BadBody(413, "body_too_large",
+                           f"request body exceeds {cap} bytes")
+        if not length:
+            return None
+        try:
+            return json.loads(self.rfile.read(length).decode())
         except (ValueError, UnicodeDecodeError):
             return None
 
@@ -114,14 +148,17 @@ class HubHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):  # noqa: N802 (http.server API)
         state: HubState = self.server.hub_state
-        if self.path == "/enroll":
-            self._handle_enroll(state)
-        elif self.path == "/heartbeat":
-            self._handle_heartbeat(state)
-        elif self.path == "/revoke":
-            self._handle_revoke(state)
-        else:
-            self._send(404, {"ok": False, "error": "not_found"})
+        try:
+            if self.path == "/enroll":
+                self._handle_enroll(state)
+            elif self.path == "/heartbeat":
+                self._handle_heartbeat(state)
+            elif self.path == "/revoke":
+                self._handle_revoke(state)
+            else:
+                self._send(404, {"ok": False, "error": "not_found"})
+        except _BadBody as e:
+            self._send(e.code, {"ok": False, "error": e.error, "detail": e.detail})
 
     # --- /enroll (mon-enroll-01) ---------------------------------------------
 
@@ -139,20 +176,23 @@ class HubHandler(BaseHTTPRequestHandler):
             self._send(400, {"ok": False, "error": "bad_request",
                              "detail": "runner_name and repo OWNER/REPO required"})
             return
-        if state.registry.find_runner(runner_name) is not None:
-            self._send(409, {"ok": False, "error": "already_enrolled"})
-            return
-        # One-time enrollment token: verify AND consume before recording identity.
+        # Uniqueness is decided INSIDE the registry lock, together with token
+        # consumption (F8): checking find_runner out here let two concurrent
+        # enrolls of the same name both pass the check and double-register.
         def do_enroll(reg):
+            if reg.find_runner(runner_name) is not None:
+                return {"already": True}
             if not reg.consume_enrollment_token(presented or ""):
                 return False
-            runner = reg.enroll(runner_name, repo, labels, host_alias)
+            runner, heartbeat_token = reg.enroll(runner_name, repo, labels, host_alias)
             return {"ok": True, "runner_name": runner_name,
-                    "heartbeat_token": runner["heartbeat_token"]}
+                    "heartbeat_token": heartbeat_token}
 
         result = state.with_registry(do_enroll)
         if result is False:
             self._send(401, {"ok": False, "error": "unknown_or_revoked_token"})
+        elif result.get("already"):
+            self._send(409, {"ok": False, "error": "already_enrolled"})
         else:
             self._send(200, result)
 

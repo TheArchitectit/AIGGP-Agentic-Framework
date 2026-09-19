@@ -2,9 +2,8 @@
 #
 # STANDARD: run the official GitHub Actions runner image from ghcr.io. Do NOT
 # hand-roll a runner image; ghcr.io/actions/actions-runner is the canonical,
-# MIT-licensed, GitHub-maintained base (latest tag 2.337.0 at time of writing).
-# Pin a digest for reproducibility once you have validated a tag:
-#   Image=ghcr.io/actions/actions-runner@sha256:...
+# MIT-licensed, GitHub-maintained base. PIN A DIGEST — the Image= line below
+# is pinned (tag `latest` resolved 2026-09-19; tag recorded for humans only).
 #
 # Copy to the runner host:
 #   ~/.config/containers/systemd/<project>-runner.container
@@ -22,7 +21,10 @@
 # language toolchains (rust, node, python, go, ...) via a child image ONLY if
 # your gates need them — most DevGate gates are python3 + node + shell, which
 # this base already satisfies.
-Image=ghcr.io/actions/actions-runner:latest
+# Rotation: podman pull ghcr.io/actions/actions-runner:latest; podman image
+# inspect --format '{{index .RepoDigests 0}}' ghcr.io/actions/actions-runner
+# and update the digest + date comment together.
+Image=ghcr.io/actions/actions-runner@sha256:e5496277be5d09bc968b3d64911b74e219ac4a3f2edce956a3ecf9271bea1ef4
 
 # Friendly container name shown in `podman ps`.
 ContainerName=devgate-runner
@@ -32,10 +34,12 @@ HostName=devgate-runner
 
 # --- Runner registration (provided by GitHub) ---
 # The registration token is one-time and ephemeral. NEVER hardcode a real token
-# in this file — this repo is public. Provide it via a quadlet drop-in `.env`:
-#   ~/.config/containers/systemd/<project>-runner.container.d/token.env
-# containing a single line: RUNNER_TOKEN=<one-time-token>
-# Podman merges drop-ins automatically when systemd regenerates the unit.
+# in this file — this repo is public. ONE canonical mechanism, declared here:
+# a raw env file read at unit start (leading '-' = optional; a missing file
+# then fails registration with the runner's own error message):
+#   ~/.config/containers/systemd/devgate-runner.secrets.env   (chmod 600)
+#   RUNNER_TOKEN=<one-time-token>
+EnvironmentFile=-%h/.config/containers/systemd/devgate-runner.secrets.env
 Environment=RUNNER_NAME=devgate-runner
 # Label(s) your workflows target with `runs-on:`. One container per project:
 # give each project a DISTINCT label so jobs never cross project boundaries.
@@ -53,7 +57,7 @@ Environment=RUNNER_WORKDIR=/_work
 # The image requires DISABLE_AUTOMATIC_DEREGISTRATION=true with reusage.
 Environment=CONFIGURED_ACTIONS_RUNNER_FILES_DIR=/_work/runner-config
 Environment=DISABLE_AUTOMATIC_DEREGISTRATION=true
-# RUNNER_TOKEN is intentionally NOT set here — set via drop-in or override.
+# RUNNER_TOKEN is intentionally NOT set here — set via the secrets env file above.
 
 # --- Work volume ---
 # Persistent working directory so jobs share /_work across runs. A named volume

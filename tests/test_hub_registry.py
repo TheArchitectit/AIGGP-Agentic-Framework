@@ -28,14 +28,18 @@ def test_fresh_registry_defaults(tmp_path):
 def test_save_is_atomic_roundtrip(tmp_path):
     path = tmp_path / "runners.json"
     reg = Registry(str(path))
-    runner = reg.enroll("r1", "OWNER/REPO", ["devgate"], "monitor-hub")
-    assert runner["heartbeat_token"]
+    runner, heartbeat_token = reg.enroll("r1", "OWNER/REPO", ["devgate"], "monitor-hub")
+    assert heartbeat_token
     reg.save()
     reloaded = Registry(str(path))
     stored = reloaded.find_runner("r1")
     assert stored is not None
     assert stored["repo"] == "OWNER/REPO"
     assert stored["enrolled"] is True
+    # mon-sec-02: the plaintext token never lands on disk — only its hash.
+    assert "heartbeat_token" not in stored
+    assert stored["heartbeat_token_hash"].startswith("sha256:")
+    assert heartbeat_token not in path.read_text()
 
 
 def test_missing_required_key_raises(tmp_path):
@@ -69,14 +73,33 @@ def test_enrollment_token_one_time(tmp_path):
 
 def test_heartbeat_token_issue_and_revoke(tmp_path):
     reg = Registry(str(tmp_path / "runners.json"))
-    runner = reg.enroll("r1", "OWNER/REPO", [], "")
-    good = runner["heartbeat_token"]
+    runner, good = reg.enroll("r1", "OWNER/REPO", [], "")
     assert reg.verify_heartbeat_token("r1", good) is True
     assert reg.verify_heartbeat_token("r1", "wrong-token") is False
-    # revoked runner: token no longer verifies, heartbeat refused
+    # revoked runner: token no longer verifies, heartbeat refused, and the
+    # stored verifier is cleared (mon-sec-02)
     assert reg.revoke("r1") is True
     assert reg.verify_heartbeat_token("r1", good) is False
     assert reg.heartbeat("r1", None, None, None) is False
+    assert reg.find_runner("r1")["heartbeat_token_hash"] is None
+
+
+def test_legacy_plaintext_token_is_upgraded_on_load(tmp_path):
+    """A registry written by the pre-hardening hub (plaintext
+    `heartbeat_token`) must keep working: load() hashes it in memory and the
+    next save persists the hashed form."""
+    path = tmp_path / "runners.json"
+    path.write_text(json.dumps({
+        "version": 1, "enrollment_tokens": [],
+        "runners": [{"name": "r1", "repo": "O/R", "labels": [], "host_alias": "",
+                     "enrolled": True, "heartbeat_token": "legacy-plain-token"}],
+    }))
+    reg = Registry(str(path), auto_init=False)
+    assert reg.verify_heartbeat_token("r1", "legacy-plain-token") is True
+    reg.save()
+    stored = json.loads(path.read_text())["runners"][0]
+    assert "heartbeat_token" not in stored
+    assert "legacy-plain-token" not in path.read_text()
 
 
 def test_heartbeat_updates_freshness(tmp_path):

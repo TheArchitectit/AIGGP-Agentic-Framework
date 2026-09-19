@@ -105,7 +105,7 @@ def test_check_runner_status_alerts_on_stale_heartbeat(tmp_path):
     # Enroll a runner with a stale heartbeat.
     state.registry.add_enrollment_token("tok")
     state.registry.consume_enrollment_token("tok")
-    runner = state.registry.enroll("r1", "owner/repo", ["devgate"], "host1")
+    runner, _tok = state.registry.enroll("r1", "owner/repo", ["devgate"], "host1")
     # Backdate the heartbeat by 3 intervals (stale: > 2 * 300s).
     stale_time = datetime.now(timezone.utc) - timedelta(minutes=16)
     runner["last_heartbeat"] = _iso(stale_time)
@@ -139,7 +139,7 @@ def test_check_runner_status_no_alert_when_healthy(tmp_path):
 
     state.registry.add_enrollment_token("tok")
     state.registry.consume_enrollment_token("tok")
-    runner = state.registry.enroll("r1", "owner/repo", ["devgate"], "host1")
+    runner, _tok = state.registry.enroll("r1", "owner/repo", ["devgate"], "host1")
     # Fresh heartbeat (just now).
     runner["last_heartbeat"] = _iso(datetime.now(timezone.utc))
     state.registry.save()
@@ -248,7 +248,7 @@ def test_check_gate_results_alerts_on_failure(tmp_path):
     try:
         monitor = MonitorLoop(state, alert_sink=CollectSink())
         monitor.client.api_base = f"http://127.0.0.1:{port}"
-        monitor._check_gate_results("owner/repo", "owner")
+        monitor._check_gate_results("owner/repo")
         assert any(a[1] == "gate_failure" and a[2] == "test" for a in alerts), \
             f"expected gate_failure for 'test', got {alerts}"
     finally:
@@ -279,7 +279,7 @@ def test_check_gate_results_no_alert_on_success(tmp_path):
     try:
         monitor = MonitorLoop(state, alert_sink=CollectSink())
         monitor.client.api_base = f"http://127.0.0.1:{port}"
-        monitor._check_gate_results("owner/repo", "owner")
+        monitor._check_gate_results("owner/repo")
         assert not alerts, f"unexpected alerts: {alerts}"
     finally:
         server.shutdown()
@@ -312,7 +312,7 @@ def test_check_drift_scan_alerts_on_overdue(tmp_path):
     try:
         monitor = MonitorLoop(state, alert_sink=CollectSink())
         monitor.client.api_base = f"http://127.0.0.1:{port}"
-        monitor._check_drift_scan("owner/repo", "owner")
+        monitor._check_drift_scan("owner/repo")
         assert any(a[1] == "drift_overdue" for a in alerts), \
             f"expected drift_overdue, got {alerts}"
     finally:
@@ -345,7 +345,7 @@ def test_check_drift_scan_alerts_on_failed(tmp_path):
     try:
         monitor = MonitorLoop(state, alert_sink=CollectSink())
         monitor.client.api_base = f"http://127.0.0.1:{port}"
-        monitor._check_drift_scan("owner/repo", "owner")
+        monitor._check_drift_scan("owner/repo")
         assert any(a[1] == "drift_failed" for a in alerts), \
             f"expected drift_failed, got {alerts}"
     finally:
@@ -372,7 +372,7 @@ def test_check_drift_scan_no_workflow_found(tmp_path):
     try:
         monitor = MonitorLoop(state, alert_sink=CollectSink())
         monitor.client.api_base = f"http://127.0.0.1:{port}"
-        monitor._check_drift_scan("owner/repo", "owner")
+        monitor._check_drift_scan("owner/repo")
         assert any(a[1] == "drift_overdue" for a in alerts), \
             f"expected drift_overdue (no workflow), got {alerts}"
     finally:
@@ -388,18 +388,18 @@ def test_poll_cycle_groups_by_repo(tmp_path):
     # Two runners in the same repo.
     state.registry.add_enrollment_token("tok1")
     state.registry.consume_enrollment_token("tok1")
-    r1 = state.registry.enroll("r1", "owner/repo", ["devgate"], "h1")
+    r1, _t1 = state.registry.enroll("r1", "owner/repo", ["devgate"], "h1")
     r1["last_heartbeat"] = _iso(datetime.now(timezone.utc))
 
     state.registry.add_enrollment_token("tok2")
     state.registry.consume_enrollment_token("tok2")
-    r2 = state.registry.enroll("r2", "owner/repo", ["devgate"], "h2")
+    r2, _t2 = state.registry.enroll("r2", "owner/repo", ["devgate"], "h2")
     r2["last_heartbeat"] = _iso(datetime.now(timezone.utc))
 
     # A runner in a different repo.
     state.registry.add_enrollment_token("tok3")
     state.registry.consume_enrollment_token("tok3")
-    r3 = state.registry.enroll("r3", "owner/other", ["devgate"], "h3")
+    r3, _t3 = state.registry.enroll("r3", "owner/other", ["devgate"], "h3")
     r3["last_heartbeat"] = _iso(datetime.now(timezone.utc))
 
     calls: list[str] = []
@@ -460,3 +460,86 @@ def main() -> int:
 
 if __name__ == "__main__":
     main()
+
+
+def test_watched_branch_default_sentinel_resolves_via_api(tmp_path):
+    """F6: the 'default' config sentinel is resolved to the repo's real
+    default branch each cycle. The old literal 404'd every gate-results
+    check on a default deployment while looking healthy."""
+    config = Config()
+    config.data_dir = str(tmp_path / "hubdata")
+    config.watched_branches = ["default"]  # the shipped default
+    state = HubState(config)
+    alerts = []
+
+    class CollectSink:
+        def raise_alert(self, repo, check_class, runner, detail):
+            alerts.append((repo, check_class, runner))
+
+    server, port = _start_fake_gh({
+        "/repos/owner/repo": lambda: (200, {"default_branch": "trunk"}),
+        "/repos/owner/repo/commits/trunk?per_page=1": lambda: (200, {"sha": "abc1234"}),
+        "/repos/owner/repo/commits/abc1234/check-runs?per_page=100": lambda: (200, {
+            "check_runs": [{"name": "test", "conclusion": "failure"}]}),
+    })
+    try:
+        monitor = MonitorLoop(state, alert_sink=CollectSink())
+        monitor.client.api_base = f"http://127.0.0.1:{port}"
+        monitor._check_gate_results("owner/repo")
+        assert any(a[1] == "gate_failure" for a in alerts), \
+            f"sentinel must resolve to the real default branch, got {alerts}"
+    finally:
+        server.shutdown()
+
+
+def test_watched_branch_unresolvable_skips_loudly(tmp_path):
+    """F6: an unresolvable default branch skips the check class with a
+    warning — never a crash, and never silently reported as clean."""
+    config = Config()
+    config.data_dir = str(tmp_path / "hubdata")
+    config.watched_branches = ["default"]
+    state = HubState(config)
+    alerts = []
+
+    class CollectSink:
+        def raise_alert(self, repo, check_class, runner, detail):
+            alerts.append((repo, check_class, runner))
+
+    server, port = _start_fake_gh({})  # no routes: /repos/owner/repo -> 404
+    try:
+        monitor = MonitorLoop(state, alert_sink=CollectSink())
+        monitor.client.api_base = f"http://127.0.0.1:{port}"
+        monitor._check_gate_results("owner/repo")  # must not raise
+        assert alerts == []
+    finally:
+        server.shutdown()
+
+
+def test_queue_stall_uses_run_id_field(tmp_path):
+    """F5: the workflow-run identifier is `id` — alerts must key on it so
+    distinct stalled runs are distinct, not collapsed onto one '?' key."""
+    config = Config()
+    config.data_dir = str(tmp_path / "hubdata")
+    config.queue_threshold_min = 30.0
+    state = HubState(config)
+    keys = []
+
+    class CollectSink:
+        def raise_alert(self, repo, check_class, runner, detail):
+            keys.append(runner)
+
+    old = _iso(datetime.now(timezone.utc) - timedelta(minutes=45))
+    server, port = _start_fake_gh({
+        "/repos/owner/repo/actions/runs?per_page=50&status=queued": lambda: (200, {
+            "workflow_runs": [
+                {"id": 111, "created_at": old, "name": "ci"},
+                {"id": 222, "created_at": old, "name": "deploy"},
+            ]}),
+    })
+    try:
+        monitor = MonitorLoop(state, alert_sink=CollectSink())
+        monitor.client.api_base = f"http://127.0.0.1:{port}"
+        monitor._check_queue_drain("owner/repo", [])
+        assert keys == [111, 222], f"distinct run ids expected, got {keys}"
+    finally:
+        server.shutdown()

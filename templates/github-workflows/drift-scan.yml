@@ -46,7 +46,7 @@ jobs:
       crons: ${{ steps.host.outputs.crons }}
     steps:
       - name: Checkout code (with DevGate submodule)
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4 (SHA resolved 2026-09-19)
         with:
           submodules: true
 
@@ -80,7 +80,7 @@ jobs:
 
     steps:
       - name: Checkout code (with DevGate submodule)
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4 (SHA resolved 2026-09-19)
         with:
           submodules: true
 

@@ -268,8 +268,17 @@ def run(ctx: dict, *, output_dir: Path, container_args=None) -> LaunchRun:
     exhausted, and the LaunchRun status says so — a killed run is never
     reported as completed. Output limits apply to the merged stdout+stderr
     stream; the decision contract (result bundle in /output) is unaffected.
+
+    Kill path (F14): `proc.kill()` reaps the podman CLIENT; the container
+    itself is owned by conmon and can outlive it. A --cidfile makes the
+    container addressable, so after killing the client we also issue a
+    best-effort `podman kill <cid>` and wait briefly for it to disappear —
+    a timed-out evaluation must not leave an orphan consuming the host.
     """
-    args = podman_args(ctx, output_dir=output_dir) + list(container_args or [])
+    cid_dir = output_dir if output_dir.is_dir() else output_dir.parent
+    cidfile = cid_dir / f".container-cid-{os.getpid()}"
+    args = podman_args(ctx, output_dir=output_dir) + \
+        ["--cidfile", str(cidfile)] + list(container_args or [])
     cap = ctx["limits"]["output_bytes"]
     deadline = time.monotonic() + ctx["limits"]["time_s"]
     proc = subprocess.Popen(args, stdout=subprocess.PIPE,
@@ -295,4 +304,36 @@ def run(ctx: dict, *, output_dir: Path, container_args=None) -> LaunchRun:
     if status != "completed":
         proc.kill()
     proc.wait()
+    if status != "completed":
+        _reap_container(cidfile, wait_s=10)
+    try:
+        cidfile.unlink()
+    except OSError:
+        pass
     return LaunchRun(proc.returncode, bytes(buf), status)
+
+
+def _reap_container(cidfile: Path, wait_s: float = 10.0) -> None:
+    """Best-effort `podman kill` for a container whose client was killed.
+
+    Reads the cidfile podman wrote, kills the container, and polls until it
+    is gone (bounded). Failures are swallowed: the caller's status already
+    says the run did not complete, and a missing/failed reap must not turn a
+    limit-exhaustion ERROR into a crash."""
+    try:
+        cid = cidfile.read_text().strip()
+    except OSError:
+        return
+    if not cid:
+        return
+    try:
+        subprocess.run(["podman", "kill", cid], capture_output=True, timeout=10)
+    except (OSError, subprocess.TimeoutExpired):
+        return
+    deadline = time.monotonic() + wait_s
+    while time.monotonic() < deadline:
+        r = subprocess.run(["podman", "container", "exists", cid],
+                           capture_output=True)
+        if r.returncode != 0:
+            return
+        time.sleep(0.25)

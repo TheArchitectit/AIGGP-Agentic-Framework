@@ -40,19 +40,24 @@ gh api -X POST \
   repos/OWNER/REPO/actions/runners/registration-token \
   --jq .token | \
   { printf "RUNNER_TOKEN="; cat; printf "\n"; } \
-  > ~/.config/containers/systemd/devgate-runner-<project>.container.d/10-token.conf
-chmod 600 ~/.config/containers/systemd/devgate-runner-<project>.container.d/10-token.conf
+  > ~/.config/containers/systemd/devgate-runner-<project>.secrets.env
+chmod 600 ~/.config/containers/systemd/devgate-runner-<project>.secrets.env
 ```
 
 The token is piped raw — it never enters argv, shell history, or stdout. Verify
 the shape (`^[A-Za-z0-9_-]{20,}$`) and permissions (`600`) before daemon-reload.
 
-The `EnvironmentFile=` in the quadlet must point to a file that exists at
-start time: podman's systemd-generator refuses to parse a quadlet whose
-`EnvironmentFile=` is missing. This is not a credential-loss bug — it's a
-podman constraint. The token drop-in stays in place for the lifetime of the
-runner; durability comes from the entrypoint's credential pre-seed, not from
-the token surviving a restart.
+The shipped quadlet declares
+`EnvironmentFile=-%h/.config/containers/systemd/<project>-runner.secrets.env`
+(see [`self-hosted-runner.container`](self-hosted-runner.container)); match
+that filename when you rename the project. That file is a RAW env file read by
+the unit — not a quadlet drop-in: `.container.d/*.conf` fragments are merged as
+quadlet INI and expect `[Container]` / `Environment=` lines, so a bare
+`RUNNER_TOKEN=` file placed there does not parse (the mechanism this walkthrough
+used to describe). The leading `-` makes the file optional at unit-parse time;
+the token stays in place for the lifetime of the runner, but durability comes
+from the entrypoint's credential pre-seed, not from the token surviving a
+restart.
 
 ## 3. Submodule transport
 
@@ -93,7 +98,7 @@ podman logs devgate-runner-<project>
 On restart the shared entrypoint pre-seeds `/.runner`, `.credentials`, and
 `.credentials_rsaparams` from the persistent work volume (`CFGDIR`). If these
 exist, `config.sh` is skipped and the existing registration is reused. The
-token drop-in is still needed at quadlet-parse time (see above) but its value
+token env file is still needed at unit-parse time (see above) but its value
 is not re-read after the first registration.
 
 Test with a graceful restart:

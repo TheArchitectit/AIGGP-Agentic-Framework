@@ -88,6 +88,12 @@ def main() -> int:
 
     print(f"[hub] listening on {config.bind_host}:{server.server_address[1]} "
           f"data_dir={config.data_dir} monitor_only={config.monitor_only}")
+    # Signal-safe shutdown (F2): handle_request() blocks in select()
+    # indefinitely, and PEP 475 retries the syscall after a handler that only
+    # sets an Event — so SIGTERM left the loop waiting for the NEXT request
+    # and systemd stop degraded to SIGKILL, losing the clean-shutdown exit-0
+    # contract. A 1s server timeout makes the loop re-check `stop` promptly.
+    server.timeout = 1.0
     try:
         while not stop.is_set():
             server.handle_request()

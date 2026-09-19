@@ -50,6 +50,10 @@ class GitHubClient:
         self.token = token
         self.backoff_max = backoff_max
         self._last_request_time = 0.0
+        # Retry-After from the most recent 403/429 (F7): GitHub sends it as an
+        # HTTP HEADER; the old code looked for body keys that never exist, so
+        # backoff always fell through to the exponential default.
+        self._last_retry_after: int | None = None
 
     def _request(self, method: str, path: str, body: dict | None = None,
                  accept: str = "application/vnd.github+json") -> tuple[int, dict | list]:
@@ -71,6 +75,12 @@ class GitHubClient:
                 raw = resp.read().decode()
                 return resp.status, json.loads(raw) if raw else {}
         except urllib.error.HTTPError as e:
+            if e.code in (403, 429):
+                header = e.headers.get("Retry-After") if e.headers else None
+                try:
+                    self._last_retry_after = int(header) if header else None
+                except (TypeError, ValueError):
+                    self._last_retry_after = None
             body_raw = e.read().decode() if e.fp else ""
             try:
                 parsed = json.loads(body_raw) if body_raw else {}
@@ -85,15 +95,18 @@ class GitHubClient:
         return self._request("POST", path, body=body)
 
     def get_with_backoff(self, path: str, max_retries: int = 3) -> tuple[int, dict | list] | None:
-        """GET with exponential backoff on 403/429. Returns None if all retries exhausted."""
+        """GET with backoff on 403/429. Returns None if all retries exhausted."""
         for attempt in range(max_retries):
             status, body = self.get(path)
             if status == 200:
                 return (status, body)
             if status in (403, 429):
-                # Rate limited — honor Retry-After header if present.
-                retry_after = body.get("retry_after") or body.get("X-Retry-After")
-                wait = min(int(retry_after) if retry_after else (2 ** attempt) * 10, self.backoff_max)
+                # Honor the actual Retry-After header when GitHub sent one
+                # (F7); otherwise exponential backoff, capped.
+                retry_after = self._last_retry_after
+                self._last_retry_after = None
+                wait = min(retry_after if retry_after else (2 ** attempt) * 10,
+                           self.backoff_max)
                 log.warning("rate limited on %s (attempt %d/%d), backing off %ds",
                             path, attempt + 1, max_retries, wait)
                 time.sleep(wait)
@@ -149,7 +162,9 @@ class MonitorLoop:
 
     def poll_cycle(self) -> None:
         """One full monitoring cycle across all registered repos."""
-        runners = self.state.registry.runners()
+        # Snapshot under the hub's registry lock (F10): iterating the live
+        # list while an HTTP thread saves can observe torn state.
+        runners = self.state.snapshot_runners()
         # Group by repo to avoid redundant API calls.
         repos: dict[str, list[dict]] = {}
         for runner in runners:
@@ -167,21 +182,50 @@ class MonitorLoop:
 
     def _poll_repo(self, repo: str, runners: list[dict]) -> None:
         """Poll all checks for a single repo."""
-        owner = repo.split("/")[0]
-
         # --- 3.1 Runner status + queued-run age (mon-online-01, mon-queue-01)
         self._check_runner_status(repo, runners)
         self._check_queue_drain(repo, runners)
 
         # --- 3.2 Check-run conclusions on watched branches (mon-gates-01)
-        self._check_gate_results(repo, owner)
+        self._check_gate_results(repo)
 
         # --- 3.3 Drift-scan presence/recency (mon-drift-01)
-        self._check_drift_scan(repo, owner)
+        self._check_drift_scan(repo)
+
+    def _default_branch(self, repo: str) -> str | None:
+        """Resolve the repo's actual default branch (F6). The config sentinel
+        'default' is NOT a branch name — the old literal 404'd the gate-results
+        check on every default deployment, silently disabling a whole check
+        class."""
+        result = self.client.get_with_backoff(f"/repos/{repo}")
+        if result is None:
+            return None
+        status, body = result
+        if status != 200 or not isinstance(body, dict):
+            log.warning("could not resolve default branch for %s: HTTP %d",
+                        repo, status)
+            return None
+        branch = body.get("default_branch")
+        return branch if isinstance(branch, str) and branch else None
+
+    def _watched_branches(self, repo: str) -> list[str]:
+        out: list[str] = []
+        for branch in self.config.watched_branches:
+            if branch == "default":
+                resolved = self._default_branch(repo)
+                if resolved is None:
+                    log.warning(
+                        "watched branch 'default' could not be resolved for %s "
+                        "this cycle — gate-results check skipped (not clean)",
+                        repo)
+                    continue
+                out.append(resolved)
+            else:
+                out.append(branch)
+        return out
 
     def _check_runner_status(self, repo: str, runners: list[dict]) -> None:
         """Check GitHub API runner status + heartbeat freshness (mon-online-01)."""
-        owner = repo.split("/")[0]
         # Get the runner group for this repo.
         result = self.client.get_with_backoff(f"/repos/{repo}/actions/runners")
         if result is None:
@@ -222,7 +266,6 @@ class MonitorLoop:
 
     def _check_queue_drain(self, repo: str, runners: list[dict]) -> None:
         """Check for queued workflow runs older than threshold (mon-queue-01)."""
-        owner = repo.split("/")[0]
         # Get recent workflow runs.
         result = self.client.get_with_backoff(
             f"/repos/{repo}/actions/runs?per_page=50&status=queued")
@@ -234,7 +277,6 @@ class MonitorLoop:
 
         threshold_sec = self.config.queue_threshold_min * 60
         now = datetime.now(timezone.utc)
-        registered_labels = {lbl for r in runners for lbl in r.get("labels", [])}
 
         for run in body.get("workflow_runs", []):
             created = _parse_iso(run.get("created_at"))
@@ -244,18 +286,18 @@ class MonitorLoop:
             if age_sec < threshold_sec:
                 continue
 
-            # Check if this run targets a registered label.
-            # The API doesn't expose labels directly on runs; we check the
-            # run's runner group or just alert on any long-queued run for now.
-            # (Refinement: match by run name or job labels in Sprint 4.)
+            # F5: the run identifier field is `id` — the old `run_id` key
+            # never exists, so every queue-stall alert collapsed onto the
+            # same "?" dedupe key and distinct stalled runs were suppressed
+            # as recurrences of each other.
             self._raise_alert(
-                repo, "queue_stall", run.get("run_id", "?"),
+                repo, "queue_stall", run.get("id", "?"),
                 detail=f"queued {age_sec / 60:.0f}m (threshold {self.config.queue_threshold_min:.0f}m), "
                        f"run: {run.get('name', '?')}")
 
-    def _check_gate_results(self, repo: str, owner: str) -> None:
+    def _check_gate_results(self, repo: str) -> None:
         """Check latest check-run conclusions on watched branches (mon-gates-01)."""
-        for branch in self.config.watched_branches:
+        for branch in self._watched_branches(repo):
             # Get the latest commit on the watched branch.
             result = self.client.get_with_backoff(f"/repos/{repo}/commits/{branch}?per_page=1")
             if result is None:
@@ -284,7 +326,7 @@ class MonitorLoop:
                         repo, "gate_failure", check.get("name", "?"),
                         detail=f"conclusion={conclusion}, branch={branch}, sha={sha[:8]}")
 
-    def _check_drift_scan(self, repo: str, owner: str) -> None:
+    def _check_drift_scan(self, repo: str) -> None:
         """Check scheduled drift-scan presence/recency (mon-drift-01)."""
         # Find the drift-scan workflow by name pattern.
         match = self.config.drift_workflow_match

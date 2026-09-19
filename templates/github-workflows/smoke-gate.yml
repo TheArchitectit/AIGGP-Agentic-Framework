@@ -39,14 +39,14 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4 (SHA resolved 2026-09-19)
 
       # CUSTOMIZE: add steps here to install your runtime/engine.
       # Examples:
-      #   - uses: actions/setup-python@v5  (for Python apps)
-      #   - uses: actions/setup-go@v5     (for Go apps)
+      #   - uses: actions/setup-python@<SHA>  # v5 — pin by SHA, not tag  (for Python apps)
+      #   - uses: actions/setup-go@<SHA>     # v5 — pin by SHA, not tag  (for Go apps)
       #   - run: sudo apt-get install godot  (for Godot games)
-      #   - uses: actions/setup-node@v4  (for Node.js apps)
+      #   - uses: actions/setup-node@<SHA>  # v4 — pin by SHA, not tag  (for Node.js apps)
 
       - name: Run smoke test
         run: |

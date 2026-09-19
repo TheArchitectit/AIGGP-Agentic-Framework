@@ -9,6 +9,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **2026-09-19 audit remediation part 2 (`harden-security-boundaries`).**
+  Trust-boundary and operational hardening; itemized record in
+  `docs/qa/2026-09-19-audit-delta.md`.
+  - **Coherence containment (F3/F4):** package inventory paths and assertion
+    file selectors are validated for containment before any read — traversal,
+    absolute paths, and symlink escapes are invalid input/UNRESOLVED, never
+    host-file reads. Manifest size and digest now come from one streaming read
+    (F11).
+  - **Hub runtime (F2/F5-F10):** SIGTERM shuts the idle hub down promptly
+    (serve-loop timeout; the old `handle_request()` blocked until the next
+    request); enrollment uniqueness is decided atomically under the registry
+    lock; JSON bodies are capped (`HUB_MAX_BODY_BYTES`, 413 before read);
+    monitor alerts key on the real run `id`; the `default` watched-branch
+    sentinel resolves via the API instead of 404'ing silently; Retry-After is
+    read from the HTTP header; the poll thread snapshots the registry under
+    the lock; killed podman clients reap their containers via `--cidfile`.
+  - **Token hygiene (mon-sec-02):** heartbeat verifiers are salted-hashed at
+    rest (legacy plaintext registries upgrade on load; revocation clears the
+    verifier); `runner-enroll.sh` builds JSON with `json.dumps`, never prints
+    the issued token (it goes straight to the 0600 env file), time-bounds
+    every curl, and validates identity fields before unit generation.
+  - **Template supply chain (ci-sec-01):** every shipped action is pinned to a
+    40-hex commit SHA (including `gitleaks-action`, which receives
+    `GITHUB_TOKEN`), container images are digest-pinned with the rotation
+    procedure documented inline, and the runner-monitor image gains a
+    `/health` HEALTHCHECK.
+  - **Quadlet secrets:** one canonical mechanism — the quadlets declare
+    `EnvironmentFile=` (raw env file) and all three runner/hub docs match it;
+    the old instructions wrote a bare env file into a `.container.d/` drop-in,
+    which is quadlet INI and never parsed.
+  - **detect-host-ci.py:** lookaround-based redaction (`RUNNER_TOKEN=` caught,
+    `blacksmith-2x` no longer mangled), bounded asset walk that skips
+    unreadable files, `*.yaml` workflows discovered, `FROM --platform=`
+    parsed.
+  - New tests: `test_hub_coherence_containment.py`,
+    `test_hub_hardening.py`, `test_detect_host_ci.py`,
+    `test_template_supply_chain.py`, `test_runner_enroll.sh`; monitor tests
+    for the sentinel resolution and queue-id keys.
 - **2026-09-19 audit remediation (`fix-vacuous-and-broken-gates`,
   `fix-coherence-container-contract`).** Full-repo review findings F1 and the
   still-open C-series/H-series from `docs/qa/2026-09-13-full-qa.md` are closed;

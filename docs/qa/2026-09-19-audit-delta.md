@@ -66,3 +66,24 @@ that fails on the old behavior (no config-only or doc-only "fixes").
 | Unpinned actions in the framework's own workflows | **closed** | all uses SHA-pinned (checkout / setup-python / setup-node resolved via the GitHub API and recorded with version comments); `drift-scan.yml` setup-node pinned |
 | Semantic scan in CI had no parser installed (would fail closed on TS consumers) | **closed** | self-gates installs `typescript@5` before the scan |
 | F12-adjacent: collection could silently shrink | **closed** | `tests/__init__.py` + `conftest.py` land in the container-contract commit; the `tests` job fails on any collection error |
+
+## Closed by `harden-security-boundaries`
+
+| Finding | Status | Evidence |
+|---|---|---|
+| F3 package inventory path traversal (host-file read/oracle) | **closed** | `_contained` rejects absolute/`~`/segments/symlink escape before any read; hostile-path tests assert no host content in errors |
+| F4 assertion selector escape (exfiltration into sealed evidence) | **closed** | selector containment in `evaluators._extract`; traversal/absolute/symlink-escape are UNRESOLVED with stable reasons; positive control keeps legit selectors working |
+| F11 manifest size/digest from two reads (inconsistent entries) | **closed** | `_digest_and_size`: one streaming pass produces both |
+| F2 SIGTERM shutdown hang | **closed** | `server.timeout = 1.0` re-checks the stop Event; test drives the real hub process, SIGTERMs it idle, asserts exit 0 < 4.5s |
+| F8 enroll TOCTOU | **closed** | duplicate-name check moved under the registry lock with token consumption; two-thread enroll test asserts one 200 and no double registration |
+| F9 unbounded request body | **closed** | `HUB_MAX_BODY_BYTES` (default 1 MiB); 413 before read; invalid/negative Content-Length 400; normal bodies unaffected |
+| Plaintext tokens at rest / token echoed to stdout | **closed** | salted-hash verifiers with legacy upgrade-on-load and verifier-clearing revoke; `response_summary` filters secrets; test asserts the token bytes never appear in the registry file or on stdout |
+| F5 queue alerts keyed on nonexistent `run_id` | **closed** | `id` used; test asserts two stalled runs produce two distinct keys |
+| F6 `watched_branches: ["default"]` silently 404'd gate-results | **closed** | sentinel resolves via `/repos/{repo}` with a loud per-cycle warning when unresolvable; both paths tested |
+| F7 Retry-After read from JSON body | **closed** | captured from the HTTP header on 403/429, consumed by the next backoff |
+| F10 monitor thread read registry unlocked | **closed** | `HubState.snapshot_runners()` under the lock; threading contract documented on HubState |
+| F14 killed podman client could orphan the container | **closed** | `--cidfile` + best-effort `podman kill` + bounded reap on timeout/overflow paths |
+| Template action/image pinning (incl. gitleaks + GITHUB_TOKEN) | **closed** | all `uses:` are 40-hex SHAs (SHAs resolved from the GitHub API, rotation documented); FROMs digest-pinned; `actions-runner` and `python:3.12-slim-bookworm` digests recorded with resolution dates; runner-monitor image gains a `/health` HEALTHCHECK |
+| Quadlet secrets docs unparseable / three-way contradictory | **closed** | both quadlets declare `EnvironmentFile=` (raw env file, `-` optional); runner README, add-a-runner.md, and the hub runbook match it; supply-chain test rejects raw-env-in-`.container.d` instructions |
+| runner-enroll JSON by string interpolation; token echoed; unbounded curl | **closed** | `json_payload` via `json.dumps` (hostile-label fixture), `response_summary` filters secrets, every curl time-bounded, identity fields validated before unit generation; sandboxed harness `tests/test_runner_enroll.sh` (15 checks) |
+| detect-host-ci redaction false-positives; rglob crashes; `*.yaml` ignored | **closed** | lookaround-based redaction (RUNNER_TOKEN still caught, `blacksmith-2x` not), bounded walk with OSError skip, both extensions, `FROM --platform` parsing; `tests/test_detect_host_ci.py` |

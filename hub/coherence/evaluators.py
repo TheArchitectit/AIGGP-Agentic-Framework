@@ -176,18 +176,35 @@ def _extract(selector: dict, subject_root: str, package: dict):
     `# product: <name>` metadata line (versioned extraction rule
     `structured-metadata`). artifact-metadata: dig the package by selector.
     Empty resolution returns None (callers map to UNRESOLVED/selector-empty).
+
+    Selector paths are repository-supplied content and are CONTAINED under the
+    subject root before any read (coh-sec-01): traversal, absolute paths, and
+    symlink escapes are UNRESOLVED with a stable reason — never reads outside
+    the subject tree (audit finding F4: a hostile selector could exfiltrate
+    host files into findings and sealed evidence).
     """
     kind = selector.get("kind")
     if kind == "artifact-metadata":
         return _dig(package, selector.get("selector", ""))
     if kind == "file":
         path = selector.get("path")
-        if not path:
+        if not path or not isinstance(path, str):
             return None
-        fp = Path(subject_root) / path
-        if not fp.exists():
+        root = Path(subject_root).resolve()
+        try:
+            resolved = (root / path).resolve()
+        except (OSError, ValueError):
+            raise Unresolved(f"selector-unresolvable:{path}")
+        if root not in resolved.parents and resolved != root:
+            raise Unresolved(f"selector-escapes-subject:{path}")
+        fp = root / path
+        if not fp.exists() or not fp.is_file():
             return None
-        m = _IDENTITY_RE.search(fp.read_text(encoding="utf-8", errors="replace"))
+        try:
+            text = fp.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return None
+        m = _IDENTITY_RE.search(text)
         return m.group(1) if m else None
     return None
 

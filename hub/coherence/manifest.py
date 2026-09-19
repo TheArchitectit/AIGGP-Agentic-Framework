@@ -103,6 +103,22 @@ def _digest_file(fp: Path) -> str:
     return canon.digest_bytes("file/v1", h.digest())
 
 
+def _digest_and_size(fp: Path) -> tuple:
+    """Digest and byte size from ONE streaming read.
+
+    Audit finding F11: the manifest used to read each file twice — size from
+    `read_bytes()`, digest from a second pass — so a mutation between the
+    reads produced an entry whose size and digest described different
+    content. Both values must come from the same bytes."""
+    h = hashlib.sha256()
+    size = 0
+    with open(fp, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+            size += len(chunk)
+    return canon.digest_bytes("file/v1", h.digest()), size
+
+
 DEFAULT_EXCLUDES = (".git", "node_modules", "__pycache__", ".venv", "venv",
                     "dist", "build", "target")
 
@@ -179,10 +195,10 @@ def build(root: str, subject_kind: str = "source-tree",
                     "policy_outcome": "symlink-forbidden", "size_bytes": None,
                 })
                 continue
-            data = fp.read_bytes()
+            digest, size = _digest_and_size(fp)
             entries.append({
-                "path": rel, "kind": "file", "digest": _digest_file(fp),
-                "policy_outcome": None, "size_bytes": len(data),
+                "path": rel, "kind": "file", "digest": digest,
+                "policy_outcome": None, "size_bytes": size,
             })
 
     manifest = {
