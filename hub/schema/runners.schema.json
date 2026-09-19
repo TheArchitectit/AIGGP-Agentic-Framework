@@ -7,6 +7,10 @@
   "required": ["version", "runners"],
   "properties": {
     "version": { "const": 1 },
+    "token_salt": {
+      "description": "Per-registry salt for heartbeat-token hashing (mon-sec-02). Generated on first use and persisted; heartbeat verifiers are stored only as salted hashes.",
+      "type": "string"
+    },
     "enrollment_tokens": {
       "description": "One-time enrollment tokens; consumed on successful /enroll.",
       "type": "array",
@@ -20,14 +24,18 @@
   "definitions": {
     "runner": {
       "type": "object",
-      "required": ["name", "repo", "enrolled_at", "heartbeat_token"],
+      "required": ["name", "repo", "enrolled_at", "heartbeat_token_hash"],
       "properties": {
         "name": { "type": "string" },
         "repo": { "type": "string", "pattern": "^[^/]+/[^/]+$" },
         "labels": { "type": "array", "items": { "type": "string" } },
         "host_alias": { "type": "string" },
         "enrolled_at": { "type": "string", "format": "date-time" },
-        "heartbeat_token": { "type": "string" },
+        "heartbeat_token_hash": {
+          "description": "Salted sha256 of the heartbeat token — the plaintext token is never stored (mon-sec-02). Null after revocation.",
+          "type": ["string", "null"],
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
         "last_heartbeat": { "type": ["string", "null"], "format": "date-time" },
         "last_job_seen": { "type": ["string", "null"] },
         "disk_ok": { "type": ["boolean", "null"] },

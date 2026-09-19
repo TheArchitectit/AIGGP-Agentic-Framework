@@ -2,9 +2,12 @@
   "_comment": [
     "Redacted EXAMPLE of the runner-monitor registry — placeholder values only.",
     "The live registry is instance state on the hub volume on monitor-hub and is",
-    "NEVER committed (mon-registry-01). See runners.schema.json for the shape."
+    "NEVER committed (mon-registry-01). See runners.schema.json for the shape.",
+    "heartbeat_token_hash is a salted sha256 — the plaintext token exists only",
+    "in the /enroll response and the spoke's 0600 env file (mon-sec-02)."
   ],
   "version": 1,
+  "token_salt": "example-salt-PLACEHOLDER",
   "enrollment_tokens": ["example-enrollment-token-PLACEHOLDER"],
   "runners": [
     {
@@ -13,7 +16,7 @@
       "labels": ["devgate"],
       "host_alias": "monitor-hub",
       "enrolled_at": "2026-09-13T00:00:00Z",
-      "heartbeat_token": "example-heartbeat-token-PLACEHOLDER",
+      "heartbeat_token_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
       "last_heartbeat": "2026-09-13T00:05:00Z",
       "last_job_seen": "example-run-id",
       "disk_ok": true,
