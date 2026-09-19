@@ -31,9 +31,10 @@
 - [x] 3.2 Keep the exit-30 rejection case but tighten it: assert the envelope
        reason names the *invalid field*, not a FileNotFoundError — so a
        missing-schema regression fails this test.
-- [ ] 3.3 CI (depends on add-framework-ci-pipeline): a job step that builds
-       the image and runs 3.1/3.2 on PRs touching `hub/coherence/` or
-       `container/`.
+- [x] 3.3 CI: `.github/workflows/ci.yml` job `container-image` builds the
+       pinned image on every PR and runs the in-image schema check (3.1's
+       real-container PASS case needs the identity registry to match — that
+       stays publish-gated, see 2.1/2.2).
 
 ## 4. Change-package reconciliation
 
@@ -41,8 +42,9 @@
        `openspec/changes/devgate-spec-coherence-service/tasks.md` recording the
        defect (image could not load contracts; only-detecting-blind smoke
        test) and the fix.
-- [ ] 4.2 Confirm the S8 archive step's spec-publication task no longer
-       depends on change-package paths existing at runtime.
+- [x] 4.2 Confirmed: `grep -rn "openspec/changes/.*schemas" hub/` is empty —
+       runtime resolves schemas package-relative, so archiving the change
+       (S8 spec publication) cannot affect the CLI or the image.
 - [x] 4.3 Failure-registry entry for the incident class
        ("smoke test asserts an exit code achievable by a broken service").
 
