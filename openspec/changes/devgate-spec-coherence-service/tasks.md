@@ -219,8 +219,29 @@ Sprint work:
   relay test. partial-output = ERROR: a killed run leaves no canonical bundle and the driver relays exit 32
   (missing_result_bundle test); a kill mid-write leaves only dot-prefixed temp fragments (interrupted-write
   tests pin canonical-path absence). Mutations: direct-write emit revert killed by 2 tests.
-- [ ] Default-deny egress with capture-step grants; captured responses become context facts (coh-rt-03, coh-ctx-04).
-- [ ] Scoped secret injection + redaction tests (coh-rt-04).
+- [x] Default-deny egress with capture-step grants; captured responses become context facts (coh-rt-03, coh-ctx-04).
+  CLOSED 2026-09-18: two layers. Kernel level (launcher v2, already closed): `--network=none` derived and
+  enforced, non-none launch configs rejected. Source level (new, structural): `tests/test_hub_coherence_runtime.py::TestStaticDefaultDeny`
+  pins that hub/coherence imports NO network-capable stdlib module — denial is structural, not just
+  configured. Capture-step model: the approved external lookup runs OUTSIDE the evaluator; the captured
+  response content is bound at `<context_root>/facts/<fact_id>.json`, digest-verified against the trusted
+  context record at load (`context.load_captured_facts` — tampered/missing/unparseable content is
+  ContextError, exit-31 class), and replay consumes the verified content, never a live fetch. Runner
+  mediation (`evaluate.run`): each evaluator is exposed ONLY the facts its own subjects declared; a declared
+  fact that is not bound (or whose record digest is null) is UNRESOLVED `captured-fact-missing:<id>` with
+  BLOCK enforcement — never SATISFIED (the spec scenario's THEN). New built-in
+  `devgate.builtin.captured-fact-consistency` compares the verified captured response against the approved
+  package value. 3 mutations (drop mediation, drop post-seal fail-safe, drop digest verification) killed.
+- [x] Scoped secret injection + redaction tests (coh-rt-04).
+  CLOSED 2026-09-18: the slice never receives secret VALUES (structural: nothing but issue.py's
+  control-plane signing key reads the environment — statically pinned). The enforcement point is live:
+  `evidence.seal(redact=[...])` scrubs every occurrence of each granted value from the evidence payload
+  before sealing, and a post-scrub re-check makes a scrub bypass an evidence ERROR
+  (`unredacted-secret-in-sealed-evidence`, exit-33 class) — never a silent seal. Actual secret injection
+  (values + named capability grants + short-lived credentials) is control-plane/fleet scope (S6) — when it
+  lands, its caller passes the granted values to seal's redact list; the contract is tested here with
+  failure injection. Fact-exposure scoping (the named-capability analog for captured facts) is tested at
+  the runner.
 - [x] Built-in evaluator allowlist enforcement: repository-supplied executable rejected (coh-rt-06).
   CLOSED 2026-09-18 (`665344b`): enforced at the PLANNER (`plan.py`), matching the normative scenario's
   placement ("WHEN the planner resolves evaluators, THEN the reference is rejected") — a non-builtin
