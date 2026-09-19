@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/TheArchitectit/DevGate-Agentic-Framework/openspec/changes/devgate-spec-coherence-service/schemas/exception.schema.json",
+  "$id": "https://github.com/TheArchitectit/DevGate-Agentic-Framework/hub/coherence/schemas/exception.schema.json",
   "title": "devgate.spec-coherence.exception/v1",
   "description": "Scoped, expiring, attributable exception. Wildcards forbidden; expired/mismatched/malformed exceptions FAIL in enforced modes; never rewrites a violation to SATISFIED (coh-pol-06).",
   "type": "object",

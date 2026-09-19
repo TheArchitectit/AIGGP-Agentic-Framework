@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/TheArchitectit/DevGate-Agentic-Framework/openspec/changes/devgate-spec-coherence-service/schemas/policy-bundle.schema.json",
+  "$id": "https://github.com/TheArchitectit/DevGate-Agentic-Framework/hub/coherence/schemas/policy-bundle.schema.json",
   "title": "devgate.spec-coherence.policy/v1 central policy bundle",
   "description": "Central minimum policy. Resolves from control-plane trust roots; repository overlay may strengthen only; anti-rollback applies (coh-pol-01, coh-pol-02).",
   "type": "object",

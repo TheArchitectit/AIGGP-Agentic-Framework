@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/TheArchitectit/DevGate-Agentic-Framework/openspec/changes/devgate-spec-coherence-service/schemas/request.schema.json",
+  "$id": "https://github.com/TheArchitectit/DevGate-Agentic-Framework/hub/coherence/schemas/request.schema.json",
   "title": "devgate.spec-coherence/v1 request",
   "description": "Invocation request. Carries only digested immutable inputs plus correlation id and semantics. No caller-supplied mode, time, or stage (see evaluation-context).",
   "type": "object",

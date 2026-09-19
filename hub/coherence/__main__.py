@@ -21,8 +21,12 @@ from pathlib import Path
 from . import (adoption, container_exec, context, evaluate, evidence, manifest,
                package, plan, policy, result, schemacheck)
 
-SCHEMA_DIR = Path(__file__).resolve().parent.parent.parent / \
-    "openspec/changes/devgate-spec-coherence-service/schemas"
+# Runtime contracts live with the service package (fix-coherence-container-
+# contract): resolving relative to THIS file keeps host-side and in-container
+# runs identical — the image carries hub/ wholesale, so the schemas ride in
+# it. They must never resolve through repository or change-package layout:
+# archiving a change package once moved these files and broke every load.
+SCHEMA_DIR = Path(__file__).resolve().parent / "schemas"
 PROFILE_REGISTRY = Path(__file__).resolve().parent.parent.parent / \
     "container/execution-profiles.json"
 

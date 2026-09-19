@@ -221,7 +221,7 @@ class TestErrorEnvelopes(unittest.TestCase):
 
     def test_error_envelope_validates_against_frozen_schema(self):
         from hub.coherence import schemacheck
-        schema = json.loads((REPO / "openspec/changes/devgate-spec-coherence-service/schemas/error-envelope.schema.json").read_text())
+        schema = json.loads((REPO / "hub/coherence/schemas/error-envelope.schema.json").read_text())
         with tempfile.TemporaryDirectory() as td:
             req, out = fx.build_root(Path(td), policy_digest_ok=False)
             _, res = _run(req, out)
@@ -234,7 +234,7 @@ class TestSchemaConformance(unittest.TestCase):
     them (closes audit finding 3 — schema drift now fails a test)."""
 
     def _schema(self, name):
-        p = REPO / f"openspec/changes/devgate-spec-coherence-service/schemas/{name}"
+        p = REPO / "hub/coherence/schemas" / name
         return json.loads(p.read_text())
 
     def test_pass_result_validates(self):
@@ -415,8 +415,28 @@ class TestEnforcementBlocks(unittest.TestCase):
         self.assertEqual(out["ledger"][0]["enforcement"], "ADVISORY")
 
 
-if __name__ == "__main__":
-    unittest.main()
+class TestSchemaHome(unittest.TestCase):
+    """F1 regression guard: the frozen contracts must resolve from the SERVICE
+    package, never from repository or change-package layout. The pinned image
+    carries only hub/ — a resolver that walks back out to openspec/ breaks
+    every in-container invocation while host-side runs keep passing."""
+
+    def test_schemas_live_with_the_service_package(self):
+        from hub.coherence import schemacheck
+        pkg_dir = Path(schemacheck.__file__).resolve().parent / "schemas"
+        self.assertTrue((pkg_dir / "request.schema.json").is_file(),
+                        "frozen schemas must ship inside the service package")
+        self.assertEqual(Path(schemacheck.SCHEMA_DIR).resolve(),
+                         pkg_dir.resolve())
+        from hub.coherence import __main__ as cli
+        self.assertEqual(Path(cli.SCHEMA_DIR).resolve(), pkg_dir.resolve())
+
+    def test_load_resolves_by_name(self):
+        from hub.coherence import schemacheck
+        schema = schemacheck.load("request.schema.json")
+        self.assertEqual(schema.get("$schema", "").startswith(
+            "http://json-schema.org/draft-07"), True)
+
 
 if __name__ == "__main__":
     unittest.main()

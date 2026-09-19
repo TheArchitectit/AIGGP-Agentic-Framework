@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/TheArchitectit/DevGate-Agentic-Framework/openspec/changes/devgate-spec-coherence-service/schemas/result.schema.json",
+  "$id": "https://github.com/TheArchitectit/DevGate-Agentic-Framework/hub/coherence/schemas/result.schema.json",
   "title": "devgate.spec-coherence.result/v1 canonical result",
   "description": "Canonical decision payload. Contains NO attestation fields, timestamps, durations, or host identity (those live in the run envelope and detached attestation). Sealed before any attestation (ADR-011).",
   "type": "object",

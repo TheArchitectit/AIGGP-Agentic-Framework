@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/TheArchitectit/DevGate-Agentic-Framework/openspec/changes/devgate-spec-coherence-service/schemas/subject-manifest.schema.json",
+  "$id": "https://github.com/TheArchitectit/DevGate-Agentic-Framework/hub/coherence/schemas/subject-manifest.schema.json",
   "title": "devgate.spec-coherence.subject-manifest/v1",
   "description": "Immutable subject manifest (coh-id-02). Every considered file addressed by normalized relative path and raw-byte SHA-256; explicit policy outcome per non-regular entry. Composite subjects carry part manifests.",
   "type": "object",

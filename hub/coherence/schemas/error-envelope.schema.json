@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/TheArchitectit/DevGate-Agentic-Framework/openspec/changes/devgate-spec-coherence-service/schemas/error-envelope.schema.json",
+  "$id": "https://github.com/TheArchitectit/DevGate-Agentic-Framework/hub/coherence/schemas/error-envelope.schema.json",
   "title": "devgate.spec-coherence.result/v1 error envelope",
   "description": "Structured error payload for runs that cannot produce a trustworthy decision. Never a PASS/ADVISORY decision; identities that could not be computed are explicitly null, never fabricated (R3 / coh-dec-02).",
   "type": "object",

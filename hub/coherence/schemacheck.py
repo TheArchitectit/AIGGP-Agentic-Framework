@@ -15,10 +15,11 @@ from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
 
-# The frozen contract schemas live with the change package until S3 publishes
-# them; move this path then, not before — tests read the same files.
-SCHEMA_DIR = Path(__file__).resolve().parent.parent.parent / \
-    "openspec/changes/devgate-spec-coherence-service/schemas"
+# Frozen contract schemas live in the service package (hub/coherence/schemas,
+# moved from the change package by fix-coherence-container-contract): package-
+# relative resolution works identically host-side and inside the pinned image,
+# and cannot break when a change package is archived.
+SCHEMA_DIR = Path(__file__).resolve().parent / "schemas"
 
 
 @lru_cache(maxsize=16)
