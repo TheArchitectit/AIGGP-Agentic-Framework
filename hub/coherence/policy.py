@@ -131,8 +131,19 @@ def apply_overlay(assertions: list, overlay: dict, central: dict) -> list:
     required = set(central_required(central))
     by_id = {a["id"]: a for a in assertions}
 
+    if not isinstance(overlay, dict):
+        raise OverlayError("overlay must be an object")
+    # Every entry below is repository-authored policy input; `.get`/`["id"]` on
+    # a bare string or int is an uncaught AttributeError/TypeError (exit 1, no
+    # envelope) — shape is pinned here, before any field is read, so a
+    # malformed overlay is exit 31 like every other policy refusal.
+    for key in ("assertions", "add_assertions"):
+        if not isinstance(overlay.get(key, []), list):
+            raise OverlayError(f"overlay {key} must be an array")
     for changed in overlay.get("assertions", []):
-        aid = changed.get("id")
+        if not isinstance(changed, dict) or not isinstance(changed.get("id"), str):
+            raise OverlayError("overlay assertion entry must be an object with a string id")
+        aid = changed["id"]
         if changed.get("disabled"):
             if aid in required:
                 raise OverlayError(
@@ -156,13 +167,22 @@ def apply_overlay(assertions: list, overlay: dict, central: dict) -> list:
                     f"{floor!r}")
             target["severity"] = new
         if "evaluator" in changed:
-            eid = changed["evaluator"].get("id")
+            # The severity hole got its guard in round 2; the evaluator sibling
+            # never did — a non-object evaluator reached `.get("id")` and
+            # crashed before the approved-list lookup could decide.
+            ev = changed["evaluator"]
+            if not isinstance(ev, dict) or not isinstance(ev.get("id"), str) or not ev["id"]:
+                raise OverlayError(
+                    f"overlay sets malformed evaluator reference for {aid!r}")
+            eid = ev["id"]
             if approved and eid not in approved:
                 raise OverlayError(
                     f"overlay selects unapproved evaluator {eid!r} for {aid!r}")
-            target["evaluator"] = changed["evaluator"]
+            target["evaluator"] = ev
 
     for added in overlay.get("add_assertions", []):
+        if not isinstance(added, dict) or not isinstance(added.get("id"), str):
+            raise OverlayError("overlay add_assertions entry must be an object with a string id")
         if added["id"] in by_id:
             raise OverlayError(f"overlay redefines existing assertion {added['id']!r}")
         by_id[added["id"]] = added

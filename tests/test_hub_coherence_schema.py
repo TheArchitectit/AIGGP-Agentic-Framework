@@ -151,6 +151,37 @@ class TestErrorEnvelopes(unittest.TestCase):
              "assertion_severity_floor": {}})
         self.assertEqual(sorted(a["id"] for a in out), ["a1", "a2"])
 
+    _CENTRAL = {"required_assertions": [], "approved_evaluators": [],
+                "assertion_severity_floor": {}}
+
+    def test_overlay_entries_must_be_objects(self):
+        """Round-12 scoping: the overlay is repository-authored policy input
+        like assertion specs, but no overlay.schema.json exists — so entry
+        shape must be pinned by hand here. A bare string among `assertions`
+        or `add_assertions` crashed apply_overlay with an uncaught
+        AttributeError (exit 1, no envelope) instead of exit 31."""
+        from hub.coherence import policy
+        for overlay in ({"assertions": ["not-an-entry"]},
+                        {"add_assertions": ["not-an-entry"]},
+                        {"assertions": [{"id": "a1", "disabled": True}],
+                         "add_assertions": [42]}):
+            with self.subTest(overlay=list(overlay)[0]):
+                with self.assertRaises(policy.OverlayError):
+                    policy.apply_overlay([fx.assertion(aid="a1")], overlay,
+                                         dict(self._CENTRAL))
+
+    def test_overlay_evaluator_must_be_an_object(self):
+        """The severity hole got a guard in round 2; the evaluator sibling
+        never did — {"evaluator": "a-string"} reached `.get("id")` and crashed
+        with AttributeError before the approved-list lookup could decide."""
+        from hub.coherence import policy
+        with self.assertRaises(policy.OverlayError) as c:
+            policy.apply_overlay(
+                [fx.assertion(aid="a1")],
+                {"assertions": [{"id": "a1", "evaluator": "a-string"}]},
+                dict(self._CENTRAL))
+        self.assertIn("malformed evaluator", str(c.exception))
+
     def test_outputs_never_defaults_to_callers_cwd(self):
         """An absent, empty, or whitespace-only `outputs` must not silently
         write result.json into whatever directory the process started in.
