@@ -46,6 +46,11 @@ class CacheError(ValueError):
 
 
 def _now_ts(ts: str) -> datetime:
+    # A non-string time (an int in a tampered/corrupt record, a caller bug) is
+    # the same class of failure as an unparseable one — ValueError, never an
+    # AttributeError escaping the documented miss contract.
+    if not isinstance(ts, str):
+        raise ValueError(f"time must be a string, got {type(ts).__name__}")
     return datetime.fromisoformat(ts.replace("Z", "+00:00"))
 
 

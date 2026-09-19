@@ -13,6 +13,7 @@ put, and every miss reports a reason so a caller can see which gate fired.
 All fixtures synthetic (R9).
 """
 import base64
+import json
 import sys
 import tempfile
 import unittest
@@ -217,6 +218,29 @@ class TestTimeToLive(unittest.TestCase):
             self.assertFalse(res["hit"])
             self.assertIn("bad-window", res["reason"])
 
+    def test_a_record_with_a_non_string_cached_at_is_a_miss_not_a_crash(self):
+        """The entries directory is persisted JSON: a record whose cached_at
+        is an int (corruption, a hand-edit) must fall to the documented miss
+        contract, not escape AttributeError from the parser."""
+        with tempfile.TemporaryDirectory() as td:
+            m = _material()
+            cache.put(td, m, PAYLOAD, cached_at=FIXED)
+            entry = Path(td) / "entries" / (cache.key(m) + ".json")
+            rec = json.loads(entry.read_text())
+            rec["cached_at"] = 12345
+            entry.write_text(json.dumps(rec))
+            res = cache.get(td, m, as_of=FIXED, ttl_seconds=TTL)
+            self.assertFalse(res["hit"])
+            self.assertIn("bad-time", res["reason"])
+
+    def test_a_non_string_as_of_is_a_miss_not_a_crash(self):
+        with tempfile.TemporaryDirectory() as td:
+            m = _material()
+            cache.put(td, m, PAYLOAD, cached_at=FIXED)
+            res = cache.get(td, m, as_of=999, ttl_seconds=TTL)
+            self.assertFalse(res["hit"])
+            self.assertIn("bad-time", res["reason"])
+
     def test_zero_ttl_reuses_only_the_instant_it_was_cached(self):
         """ttl_seconds=0 is the coherent degenerate policy (like 0-day
         retention): valid at the caching instant, expired one second later."""
@@ -356,10 +380,10 @@ class TestStoreHygiene(unittest.TestCase):
             cache.put(td, m, PAYLOAD, cached_at=FIXED)
             # Rewrite the record's stored material to claim a different subject.
             entry = Path(td) / "entries" / (cache.key(m) + ".json")
-            rec = __import__("json").loads(entry.read_text())
+            rec = json.loads(entry.read_text())
             rec["key_material"]["subject_digest"] = "sha256:" + "0" * 64
             rec["payload"] = base64.b64encode(PAYLOAD).decode()
-            entry.write_text(__import__("json").dumps(rec))
+            entry.write_text(json.dumps(rec))
             res = cache.get(td, m, as_of=FIXED, ttl_seconds=TTL)
             self.assertFalse(res["hit"])
             self.assertIn("key-drift", res["reason"])
