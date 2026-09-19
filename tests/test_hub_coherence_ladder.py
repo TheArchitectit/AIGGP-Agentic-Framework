@@ -11,6 +11,7 @@ Full ladder through the real CLI:
   wildcard exception: invalid policy (exit 31)
 """
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -44,7 +45,8 @@ def _baseline():
 def _run(req):
     return subprocess.run([sys.executable, "-m", "hub.coherence",
                            "--request", str(req)],
-                          capture_output=True, text=True, cwd=str(REPO))
+                          capture_output=True, text=True, cwd=str(REPO),
+                          env={**os.environ, **fx.cli_env()})
 
 
 def _ladder_fixture(td: Path, *, stage, baseline=None, exceptions=None,

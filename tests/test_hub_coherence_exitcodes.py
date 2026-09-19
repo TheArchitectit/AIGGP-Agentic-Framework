@@ -22,7 +22,8 @@ ZERO_DIGEST = "sha256:" + "0" * 64
 def _run(req_path: Path, out_dir: Path):
     """Invoke the real CLI; return (exit_code, parsed result or None)."""
     r = subprocess.run([sys.executable, "-m", "hub.coherence", "--request", str(req_path)],
-                       capture_output=True, text=True, cwd=str(REPO))
+                       capture_output=True, text=True, cwd=str(REPO),
+                       env={**os.environ, **fx.cli_env()})
     rp = out_dir / "result.json"
     parsed = json.loads(rp.read_text()) if rp.exists() else None
     return r.returncode, parsed
@@ -344,7 +345,8 @@ class TestRuntimeSchemaValidation(unittest.TestCase):
             (pr / "baseline.json").write_text(json.dumps({"a": 1}))
             p = subprocess.run([sys.executable, "-m", "hub.coherence",
                                 "--request", str(req)],
-                               capture_output=True, text=True, cwd=str(REPO))
+                               capture_output=True, text=True, cwd=str(REPO),
+                               env={**os.environ, **fx.cli_env()})
             self.assertNotIn("Traceback", p.stderr)
             self.assertEqual(p.returncode, result.EXIT_POLICY,
                              f"expected exit 31, got {p.returncode}")
@@ -356,7 +358,8 @@ class TestRuntimeSchemaValidation(unittest.TestCase):
             (pr / "baseline.json").write_text(json.dumps(["just", "strings"]))
             p = subprocess.run([sys.executable, "-m", "hub.coherence",
                                 "--request", str(req)],
-                               capture_output=True, text=True, cwd=str(REPO))
+                               capture_output=True, text=True, cwd=str(REPO),
+                               env={**os.environ, **fx.cli_env()})
             self.assertNotIn("Traceback", p.stderr)
             self.assertEqual(p.returncode, result.EXIT_POLICY)
             env = self._env(req, out)
@@ -376,7 +379,8 @@ class TestRuntimeSchemaValidation(unittest.TestCase):
             (pr / "exceptions.json").write_text(json.dumps(exc))
             p = subprocess.run([sys.executable, "-m", "hub.coherence",
                                 "--request", str(req)],
-                               capture_output=True, text=True, cwd=str(REPO))
+                               capture_output=True, text=True, cwd=str(REPO),
+                               env={**os.environ, **fx.cli_env()})
             self.assertNotIn("Traceback", p.stderr)
             self.assertEqual(p.returncode, result.EXIT_POLICY)
             env = self._env(req, out)

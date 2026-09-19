@@ -234,10 +234,11 @@ def validate_launch(cfg: dict, supported_profiles) -> dict:
 
 def podman_args(ctx: dict, *, output_dir: Path) -> list:
     """Derive the enforced `podman run` argument list from a validated
-    context. Every isolation property is expressed as a launcher-side
-    flag; nothing is delegated to the image's own configuration. Each
-    writable tmpfs target gets the launch config's scratch bound as its
-    per-mount size; /dev/shm is pinned explicitly.
+    context. Every isolation property is expressed as a launcher-side flag;
+    nothing is delegated to the image's own configuration. Each writable
+    tmpfs target gets the launch config's scratch bound; /dev/shm is pinned
+    explicitly. Env flags (-e K=V) precede ctx["image"]: podman requires
+    flags before the image arg.
     """
     lim = ctx["limits"]
     args = [
@@ -258,18 +259,22 @@ def podman_args(ctx: dict, *, output_dir: Path) -> list:
     args += ["-v", f"{output_dir}:/output"]
     for mt in ctx["mounts"]:
         args += ["-v", f"{mt['source']}:{mt['target']}:ro"]
+    for k, v in (ctx.get("env") or {}).items():
+        args += ["-e", f"{k}={v}"]
     args.append(ctx["image"])
     return args
 
 
-def run(ctx: dict, *, output_dir: Path, container_args=None) -> LaunchRun:
+def run(ctx: dict, *, output_dir: Path, container_args=None,
+        env: dict = None) -> LaunchRun:
     """Execute the derived invocation under the configured limits (coh-rt-05):
     the container is killed when the time limit or the output cap is
     exhausted, and the LaunchRun status says so — a killed run is never
     reported as completed. Output limits apply to the merged stdout+stderr
     stream; the decision contract (result bundle in /output) is unaffected.
     """
-    args = podman_args(ctx, output_dir=output_dir) + list(container_args or [])
+    args = podman_args({**ctx, "env": env or {}}, output_dir=output_dir) \
+        + list(container_args or [])
     cap = ctx["limits"]["output_bytes"]
     deadline = time.monotonic() + ctx["limits"]["time_s"]
     proc = subprocess.Popen(args, stdout=subprocess.PIPE,

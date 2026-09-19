@@ -84,7 +84,7 @@ Seals the evidence bundle inside bounded scratch: minimum-disclosure evidence ob
 
 ### 10. Attestation emitter
 
-Produces a **detached** signed statement binding: subject, package, policy, evaluation-context, evaluator image, canonical decision digest, evidence manifest digest. The canonical decision contains no attestation fields — the envelope references the detached attestation location. Required for every promotion-authorizing result from Stage 2 onward; Stage 0–1 observation runs may skip signing but are labeled non-promotion-authorizing. Verification checks the current approved signer set and fails closed on expiry or revocation (R1, R8).
+Produces a **detached** signed statement binding: subject, package, policy, evaluation-context, evaluator image, canonical decision digest, evidence manifest digest. The canonical decision contains no attestation fields — the envelope references the detached attestation location. Required for every promotion-authorizing result from Stage 2 onward; Stage 0–1 observation runs may skip signing but are labeled non-promotion-authorizing. Verification checks the current approved signer set and fails closed on expiry or revocation (R1, R8). The evaluator image digest resolves through an ordered chain: `HUB_COHERENCE_EVALUATOR_IMAGE_DIGEST` (container mode, authoritative — the actually-executed image) first, else the execution-profile registry pin for the context's declared profile (local mode — the "run the pinned runtime locally" equivalence); an undeclared profile fails closed at invocation.
 
 ## Trust boundaries
 

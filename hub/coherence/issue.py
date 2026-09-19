@@ -16,7 +16,7 @@ import json
 import os
 from pathlib import Path
 
-from . import canon, schemacheck
+from . import attest, canon, schemacheck
 
 CP_KEY_ENV = "HUB_COHERENCE_CP_KEY"
 CP_IDENTITY_ENV = "HUB_COHERENCE_CP_IDENTITY"
@@ -112,7 +112,8 @@ def issue_context(ctx_dir: str, policy_dir: str, *, repo: str,
                   capability_grants=None, captured_facts=None,
                   context_id: str = "pilot-context",
                   semantics: str = "fresh-promotion",
-                  issuer: str = None) -> dict:
+                  issuer: str = None,
+                  signer_set=None) -> dict:
     """Issue a pilot evaluation context.
 
     Writes context.json into ctx_dir; baseline/exception sets into policy_dir
@@ -123,6 +124,9 @@ def issue_context(ctx_dir: str, policy_dir: str, *, repo: str,
     fields (evaluation_time/stage/sets) and is structurally labeled
     non-promotion-authorizing in the canonical payload (coh-ctx-03). A
     replay may not change the time, stage, or sets it replays.
+
+    `signer_set`: optional path to a signer-set document; when provided,
+    the context carries its digest (coh-ev-05).
     """
     if semantics not in ("fresh-promotion", "replay"):
         raise ValueError(f"invalid semantics {semantics!r}")
@@ -142,6 +146,11 @@ def issue_context(ctx_dir: str, policy_dir: str, *, repo: str,
         exception_digest = set_digest(exception_set, "exception")
         (pol_root / "exceptions.json").write_bytes(canon.canon(exception_set))
 
+    signer_set_digest = None
+    if signer_set is not None:
+        signer_set_doc = attest.load_signer_set(signer_set)
+        signer_set_digest = attest.signer_set_digest(signer_set_doc)
+
     ctx = {
         "api_version": "devgate.spec-coherence.context/v1",
         "context_id": context_id,
@@ -150,7 +159,7 @@ def issue_context(ctx_dir: str, policy_dir: str, *, repo: str,
         "semantics": semantics,
         "baseline_set_digest": baseline_digest,
         "exception_set_digest": exception_digest,
-        "signer_set_digest": None,
+        "signer_set_digest": signer_set_digest,
         "capability_grants": capability_grants or [],
         "captured_facts": captured_facts or [],
         "execution_profile": execution_profile,

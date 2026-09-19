@@ -153,10 +153,12 @@ def run_containerized(request_path: str, launch_cfg_path: str,
 
     # The digest-pinned ref is content-addressed: podman runs exactly these
     # bytes (coh-rt-01), so the ref digest is the executed evaluator identity.
-    ids = {"evaluator_image_digest": ctx["image"].rsplit("@", 1)[1]}
+    eval_digest = ctx["image"].rsplit("@", 1)[1]
+    ids = {"evaluator_image_digest": eval_digest}
     try:
         rr = launcher.run(ctx, output_dir=Path(host_out),
-                          container_args=["--request", REQUEST_TARGET])
+                          container_args=["--request", REQUEST_TARGET],
+                          env={"HUB_COHERENCE_EVALUATOR_IMAGE_DIGEST": eval_digest})
     except OSError as e:
         return _fail(host_out, "execution", f"launcher failed: {e}",
                      "evaluation", ids)

@@ -34,7 +34,7 @@ VALID_REGISTRY = {
     "schema": "execution-profiles",
     "image": "localhost/devgate-coherence",
     "profiles": [
-        {"label": "linux/amd64-baseline", "platform": "linux/amd64",
+        {"label": "linux-amd64-v1", "platform": "linux/amd64",
          "image_manifest_digest": "sha256:" + "a" * 64,
          "base_image": "docker.io/library/python@sha256:" + "b" * 64,
          "semantic_equivalence_group": "default", "built": "2026-09-18"},
@@ -88,7 +88,7 @@ class TestExecutionProfilesRegistry(unittest.TestCase):
     def test_real_registry_loads_and_validates(self):
         self.assertEqual(self.reg["schema"], "execution-profiles")
         labels = [p["label"] for p in self.reg["profiles"]]
-        self.assertIn("linux/amd64-baseline", labels)
+        self.assertIn("linux-amd64-v1", labels)
 
     def test_registry_matches_its_frozen_schema(self):
         schema = json.loads(REGISTRY_SCHEMA.read_text(encoding="utf-8"))
@@ -112,15 +112,15 @@ class TestExecutionProfilesRegistry(unittest.TestCase):
         walk(schema, "$")
 
     def test_resolve_profile_and_mismatch(self):
-        p = resolve_profile(self.reg, "linux/amd64-baseline")
+        p = resolve_profile(self.reg, "linux-amd64-v1")
         self.assertRegex(p["image_manifest_digest"], r"^sha256:[0-9a-f]{64}$")
-        check_launch_digest(self.reg, "linux/amd64-baseline",
+        check_launch_digest(self.reg, "linux-amd64-v1",
                             p["image_manifest_digest"])
         with self.assertRaises(ProfileRegistryError) as cm:
-            check_launch_digest(self.reg, "linux/amd64-baseline",
+            check_launch_digest(self.reg, "linux-amd64-v1",
                                 "sha256:" + "0" * 64)
         self.assertEqual(str(cm.exception),
-                         "profile-digest-mismatch:linux/amd64-baseline")
+                         "profile-digest-mismatch:linux-amd64-v1")
 
     def test_unknown_profile_unresolvable(self):
         with self.assertRaises(ProfileRegistryError) as cm:
@@ -134,12 +134,12 @@ class TestExecutionProfilesRegistry(unittest.TestCase):
         with self.assertRaises(ProfileRegistryError):
             validate_registry(bad)
         bad = json.loads(json.dumps(VALID_REGISTRY))
-        bad["profiles"][0]["label"] = "linux/amd64-baseline"
+        bad["profiles"][0]["label"] = "linux-amd64-v1"
         bad["profiles"].append(dict(bad["profiles"][0]))
         with self.assertRaises(ProfileRegistryError) as cm:
             validate_registry(bad)
         self.assertEqual(str(cm.exception),
-                         "duplicate-profile-label:linux/amd64-baseline")
+                         "duplicate-profile-label:linux-amd64-v1")
         bad = json.loads(json.dumps(VALID_REGISTRY))
         bad["profiles"][0]["image_manifest_digest"] = "sha256:short"
         with self.assertRaises(ProfileRegistryError):
@@ -193,7 +193,7 @@ def launch_cfg(manifest=None):
         "scratch": {"size": "64m"},
         "limits": {"memory": "256m", "cpus": "1.0", "time_s": 60,
                    "pids": 64, "nofile": 128, "output_bytes": 65536},
-        "profile": "linux/amd64-baseline",
+        "profile": "linux-amd64-v1",
         "image_manifest_digest": mdig,
     }
 
@@ -292,7 +292,7 @@ class TestContainerExec(unittest.TestCase):
     def test_roots_rewritten_and_staged_readable(self):
         captured = {}
 
-        def fake_run(ctx, *, output_dir, container_args):
+        def fake_run(ctx, *, output_dir, container_args, env=None):
             captured["args"] = container_args
             # The driver stages the rewritten request inside the output
             # directory itself, so in-container envelopes (emitted beside the
@@ -339,7 +339,7 @@ class TestContainerExec(unittest.TestCase):
         self.assertIn("125", self._envelope()["error"]["reason"])
 
     def test_coherent_fail_relayed(self):
-        def fake_run(ctx, *, output_dir, container_args):
+        def fake_run(ctx, *, output_dir, container_args, env=None):
             (output_dir / "result.json").write_text('{"decision": "FAIL"}')
             return LaunchRun(20, b"", "completed")
 
@@ -349,7 +349,7 @@ class TestContainerExec(unittest.TestCase):
     def test_coherent_execution_error_relayed(self):
         # A completed container exiting 32 with an agreeing ERROR envelope
         # (e.g. an in-container evaluator crash) relays untouched.
-        def fake_run(ctx, *, output_dir, container_args):
+        def fake_run(ctx, *, output_dir, container_args, env=None):
             (output_dir / "result.json").write_text(json.dumps({
                 "decision": "ERROR",
                 "error": {"class": "execution",
@@ -394,7 +394,7 @@ class TestContainerExec(unittest.TestCase):
         # Round-7 finding 3 (coh-dec-01): exit 0 with decision PASS but a
         # non-null error field is an exit/result disagreement — never
         # relayed as the permissive signal.
-        def fake_run(ctx, *, output_dir, container_args):
+        def fake_run(ctx, *, output_dir, container_args, env=None):
             (output_dir / "result.json").write_text(
                 json.dumps({"decision": "PASS",
                            "error": {"class": "execution", "reason": "hidden",
@@ -418,7 +418,7 @@ class TestContainerExec(unittest.TestCase):
             emitted.append(Path(path).name)
             return real_emit(path, payload)
 
-        def fake_run(ctx, *, output_dir, container_args):
+        def fake_run(ctx, *, output_dir, container_args, env=None):
             (output_dir / "result.json").write_text('{"decision": "PASS"}')
             return LaunchRun(0, b"", "completed")
 

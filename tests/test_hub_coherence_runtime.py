@@ -40,10 +40,12 @@ class TestStaticDefaultDeny(unittest.TestCase):
                                      f"{p.name}: {ln.strip()}")
 
     def test_environ_read_only_by_the_signing_module(self):
-        # Evaluator secrets never reach the runtime: nothing but issue.py
-        # (control-plane signing key) touches the environment.
+        # Evaluator secrets never reach the runtime: only issue.py
+        # (control-plane signing key) and attest.py (signer key env)
+        # and __main__.py (evaluator image digest env var for coh-dec-02)
+        # touch the environment.
         for p in sorted((REPO / "hub/coherence").glob("*.py")):
-            if p.name == "issue.py":
+            if p.name in ("issue.py", "attest.py", "__main__.py"):
                 continue
             self.assertNotIn("os.environ", p.read_text(encoding="utf-8"),
                              f"{p.name} reads the environment")

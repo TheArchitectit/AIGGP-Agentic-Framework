@@ -71,6 +71,34 @@ def resolve_profile(reg: dict, label: str) -> dict:
     raise ProfileRegistryError(f"undeclared-profile:{label}")
 
 
+def resolve_evaluator_identity(registry_path, label: str,
+                               env_digest=None) -> dict:
+    """The evaluator identity for a run (coh-dec-02, coh-ev-05).
+
+    `env_digest` is the container/outer mode digest — authoritative when set,
+    since it names the image actually executed. Otherwise the registry pin for
+    `label` is the evaluator identity (local mode: the "run the pinned runtime
+    locally" equivalence). An undeclared label fails closed.
+    Returns {evaluator_image_digest, platform}.
+    """
+    reg = prof = None
+    try:
+        reg = load_registry(registry_path)
+        prof = resolve_profile(reg, label)
+    except ProfileRegistryError:
+        if env_digest is None:
+            raise
+    return {
+        "evaluator_image_digest": (env_digest if env_digest is not None
+                                   else prof["image_manifest_digest"]),
+        "platform": {
+            "index_digest": (reg or {}).get("image_index_digest"),
+            "manifest_digest": (prof or {}).get("image_manifest_digest"),
+            "profile": label,
+        },
+    }
+
+
 def check_launch_digest(reg: dict, label: str, manifest_digest: str) -> None:
     """A launch claiming a profile must reference the manifest digest the
     registry recorded for it (coh-id-04: identity stable within the

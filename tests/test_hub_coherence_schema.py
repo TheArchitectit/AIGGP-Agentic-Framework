@@ -3,6 +3,7 @@
 envelopes. Dual-runnable. All fixtures synthetic (R9).
 """
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -18,10 +19,11 @@ REPO = Path(__file__).resolve().parent.parent
 ZERO_DIGEST = "sha256:" + "0" * 64
 
 
-def _run(req_path: Path, out_dir: Path):
+def _run(req_path: Path, out_dir: Path, env=None):
     """Invoke the real CLI; return (exit_code, parsed result or None)."""
     r = subprocess.run([sys.executable, "-m", "hub.coherence", "--request", str(req_path)],
-                       capture_output=True, text=True, cwd=str(REPO))
+                       capture_output=True, text=True, cwd=str(REPO),
+                       env=env or {**os.environ, **fx.cli_env()})
     rp = out_dir / "result.json"
     parsed = json.loads(rp.read_text()) if rp.exists() else None
     return r.returncode, parsed
@@ -43,21 +45,16 @@ class TestErrorEnvelopes(unittest.TestCase):
                 if v is not None:
                     self.assertNotEqual(v, ZERO_DIGEST)
 
-    def test_successful_result_has_no_fabricated_identity(self):
-        """The actual Defect-3 case: a SUCCESSFUL result must carry null, not a
-        zero digest, for identities the slice cannot compute. This is the case
-        the error-envelope-only guard missed (audit finding 2)."""
+    def test_successful_result_registry_derived_identity(self):
+        """Local mode derives the evaluator image digest from the profile
+        registry (coh-dec-02): never fabricated, always the pinned digest."""
         with tempfile.TemporaryDirectory() as td:
             req, out = fx.build_root(Path(td), stage=1)
             code, res = _run(req, out)
             self.assertEqual(res["decision"], "PASS")
-            self.assertIsNone(res["evaluator_image_digest"],
-                              "slice cannot compute this; null, never fabricated")
-            self.assertIsNone(res["platform"]["manifest_digest"])
-            # coh-id-04 names index_digest as an identity field too (round-2
-            # audit finding 2: it was left unguarded).
-            self.assertIsNone(res["platform"]["index_digest"],
-                              "slice cannot compute this; null, never fabricated")
+            self.assertTrue(res["evaluator_image_digest"].startswith("sha256:"))
+            self.assertTrue(res["platform"]["manifest_digest"]
+                            .startswith("sha256:"))
             for v in (res["subject_digest"], res["openspec_digest"],
                       res["policy_digest"], res["context_digest"]):
                 self.assertNotEqual(v, ZERO_DIGEST)

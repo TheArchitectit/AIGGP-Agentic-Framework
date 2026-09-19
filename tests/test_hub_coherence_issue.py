@@ -2,6 +2,7 @@
 """S3 tests: control-plane stand-in (context issuance, stage registry,
 validated adoption sets). Dual-runnable. Synthetic fixtures (R9)."""
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -139,7 +140,8 @@ class TestIssuance(unittest.TestCase):
             # NOT in the baseline, so it must BLOCK (regression).
             p = subprocess.run([sys.executable, "-m", "hub.coherence",
                                 "--request", str(req)],
-                               capture_output=True, text=True, cwd=str(REPO))
+                               capture_output=True, text=True, cwd=str(REPO),
+                               env={**os.environ, **fx.cli_env()})
             env = json.loads((out / "result.json").read_text())
             self.assertEqual(p.returncode, result.EXIT_FAIL,
                              f"regression (unbaselined violation) must block; "
@@ -153,7 +155,8 @@ class TestReplaySemantics(unittest.TestCase):
     def _run_cli(self, req):
         return subprocess.run([sys.executable, "-m", "hub.coherence",
                                "--request", str(req)],
-                              capture_output=True, text=True, cwd=str(REPO))
+                              capture_output=True, text=True, cwd=str(REPO),
+                              env={**os.environ, **fx.cli_env()})
 
     def test_replay_byte_identical_and_labeled(self):
         """coh-ctx-03 at the slice's true strength: replaying the SAME context
@@ -307,14 +310,16 @@ class TestBoundSetSwap(unittest.TestCase):
             req.write_text(json.dumps(r))
             p1 = subprocess.run([sys.executable, "-m", "hub.coherence",
                                  "--request", str(req)],
-                                capture_output=True, text=True, cwd=str(REPO))
+                                capture_output=True, text=True, cwd=str(REPO),
+                                env={**os.environ, **fx.cli_env()})
             self.assertEqual(p1.returncode, result.EXIT_ADVISORY,
                              "baselined debt is advisory at stage 2")
             # Swap the baseline AFTER issuance without re-issuing the context.
             (pol_dir / "baseline.json").write_bytes(b"[]")
             p2 = subprocess.run([sys.executable, "-m", "hub.coherence",
                                  "--request", str(req)],
-                                capture_output=True, text=True, cwd=str(REPO))
+                                capture_output=True, text=True, cwd=str(REPO),
+                                env={**os.environ, **fx.cli_env()})
             self.assertEqual(p2.returncode, result.EXIT_POLICY,
                              "set/context digest mismatch must fail closed")
 

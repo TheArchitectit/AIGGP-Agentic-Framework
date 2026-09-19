@@ -1,4 +1,4 @@
-# // spec: coh-pol-04, coh-pol-05, coh-pol-06, coh-eval-02, coh-dec-04
+# // spec: coh-pol-04, coh-pol-05, coh-pol-06, coh-eval-02, coh-dec-04, coh-ev-05
 """Fixture builders for the frozen S2 conformance suite (A-F).
 
 All fixtures are SYNTHETIC and labeled as such (R9: no pilot provenance has
@@ -6,6 +6,7 @@ been captured, so nothing here may be represented as a real repository
 baseline). Deterministic: fixed times, no network, no host clock.
 """
 import json
+import os
 from pathlib import Path
 
 from hub.coherence import canon
@@ -13,9 +14,45 @@ from hub.coherence import canon
 FIXED_TIME = "2026-09-17T00:00:00Z"
 FIXED_ISSUED = "2026-09-17T00:00:00Z"
 
+_HEX64 = "e" * 64
+
 
 def digest_bytes(b: bytes) -> str:
     return canon.digest_bytes("file/v1", b)
+
+
+def signer_set(key_hex: str, *, key_id="signer-1", identity="pilot-signer",
+               as_of=None, valid_from=None, valid_until=None,
+               revoked=False) -> dict:
+    """Synthetic signer-set document (R9)."""
+    as_of = as_of or FIXED_TIME
+    valid_from = valid_from or "2026-01-01T00:00:00Z"
+    valid_until = valid_until or "2027-01-01T00:00:00Z"
+    signer = {
+        "key_id": key_id, "identity": identity,
+        "key": key_hex, "valid_from": valid_from,
+        "valid_until": valid_until, "revoked": revoked,
+    }
+    if revoked:
+        signer["revoked_at"] = as_of
+    return {
+        "api_version": "devgate.spec-coherence.signer-set/v1",
+        "as_of": as_of,
+        "signers": [signer],
+    }
+
+
+def cli_env() -> dict:
+    """Environment dict for subprocess CLI calls requiring attestation.
+
+    Signer vars only — the evaluator image digest is resolved from the
+    execution-profile registry in local mode (no env var needed).
+    """
+    return {
+        "HUB_COHERENCE_SIGNER_KEY": "a" * 64,
+        "HUB_COHERENCE_SIGNER_KEY_ID": "signer-1",
+        "HUB_COHERENCE_SIGNER_IDENTITY": "pilot-signer",
+    }
 
 
 def assertion(aid="product.identity", version=1, deps=None, evaluator=None,
@@ -41,7 +78,8 @@ def assertion(aid="product.identity", version=1, deps=None, evaluator=None,
 def build_root(tmp: Path, *, declared_name="widget", approved_name="widget",
                assertions=None, baseline=None, exceptions=None,
                stage=1, semantics="fresh-promotion", evaluation_time=FIXED_TIME,
-               policy_digest_ok=True, subject_files=None) -> tuple:
+               policy_digest_ok=True, subject_files=None,
+               execution_profile="linux-amd64-v1") -> tuple:
     """Build subject/package/policy/context/request under `tmp`.
 
     Returns (request_path, out_dir). Every input is real on disk so resolvers
@@ -97,7 +135,7 @@ def build_root(tmp: Path, *, declared_name="widget", approved_name="widget",
         "evaluation_time": evaluation_time, "stage": stage, "semantics": semantics,
         "baseline_set_digest": None, "exception_set_digest": None,
         "signer_set_digest": None, "capability_grants": [], "captured_facts": [],
-        "execution_profile": "linux-amd64-v1", "supported_runners": ["linux-amd64-v1"],
+        "execution_profile": execution_profile, "supported_runners": [execution_profile],
         "issuance": {"issued_at": FIXED_ISSUED, "issuer": "fixture-control-plane"},
     }))
 

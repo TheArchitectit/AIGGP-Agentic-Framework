@@ -1,30 +1,33 @@
-# // spec: coh-dec-01, coh-dec-02, coh-dec-04, coh-pol-02, coh-pkg-02
+# // spec: coh-dec-01, coh-dec-02, coh-dec-04, coh-pol-02, coh-pkg-02, coh-ev-01, coh-ev-05
 """CLI entry point: python -m hub.coherence --request request.json
 
 Time and stage come only from the evaluation context, never the host clock.
 Exit codes per the frozen decision/exit matrix. Stdlib-only.
 
-Identity fields the slice cannot compute (evaluator image digest, platform
-manifest digest) are carried as explicit nulls, never fabricated (coh-dec-02).
+Request is validated against request.schema.json at entry (S3): a malformed
+request yields the invalid-input envelope, never a raw traceback (r3-indep).
 
-The request is validated against request.schema.json at entry (S3): a
-malformed or wrong-typed request yields the documented invalid-input envelope,
-never a raw traceback — the durable fix behind the r3-indep crash-vector
-family.
+From Stage 2 fresh-promotion onward, a signed detached attestation binds the
+canonical decision to all input digests (coh-ev-01, coh-ev-05). The attestation
+is a detached object; the canonical decision carries no attestation fields.
 """
 import argparse
 import json
+import os
+import re
 import sys
 from functools import lru_cache
 from pathlib import Path
 
-from . import (adoption, container_exec, context, evaluate, evidence, manifest,
-               package, plan, policy, result, schemacheck)
+from . import (adoption, attest, container_exec, context,
+               evaluate, evidence, manifest, package, plan, policy, profiles,
+               result, schemacheck)
 
 SCHEMA_DIR = Path(__file__).resolve().parent.parent.parent / \
     "openspec/changes/devgate-spec-coherence-service/schemas"
 PROFILE_REGISTRY = Path(__file__).resolve().parent.parent.parent / \
     "container/execution-profiles.json"
+_EVALUATOR_IMAGE_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 
 
 @lru_cache(maxsize=8)
@@ -161,13 +164,20 @@ def run(request_path: str) -> int:
     except (policy.PolicyError, KeyError, TypeError) as e:
         return _fail(out_dir, "policy-resolution", str(e), "policy-resolution", identities)
 
-    # Slice cannot compute these; explicit nulls, never fabricated (coh-dec-02).
-    identities["evaluator_image_digest"] = None
-    identities["platform"] = {
-        "index_digest": None,
-        "manifest_digest": None,
-        "profile": ctx.get("execution_profile", "linux-amd64-v1"),
-    }
+    # Evaluator identity resolution order (coh-dec-02, coh-ev-05): the
+    # container mode's env digest is authoritative (names the executed image);
+    # otherwise the registry pin for the context's profile is the identity.
+    ev_img = os.environ.get("HUB_COHERENCE_EVALUATOR_IMAGE_DIGEST")
+    if ev_img is not None and not _EVALUATOR_IMAGE_RE.fullmatch(ev_img):
+        return _fail(out_dir, "invalid-input",
+                     "malformed HUB_COHERENCE_EVALUATOR_IMAGE_DIGEST",
+                     "invocation", identities)
+    profile_label = ctx.get("execution_profile", "linux-amd64-v1")
+    try:
+        identities.update(profiles.resolve_evaluator_identity(
+            str(PROFILE_REGISTRY), profile_label, ev_img))
+    except profiles.ProfileRegistryError as e:
+        return _fail(out_dir, "invalid-input", str(e), "invocation", identities)
 
     try:
         assertions = _load_assertions(req["openspec"]["root"])
@@ -237,13 +247,13 @@ def run(request_path: str) -> int:
     res = result.build(ledger, findings, identities, ctx["stage"],
                        ctx.get("semantics", "fresh-promotion"), ev_digest,
                        blocked=adoption_out["blocked"])
-    # Success path goes through the fallback too (r3-indep item 2): if the
-    # decision was computed but result.json cannot be written (occupied by a
-    # directory, dir flipped read-only after seal), the payload lands beside
-    # the request with an stderr announcement — never exit 1 + traceback.
-    result.emit_with_fallback(out_dir, result.to_canonical(res))
-    _, code = result.decide(ledger, ctx["stage"], blocked=adoption_out["blocked"])
-    return code
+
+    try:
+        return attest.seal_run(out_dir, res, ledger, identities, ev_digest,
+                               ctx, adoption_out["blocked"])
+    except attest.AttestationError as e:
+        return _fail(out_dir, "attestation", str(e),
+                     "attestation", identities, ledger=ledger)
 
 
 def _load_assertions(openspec_root: str) -> list:
@@ -259,14 +269,34 @@ def _load_assertions(openspec_root: str) -> list:
 
 def main() -> int:
     ap = argparse.ArgumentParser(prog="hub.coherence")
-    ap.add_argument("--request", required=True, help="Path to request JSON")
+    ap.add_argument("--request", help="Path to request JSON")
     ap.add_argument("--launch-config",
                     help="Host-side containerized execution: validate the "
                          "launch config against the execution-profile "
                          "registry, run the evaluation inside the pinned "
                          "image, and map launch failures to the exit-code "
                          "contract (coh-rt-05/07, coh-dec-04)")
+    ap.add_argument("--verify-run",
+                    help="Verify a completed run: path to the run directory "
+                         "containing result.json, attestation.json, and "
+                         "evidence-manifest.json")
+    ap.add_argument("--signer-set",
+                    help="Path to a signer-set document for verification "
+                         "(required with --verify-run)")
     args = ap.parse_args()
+    # --request is required for the evaluation path but NOT for the consumer
+    # tools (--verify-run / --launch-config), which take their own arguments.
+    # Declaring it argparse-required made both tools unreachable: argparse
+    # rejected the invocation before dispatch (S5 audit).
+    if args.verify_run is not None:
+        if not args.signer_set:
+            print("--signer-set is required with --verify-run",
+                  file=sys.stderr)
+            return 2
+        return attest.verify_run_cli(args.verify_run, args.signer_set)
+    if args.request is None:
+        print("--request is required", file=sys.stderr)
+        return 2
     if args.launch_config:
         return container_exec.run_containerized(
             args.request, args.launch_config, str(PROFILE_REGISTRY))

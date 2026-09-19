@@ -3,6 +3,7 @@
 envelopes. Dual-runnable. All fixtures synthetic (R9).
 """
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -21,7 +22,8 @@ ZERO_DIGEST = "sha256:" + "0" * 64
 def _run(req_path: Path, out_dir: Path):
     """Invoke the real CLI; return (exit_code, parsed result or None)."""
     r = subprocess.run([sys.executable, "-m", "hub.coherence", "--request", str(req_path)],
-                       capture_output=True, text=True, cwd=str(REPO))
+                       capture_output=True, text=True, cwd=str(REPO),
+                       env={**os.environ, **fx.cli_env()})
     rp = out_dir / "result.json"
     parsed = json.loads(rp.read_text()) if rp.exists() else None
     return r.returncode, parsed

@@ -17,7 +17,7 @@ from hub.coherence.launcher import (LaunchError, podman_args, run,
 
 SHA = "sha256:" + "a" * 64
 SHA_B = "sha256:" + "b" * 64
-PROFILES = ["linux/amd64-baseline", "linux/arm64-baseline"]
+PROFILES = ["linux-amd64-v1", "linux-arm64-v1"]
 
 
 def base_cfg():
@@ -33,7 +33,7 @@ def base_cfg():
         "scratch": {"size": "512m"},
         "limits": {"memory": "512m", "cpus": "1.0", "time_s": 600,
                    "pids": 128, "nofile": 256, "output_bytes": 1048576},
-        "profile": "linux/amd64-baseline",
+        "profile": "linux-amd64-v1",
         "image_index_digest": SHA,
         "image_manifest_digest": SHA_B,
     }
@@ -53,7 +53,7 @@ class TestLauncherValidation(unittest.TestCase):
         self.assertEqual(ctx["limits"]["pids"], 128)
         self.assertEqual(ctx["limits"]["time_s"], 600)
         self.assertEqual(ctx["limits"]["output_bytes"], 1048576)
-        self.assertEqual(ctx["profile"], "linux/amd64-baseline")
+        self.assertEqual(ctx["profile"], "linux-amd64-v1")
         self.assertEqual(ctx["image_index_digest"], SHA)
         self.assertEqual(ctx["image_manifest_digest"], SHA_B)
 
@@ -299,7 +299,7 @@ class TestLauncherValidation(unittest.TestCase):
                          {"user": "0:0"},
                          {"read_only_rootfs": False},
                          {"cap_drop": ["NET_RAW"]},
-                         {"profile": "linux/arm64-baseline"}):
+                         {"profile": "linux-arm64-v1"}):
             cfg = base_cfg()
             cfg["declared"] = declared
             with self.assertRaises(LaunchError) as cm:
@@ -312,7 +312,7 @@ class TestLauncherValidation(unittest.TestCase):
         cfg = base_cfg()
         cfg["declared"] = {"user": "1000:1000", "read_only_rootfs": True,
                            "network": "none", "cap_drop": ["ALL"],
-                           "profile": "linux/amd64-baseline"}
+                           "profile": "linux-amd64-v1"}
         ctx = validate_launch(cfg, PROFILES)
         self.assertEqual(ctx["user"], "1000:1000")
 
