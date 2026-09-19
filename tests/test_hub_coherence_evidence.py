@@ -14,9 +14,10 @@ The second bug: `assertion_id` is repository-declared (package specs) and
 reached the filesystem unvalidated, so a hostile id could write outside the
 run directory; and the same string is read back from a manifest an attacker may
 have edited. Repository files are untrusted input (design.md: Repository
-boundary); `plan._check_assertion` checks required fields but never the id
-shape, and the id pattern frozen in `assertion.schema.json` is not loaded at
-runtime. All fixtures synthetic (R9).
+boundary); the id pattern is now enforced at planning through
+`assertion.schema.json`, but seal() is reachable directly and is the last gate
+before any write, so the checks pinned here stand on their own. All fixtures
+synthetic (R9).
 """
 import hashlib
 import json

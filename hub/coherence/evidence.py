@@ -19,9 +19,11 @@ from pathlib import Path
 
 from . import canon, result
 
-# The assertion-id grammar already frozen in assertion.schema.json:10. That
-# schema is not loaded at runtime and plan._check_assertion never checks the id
-# shape, so seal — the last gate before any write — enforces it.
+# The assertion-id grammar frozen in assertion.schema.json:10, now enforced at
+# planning (plan._check_assertion loads that schema). This is the last gate
+# before any write: seal() is also reachable directly, so the shape it derives
+# a filename from is re-checked here rather than relying on every caller having
+# planned first.
 _ASSERTION_ID_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 # Hex chars of an object's own digest used to name its file: content-derived,
 # so stable across repeats and independent of finding order.

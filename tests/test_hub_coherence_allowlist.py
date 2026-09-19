@@ -23,6 +23,7 @@ def _assertion(aid="a1", deps=None):
         "evaluator": {"id": "devgate.builtin.identity-consistency",
                       "digest": "sha256:" + "a" * 64},
         "parameters": {}, "severity": "high", "dependencies": deps or [],
+        "finding_key": ["assertion_id", "subject_location", "violation_class"],
         "evidence": {"retention_days": 1},
     }
 

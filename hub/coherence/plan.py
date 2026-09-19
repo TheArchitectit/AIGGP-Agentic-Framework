@@ -3,7 +3,7 @@
 inputs, planning-time traceability, complete-outcome accounting. Runs before
 any evaluator.
 """
-from . import evaluators
+from . import evaluators, schemacheck
 
 
 class PlanError(ValueError):
@@ -11,26 +11,34 @@ class PlanError(ValueError):
 
 
 def _check_assertion(a: dict) -> None:
-    required = ("id", "version", "requirement_refs", "owner", "requirement",
-                "subjects", "evaluator", "severity", "dependencies", "evidence")
-    for field in required:
-        if field not in a:
-            raise PlanError(f"assertion {a.get('id', '?')!r} missing {field!r}")
-    if not a["requirement_refs"]:
-        raise PlanError(f"assertion {a['id']!r} has no requirement_refs")
+    # Repository-declared package content is untrusted (design.md "Repository
+    # boundary"). Every shape rule that makes an assertion usable lives in the
+    # frozen assertion.schema.json — so the schema is the check, loaded
+    # through the runtime gate instead of a hand-rolled subset of it. A
+    # non-dict entry (a specs/*.json that parses to a bare value) is a shape
+    # violation, not an AttributeError.
+    if not isinstance(a, dict):
+        raise PlanError(f"assertion must be an object, got {type(a).__name__}")
+    # The schema subsumes the old required-field loop (its `required` list) and
+    # the empty-requirement_refs check (its minItems), so neither is repeated.
+    errs = schemacheck.validate(a, schemacheck.load("assertion.schema.json"))
+    if errs:
+        raise PlanError(
+            f"assertion {a.get('id', '?')!r} violates assertion.schema.json: "
+            + "; ".join(errs[:5]))
     # Built-in allowlist, enforced at the planner (coh-rt-06 scenario: "WHEN
     # the planner resolves evaluators, THEN the reference is rejected").
     # Execution is decided solely by this lookup: the claimed evaluator
-    # digest is declaration-only, never authority (mirrors coh-pol-02).
-    ev = a["evaluator"]
-    if not isinstance(ev, dict) or not isinstance(ev.get("id"), str) or not ev["id"]:
+    # digest is declaration-only, never authority (mirrors coh-pol-02). The
+    # schema validates the evaluator's shape; only this lookup decides whether
+    # it may run.
+    if a["evaluator"]["id"] not in evaluators.BUILTINS:
         raise PlanError(
-            f"assertion {a['id']!r} has malformed evaluator reference")
-    if ev["id"] not in evaluators.BUILTINS:
-        raise PlanError(
-            f"unapproved-evaluator:{ev['id']} on assertion {a['id']!r}: "
-            f"repository-supplied or unknown evaluators cannot execute; only "
-            f"deterministic built-ins bundled in the pinned image may run")
+            f"unapproved-evaluator:{a['evaluator']['id']} on assertion "
+            f"{a['id']!r}: repository-supplied or unknown evaluators cannot "
+            f"execute; only deterministic built-ins bundled in the pinned "
+            f"image may run")
+
 
 
 def check_traceability(assertions: list, requirements: dict) -> None:

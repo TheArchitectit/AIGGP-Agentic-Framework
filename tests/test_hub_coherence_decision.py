@@ -95,10 +95,15 @@ class TestCrashDecisionMatrix(unittest.TestCase):
     (ERROR/32) with both condition classes visible in the result."""
 
     def _mixed_run(self, base, name):
-        crasher = fx.assertion(aid="crasher")
-        # identity_consistency reads assertion["parameters"] first: a
-        # parameters-less assertion is a real (KeyError) evaluator crash.
-        del crasher["parameters"]
+        # A schema-valid assertion whose file subject names a directory:
+        # identity_consistency read_text()s it and crashes (IsADirectoryError)
+        # — a real evaluator crash, ERROR-execution per the frozen matrix.
+        # (C1 retargeted this: the previous trigger deleted "parameters",
+        # which was a KeyError only because the old planner never enforced
+        # that field — assertion.schema.json requires it, so planning now
+        # rejects it as invalid input instead of letting it reach execution.)
+        crasher = fx.assertion(aid="crasher",
+                               subjects=[{"kind": "file", "path": "."}])
         req, out = fx.build_root(base / name, declared_name="other",
                                  approved_name="widget", stage=3,
                                  assertions=[crasher, fx.assertion()])
@@ -111,7 +116,7 @@ class TestCrashDecisionMatrix(unittest.TestCase):
         self.assertEqual(res["decision"], "ERROR")
         self.assertEqual(res["error"]["class"], "execution")
         self.assertEqual(res["error"]["reason"],
-                         "evaluator-crash:KeyError:crasher")
+                         "evaluator-crash:IsADirectoryError:crasher")
         # Both condition classes stay visible (tie-break 2).
         by_id = {r["assertion_id"]: r for r in res["assertion_results"]}
         self.assertEqual(by_id["crasher"]["outcome"], "UNRESOLVED")
