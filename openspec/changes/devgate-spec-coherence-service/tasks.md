@@ -188,7 +188,7 @@ Sprint work:
   `hub/coherence/profiles.py` loads/shape-checks the registry and cross-checks launch digests. OPEN: arm64
   platform entry (needs emulation or a runner build) and the publish-to-registry step; single-platform build
   honestly records no service-image index digest.
-- [ ] Launcher-validated isolation: non-root, read-only root/inputs, dropped capabilities, no host sockets/network; launcher rejects violating configs; self-report not trusted (coh-rt-01, coh-rt-02).
+- [x] Launcher-validated isolation: non-root, read-only root/inputs, dropped capabilities, no host sockets/network; launcher rejects violating configs; self-report not trusted (coh-rt-01, coh-rt-02).
   PROGRESS 2026-09-18: `hub/coherence/launcher.py` (271 lines) validates every rejection class, requires the
   platform manifest digest, and `run()` executes the derived invocation under the time/output limits.
   CLI-layer mapping CLOSED 2026-09-18 (`0701be7`): `hub/coherence/container_exec.py` (`--launch-config`)
@@ -202,7 +202,10 @@ Sprint work:
   `result.emit`/`result.emit_with_fallback` (round-2 B1 fallback rule now single-sourced); the driver stages
   the rewritten request INSIDE the output bind (`request.container.json`) because the in-container CLI emits
   envelopes beside its request file — staging anywhere read-only would lose in-container error envelopes.
-  OPEN: plugins-by-digest clause (launch config `plugins` field).
+  Plugins clause DISPOSED 2026-09-18: fail-closed — with no approved plugin sandbox (coh-rt-06), a non-empty
+  launch-config `plugins` field is rejected (`plugins-unsupported:no-approved-plugin-sandbox`) because a
+  declared plugin would be silently inert; the by-digest FORM validation (coh-rt-01) is implemented with the
+  plugin ADR, when a plugin exists to validate. Empty/absent `plugins` accepted. 1 mutation killed.
 - [ ] Bounded scratch + designated output location; atomic export; partial-output = ERROR (coh-rt-05, coh-rt-07).
   PROGRESS 2026-09-18: all writable tmpfs targets (`/scratch`, `/tmp`, `/run`) explicitly size-bounded by the
   config scratch bound; `/dev/shm` pinned 64m; single `/output` bind. OPEN: in-container atomic export
@@ -211,9 +214,9 @@ Sprint work:
 - [ ] Scoped secret injection + redaction tests (coh-rt-04).
 - [x] Built-in evaluator allowlist enforcement: repository-supplied executable rejected (coh-rt-06).
   CLOSED 2026-09-18 (`665344b`): enforced at the PLANNER (`plan.py`), matching the normative scenario's
-  placement ("WHEN
-  the planner resolves evaluators, THEN the reference is rejected") — a non-builtin `evaluator.id` is
-  PlanError → invalid-input/exit 30 at any stage; execution remains decided solely by the `BUILTINS` lookup,
+  placement ("WHEN the planner resolves evaluators, THEN the reference is rejected") — a non-builtin
+  `evaluator.id` is PlanError → invalid-input/exit 30 at any stage; execution remains decided solely by the
+  `BUILTINS` lookup,
   the claimed evaluator digest stays declaration-only (never authority, mirroring coh-pol-02); malformed
   evaluator shapes are PlanError, not TypeError. `evaluate.run` keeps its `unapproved-evaluator` →
   UNRESOLVED fallback as defense in depth for direct unplanned calls. Tests: planner accepts all built-ins,
@@ -246,8 +249,10 @@ live-tested, 6/6 mutations killed). Findings and dispositions:
   what is declared, so no isolation loss. Module docstring narrowed to say exactly this (`e9e200b`).
 - [LOW] host-socket check is basename `.sock` only → **ACKNOWLEDGED, no change**: all mounts are readonly and
   connecting a unix socket needs write access to the inode, so readonly binds block use. Defense-in-depth note.
-- [INFO] plugins-by-digest unaddressed → **OPEN** with the launcher item (launch config `plugins` field).
-- [INFO] no CLI exit-30 mapping yet → **OPEN** with the CLI wiring item.
+- [INFO] plugins-by-digest unaddressed → **CLOSED**: fail-closed plugins rejection at the launcher + explicit
+  ADR sequencing for the by-digest form validation (see the launcher item, 2026-09-18).
+- [INFO] no CLI exit-30 mapping yet → **CLOSED**: `container_exec.py` maps launch failures to the contract
+  (see the launcher item, 2026-09-18).
 - [INFO] auditor ran `regression_check.py` on a clean tree (vacuous) → **PROCESS NOTE**: audit briefs must say
   `--all`.
 - Battery at `e9e200b`: pytest 310 green (2 pre-existing hub-server thread warnings in
