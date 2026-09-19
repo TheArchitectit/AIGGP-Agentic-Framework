@@ -64,7 +64,8 @@ def redact_values(obj, values: list):
     return obj
 
 
-def seal(findings: list, output_dir: str, redact: list = None) -> str:
+def seal(findings: list, output_dir: str, redact: list = None,
+         retention_by_aid: dict = None) -> str:
     """Seal evidence for each finding; return the evidence manifest digest.
 
     Minimum disclosure (coh-ev-06): evidence stores only the assertion id,
@@ -72,6 +73,12 @@ def seal(findings: list, output_dir: str, redact: list = None) -> str:
     `redact` lists granted secret values (coh-rt-04): each is scrubbed before
     sealing, and the payload is re-checked so a scrub bypass is an evidence
     error rather than a sealed secret.
+
+    `retention_by_aid` maps each assertion id to the days its declared
+    `evidence.retention_days` asked for; the object's retention_class is
+    derived from it directly (no invented bucket taxonomy). An assertion
+    absent from the map falls back to the pre-fix default `"standard"`, so a
+    caller that has not loaded the plan still seals a schema-valid bundle.
     """
     out = Path(output_dir)
     try:
@@ -79,11 +86,18 @@ def seal(findings: list, output_dir: str, redact: list = None) -> str:
     except OSError as e:
         raise EvidenceError(f"cannot create evidence directory {output_dir}: {e}") from e
     values = [r for r in (redact or []) if isinstance(r, str) and r]
+    ret_map = dict(retention_by_aid or {})
+    for aid, days in ret_map.items():
+        if not isinstance(days, int) or days < 0:
+            raise EvidenceError(
+                f"retention-days-must-be-a-non-negative-integer:{aid}={days!r}")
     objects = []
     for f in findings:
         aid = f["assertion_id"]
         if not isinstance(aid, str) or not _ASSERTION_ID_RE.match(aid):
             raise EvidenceError(f"bad-assertion-id:{aid!r}")
+        days = ret_map.get(aid)
+        cls = f"retention:{days}d" if isinstance(days, int) else "standard"
         ev = {
             "assertion_id": aid,
             "finding_key": f["finding_key"],
@@ -108,7 +122,7 @@ def seal(findings: list, output_dir: str, redact: list = None) -> str:
             raise EvidenceError(f"cannot seal evidence {rel}: {e}") from e
         objects.append({
             "path": rel, "digest": digest, "media_type": "application/json",
-            "assertion_id": f["assertion_id"], "retention_class": "standard",
+            "assertion_id": f["assertion_id"], "retention_class": cls,
             "redacted": True,
         })
         f["evidence_refs"] = [rel]

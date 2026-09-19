@@ -113,6 +113,40 @@ class TestEvidencePathIntegrity(unittest.TestCase):
             self.assertEqual(len(files), 1)
             self.assertTrue(evidence.verify(out, digest))
 
+    def test_retention_class_is_derived_from_declared_days(self):
+        """coh-ev-02's manifest-completeness clause: every evidence object
+        MUST be classified by retention. The only faithful signal in the
+        assertion model is its declared evidence.retention_days (no invented
+        bucket taxonomy — the spec schema leaves the class field free-form).
+        The default preserves the current 'standard' string for callers that
+        do not supply the map (backward-compat with all pre-existing tests).
+        """
+        with tempfile.TemporaryDirectory() as td:
+            out = Path(td) / "run"
+            out.mkdir()
+            a1 = _finding("a1", "x", "e", "o")
+            a2 = _finding("a2", "y", "e", "o")
+            a3 = _finding("a3", "z", "e", "o")
+            evidence.seal([a1, a2, a3], str(out),
+                          retention_by_aid={"a1": 30, "a2": 0})
+            m = json.loads((out / "evidence-manifest.json").read_text())
+            by_aid = {obj["assertion_id"]: obj["retention_class"]
+                      for obj in m["objects"]}
+            self.assertEqual(by_aid["a1"], "retention:30d")
+            self.assertEqual(by_aid["a2"], "retention:0d")
+            # a3 is unmapped — falls back to the pre-existing default.
+            self.assertEqual(by_aid["a3"], "standard")
+
+    def test_negative_retention_days_is_rejected_at_seal(self):
+        """assertion.schema.json sets `minimum: 0`; a repository-declared
+        negative days is invalid input reaching seal, not a class string."""
+        with tempfile.TemporaryDirectory() as td:
+            out = Path(td) / "run"
+            out.mkdir()
+            with self.assertRaises(evidence.EvidenceError):
+                evidence.seal([_finding("a1", "x", "e", "o")], str(out),
+                              retention_by_aid={"a1": -1})
+
     def test_hostile_assertion_id_fails_closed_at_seal(self):
         """A repository-declared id that cannot name a file must be rejected
         before any write, with nothing created outside the output directory."""
@@ -189,6 +223,14 @@ class TestEvidencePathEndToEnd(unittest.TestCase):
         findings = list((out / "evidence" / "findings").glob("*.json"))
         self.assertEqual(len(findings), 2,
                          "two violations of one assertion seal two objects")
+        # coh-ev-02 integration: the CLI threaded the assertion's declared
+        # retention_days (fx.assertion defaults to 365) into every object's
+        # class — proving the derivation is exercised by a real run, not just
+        # the unit test's synthetic dict.
+        m = json.loads((out / "evidence-manifest.json").read_text())
+        classes = {obj["retention_class"] for obj in m["objects"]}
+        self.assertEqual(classes, {"retention:365d"},
+                         "CLI must thread the declared retention_days to the manifest")
         return out
 
     def test_two_violation_run_passes_verify_run(self):

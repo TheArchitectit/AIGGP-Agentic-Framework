@@ -240,7 +240,19 @@ def run(request_path: str) -> int:
     # here — and nothing else may silently "authorize" on a replay.
 
     try:
-        ev_digest = evidence.seal(findings, out_dir)
+        # coh-ev-02: each sealed object's retention_class comes from its
+        # assertion's declared evidence.retention_days. A declared value is
+        # passed straight through — even a negative or non-integer one, which
+        # seal rejects fail-closed (the assertion schema's minimum:0 is not
+        # enforced at runtime; see the round-9 plan-time carry-forward). An
+        # assertion with no declared days is left unmapped so seal falls back
+        # to the pre-existing "standard" for it rather than inventing a value.
+        retention_days = {a["id"]: a["evidence"]["retention_days"]
+                          for a in planned
+                          if isinstance(a.get("evidence"), dict)
+                          and "retention_days" in a["evidence"]}
+        ev_digest = evidence.seal(findings, out_dir,
+                                  retention_by_aid=retention_days)
     except evidence.EvidenceError as e:
         return _fail(out_dir, "evidence", str(e), "sealing", identities)
 
