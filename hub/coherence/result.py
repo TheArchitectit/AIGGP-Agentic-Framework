@@ -3,6 +3,7 @@
 decision/exit matrix. No timestamps, durations, host identity, or attestation
 fields in the canonical payload.
 """
+import os
 import sys
 import tempfile
 from pathlib import Path
@@ -116,8 +117,24 @@ def to_canonical(obj: dict) -> bytes:
 
 
 def emit(path: str, payload: bytes) -> None:
-    Path(path).parent.mkdir(parents=True, exist_ok=True)
-    Path(path).write_bytes(payload)
+    """Atomic artifact write (coh-rt-07): the payload is fsynced to a
+    dot-prefixed temp file in the SAME directory and only then renamed onto
+    the canonical path. A process killed mid-write can leave a temp fragment
+    behind, but a canonical path never holds partial bytes — consumers can
+    treat presence as completeness."""
+    p = Path(path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    tmp = p.parent / f".{p.name}.tmp-{os.getpid()}"
+    with open(tmp, "wb") as fh:
+        fh.write(payload)
+        fh.flush()
+        os.fsync(fh.fileno())
+    os.replace(tmp, p)
+    dfd = os.open(p.parent, os.O_RDONLY)
+    try:
+        os.fsync(dfd)
+    finally:
+        os.close(dfd)
 
 
 def emit_with_fallback(out_dir: str, payload: bytes) -> str:

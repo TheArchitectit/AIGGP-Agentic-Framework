@@ -420,6 +420,47 @@ class TestEvidence(unittest.TestCase):
             p.write_text('{"tampered":true}')
             self.assertFalse(evidence.verify(td, digest))
 
+    def test_interrupted_seal_leaves_no_canonical_partial(self):
+        # coh-rt-07 scenario: a kill mid-export must never leave partial bytes
+        # at a canonical path — canonical artifacts appear only via the final
+        # atomic rename, so a caller can trust presence as completeness.
+        from unittest import mock
+        from hub.coherence import evidence
+        with tempfile.TemporaryDirectory() as td:
+            findings = [{
+                "assertion_id": "a1", "finding_key": "a1|x|identity-mismatch",
+                "outcome": "VIOLATED", "enforcement": "BLOCK", "severity": "high",
+                "subject_locations": ["README.md"], "expected": "widget",
+                "observed": "other", "evidence_refs": [],
+            }]
+            with mock.patch("os.replace", side_effect=OSError("killed mid-export")):
+                with self.assertRaises(evidence.EvidenceError):
+                    evidence.seal(findings, td)
+            self.assertFalse(
+                (Path(td) / "evidence" / "findings" / "a1.json").exists(),
+                "partial evidence bytes must not sit at the canonical path")
+            self.assertFalse((Path(td) / "evidence-manifest.json").exists())
+
+    def test_interrupted_result_emit_leaves_no_canonical_partial(self):
+        from unittest import mock
+        from hub.coherence import result
+        with tempfile.TemporaryDirectory() as td:
+            with mock.patch("os.replace", side_effect=OSError("killed mid-write")):
+                with self.assertRaises(OSError):
+                    result.emit(str(Path(td) / "result.json"), b'{"decision":"PASS"}')
+            self.assertFalse((Path(td) / "result.json").exists())
+
+    def test_emit_is_complete_or_absent(self):
+        # The happy path: after emit, the canonical file holds exactly the
+        # payload and no temp fragment remains.
+        from hub.coherence import result
+        with tempfile.TemporaryDirectory() as td:
+            fp = Path(td) / "result.json"
+            result.emit(str(fp), b'{"decision":"PASS"}')
+            self.assertEqual(fp.read_bytes(), b'{"decision":"PASS"}')
+            leftovers = [p.name for p in Path(td).iterdir() if p != fp]
+            self.assertEqual(leftovers, [])
+
 
 class TestTraceabilityMarkerScan(unittest.TestCase):
     """Repo-marker half of traceability_completeness (coh-assert-04,

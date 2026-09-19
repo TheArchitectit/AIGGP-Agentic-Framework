@@ -1,11 +1,13 @@
-# // spec: coh-ev-02, coh-ev-03, coh-ev-06
+# // spec: coh-ev-02, coh-ev-03, coh-ev-06, coh-rt-07
 """Evidence bundle: minimum-disclosure capture, redaction, sealing, manifest
-digest. Sealed in bounded scratch, exported atomically.
+digest. Every artifact is written atomically: fsync to a same-directory temp
+file, then rename onto the canonical path (coh-rt-07 — a canonical path never
+holds partial bytes; a partial temp fragment is never a decision).
 """
 import json
 from pathlib import Path
 
-from . import canon
+from . import canon, result
 
 
 class EvidenceError(RuntimeError):
@@ -36,8 +38,7 @@ def seal(findings: list, output_dir: str) -> str:
         digest = canon.digest_bytes("evidence-manifest/v1", payload)
         rel = f"evidence/findings/{f['assertion_id']}.json"
         try:
-            (out / rel).parent.mkdir(parents=True, exist_ok=True)
-            (out / rel).write_bytes(payload)
+            result.emit(str(out / rel), payload)
         except OSError as e:
             raise EvidenceError(f"cannot seal evidence {rel}: {e}") from e
         objects.append({
@@ -53,7 +54,7 @@ def seal(findings: list, output_dir: str) -> str:
     # with zero findings — the common fully-PASS shape — this was the ONLY
     # seal write, and it escaped unwrapped as exit 1 + PermissionError.
     try:
-        (out / "evidence-manifest.json").write_bytes(canon.canon(manifest))
+        result.emit(str(out / "evidence-manifest.json"), canon.canon(manifest))
     except OSError as e:
         raise EvidenceError(f"cannot seal evidence manifest: {e}") from e
     return manifest_digest
