@@ -154,22 +154,25 @@ class TestFixtureC_Exceptions(unittest.TestCase):
 class TestFixtureD_Bypass(unittest.TestCase):
     """Repository cannot weaken central policy or pick an unapproved evaluator."""
 
-    def test_unapproved_evaluator_never_passes(self):
+    def test_unapproved_evaluator_rejected_at_planning(self):
+        # coh-rt-06 scenario: the reference is rejected when the PLANNER
+        # resolves evaluators — a repo-supplied evaluator never runs, and the
+        # package itself is invalid input (exit 30), not an evaluated failure.
         with tempfile.TemporaryDirectory() as td:
             a = fx.assertion(aid="a1", evaluator={"id": "repo.evil", "digest": "sha256:" + "b" * 64})
             req, out = fx.build_root(Path(td), declared_name="widget", approved_name="widget",
                                      assertions=[a], stage=1)
             code, res = _run(req, out)
-            self.assertNotEqual(res["decision"], "PASS")
-            self.assertEqual(res["assertion_results"][0]["outcome"], "UNRESOLVED")
-            self.assertEqual(res["assertion_results"][0]["reason"], "unapproved-evaluator")
-            # At an enforced stage the same assertion must BLOCK, not just be
-            # non-PASS (audit finding 1: `!= PASS` was too weak and masked it).
+            self.assertEqual(code, result.EXIT_INVALID_INPUT)
+            self.assertEqual(res["decision"], "ERROR")
+            self.assertEqual(res["error"]["class"], "invalid-input")
+            self.assertIn("unapproved-evaluator:repo.evil", res["error"]["reason"])
+            # Same rejection at an enforced stage: planning precedes evaluation.
             req2, out2 = fx.build_root(Path(td) / "s2", declared_name="widget",
                                        approved_name="widget", assertions=[a], stage=3)
             code2, res2 = _run(req2, out2)
-            self.assertEqual(res2["decision"], "FAIL")
-            self.assertEqual(code2, result.EXIT_FAIL)
+            self.assertEqual(code2, result.EXIT_INVALID_INPUT)
+            self.assertEqual(res2["decision"], "ERROR")
 
     def test_centrally_required_assertion_cannot_be_omitted(self):
         from hub.coherence import plan

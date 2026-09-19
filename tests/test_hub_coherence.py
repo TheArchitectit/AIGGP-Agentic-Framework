@@ -217,6 +217,55 @@ class TestPlan(unittest.TestCase):
         with self.assertRaises(plan.PlanError):
             plan.plan([a], [])
 
+    def test_planner_accepts_all_builtins(self):
+        a = self._assertion("a1")
+        assertions = []
+        for i, eid in enumerate(sorted(evaluators.BUILTINS)):
+            b = self._assertion(f"a{i}")
+            b["evaluator"] = {"id": eid, "digest": "sha256:" + "a" * 64}
+            assertions.append(b)
+        planned = plan.plan(assertions, [])
+        self.assertEqual(len(planned), len(evaluators.BUILTINS))
+
+    def test_planner_rejects_repository_supplied_evaluator(self):
+        # coh-rt-06: repository-supplied executable code MUST NOT run as an
+        # evaluator; the planner rejects the reference before any evaluation.
+        a = self._assertion("a1")
+        a["evaluator"] = {"id": "repo.evil", "digest": "sha256:" + "b" * 64}
+        with self.assertRaises(plan.PlanError) as cm:
+            plan.plan([a], [])
+        self.assertIn("unapproved-evaluator:repo.evil", str(cm.exception))
+
+    def test_overlay_swapped_evaluator_rejected_at_planning(self):
+        # Layered defense: even when central policy carries no approved
+        # evaluator list, an overlay-swapped non-builtin id cannot pass
+        # through apply_overlay into execution.
+        import tempfile as _tf
+        with tempfile.TemporaryDirectory() as td:
+            pol = Path(td)
+            (pol / "overlay.json").write_text(json.dumps({
+                "assertions": [{"id": "a1",
+                                "evaluator": {"id": "repo.evil", "digest": "sha256:" + "b" * 64}}],
+            }))
+            from hub.coherence import policy as _policy
+            a = self._assertion("a1")
+            central = {"required_assertions": [], "approved_evaluators": []}
+            swapped = _policy.apply_overlay([a], json.loads(
+                (pol / "overlay.json").read_text()), central)
+            with self.assertRaises(plan.PlanError) as cm:
+                plan.plan(swapped, [])
+            self.assertIn("unapproved-evaluator:repo.evil", str(cm.exception))
+
+    def test_planner_rejects_malformed_evaluator_shape(self):
+        a = self._assertion("a1")
+        a["evaluator"] = "not-a-dict"
+        with self.assertRaises(plan.PlanError):
+            plan.plan([a], [])
+        a = self._assertion("a2")
+        a["evaluator"] = {"digest": "sha256:" + "a" * 64}
+        with self.assertRaises(plan.PlanError):
+            plan.plan([a], [])
+
 
 class TestEvaluate(unittest.TestCase):
     def test_identity_satisfied(self):

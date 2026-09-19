@@ -363,19 +363,24 @@ class TestEnforcementBlocks(unittest.TestCase):
     def test_unresolved_enforced_blocks_end_to_end(self):
         """Audit finding 1 at the CLI level: an UNRESOLVED required assertion at
         an enforced stage must give FAIL/20, not ADVISORY/10. (The unit-level
-        equivalent lives in test_hub_coherence.py::TestResult.)"""
+        equivalent lives in test_hub_coherence.py::TestResult.) The vehicle is
+        an empty selector — since the coh-rt-06 planner allowlist, a
+        repo-supplied evaluator is rejected as invalid input (exit 30) before
+        it could ever produce an UNRESOLVED ledger entry."""
         with tempfile.TemporaryDirectory() as td:
-            a = fx.assertion(aid="a1", evaluator={"id": "repo.evil", "digest": "sha256:" + "b" * 64})
-            req, out = fx.build_root(Path(td), assertions=[a], stage=2)
+            a = fx.assertion(aid="a1")
+            req, out = fx.build_root(Path(td), assertions=[a], stage=2,
+                                     subject_files={"README.md": "# just a readme\n"})
             code, res = _run(req, out)
             self.assertEqual(res["decision"], "FAIL",
                              "unresolved required assertion must block at stage >= 2")
             self.assertEqual(code, result.EXIT_FAIL)
 
-    def test_unapproved_evaluator_at_stage1_stays_advisory(self):
+    def test_unresolved_enforced_at_stage1_stays_advisory(self):
         with tempfile.TemporaryDirectory() as td:
-            a = fx.assertion(aid="a1", evaluator={"id": "repo.evil", "digest": "sha256:" + "b" * 64})
-            req, out = fx.build_root(Path(td), assertions=[a], stage=1)
+            a = fx.assertion(aid="a1")
+            req, out = fx.build_root(Path(td), assertions=[a], stage=1,
+                                     subject_files={"README.md": "# just a readme\n"})
             code, res = _run(req, out)
             self.assertEqual(res["decision"], "ADVISORY")
             self.assertEqual(code, result.EXIT_ADVISORY)

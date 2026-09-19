@@ -1,8 +1,9 @@
-# // spec: coh-eval-02, coh-assert-01, coh-assert-04, coh-eval-04, coh-pol-01
+# // spec: coh-eval-02, coh-assert-01, coh-assert-04, coh-eval-04, coh-pol-01, coh-rt-06
 """Assertion graph planning: schema completeness, duplicates, cycles, undeclared
 inputs, planning-time traceability, complete-outcome accounting. Runs before
 any evaluator.
 """
+from . import evaluators
 
 
 class PlanError(ValueError):
@@ -17,6 +18,19 @@ def _check_assertion(a: dict) -> None:
             raise PlanError(f"assertion {a.get('id', '?')!r} missing {field!r}")
     if not a["requirement_refs"]:
         raise PlanError(f"assertion {a['id']!r} has no requirement_refs")
+    # Built-in allowlist, enforced at the planner (coh-rt-06 scenario: "WHEN
+    # the planner resolves evaluators, THEN the reference is rejected").
+    # Execution is decided solely by this lookup: the claimed evaluator
+    # digest is declaration-only, never authority (mirrors coh-pol-02).
+    ev = a["evaluator"]
+    if not isinstance(ev, dict) or not isinstance(ev.get("id"), str) or not ev["id"]:
+        raise PlanError(
+            f"assertion {a['id']!r} has malformed evaluator reference")
+    if ev["id"] not in evaluators.BUILTINS:
+        raise PlanError(
+            f"unapproved-evaluator:{ev['id']} on assertion {a['id']!r}: "
+            f"repository-supplied or unknown evaluators cannot execute; only "
+            f"deterministic built-ins bundled in the pinned image may run")
 
 
 def check_traceability(assertions: list, requirements: dict) -> None:
