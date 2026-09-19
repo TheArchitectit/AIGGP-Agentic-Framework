@@ -206,10 +206,19 @@ Sprint work:
   launch-config `plugins` field is rejected (`plugins-unsupported:no-approved-plugin-sandbox`) because a
   declared plugin would be silently inert; the by-digest FORM validation (coh-rt-01) is implemented with the
   plugin ADR, when a plugin exists to validate. Empty/absent `plugins` accepted. 1 mutation killed.
-- [ ] Bounded scratch + designated output location; atomic export; partial-output = ERROR (coh-rt-05, coh-rt-07).
-  PROGRESS 2026-09-18: all writable tmpfs targets (`/scratch`, `/tmp`, `/run`) explicitly size-bounded by the
-  config scratch bound; `/dev/shm` pinned 64m; single `/output` bind. OPEN: in-container atomic export
-  (seal-then-rename inside scratch → /output) — needs the evaluate/seal path wired to the container.
+- [x] Bounded scratch + designated output location; atomic export; partial-output = ERROR (coh-rt-05, coh-rt-07).
+  Bounded scratch CLOSED 2026-09-18 (launcher v2): all writable tmpfs targets (`/scratch`, `/tmp`, `/run`)
+  explicitly size-bounded by the config scratch bound; `/dev/shm` pinned 64m; single `/output` bind.
+  Atomic export CLOSED 2026-09-18: every artifact (evidence objects, evidence manifest, result.json) is
+  written via same-directory temp-then-rename — fsync file + parent dir, then `os.replace` — so a canonical
+  path never holds partial bytes and consumers can trust presence as completeness (coh-rt-07 scenario). The
+  earlier sketch (seal into scratch, rename scratch → /output) is impossible as specified: rename across
+  filesystems fails with EXDEV, so the atomicity guarantee lives at the DESTINATION (temp file inside the
+  designated output location); the naive cross-mount design was replaced by this one, not silently dropped.
+  The seal path runs in-container through the same CLI (out_dir = /output) — verified by the real-Podman
+  relay test. partial-output = ERROR: a killed run leaves no canonical bundle and the driver relays exit 32
+  (missing_result_bundle test); a kill mid-write leaves only dot-prefixed temp fragments (interrupted-write
+  tests pin canonical-path absence). Mutations: direct-write emit revert killed by 2 tests.
 - [ ] Default-deny egress with capture-step grants; captured responses become context facts (coh-rt-03, coh-ctx-04).
 - [ ] Scoped secret injection + redaction tests (coh-rt-04).
 - [x] Built-in evaluator allowlist enforcement: repository-supplied executable rejected (coh-rt-06).
