@@ -95,9 +95,15 @@ def build(ledger: list, findings: list, identities: dict, stage: int,
     return result
 
 
-def error_envelope(error_class: str, reason: str, stage: str, identities: dict) -> dict:
-    """Structured error envelope; identities that could not be computed are null."""
-    return {
+def error_envelope(error_class: str, reason: str, stage: str, identities: dict,
+                   assertion_results: list = None) -> dict:
+    """Structured error envelope; identities that could not be computed are null.
+
+    assertion_results: the evaluation ledger, when an ERROR-execution run got
+    far enough to produce one. The frozen matrix records ALL condition classes
+    (tie-break 2), so a crash sharing the run with VIOLATED assertions still
+    shows them — the dominant error class never erases the FAIL-class rows."""
+    env = {
         "api_version": "devgate.spec-coherence.result/v1",
         "decision": "ERROR",
         "error": {"class": error_class, "reason": reason, "stage": stage},
@@ -109,6 +115,9 @@ def error_envelope(error_class: str, reason: str, stage: str, identities: dict) 
             "evaluator_image_digest": identities.get("evaluator_image_digest"),
         },
     }
+    if assertion_results is not None:
+        env["assertion_results"] = assertion_results
+    return env
 
 
 def to_canonical(obj: dict) -> bytes:

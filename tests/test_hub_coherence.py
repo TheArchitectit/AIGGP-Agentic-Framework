@@ -272,6 +272,22 @@ class TestEvaluate(unittest.TestCase):
             self.assertEqual(e["outcome"], "UNRESOLVED")
             self.assertIn("selector-empty", e["reason"])
 
+    def test_artifact_metadata_empty_selector_unresolved(self):
+        # Round-8 spec audit (finding 4): the artifact-metadata selector path
+        # resolves empty the same way the file path does — UNRESOLVED with
+        # the selector named, never VIOLATED, never SATISFIED (coh-assert-02).
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            pkg = _mk_package(root, approved_name="widget")
+            _mk_subject(root, "# product: widget\n")
+            p = package.resolve(str(pkg))
+            a = json.loads((pkg / "specs" / "product-identity.json").read_text())
+            for sel in ("product.identity.missing", ""):
+                a["subjects"] = [{"kind": "artifact-metadata", "selector": sel}]
+                with self.assertRaises(evaluators.Unresolved) as c:
+                    evaluators.identity_consistency(a, p, str(root / "subject"))
+                self.assertIn("selector-empty", str(c.exception))
+
     def test_unapproved_evaluator_unresolved(self):
         a = {
             "id": "a1", "version": 1, "requirement_refs": ["r1"], "owner": "o",

@@ -267,6 +267,18 @@ class TestContainerExec(unittest.TestCase):
                       self._envelope()["error"]["reason"])
         m.assert_not_called()
 
+    def test_ref_digest_mismatch_with_declared_pin_rejected(self):
+        # Round-8 spec audit (coh-rt-01/coh-id-04): the registry pin binds the
+        # EXECUTED ref, not just the declared manifest field — declaring the
+        # pinned digest while pointing the ref at other bytes must not run.
+        cfg = launch_cfg()
+        cfg["image"] = "localhost/devgate-coherence@sha256:" + "e" * 64
+        rc, m = self._run(driver_request(), cfg)
+        self.assertEqual(rc, 30)
+        self.assertIn("image-ref-digest-mismatch",
+                      self._envelope()["error"]["reason"])
+        m.assert_not_called()
+
     def test_unmounted_root_rejected(self):
         cfg = launch_cfg()
         cfg["mounts"] = [{"source": "/srv/other", "target": "/in",
@@ -333,6 +345,20 @@ class TestContainerExec(unittest.TestCase):
 
         rc, _ = self._run(driver_request(), launch_cfg(), fake_run)
         self.assertEqual(rc, 20)
+
+    def test_coherent_execution_error_relayed(self):
+        # A completed container exiting 32 with an agreeing ERROR envelope
+        # (e.g. an in-container evaluator crash) relays untouched.
+        def fake_run(ctx, *, output_dir, container_args):
+            (output_dir / "result.json").write_text(json.dumps({
+                "decision": "ERROR",
+                "error": {"class": "execution",
+                          "reason": "evaluator-crash:KeyError:crasher",
+                          "stage": "evaluation"}}))
+            return LaunchRun(32, b"", "completed")
+
+        rc, _ = self._run(driver_request(), launch_cfg(), fake_run)
+        self.assertEqual(rc, 32)
 
     def test_outputs_nul_rejected(self):
         req = driver_request()

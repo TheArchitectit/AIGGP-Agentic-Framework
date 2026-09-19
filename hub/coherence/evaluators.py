@@ -70,7 +70,7 @@ def traceability_completeness(assertion: dict, package: dict, subject_root: str,
 
 # Marker grammar copied from scripts/spec_traceability.py: one marker line
 # may carry several comma-separated ids, and the comma anchor keeps a
-# trailing comment (`// spec: a-01 -- why`) out of the captured ids.
+# trailing comment (`// spec: <id> -- why`) out of the captured ids.
 MARKER_RE = re.compile(r"//\s*spec:[ \t]*([a-z0-9-]+(?:[ \t]*,[ \t]*[a-z0-9-]+)*)")
 MARKER_ID_RE = re.compile(r"[a-z0-9-]+")
 MARKER_EXTS = {".rs", ".py", ".mjs", ".js", ".ts"}

@@ -1,4 +1,4 @@
-# // spec: coh-id-01, coh-id-05
+# // spec: coh-id-01, coh-id-05, coh-eval-01
 """Canonicalization and domain-separated digests (frozen profile).
 
 Restricted RFC 8785 subset: sorted keys, no duplicate keys, UTF-8, int64

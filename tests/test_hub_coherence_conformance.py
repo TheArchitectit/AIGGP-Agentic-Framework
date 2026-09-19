@@ -1,4 +1,4 @@
-# // spec: coh-pol-04, coh-pol-05, coh-pol-06, coh-dec-04, coh-eval-02, coh-ctx-03
+# // spec: coh-pol-04, coh-pol-05, coh-pol-06, coh-dec-04, coh-eval-01, coh-eval-02, coh-ctx-03
 """Frozen S2 conformance suite: Fixtures A-F, full exit-code sweep, error
 envelopes. Dual-runnable. All fixtures synthetic (R9).
 """

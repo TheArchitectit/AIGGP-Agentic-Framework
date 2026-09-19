@@ -68,7 +68,11 @@ def resolve(root: str) -> dict:
                 f"import {imp.get('package_id')!r} has no resolved digest; "
                 "imports must be frozen before evaluation")
 
-    # Normative digest = canonical manifest + normative closure.
+    # Normative digest = canonical manifest + normative closure (design:
+    # "informative content digests separately"). Informative inventory
+    # entries are load-verified above but excluded from the identity, so an
+    # informative-only change leaves the digest stable while any
+    # reclassification — a kind flip — changes it (coh-pkg-03, R6).
     normative_bytes = b"".join(
         canon.canon({"path": str(fp.relative_to(root_p)),
                      "digest": canon.digest_bytes("file/v1", fp.read_bytes())})
@@ -77,7 +81,8 @@ def resolve(root: str) -> dict:
         "api_version": "devgate.openspec.package/v1",
         "package_id": manifest["package_id"],
         "package_version": manifest["package_version"],
-        "normative_inventory": inventory,
+        "normative_inventory": [e for e in inventory
+                                if e["kind"] == "normative"],
         "imports": imports,
     }
     # Declared product identity (approved values assertions compare against)
@@ -88,5 +93,6 @@ def resolve(root: str) -> dict:
         package["normative_requirements"] = manifest["normative_requirements"]
     if "release_manifest" in manifest:
         package["release_manifest"] = manifest["release_manifest"]
-    package["package_digest"] = canon.digest_obj("package/v1", package)
+    package["package_digest"] = canon.digest(
+        "package/v1", canon.canon(package) + normative_bytes)
     return package

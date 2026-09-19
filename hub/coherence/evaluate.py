@@ -1,7 +1,7 @@
 # // spec: coh-eval-06, coh-rt-05, coh-rt-06, coh-eval-02, coh-rt-03, coh-ctx-04
 """Evaluator runtime: built-in evaluators only, declared-inputs-only mediation,
-limits -> ERROR, complete-outcome accounting. No repository executable code,
-no network, no secrets.
+limits/crash/dependency-block -> ERROR-execution, complete-outcome accounting.
+No repository executable code, no network, no secrets.
 """
 from . import evaluators
 
@@ -26,6 +26,12 @@ def run(planned: list, package: dict, subject_root: str, limits: dict = None,
     captured_facts: {fact_id: verified content} from the context loader. Each
     evaluator is exposed ONLY the facts its own subjects declared; a declared
     fact that is not bound is UNRESOLVED, never SATISFIED (coh-rt-03).
+
+    The return carries `error` — set when an ERROR-execution condition
+    occurred (frozen matrix: evaluator crash or dependency-blocked required
+    assertion). The affected ledger rows stay recorded as UNRESOLVED, but the
+    run-level decision is ERROR/32: it dominates any FAIL-class condition in
+    the same run (tie-break 2) and is never downgraded to advisory.
     """
     limits = limits or {}
     captured_facts = captured_facts or {}
@@ -37,6 +43,7 @@ def run(planned: list, package: dict, subject_root: str, limits: dict = None,
     ledger = []
     findings = []
     done = {}  # assertion_id -> outcome
+    error = None  # first ERROR-execution condition, if any (frozen matrix)
 
     for a in planned:
         eid = a["evaluator"]["id"]
@@ -71,7 +78,8 @@ def run(planned: list, package: dict, subject_root: str, limits: dict = None,
             continue
         facts = {fid: captured_facts[fid] for fid in declared_facts}
 
-        # Dependency-blocked: a dependency that did not SATISFY blocks this one.
+        # Dependency-blocked: a dependency that did not SATISFY blocks this
+        # one. Frozen matrix: an ERROR-execution condition, not FAIL-class.
         dep_block = next((d for d in a["dependencies"] if done.get(d) != "SATISFIED"), None)
         if dep_block is not None:
             ledger.append({
@@ -79,13 +87,17 @@ def run(planned: list, package: dict, subject_root: str, limits: dict = None,
                 "outcome": "UNRESOLVED", "reason": "dependency-blocked",
                 "enforcement": "BLOCK",
             })
+            if error is None:
+                error = {"class": "execution",
+                         "reason": f"dependency-blocked:{a['id']}"}
             done[a["id"]] = "UNRESOLVED"
             continue
 
         try:
             fs = _mediated_call(fn, a, package, subject_root, facts)
         except evaluators.Unresolved as e:
-            # Unresolvable input (coh-assert-02) — distinct from a crash.
+            # Unresolvable input (coh-assert-02) — distinct from a crash:
+            # evaluation completed cleanly, so this stays FAIL-class.
             ledger.append({
                 "assertion_id": a["id"], "version": a["version"],
                 "outcome": "UNRESOLVED", "reason": e.reason,
@@ -93,12 +105,15 @@ def run(planned: list, package: dict, subject_root: str, limits: dict = None,
             })
             done[a["id"]] = "UNRESOLVED"
             continue
-        except Exception as e:  # evaluator crash -> UNRESOLVED, enforced blocks
+        except Exception as e:  # evaluator crash -> ERROR-execution (matrix)
             ledger.append({
                 "assertion_id": a["id"], "version": a["version"],
                 "outcome": "UNRESOLVED", "reason": f"evaluator-crash:{type(e).__name__}",
                 "enforcement": "BLOCK",
             })
+            if error is None:
+                error = {"class": "execution",
+                         "reason": f"evaluator-crash:{type(e).__name__}:{a['id']}"}
             done[a["id"]] = "UNRESOLVED"
             continue
 
@@ -114,4 +129,4 @@ def run(planned: list, package: dict, subject_root: str, limits: dict = None,
         })
         done[a["id"]] = outcome
 
-    return {"ledger": ledger, "findings": findings}
+    return {"ledger": ledger, "findings": findings, "error": error}

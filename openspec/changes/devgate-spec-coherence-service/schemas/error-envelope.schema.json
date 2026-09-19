@@ -30,9 +30,26 @@
         "context_digest": { "$ref": "#/definitions/digestOrNull" },
         "evaluator_image_digest": { "$ref": "#/definitions/digestOrNull" }
       }
+    },
+    "assertion_results": {
+      "type": "array",
+      "description": "Evaluation ledger for ERROR-execution runs that produced one: the frozen matrix records all condition classes (tie-break 2), so the dominant error never erases VIOLATED rows (coh-dec-01). Same row shape as result.schema.json.",
+      "items": { "$ref": "#/definitions/assertionResult" }
     }
   },
   "definitions": {
-    "digestOrNull": { "type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$" }
+    "digestOrNull": { "type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$" },
+    "assertionResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["assertion_id", "version", "outcome", "reason", "enforcement"],
+      "properties": {
+        "assertion_id": { "type": "string" },
+        "version": { "type": "integer", "minimum": 1 },
+        "outcome": { "enum": ["SATISFIED", "VIOLATED", "UNRESOLVED"] },
+        "reason": { "type": ["string", "null"], "description": "Stable reason code when not satisfied, e.g. dependency-blocked, selector-empty, evaluator-crash." },
+        "enforcement": { "enum": ["BLOCK", "ADVISORY", "EXCEPTION-ADVISORY"] }
+      }
+    }
   }
 }

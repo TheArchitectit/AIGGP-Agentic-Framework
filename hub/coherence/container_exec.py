@@ -121,6 +121,14 @@ def run_containerized(request_path: str, launch_cfg_path: str,
         profiles.resolve_profile(reg, ctx["profile"])
         profiles.check_launch_digest(reg, ctx["profile"],
                                      ctx["image_manifest_digest"])
+        # Round-8 spec audit (coh-rt-01/coh-id-04): the registry pin must
+        # bind the EXECUTED ref, not just the declared manifest field — a
+        # config declaring the pinned digest while pointing the ref at other
+        # bytes would run unverified content. The registry pins exactly one
+        # digest per profile, so the ref must carry that pin itself.
+        if ctx["image"].rsplit("@", 1)[1] != ctx["image_manifest_digest"]:
+            raise launcher.LaunchError(
+                f"image-ref-digest-mismatch:{ctx['profile']}")
         # Staging inside a mount source would write the request (and every
         # in-container envelope) into the very input tree being evaluated
         # (round-7 finding 4): the designated output bind must lie outside

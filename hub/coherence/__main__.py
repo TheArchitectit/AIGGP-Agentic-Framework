@@ -33,8 +33,9 @@ def _schema(name: str) -> dict:
 
 
 def _fail(out_dir: str, error_class: str, reason: str, stage: str,
-          identities: dict) -> int:
-    env = result.error_envelope(error_class, reason, stage, identities)
+          identities: dict, ledger: list = None) -> int:
+    env = result.error_envelope(error_class, reason, stage, identities,
+                               assertion_results=ledger)
     result.emit_with_fallback(out_dir, result.to_canonical(env))
     _, code = result.decide([], 0, error_class=error_class)
     return code
@@ -196,6 +197,15 @@ def run(request_path: str) -> int:
     except evaluate.EvaluatorError as e:
         return _fail(out_dir, "execution", str(e), "evaluation", identities)
     ledger, findings = eval_out["ledger"], eval_out["findings"]
+    if eval_out.get("error"):
+        # Frozen matrix (decision-exit-matrix.md): an evaluator crash or a
+        # dependency-blocked required assertion is ERROR-execution — it
+        # dominates every FAIL-class condition in the same run (tie-break 2)
+        # and is never converted to advisory, so the adoption ladder does
+        # not run. The envelope still carries the full ledger so both
+        # condition classes stay visible (coh-dec-01 scenario).
+        return _fail(out_dir, "execution", eval_out["error"]["reason"],
+                     "evaluation", identities, ledger=ledger)
 
     # Adoption ladder: baseline ratchet + scoped exceptions (coh-pol-04..06).
     # JSONDecodeError/KeyError/TypeError included (r3-indep item 4): a
