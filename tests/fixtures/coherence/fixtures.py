@@ -79,7 +79,7 @@ def build_root(tmp: Path, *, declared_name="widget", approved_name="widget",
                assertions=None, baseline=None, exceptions=None,
                stage=1, semantics="fresh-promotion", evaluation_time=FIXED_TIME,
                policy_digest_ok=True, subject_files=None,
-               execution_profile="linux-amd64-v1") -> tuple:
+               execution_profile="linux-amd64-v1", stages=None) -> tuple:
     """Build subject/package/policy/context/request under `tmp`.
 
     Returns (request_path, out_dir). Every input is real on disk so resolvers
@@ -116,7 +116,7 @@ def build_root(tmp: Path, *, declared_name="widget", approved_name="widget",
         "policy_version": "1", "min_bundle_epoch": 0,
         "required_assertions": [], "approved_evaluators": [],
         "approved_signers": [],
-        "stages": {"max_advisory_age_days": 30},
+        "stages": stages if stages is not None else {"max_advisory_age_days": 30},
     }
     if baseline is not None:
         (pol / "baseline.json").write_text(json.dumps(baseline))

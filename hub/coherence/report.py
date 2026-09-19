@@ -87,7 +87,11 @@ def summarize(result: dict, context: dict, repo_record: dict,
     never from when the report is generated — the same sealed result always
     reports the same age.
     """
+    from . import context as _ctx
     return {
+        # Derived label only (coh-ctx-02): the mode IS the authoritative
+        # stage's name; nothing in the pipeline reads it for behavior.
+        "mode": _ctx.mode_for_stage(context.get("stage")),
         "decision": result.get("decision"),
         "subject_digest": result.get("subject_digest"),
         "context_digest": context.get("context_digest"),

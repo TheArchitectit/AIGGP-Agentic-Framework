@@ -225,9 +225,14 @@ def run(request_path: str) -> int:
         # Sets must hash to the digests bound in the signed context
         # (coh-ctx-01): a policy content-swap after issuance is detected here.
         context.verify_bound_sets(ctx, baseline, exceptions)
+        # Explicit resolution (audit round-14): the caller passes the
+        # bundle's core set, so a malformed stages.enforced_core_classes is a
+        # policy refusal (exit 31) — the ladder default alone must never
+        # paper over a bundle that attempted to define the core badly.
         adoption_out = adoption.evaluate(
             ledger, findings, planned, baseline, exceptions,
-            ctx["stage"], ctx["evaluation_time"])
+            ctx["stage"], ctx["evaluation_time"],
+            core_classes=policy.enforced_core_classes(pol))
     except (policy.PolicyError, json.JSONDecodeError, KeyError, TypeError,
             ValueError) as e:
         return _fail(out_dir, "policy-resolution", str(e), "adoption", identities)

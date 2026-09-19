@@ -16,6 +16,19 @@ class ContextError(ValueError):
 VALID_STAGES = {0, 1, 2, 3, 4}
 VALID_SEMANTICS = {"fresh-promotion", "replay"}
 
+# S6 Cycle A (design.md, round-14): the five adoption modes ARE the five
+# stages — one ordinal axis, names derived from the authoritative stage
+# record, never a parallel knob (coh-ctx-02). Nothing in the pipeline may
+# read a name for behavior; callers use mode_for_stage for display.
+_MODES = {0: "inventory", 1: "advisory", 2: "ratchet",
+          3: "enforced-core", 4: "enforced-full"}
+
+
+def mode_for_stage(stage):
+    """The derived mode label for an authoritative stage, or None when the
+    stage carries no authority (invalid stages get no name, ever)."""
+    return _MODES.get(stage) if stage in VALID_STAGES else None
+
 
 def load(root: str) -> dict:
     """Load and validate an evaluation context from `root`/context.json."""

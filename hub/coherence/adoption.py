@@ -34,6 +34,24 @@ def _vclass(finding: dict) -> str:
     return parts[-1] if len(parts) >= 3 else "unknown"
 
 
+def _shelter_ends(stage: int, evaluator_of: dict, aid: str,
+                  core_classes: frozenset) -> bool:
+    """Does the baseline still shelter this assertion at this stage?
+
+    The modes are the stages (design.md round-14): the ratchet (stage 2)
+    shelters all named debt; enforced-core (3) ends shelter for the core
+    classes only; enforced-full (4) ends it for everything. Below stage 2
+    the caller never reaches here (stage < 2 is advisory). This is the one
+    place stage changes WHICH findings a baseline excuses — every other
+    ladder rule (exceptions, expiry, regression) is stage-invariant.
+    """
+    if stage >= 4:
+        return True
+    if stage == 3:
+        return evaluator_of.get(aid) in core_classes
+    return False
+
+
 def validate_exceptions(exceptions: list) -> None:
     """Wildcards across assertions or repositories are forbidden (coh-pol-06)."""
     for ex in exceptions:
@@ -44,11 +62,24 @@ def validate_exceptions(exceptions: list) -> None:
 
 
 def evaluate(ledger: list, findings: list, planned: list, baseline: list,
-             exceptions: list, stage: int, evaluation_time: str) -> dict:
-    """Apply the ladder. Returns ledger, findings, and whether anything blocks."""
+             exceptions: list, stage: int, evaluation_time: str,
+             core_classes: frozenset = None) -> dict:
+    """Apply the ladder. Returns ledger, findings, and whether anything blocks.
+
+    `core_classes` are the evaluator IDs whose baseline shelter ends at Stage 3
+    (enforced-core); None means the bundle named no set, so the ladder falls
+    back to policy.DEFAULT_ENFORCED_CORE. Callers resolve the set from the
+    bundle rather than here, keeping this function a pure ladder.
+    """
     validate_exceptions(exceptions)
+    if core_classes is None:
+        core_classes = policy.DEFAULT_ENFORCED_CORE
 
     versions = {a["id"]: a.get("version", 1) for a in planned}
+    # Core membership is by evaluator ID (the identity an assertion already
+    # carries) — a repository cannot rename its way out of the enforced core.
+    evaluator_of = {a["id"]: (a.get("evaluator") or {}).get("id")
+                    for a in planned}
     baseline_fps = {
         fingerprint(b["fingerprint"]["assertion_id"],
                     b["fingerprint"]["assertion_version"],
@@ -84,7 +115,8 @@ def evaluate(ledger: list, findings: list, planned: list, baseline: list,
         elif fp in active_exc:
             f["enforcement"] = "EXCEPTION-ADVISORY"
             f["exception_id"] = active_exc[fp]["exception_id"]
-        elif fp in baseline_fps:
+        elif fp in baseline_fps and not _shelter_ends(stage, evaluator_of, aid,
+                                                     core_classes):
             f["enforcement"] = "ADVISORY"          # named inherited debt
         else:
             f["enforcement"] = "BLOCK"             # regression -> blocks

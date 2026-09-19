@@ -108,6 +108,32 @@ def central_required(bundle: dict) -> list:
     return list(bundle.get("required_assertions") or [])
 
 
+# The Q2 freeze (s1-freeze-record.md): the assertion classes whose baseline
+# shelter ends at Stage 3 unless central policy names another set. Matched
+# by evaluator ID — the identity every assertion already carries, so a
+# repository cannot relabel a core assertion out of the core.
+DEFAULT_ENFORCED_CORE = frozenset({
+    "devgate.builtin.identity-consistency",
+    "devgate.builtin.traceability-completeness",
+    "devgate.builtin.release-claim-consistency",
+})
+
+
+def enforced_core_classes(bundle: dict) -> frozenset:
+    """The enforced-core evaluator set from the bundle's stages data
+    (design.md round-14), or the Q2-freeze default when unset."""
+    raw = (bundle.get("stages") or {}).get("enforced_core_classes")
+    if raw is None:
+        return DEFAULT_ENFORCED_CORE
+    if not isinstance(raw, list) or not raw:
+        raise PolicyError(
+            "stages.enforced_core_classes must be a non-empty array")
+    if not all(isinstance(c, str) and c for c in raw):
+        raise PolicyError(
+            "stages.enforced_core_classes members must be non-empty strings")
+    return frozenset(raw)
+
+
 # Severity ordering: a repository may raise severity, never lower it.
 _SEVERITY_RANK = {"low": 0, "medium": 1, "high": 2, "critical": 3}
 
