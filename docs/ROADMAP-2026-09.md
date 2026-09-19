@@ -133,3 +133,24 @@ independent of each other and can run in parallel once Phase 1 lands.
 3. Land fixes per the repo's four-gate process; append failure-registry
    entries where the tasks call for them.
 4. Archive via the CLI when complete (migration change defines the ceremony).
+
+---
+
+## Status (2026-09-19, `audit` branch)
+
+| Package | Phase | Status | Commits |
+|---|---|---|---|
+| `fix-coherence-container-contract` | P0 | **landed** — schemas ship with the service; honest container smoke evidence; image rebuild environment-gated (no podman here) | `2fbaee2` |
+| `fix-vacuous-and-broken-gates` | P0 | **landed** — C1-C4/C6/C7, H6/H8 and two new vacuous-green defects closed; 7 regression tests + 2 fixture harnesses added | `8a797b2` |
+| `add-framework-ci-pipeline` | P0 | **landed** — CI runs the suite + self-gates + spec counts + image build; container smoke on the fleet remains publish-gated | `0346fd8` |
+| `harden-security-boundaries` | P1 | **landed** — containment, SIGTERM, enroll atomicity, body cap, hashed tokens, monitor field fixes, container reaper, supply-chain pins, canonical quadlet secrets | `756c1d7` |
+| `migrate-specs-to-openspec-conventions` | P1 | not started | — |
+| `consolidate-shared-gate-logic` | P2 | not started (root-detection contract already unified) | — |
+| `docs-and-data-truth-pass` | P2 | not started | — |
+| `harden-test-suite` | P2 | partially pre-paid (tests/__init__, conftest, new suites); task list open | — |
+
+Verification at `756c1d7`: `pytest` 410 passed / 7 skipped; both JS fixture
+suites and the shell harness green; self-gates (guardrails, registry hygiene,
+silent-success, regression `--base origin/main`) clean; failure registry
+FAIL-2026091901..12 resolved with prevention patterns; every package's
+tasks.md checked except items marked environment-gated above.

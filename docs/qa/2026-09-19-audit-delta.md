@@ -41,9 +41,14 @@ that fails on the old behavior (no config-only or doc-only "fixes").
   `docs-and-data-truth-pass` (data) + `consolidate-shared-gate-logic` (overlay).
 - **`openspec validate` 15/15 main-spec failures** →
   `migrate-specs-to-openspec-conventions`.
-- **Hub runtime hardening (F2-F11, F14)** → `harden-security-boundaries`
-  (in progress on this branch).
-- **Framework CI** → `add-framework-ci-pipeline` (in progress on this branch).
+- **Duplicate gate engines** (the root-detection contract is now unified
+  across the worst offenders; 3 overlay merges, 4 glob engines, 5 SKIP_DIRS
+  remain) → `consolidate-shared-gate-logic`.
+- **Golden vectors not load-bearing; untested modules (`hub/main.py`,
+  `deploy.sh`, `silent-success-scan.sh`, `schema-health-check.mjs`)** →
+  `harden-test-suite`.
+- **arm64 profile + image publish** (coherence S4, environment-gated) —
+  unchanged; needs registry credentials and an arm64 host.
 
 ## Method notes
 
