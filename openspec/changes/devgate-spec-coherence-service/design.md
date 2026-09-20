@@ -258,7 +258,7 @@ Stages 0–4 as proposed (Inventory → Advisory baseline → Ratchet → Enforc
 | Stage | Mode | What turns on |
 |---|---|---|
 | 0 | `inventory` | Observe-only: every required assertion is planned and evaluated; all findings report `ADVISORY`; nothing blocks and no baseline exists yet. ERROR states change no release decision but are never reported as a coherence authorization (R3). Runs are non-promotion-authorizing. |
-| 1 | `advisory` | The Stage-0 inventory is **ratified as a control-plane-approved baseline**; findings matching it are named debt (still advisory). The advisory-age cap and renewal regime (coh-pol-03) applies — Stage 1 is the only stage with a dwell limit (`report.advisory_status` measures Stage 1 alone). Promotion 0→1 is the ratification act itself; the blocking behavior is unchanged. |
+| 1 | `advisory` | The Stage-0 inventory is **ratified as a control-plane-approved baseline**; findings matching it are named debt (still advisory). The advisory-age cap and renewal regime (coh-pol-03) begins here — a repository MUST NOT park indefinitely, and Stage 1 is the dwelling state the cap is introduced to bound. Promotion 0→1 is the ratification act itself; the blocking behavior is unchanged. |
 | 2 | `ratchet` | Enforcement begins **regressively**: a finding whose fingerprint is not in the baseline BLOCKS, as does `UNRESOLVED`; baseline-named debt stays advisory. Promotion-authorizing results now require detached attestation (`attest.required`: stage ≥ 2, fresh-promotion). The ratchet only tightens — baseline entries leave only via accepted remediation, and recurrence of a removed fingerprint blocks as new. |
 | 3 | `enforced-core` | Baseline shelter stops applying to the **enforced-core assertion classes**: named debt in those classes BLOCKS like a regression. The core set is central policy (the bundle's `stages` data), defaulting to the Q2 freeze: product-identity consistency, traceability completeness, release-claim consistency — matched by evaluator ID, the identity every assertion already carries. Non-core named debt stays advisory. |
 | 4 | `enforced-full` | Baseline shelters nothing: every `VIOLATED`/`UNRESOLVED` finding blocks. A scoped, expiring, control-plane-approved **exception** is the only softening path at this stage — `EXCEPTION-ADVISORY` survives at every stage because exceptions never rewrite outcomes (coh-eval-05); what stages 3–4 remove is a repository's inherited-debt shelter, never a control-plane's written approval. |
@@ -294,12 +294,21 @@ bundle:
 - **Absent `advisory_escalation` is meaningful in one direction only**: a
   bundle with no `max_advisory_age_days` at all has no cap and therefore
   nothing to escalate. Absence never means "expire silently".
-- **Escalation is stage-invariant.** Expiry changes enforcement at every stage
-  the way an expired exception does — the shelter is removed and the
-  violation BLOCKS — because the ratchet is the thing being protected. At
-  Stage 0/1 nothing blocks anyway, so expiry is reported there and enforced
-  from Stage 2 exactly like every other ladder rule (`adoption.evaluate`'s
-  `stage < 2` arm is unchanged and comes first).
+- **The escalation is stage-invariant from Stage 1 up.** Expiry changes
+  enforcement the way an expired exception does — the shelter is removed and
+  the violation BLOCKS — because the shelter is the thing being protected. At
+  Stage 0 nothing blocks at all, so an expired advisory is reported and
+  nothing follows; from Stage 1 the age is measured, and from Stage 2, where
+  a ratchet exists to withhold shelter, the escalation bites
+  (`adoption.evaluate`'s `stage < 2` arm is unchanged and still comes first).
+  **Normative disambiguation (round-16):** coh-pol-03's scenario requires
+  blocked promotion when the age is exceeded and is written in terms of
+  "advisory-stage promotion", not in terms of the Stage-1 ordinal —
+  `report.advisory_status`'s early return for `stage != 1` implements the
+  *reporting* reading of "advisory stage", and that reading must not be
+  stretched into the enforcement path, where it would make the cap inert for
+  every repository that had already reached the ratchet — exactly the ones
+  the rule targets.
 - Expiry is judged against the context's `evaluation_time`, never the host
   clock — the service's standing rule, and the reason the age data must reach
   `adoption.evaluate` through the signed context rather than being recomputed
