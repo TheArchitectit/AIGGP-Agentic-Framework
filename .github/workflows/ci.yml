@@ -1,0 +1,146 @@
+name: CI
+
+# The framework runs its own medicine (fw-ci-01..03): the full test suite,
+# the shipped gates against its own tree, and spec validation — on every PR
+# and every push to main. Before this workflow existed, nothing executed
+# tests/ in CI (QA M9) and a foreign `tests` package could silently drop five
+# conformance files from collection without anyone noticing.
+#
+# Runner targeting: hosted ubuntu-latest (mirrors drift-scan.yml's choice to
+# keep the framework's own CI runnable on any fork/PR without fleet access;
+# the fleet-labeled runner stays dedicated to consumer drift scans). The
+# container-image job degrades to an explicit SKIPPED line when podman is
+# unavailable, never a silent pass.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Test suite (Python + Node)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "20"
+      - name: Install pytest
+        run: python3 -m pip install --quiet pytest
+      - name: pytest suite (collection is deterministic — tests/__init__.py)
+        run: python3 -m pytest tests/ -v
+      - name: guardrails scanner fixture suite
+        run: node tests/test_guardrails_scan.mjs
+      - name: scanner root-anchoring fixture suite
+        run: node tests/test_scanner_root_anchor.mjs
+      - name: per-file runner (frameworks's own tests through its own runner)
+        run: node scripts/run-tests.mjs
+
+  self-gates:
+    name: DevGate gates on DevGate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0   # --base origin/main needs the merge base
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "20"
+      - name: Pattern scan (own tree must be warning-clean)
+        run: node scripts/guardrails-scan.mjs
+      - name: Semantic scan (installs the pinned parser)
+        run: |
+          npm install --no-save --no-audit --no-fund typescript@5
+          node scripts/semantic-scan.mjs
+      - name: Regression check (pushed/PR range; zero-input fails)
+        run: |
+          # PR: merge base against the target branch. Push: the range the
+          # push actually added (event.before..HEAD) — using origin/main on a
+          # push would diff main against itself, evaluate zero files, and
+          # fail this job for the wrong reason.
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="origin/${{ github.base_ref }}"
+          else
+            BASE="${{ github.event.before }}"
+          fi
+          python3 scripts/regression_check.py --base "$BASE" --fail-if-empty --pre-commit
+      - name: Silent-success scan
+        run: bash scripts/silent-success-scan.sh
+      - name: Failure-registry hygiene
+        run: python3 scripts/failure_registry_check.py
+
+  specs:
+    name: Specs (openspec strict + traceability)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "20"
+      # Hard gate since migrate-specs-to-openspec-conventions: the whole tree
+      # (specs + changes) validates strict, and both parsers agree on
+      # requirement counts (spec-fmt-01).
+      - name: Install openspec CLI
+        run: npm install --no-save --no-audit --no-fund @fission-ai/openspec
+      - name: openspec validate (strict, hard gate)
+        run: npx openspec validate --all --strict
+      - name: Requirement-ID traceability
+        run: |
+          python3 scripts/spec_traceability.py --root . --report | tail -8
+          python3 scripts/spec_traceability.py --root . | tail -2
+
+  container-image:
+    name: Evaluator image builds with its contracts (coh-rt-08)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      # The full real-container smoke (valid-request PASS) requires the image
+      # to match the identity registry — that is publish-gated (S4, needs
+      # registry credentials) and runs on the fleet; this job proves what can
+      # be proven from source: the image builds reproducibly and CARRIES its
+      # frozen schemas (F1 regression: it once shipped without them).
+      - name: Build pinned image
+        run: |
+          if ! command -v podman >/dev/null 2>&1; then
+            echo "SKIPPED: podman unavailable on this runner — image build not evaluated."
+            exit 0
+          fi
+          podman build --timestamp 0 -t devgate-coherence -f container/Containerfile .
+      - name: Schemas resolve inside the image
+        run: |
+          if ! command -v podman >/dev/null 2>&1; then
+            echo "SKIPPED (same reason as above)"
+            exit 0
+          fi
+          podman run --rm --read-only --read-only-tmpfs --cap-drop=ALL \
+            --security-opt=no-new-privileges --network=none \
+            --entrypoint python3 devgate-coherence -c \
+            "from hub.coherence import schemacheck; schemacheck.load('request.schema.json'); schemacheck.load('result.schema.json'); print('schemas OK in image')"
+      - name: Built digest vs identity registry (informational)
+        run: |
+          if ! command -v podman >/dev/null 2>&1; then exit 0; fi
+          BUILT="$(podman image inspect --format '{{.Digest}}' devgate-coherence)"
+          RECORDED="$(python3 -c "import json;print(json.load(open('container/execution-profiles.json'))['profiles'][0]['image_manifest_digest'])")"
+          echo "built:    $BUILT"
+          echo "recorded: $RECORDED"
+          if [ "$BUILT" != "$RECORDED" ]; then
+            echo "::notice::built image digest differs from the identity record — expected until the publish-gated rebuild (S4) updates execution-profiles.json"
+          fi
