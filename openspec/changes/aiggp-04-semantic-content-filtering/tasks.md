@@ -1,0 +1,5 @@
+- Phase 0 (category packages): define the four core categories with corpora, actions, failure modes, budgets.
+- Phase 1 (pipeline): registry, adapters, mediation wiring, redaction engine, envelope emission.
+- Phase 2 (conformance): corpus runners, budget gates, stale-claim detection.
+- Phase 3 (drift monitor): scheduled re-runs, alerting, ledger-visible drift events.
+- Phase 4 (hardening): performance budgets, escalation UX review, red-team content suite.

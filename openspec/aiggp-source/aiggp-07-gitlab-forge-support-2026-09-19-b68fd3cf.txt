@@ -1,0 +1,174 @@
+# AIGGP-07 - GitLab Additive Forge Support
+
+OpenSpec package - Agent Intelligence Gate Loop Guardrails Platform (AIGGP)
+Status: PROMOTED into delivery plan (implementation status: proposed until instance discovery, backup, runner standard, and parity drill complete)
+Module: forge adapter (module-devgate + forge-gitlab) | Date: 2026-09-19 | Depends on: AIGGP-01 (honest gates), AIGGP-00 (identical evidence across forges)
+Absorbs: DevGate GitLab Lab Integration - OpenSpec Package (2026-09-19, in this folder)
+
+## Plain-language summary
+
+Today the gates only work on GitHub - the word GitLab appears nowhere in the DevGate repo. This spec adds GitLab as a second forge without changing what the gates mean: same checks, same evidence, same verdicts, whether the repo lives on GitHub or the lab's GitLab. The proof is a parity drill: run both forges over the same seeded-broken repo and require byte-for-byte the same findings. If GitLab green ever means something different from GitHub green, the platform's truth promise is broken, so parity is a release gate, not a hope.
+
+# proposal.md
+
+## Summary
+
+Add GitLab as an additive second forge: instance discovery and backup for the lab instance, a GitLab runner standard mirroring the GitHub fleet, the CI gate templates mirrored 1:1 as GitLab includes running identical scripts, a forge adapter in the hub, and a blocking parity drill proving identical findings across forges.
+
+## Problem
+
+The lab runs GitLab; DevGate gates GitHub only. Repos on the lab instance get no gate truth at all, and any GitLab support bolted on later risks divergent behavior - the same change passing on one forge and failing on the other. The September 19 package designed the integration (29 normative requirements, 6 sprints); this spec keeps that design and re-anchors its evidence to the AIGGP envelope so forge identity is metadata, not meaning.
+
+## Desired outcomes
+
+- The lab GitLab instance is discovered, documented, pinned (tailnet-only), and backup-tested before any gate work depends on it.
+- GitLab runners meet the same standard as the GitHub fleet: rootless podman, digest-pinned images, fail-closed.
+- All five CI gate templates run on GitLab as includes executing the identical scripts the GitHub templates run.
+- The hub monitors GitLab repos through a forge adapter with the same evidence envelope.
+- A parity drill proves identical findings on both forges over a seeded-failure corpus, and runs in CI forever after.
+
+## Product boundary
+
+This spec adds a forge, not new gates. Gate logic is forge-neutral and shared; only webhooks, auth, CI template syntax, and API surfaces are forge-specific. Forge-specific verdict behavior is a defect by definition. GitLab instance administration beyond backup verification is out of scope.
+
+## Users and calling systems
+
+- Lab repos on the tailnet GitLab instance.
+- The fleet hub consuming forge-adapter evidence.
+- Future external adopters running GitLab (the adapter is public like everything else).
+
+## Success measures
+
+- Parity drill: identical findings (same gate, same rule, same file evidence) on GitHub and GitLab over the seeded corpus, enforced in CI.
+- Every GitLab-emitted envelope validates against AIGGP-00 and names forge identity as metadata.
+- Backup restore drill on the lab instance passes before gates are declared available there.
+- Zero forge-specific branches in gate logic (checked by code review plus the drill).
+
+## Risks
+
+- The lab GitLab server is undocumented; building on an undiscovered instance bakes in wrong assumptions. Control: Sprint 0 is instance discovery and gates everything else (carried from the September 19 package).
+- Template drift: GitHub and GitLab CI syntax differ, so mirrored templates rot apart. Control: templates are thin launchers calling identical scripts; parity drill catches divergence.
+- Tailnet-only access breaks external reproducibility. Control: the adapter targets any GitLab instance; the lab is the first consumer, not the only supported shape.
+
+# design.md
+
+## Design principles
+
+- Additive, never divergent: GitLab adds coverage; it changes no verdict.
+- Thin forge layer: everything forge-specific lives behind the adapter interface.
+- Same scripts, same images: both forges execute identical gate scripts on identical digest-pinned images.
+- Discovery before dependency: an undocumented instance is not infrastructure.
+
+## Locked decisions (carried from the September 19 package)
+
+- Instance posture: tailnet-only, pinned version, backup tested before reliance.
+- Runner standard: rootless podman, digest-pinned images, fail-closed registration, mirroring the GitHub fleet.
+- Template shape: GitLab includes invoking the same gate scripts as the GitHub workflow templates, 1:1 across all five gates.
+- Hub integration: forge adapter emitting AIGGP envelopes; forge identity is an envelope field.
+- Parity drill: seeded-failure corpus run on both forges; identical findings required; drill is blocking in CI.
+
+## Major components
+
+1. Instance discovery and documentation runbook (Sprint 0).
+2. GitLab runner standard + setup automation.
+3. Mirrored CI templates (GitLab includes).
+4. Forge adapter (webhooks, auth, API) behind the forge interface.
+5. Parity-drill harness and seeded corpus.
+6. Backup/restore verification drill.
+
+## Trust boundaries
+
+- The adapter is the only component that talks GitLab API; gate scripts never see forge credentials.
+- Forge webhooks are unauthenticated input until verified against instance secrets.
+- Instance admin credentials stay outside gate infrastructure entirely.
+
+# specs/forge-parity/spec.md
+
+## Requirement: identical gate behavior across forges
+
+Every gate SHALL produce identical findings for identical repository content regardless of forge. Findings SHALL match on gate, rule, severity, and file evidence.
+
+### Scenario: seeded corpus parity
+
+Given the seeded-failure corpus pushed to both forges, when all gates run, then the finding sets SHALL be identical; any difference SHALL fail the drill and block release.
+
+## Requirement: forge-neutral gate logic
+
+Gate scripts SHALL contain no forge-conditional behavior. Forge differences SHALL be confined to the adapter and templates.
+
+### Scenario: forge branch in gate code
+
+Given a gate script containing forge-conditional logic, when reviewed or scanned, then it SHALL be flagged as a parity defect.
+
+## Requirement: uniform evidence
+
+Envelopes from both forges SHALL validate against the same AIGGP-00 schema, with forge identity recorded as metadata.
+
+### Scenario: GitLab envelope validation
+
+Given an envelope emitted from a GitLab run, when the verifier validates it, then it SHALL pass schema validation and carry forge identity.
+
+# specs/instance-and-runner/spec.md
+
+## Requirement: discovery before reliance
+
+The lab instance SHALL be documented (version, URL, auth shape, network posture) and its backup SHALL be restore-tested before any repo depends on gates running there.
+
+### Scenario: undocumented instance
+
+Given an instance without completed discovery, when gate availability is declared, then the declaration SHALL be blocked pending the runbook.
+
+## Requirement: runner standard parity
+
+GitLab runners SHALL meet the same standard as the GitHub fleet: rootless container execution, digest-pinned images, fail-closed behavior.
+
+### Scenario: tag-pinned image
+
+Given a runner image referenced by mutable tag, when the runner standard check runs, then it SHALL FAIL until digest-pinned.
+
+## Requirement: thin mirrored templates
+
+GitLab CI templates SHALL be includes that invoke the identical gate scripts used by the GitHub templates, for all five gates.
+
+### Scenario: template divergence
+
+Given a GitLab template embedding gate logic inline rather than invoking the shared script, when reviewed, then it SHALL be rejected.
+
+# adrs.md
+
+- ADR-001: Additive second forge, never a fork. Rationale: one truth model across forges is the platform promise. Consequence: parity is a permanent CI cost, accepted.
+- ADR-002: Discovery gates everything. Rationale: the lab instance is undocumented; assumptions here poison everything downstream. Consequence: Sprint 0 is a hard gate.
+- ADR-003: Thin templates, shared scripts. Rationale: CI syntax diverges; scripts must not. Consequence: template changes are trivial by design.
+- ADR-004: Tailnet-first, not tailnet-only. Rationale: the lab is first consumer; external GitLab adopters matter for the open-source play. Consequence: adapter configuration is instance-generic.
+
+# tasks.md
+
+- Sprint 0 (instance discovery): document the lab GitLab; backup/restore drill; pin version; confirm tailnet posture.
+- Sprint 1 (runner standard): rootless podman runners, digest pinning, fail-closed registration.
+- Sprint 2 (templates): mirror all five gate templates as GitLab includes over shared scripts.
+- Sprint 3 (forge adapter): webhooks, auth, API surface; hub evidence through adapter.
+- Sprint 4 (parity drill): seeded corpus, both forges, identical-findings gate in CI.
+- Sprint 5 (hardening): monitoring, docs, external-instance configuration guide.
+
+# acceptance.md
+
+## Required conformance fixtures
+
+- Fixture A: seeded broken repo on both forges - identical findings.
+- Fixture B: tag-pinned runner image - standard check fails.
+- Fixture C: forged webhook without valid secret - rejected.
+- Fixture D: backup restore drill - instance recovered, gates runnable.
+- Fixture E: inline gate logic in a GitLab template - rejected in review.
+
+## Release acceptance criteria
+
+- All fixtures pass; parity drill green in CI on a pinned corpus version; backup drill evidenced; adapter emits valid envelopes from real lab repos.
+
+## Open questions requiring owner decisions
+
+- Lab instance ownership and upgrade policy (who patches GitLab, on what cadence).
+- Whether external GitLab.com support is a launch goal or lab-first (proposal: lab-first; document external config as beta).
+
+## Handoff
+
+Do not skip Sprint 0: the instance is undocumented and everything else inherits that fog. Build the parity drill before declaring any template done - the drill is the definition of done for this spec.

@@ -1,0 +1,4 @@
+- ADR-001: Monitoring in the protocol, not beside it. Rationale: a side monitor invents truth; verified evidence is truth. Consequence: the ai01 side-monitor spec is absorbed and retired as a standalone approach.
+- ADR-002: Short-lived everything. Rationale: static secrets are how fleets get owned. Consequence: rotation machinery is core, and offline queueing compensates for outages.
+- ADR-003: Trust classes equal isolation levels. Rationale: one vocabulary from workload declaration to runner placement. Consequence: AIGGP-05 alignment is mandatory.
+- ADR-004: Salvage, do not rebuild. Rationale: the superseded fleet package's runner machinery was good design trapped in a paid tier. Consequence: protocol work starts from that machinery, re-licensed into the open plan.

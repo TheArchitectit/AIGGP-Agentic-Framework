@@ -1,0 +1,6 @@
+- Phase 0 (protocol contracts): enrollment, desired-state, heartbeat, and evidence schemas on AIGGP-00.
+- Phase 1 (enrollment + agent): issuance, rotation, revocation; runner agent verification of signed state.
+- Phase 2 (scheduler + broker): class-aware placement; ephemeral secret delivery.
+- Phase 3 (monitor): ledger-integrated heartbeat and execution verification; suspect/drain transitions.
+- Phase 4 (lifecycle): rollout, canary, drain, rollback controllers.
+- Phase 5 (drills): hostile runner, drain, and rollback drills in CI; ai01 fleet migration onto the protocol.

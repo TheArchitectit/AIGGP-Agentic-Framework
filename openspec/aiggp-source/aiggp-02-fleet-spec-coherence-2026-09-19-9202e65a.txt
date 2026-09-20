@@ -1,0 +1,206 @@
+# AIGGP-02 - Fleet Spec Coherence Gate
+
+OpenSpec package - Agent Intelligence Gate Loop Guardrails Platform (AIGGP)
+Status: PROMOTED (implementation status: proposed until built)
+Module: DevGate repository module (containerized service) | Date: 2026-09-19 | Depends on: AIGGP-01 (honest gates), AIGGP-00 (evidence envelope)
+Absorbs: DevGate Spec Coherence Service - OpenSpec Package (2026-09-17, 23-page Doc in this folder)
+
+## Plain-language summary
+
+Run DevGate as a container that checks every repo's API and OpenSpec documents against each project's own declared spec, keeps a per-project history of drift, and walks each repo up a ladder from "we're just counting problems" to "new drift blocks release." The September 17 package already designed the service; this spec keeps that design and changes what it reports into: results become AIGGP evidence envelopes keyed to the pinned policy bundle, so fleet coherence becomes platform truth instead of a side report. It is also the promote/halt spine the AI 3D design pipeline needs.
+
+# proposal.md
+
+## Summary
+
+Deliver the spec-coherence service as an AIGGP module: deterministic evaluation of a repository against its pinned OpenSpec package, per-project coherence history, an advisory-to-enforced adoption ladder, and attested evidence emitted in the AIGGP-00 envelope format.
+
+## Problem
+
+Specs and code drift apart silently across the fleet. Each repo's OpenSpec says one thing, the code does another, and nobody finds out until an audit. Roger's September 17 idea: DevGate already has a fleet runner for CI - run it as a container in an environment and gate OpenAPI/OpenSpec coherence for every repo over time. The design was delivered the same day; what it lacks is integration into the platform truth model, so its results would be yet another report nobody can verify.
+
+## Desired outcomes
+
+- Every fleet repo gets a deterministic coherence evaluation against its pinned spec package on a schedule and on demand.
+- Results are AIGGP evidence envelopes: subject digests, bundle digest, module version, verdict per the platform algebra.
+- Per-project history shows drift over time, queryable from the ledger.
+- Adoption is laddered: inventory, advisory baseline, ratchet, enforced core, enforced full - never day-one blocking.
+- The promote/halt contract serves the AI 3D design pipeline's candidate evaluation with the same machinery.
+
+## Product boundary
+
+The service evaluates coherence between declared specs and repository state; it does not repair source, rewrite specs, or decide release policy beyond its gate verdict. The evaluator never edits the repo. Nondeterministic advice (LLM or vision review) may annotate but can never set the blocking verdict.
+
+## Users and calling systems
+
+- Fleet CI executing the container against each repo.
+- The AI 3D design pipeline consuming promote/halt verdicts for asset candidates.
+- Mission Control reading coherence history from the ledger (read-only).
+- Project owners climbing the adoption ladder per repo.
+
+## Success measures
+
+- Repeated evaluations of the same revision produce identical verdicts (determinism proof in CI).
+- Every emitted result validates against the AIGGP-00 envelope schema and lands in the ledger.
+- A repo can climb from Stage 0 to Stage 3 using only recorded ladder transitions, each with evidence.
+- The 3D pipeline consumes a promote/halt verdict from a real run without custom glue.
+
+## Risks
+
+- Nondeterminism creeps in through evaluators that read clocks, network, or environment. Control: the deterministic execution contract from the September 17 package, plus fixture E (nondeterministic evaluator must fail conformance).
+- Day-one blocking breeds resentment and workarounds. Control: the ladder is normative; skipping stages requires a waiver.
+- The service becomes a second source of truth alongside the kernel. Control: it emits envelopes; aggregation and verdicts follow AIGGP-00.
+
+# design.md
+
+## Design principles
+
+- Determinism or it did not happen: same revision, same spec package, same policy, same verdict.
+- Advisory before enforced: trust is earned per repo, ratcheted, and cannot regress silently.
+- Underlying truth is preserved: advisory findings are recorded with full fidelity even when they do not block.
+- One promote/halt contract across code and 3D artifacts.
+
+## Locked decisions (carried from the September 17 package, re-anchored to AIGGP)
+
+- Container reference runtime: pinned, ephemeral, default-deny network, least-privilege secrets, bounded execution.
+- All decision inputs identified by content digest: repo revision, spec package, policy package, evaluator image.
+- Canonical result contract plus a noncanonical run envelope; now defined as the AIGGP-00 evidence envelope.
+- Assertion model: every normative spec requirement maps to at least one assertion; orphan requirements fail coherence.
+- Policy minimums live outside repositories; repos may tighten but never loosen centrally set minimums.
+- Exceptions are scoped, bounded, and expiring; wildcard exceptions are invalid.
+- Result states map onto the AIGGP algebra: PASS, FAIL, SKIP (reason-coded), ERROR, EMPTY (never green).
+
+## Major components (as designed September 17, unchanged in shape)
+
+1. Invocation adapter (CI, CLI, pipeline calls).
+2. Subject resolver (repo at pinned revision).
+3. OpenSpec resolver (pinned, immutable package; moving references rejected).
+4. Policy resolver (stage-appropriate minimums).
+5. Assertion planner and evaluator runtime (isolated, no repo writes).
+6. Decision engine (stage-aware verdict).
+7. Evidence store adapter - now writing AIGGP envelopes to the ledger.
+8. Attestation emitter - now the AIGGP envelope signature chain.
+
+## Trust boundaries
+
+- Repository boundary: the evaluator reads; it never writes.
+- Container boundary: default-deny network, ephemeral filesystem.
+- Plugin boundary: assertion plugins are untrusted; crashes are ERROR, not SKIP.
+- Control-plane boundary: fleet systems distribute and observe; they do not reinterpret verdicts.
+
+# specs/coherence-evaluation/spec.md
+
+## Requirement: deterministic evaluation
+
+Evaluation SHALL be a pure function of digested inputs: repo revision, spec package, policy package, evaluator image. Reading wall-clock time, network state, or ambient environment to influence a verdict SHALL fail conformance.
+
+### Scenario: repeated execution
+
+Given identical inputs, when evaluation runs three times, then all verdicts and assertion results SHALL be identical.
+
+### Scenario: evaluator reads time
+
+Given an assertion plugin whose result depends on the current time, when conformance runs, then the plugin SHALL be rejected.
+
+## Requirement: complete required assertion execution
+
+Every assertion required by the policy SHALL execute or the run SHALL report ERROR. A plugin crash SHALL NOT downgrade a requirement to SKIP.
+
+### Scenario: plugin crash
+
+Given an assertion plugin that crashes mid-run, when evaluation completes, then the run SHALL report ERROR naming the assertion, and SHALL NOT be green.
+
+## Requirement: semantic assertion traceability
+
+Every normative requirement in the spec package SHALL map to at least one executed assertion. An unmapped requirement SHALL fail coherence.
+
+### Scenario: orphan requirement
+
+Given a spec with a requirement no assertion covers, when evaluation runs, then the verdict SHALL be FAIL naming the orphan requirement ID.
+
+# specs/adoption-ladder/spec.md
+
+## Requirement: centrally enforced minimums
+
+Policy minimums SHALL be set outside repositories. A repository MAY tighten minimums and SHALL NOT loosen them.
+
+### Scenario: lower severity locally
+
+Given a repo attempting to set a lower coherence floor than the central minimum, when policy resolution runs, then the attempt SHALL be rejected.
+
+## Requirement: bounded advisory stage
+
+Advisory stages SHALL have bounded duration. An advisory stage exceeding its bound SHALL escalate per policy (ratchet or waiver), never drift indefinitely.
+
+### Scenario: advisory expiry
+
+Given a repo in Stage 1 past its bound with no waiver, when the ladder evaluator runs, then it SHALL report the expiry and apply the policy escalation.
+
+## Requirement: no-regression ratchet
+
+Once a repo ratchets to a baseline, new violations SHALL block even when pre-existing violations are baselined.
+
+### Scenario: four existing and one new violation
+
+Given four baselined violations and one new violation, when evaluation runs at Stage 2+, then the verdict SHALL be FAIL citing only the new violation.
+
+# specs/promote-halt-contract/spec.md
+
+## Requirement: uniform promote/halt verdict
+
+The service SHALL expose a promote/halt verdict usable by code pipelines and the AI 3D design pipeline identically, expressed as an AIGGP verdict with evidence references.
+
+### Scenario: 3D candidate passes
+
+Given a 3D asset candidate meeting its spec assertions, when the pipeline requests evaluation, then it SHALL receive PROMOTE with the envelope reference.
+
+### Scenario: repair changes the candidate
+
+Given a repaired candidate whose content changed, when re-evaluated, then the verdict SHALL be computed on the new digest, never inherited from the prior candidate.
+
+## Requirement: no implicit trust from upstream
+
+A passing upstream stage SHALL NOT confer trust on downstream stages; each stage SHALL evaluate its own subject digest.
+
+# adrs.md
+
+- ADR-001: Absorb the September 17 package rather than rewrite. Rationale: its design survived review; its gap was platform integration. Consequence: this spec changes evidence plumbing and status labels, not the service shape.
+- ADR-002: Container reference runtime, pinned and ephemeral. Rationale: determinism and isolation. Consequence: image publication (including arm64) becomes release work.
+- ADR-003: Ladder over big-bang enforcement. Rationale: adoption survives only if repos can climb. Consequence: ladder state is ledger-recorded and auditable.
+- ADR-004: Advice annotates, never blocks. Rationale: nondeterministic input cannot carry blocking truth. Consequence: LLM/vision output is evidence metadata, not verdict input.
+
+# tasks.md
+
+- Phase 0 (contract freeze): re-anchor the September 17 contracts to AIGGP-00 envelope and algebra; freeze digests.
+- Phase 1 (deterministic core): evaluator, assertion planner, determinism fixtures.
+- Phase 2 (container boundary): pinned image, ephemeral isolation, default-deny network, bounded execution.
+- Phase 3 (evidence): envelope emission, ledger writes, attestation chain.
+- Phase 4 (ladder): stage machinery, ratchet, bounded advisory, exception model.
+- Phase 5 (fleet adapters): CI integration per repo, fleet schedule, Mission Control read views.
+- Phase 6 (3D vertical slice): promote/halt wired to the AI 3D pipeline on one real candidate flow.
+- Phase 7 (hardening and release): adversarial fixtures, image publication, docs.
+
+# acceptance.md
+
+## Required conformance fixtures
+
+- Fixture A: coherent minimal repository - full green.
+- Fixture B: identity drift repo (gamerepo01 case) - FAIL naming drifted requirements.
+- Fixture C: advisory-debt repo (LobsterWars case) - advisory stage with recorded debt, no block.
+- Fixture D: repository bypass attempt (skipping assertions) - ERROR, not green.
+- Fixture E: nondeterministic evaluator - conformance rejection.
+- Fixture F: evidence tamper - verifier rejection with named check.
+- Fixture G: 3D repair loop - verdict on new digest only.
+
+## Release acceptance criteria
+
+- All fixtures pass; determinism proven in CI; envelopes validate against AIGGP-00; one real fleet repo reaches Stage 2 with ledger history; one 3D promote/halt cycle completes end to end.
+
+## Open questions requiring owner decisions
+
+- Which fleet repos enter Stage 0 first, and the per-stage time bounds.
+- Where the central policy minimums live before policy-bundles repo exists.
+
+## Handoff
+
+Reuse the September 17 package's component design verbatim where possible; the delta is envelope plumbing, the ladder's ledger record, and fixtures. Do not let any consumer special-case the verdicts - the contract is the product.

@@ -1,0 +1,169 @@
+# AIGGP-06 - Indirect-Injection Provenance Evidence
+
+OpenSpec package - Agent Intelligence Gate Loop Guardrails Platform (AIGGP)
+Status: PROMOTED into delivery plan (implementation status: proposed; provenance concepts map onto the AIGGP-00 evidence envelope; decoding/detection mechanics stay in the runtime module)
+Module: Guardrails runtime module + kernel envelope fields | Date: 2026-09-19 | Depends on: AIGGP-00 (envelope), complements AIGGP-03
+
+## Plain-language summary
+
+AIGGP-03 catches injections it can see; this spec handles the sneakier kind, where hostile instructions arrive inside content from somewhere else - a webpage, an email, a ticket, another tool's output. The defense is an origin chain: every piece of content an agent acts on carries a record of where it came from, how it was fetched, and what trust it earned, and the kernel can verify that chain. Content without provenance is untrusted by default. That turns "the agent got fooled by something it read" from an invisible failure into recorded, auditable evidence.
+
+# proposal.md
+
+## Summary
+
+Define content provenance as first-class evidence: an origin chain attached to every external content input an agent processes, verifiable through the AIGGP-00 envelope, with trust decisions derived from provenance class rather than content claims.
+
+## Problem
+
+Indirect injection works because content arrives context-free: the agent sees text, not where the text has been. A webpage's instruction, an email's "you already approved this," and a tool result's embedded commands all look identical to the model. Guardrails main has provenance concepts; the platform needs them mapped onto the evidence envelope so origin is verifiable, not asserted. Without this, AIGGP-03's classifier fights every battle with no intelligence about the source.
+
+## Desired outcomes
+
+- Every external content input carries a provenance record: origin identifier, retrieval path, timestamps, trust class, and transformations applied.
+- Provenance classes are declared: owner-channel (authenticated user), first-party tool output, third-party content, anonymous/unverifiable. Trust derives from class, never from content's claims about itself.
+- Content lacking provenance defaults to the lowest trust class.
+- Downstream decisions inherit provenance: an action justified by third-party content is evidence-linked to that content's origin chain.
+- Tampered or broken chains are detectable by the kernel verifier.
+
+## Product boundary
+
+This spec owns provenance structure, classes, and evidence mapping. Detection/decoding mechanics (parsing obfuscated payloads, classifying instruction-like content) remain AIGGP-03/04 runtime-module logic. It does not prevent injection by itself; it makes source-aware policy possible and source-blind decisions visible.
+
+## Users and calling systems
+
+- Guardrails runtime module attaching provenance at ingestion points (fetch, email, tool results, file reads outside the repo).
+- AIGGP-03 mediation consulting provenance class for policy decisions.
+- Kernel verifier validating chain integrity in envelopes.
+- Auditors reconstructing why an agent trusted what it trusted.
+
+## Success measures
+
+- 100 percent of external content inputs at mediation boundaries carry provenance records or are classed anonymous/unverifiable.
+- Verifier rejects envelopes with broken or substituted chains, naming the break.
+- Policy can express "no destructive action justified solely by third-party content" and conformance proves it holds.
+- Origin reconstruction: given any mediated action, its full content ancestry is recoverable from the ledger.
+
+## Risks
+
+- Provenance theater: records attached but never consulted. Control: conformance fixtures require policy decisions that differ by provenance class.
+- Overhead at every ingestion point. Control: provenance is structural (who/where/when), not deep inspection; cheap to attach, expensive only to fake.
+- Partial adoption leaves blind spots. Control: ingestion points are enumerated in the bundle; uninstrumented sources default to untrusted, which is visible.
+
+# design.md
+
+## Design principles
+
+- Origin is fact, trust is policy: provenance records what happened; the bundle decides what it means.
+- Content never vouches for itself: claims inside content cannot raise its class.
+- Chains, not labels: each transformation appends; history is preserved.
+- Lowest class by default: absence of provenance is itself a provenance fact.
+
+## Locked decisions
+
+- Provenance record fields: origin identifier, origin class, retrieval path, fetched-at, fetched-by (agent/tool identity), content digest, transformation list, parent references.
+- Four trust classes: owner-channel, first-party, third-party, unverifiable. Classes are ordinal for policy.
+- Inheritance: derived content (summaries, extracted text, tool outputs over fetched data) links parents; its class is the minimum of its parents unless an authorized transformation raises it (which is itself recorded).
+- Envelope integration: mediation decisions reference the provenance chain digests of justifying content.
+- Verification: chain integrity (digests, append-only transformations) is kernel-verifiable; class policy is bundle-defined.
+
+## Major components
+
+1. Provenance record schema (kernel envelope extension).
+2. Ingestion instrumentors at fetch/email/tool/file boundaries.
+3. Chain store linking content digests to records.
+4. Policy hooks exposing class to mediation (AIGGP-03/04).
+5. Verifier support for chain integrity.
+6. Ancestry reconstructor for audit (ledger query).
+
+## Trust boundaries
+
+- Instrumentors are trusted to attach honest records; their outputs are digest-chained so later tampering is detectable.
+- Third-party content is untrusted input even when well-formed; well-formedness affects parse, not class.
+- Authorized class-raising transformations (for example a human explicitly vouching for a document) are recorded with the authorizing identity.
+
+# specs/provenance-records/spec.md
+
+## Requirement: provenance at ingestion
+
+Every external content input crossing a mediation boundary SHALL carry a provenance record, or SHALL be classed unverifiable. Content claims SHALL NOT modify their own class.
+
+### Scenario: self-vouching email
+
+Given an email whose body claims it is from the owner, when provenance is assigned, then the class SHALL derive from the channel facts, and the body claim SHALL be ignored for classification.
+
+### Scenario: missing provenance
+
+Given content arriving through an uninstrumented path, when it reaches a boundary, then it SHALL be classed unverifiable and the gap SHALL be logged.
+
+## Requirement: append-only chains
+
+Transformations SHALL append to the chain with content digests. Modification or removal of chain entries SHALL be detectable by the verifier.
+
+### Scenario: substituted intermediate
+
+Given a chain where one transformation output was replaced, when the verifier runs, then it SHALL reject the chain naming the broken link.
+
+## Requirement: provenance inheritance
+
+Derived content SHALL reference its parents and SHALL NOT exceed the minimum parent class unless an authorized, recorded transformation raises it.
+
+### Scenario: summary of third-party page
+
+Given a summary generated from a third-party webpage, when the summary justifies an action, then the action's evidence SHALL link the page's provenance, and the justification SHALL be classed third-party.
+
+# specs/policy-and-conformance/spec.md
+
+## Requirement: class-aware policy
+
+The bundle SHALL be able to express policy on provenance class, including: no destructive action SHALL be justified solely by third-party or unverifiable content.
+
+### Scenario: destructive action from web content
+
+Given a delete action justified only by fetched third-party content, when policy above is active, then mediation SHALL block and escalate.
+
+## Requirement: ancestry reconstruction
+
+Given any mediated action, the full provenance ancestry of its justifying content SHALL be reconstructable from the ledger.
+
+### Scenario: audit query
+
+Given an action from a week ago, when an auditor queries its ancestry, then the result SHALL list every content input with origin class and digest.
+
+# adrs.md
+
+- ADR-001: Provenance in the envelope, detection in the module. Rationale: the plan maps provenance concepts to the evidence envelope and keeps decoding/detection as runtime logic. Consequence: kernel gains fields, not classifier code.
+- ADR-002: Four ordinal classes. Rationale: enough to express real policy, few enough to stay honest. Consequence: edge cases land in unverifiable, which is conservative by design.
+- ADR-003: Default untrusted for gaps. Rationale: uninstrumented paths are the attacker's friend. Consequence: gaps are loud, driving instrumentation coverage.
+- ADR-004: Class-raising is an authorized act. Rationale: vouching is a trust decision and must name who made it. Consequence: audit can find the human in the loop.
+
+# tasks.md
+
+- Phase 0 (schema and classes): provenance record schema, classes, envelope extension.
+- Phase 1 (instrumentation): fetch/email/tool/file ingestion points; chain store.
+- Phase 2 (policy hooks and verifier): class-aware bundle policy; kernel chain verification.
+- Phase 3 (conformance): class-differentiated fixtures; ancestry reconstruction queries.
+- Phase 4 (coverage audit): enumerate ingestion paths across Guardrails surfaces; close or declare gaps.
+
+# acceptance.md
+
+## Required conformance fixtures
+
+- Fixture A: self-vouching content - class unchanged by claims.
+- Fixture B: substituted chain link - verifier rejects, names break.
+- Fixture C: third-party-justified destructive action - blocked under policy.
+- Fixture D: uninstrumented ingestion path - unverifiable class, gap logged.
+- Fixture E: derived content ancestry - full reconstruction from ledger.
+
+## Release acceptance criteria
+
+- All fixtures pass; envelopes with broken chains rejected; ancestry reconstruction demonstrated on a real mediated action; coverage audit published.
+
+## Open questions requiring owner decisions
+
+- Which ingestion paths are in scope for v1 (proposal: web fetch, email, tool results, non-repo file reads).
+- Whether authorized class-raising exists at launch or lands post-launch (proposal: post-launch; keep v1 strictly monotonic).
+
+## Handoff
+
+Instrument the web-fetch and tool-result paths first - they are the highest-volume indirect-injection vectors. The demo that sells this spec: replay an attack that succeeded without provenance, then show the same attack classed, blocked, and reconstructed from the ledger.

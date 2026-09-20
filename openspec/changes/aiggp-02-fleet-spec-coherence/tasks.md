@@ -1,0 +1,8 @@
+- Phase 0 (contract freeze): re-anchor the September 17 contracts to AIGGP-00 envelope and algebra; freeze digests.
+- Phase 1 (deterministic core): evaluator, assertion planner, determinism fixtures.
+- Phase 2 (container boundary): pinned image, ephemeral isolation, default-deny network, bounded execution.
+- Phase 3 (evidence): envelope emission, ledger writes, attestation chain.
+- Phase 4 (ladder): stage machinery, ratchet, bounded advisory, exception model.
+- Phase 5 (fleet adapters): CI integration per repo, fleet schedule, Mission Control read views.
+- Phase 6 (3D vertical slice): promote/halt wired to the AI 3D pipeline on one real candidate flow.
+- Phase 7 (hardening and release): adversarial fixtures, image publication, docs.

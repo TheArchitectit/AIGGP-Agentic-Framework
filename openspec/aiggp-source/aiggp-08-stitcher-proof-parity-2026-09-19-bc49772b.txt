@@ -1,0 +1,210 @@
+# AIGGP-08 - Stitcher Proof Parity
+
+OpenSpec package - Agent Intelligence Gate Loop Guardrails Platform (AIGGP)
+Status: PROMOTED incrementally behind the AIGGP evidence contract (proof-strengthening subset; full parity set remains available in the absorbed package)
+Module: DevGate repository module | Date: 2026-09-19 | Depends on: AIGGP-01 (honest gates), AIGGP-00 (evidence contract)
+Absorbs and narrows: DevGate - Stitcher Capability Parity - Full OpenSpec (2026-09-19: 12 specs, 48 SHALLs, 104 scenarios, 10 sprints, branch feat/stitcher-capability-parity at 07aadb05)
+
+## Plain-language summary
+
+Stitcher does some review-proof things DevGate does not: it reviews a diff against the OpenSpec it claims to implement, catches drift in both directions, traces tasks to code, and plugs into the tools reviewers already use (SARIF, pre-commit, forge comments). The September 19 parity package specced all twelve of those features. This spec promotes the nine that make green harder to fake, one at a time, each only counting as done when it emits platform evidence and survives a negative control. LLM advice stays advisory-only and is explicitly not part of the promoted set.
+
+# proposal.md
+
+## Summary
+
+Promote the proof-strengthening subset of Stitcher parity into the AIGGP DevGate module: OpenSpec-to-diff review, reverse drift, task traceability, SARIF output, pre-commit hooks, whole-repo mode, external-tool adapters, forge review comments, and coding-agent-loop hooks - each delivered incrementally behind the AIGGP-00 evidence contract with negative controls.
+
+## Problem
+
+The honest verdict from the Stitcher review was that Stitcher is the tighter product on the narrow overlap: it ties review to the spec a change claims to implement, in both directions, and meets reviewers in their existing tooling. DevGate's equivalent surfaces are weaker, which means its green carries less proof. The full parity package exists but predates AIGGP; promoting it wholesale would import twelve features with no shared evidence contract. The platform needs the proof features, in dependency order, each verifiable.
+
+## Desired outcomes
+
+- OpenSpec-to-diff review: a change is evaluated against the specific spec requirements it claims to implement, with per-requirement verdicts.
+- Reverse drift: code changes with no covering spec requirement are findings, not silence.
+- Task traceability: spec tasks map to commits; orphan tasks and orphan commits are both reported.
+- SARIF output: findings flow into standard review tooling without bespoke parsing.
+- Pre-commit mode: the same gates run locally before push, identical verdicts to CI.
+- Whole-repo mode: full-tree evaluation beyond diff scope, on demand and scheduled.
+- External-tool adapters: results from other scanners ingest as evidence with their own identity, never silently re-labeled as AIGGP checks.
+- Forge review comments: findings posted as review comments keyed to evidence links.
+- Coding-agent-loop hooks: agent loops consume promote/halt verdicts through the same contract as AIGGP-02.
+
+## Product boundary
+
+Promoted set is the nine features above. Explicitly not promoted: LLM advice beyond advisory annotation (stays proposed per the plan - it cannot determine blocking truth without a deterministic contract), and any Stitcher feature outside the absorbed package. Each promoted feature ships only behind the evidence contract; feature completeness without evidence is not delivery.
+
+## Users and calling systems
+
+- Reviewers consuming findings in SARIF-compatible tooling and forge comments.
+- Developers running pre-commit gates locally.
+- Coding-agent loops (Claude Code and peers) consuming promote/halt verdicts.
+- The AIGGP ledger receiving per-feature evidence.
+
+## Success measures
+
+- Each promoted feature emits valid AIGGP-00 envelopes on its real execution path.
+- Each has a negative control proving it can fail (a seeded case it must catch).
+- Pre-commit and CI produce identical verdicts on the same change.
+- SARIF output validates against the SARIF schema and round-trips into a standard viewer.
+
+## Risks
+
+- Feature-list chasing: shipping twelve shallow features instead of nine proven ones. Control: incremental promotion with per-feature acceptance; the absorbed package stays the backlog.
+- Adapter laundering: external tool results re-labeled as first-class checks. Control: adapters record tool identity and version; aggregation weights are bundle policy.
+- Local/CI divergence in pre-commit mode. Control: same images, same scripts, identical-verdict fixture in CI.
+
+# design.md
+
+## Design principles
+
+- Proof over coverage: a feature exists when its evidence exists.
+- Bidirectional drift: spec-without-code and code-without-spec are both findings.
+- Meet reviewers where they are: SARIF and forge comments, not a new dashboard to check.
+- External results keep their names: ingestion preserves tool identity.
+
+## Locked decisions
+
+- Promotion order: (1) task traceability, (2) OpenSpec-to-diff review, (3) reverse drift, (4) pre-commit, (5) SARIF, (6) forge comments, (7) whole-repo mode, (8) external-tool adapters, (9) coding-agent-loop hooks. Each stage gates the next.
+- Per-feature negative control: no feature merges without a seeded-failure fixture it must catch.
+- LLM advice: advisory annotation only, marked non-blocking in every surface; excluded from the promoted set.
+- Adapter evidence: external tool results carry tool identity, version, and raw output reference; AIGGP never re-issues them as its own findings.
+- Pre-commit parity: local mode runs the same digest-pinned images as CI.
+
+## Major components
+
+1. Traceability engine (spec tasks to commits, both directions).
+2. Diff-review evaluator (per-requirement verdicts over the change).
+3. Reverse-drift scanner (uncovered changes as findings).
+4. Local runner (pre-commit) with CI-parity harness.
+5. SARIF emitter.
+6. Forge comment adapter (GitHub first; GitLab via AIGGP-07 adapter).
+7. Whole-repo evaluation mode.
+8. External-tool ingestion adapter interface.
+9. Agent-loop verdict endpoint (promote/halt contract).
+
+## Trust boundaries
+
+- External tool results are third-party evidence: identity-stamped, never elevated to first-class without re-execution.
+- Forge comment posting is the only write to forge surfaces; it carries evidence links and never edits code.
+- Agent loops are consumers of verdicts, not authors: loop output re-enters as new unverified changes.
+
+# specs/traceability-and-drift/spec.md
+
+## Requirement: bidirectional task traceability
+
+Every spec task SHALL map to implementing commits, and every commit SHALL map to covering spec tasks or be reported as uncovered. Both directions SHALL appear in evidence.
+
+### Scenario: orphan commit
+
+Given a commit touching behavior with no covering task, when traceability runs, then it SHALL be reported as uncovered with file evidence.
+
+### Scenario: orphan task
+
+Given a task marked complete with no implementing commit, when traceability runs, then it SHALL be reported as unimplemented.
+
+## Requirement: spec-to-diff review
+
+A change SHALL be evaluated against the requirements it declares, with a verdict per requirement. A change declaring no requirements SHALL be flagged.
+
+### Scenario: undeclared change
+
+Given a diff with no declared requirement coverage, when review runs, then the change SHALL be flagged and SHALL NOT receive a clean review verdict.
+
+## Requirement: reverse drift detection
+
+Changes altering behavior covered by no spec requirement SHALL be findings at the severity the bundle declares.
+
+### Scenario: silent behavior change
+
+Given a diff changing gated behavior with no spec update, when reverse-drift runs, then it SHALL produce a finding naming the behavior and files.
+
+# specs/reviewer-surfaces/spec.md
+
+## Requirement: SARIF validity
+
+Findings SHALL be emittable as schema-valid SARIF with rule, severity, location, and evidence reference.
+
+### Scenario: SARIF round-trip
+
+Given emitted SARIF, when loaded by a standard viewer, then all findings SHALL render with locations and evidence links.
+
+## Requirement: local-CI parity
+
+Pre-commit execution SHALL use the same images and scripts as CI and SHALL produce identical verdicts for the same change.
+
+### Scenario: divergent local verdict
+
+Given a change passing pre-commit but failing CI, when the parity harness investigates, then the cause SHALL be classified as a defect and the parity fixture SHALL fail until fixed.
+
+## Requirement: evidence-linked review comments
+
+Forge review comments SHALL reference the finding's evidence record. A comment without an evidence link SHALL NOT be posted.
+
+### Scenario: comment with evidence
+
+Given a blocking finding on a pull request, when comments post, then each SHALL carry rule, severity, and a link to the envelope.
+
+# specs/adapters-and-loops/spec.md
+
+## Requirement: identity-preserving ingestion
+
+External tool results SHALL be ingested with tool identity, version, and raw output reference. They SHALL NOT be re-issued as AIGGP-originated findings.
+
+### Scenario: adapter output
+
+Given an ingested external scanner result, when evidence is queried, then it SHALL show the original tool identity and version.
+
+## Requirement: agent-loop verdict contract
+
+Coding-agent loops SHALL consume promote/halt verdicts through the AIGGP-02 contract, keyed to subject digests. Loop-produced changes SHALL re-enter as unverified subjects.
+
+### Scenario: loop self-certification attempt
+
+Given a loop presenting its own prior output as verified input, when evaluated, then it SHALL be treated as a new unverified change.
+
+# adrs.md
+
+- ADR-001: Incremental promotion over wholesale adoption. Rationale: twelve unproven features are worth less than nine proven ones. Consequence: the absorbed package remains the backlog; stages gate each other.
+- ADR-002: LLM advice excluded from promotion. Rationale: no deterministic contract, no blocking truth (plan rule). Consequence: advice may annotate findings, clearly labeled advisory.
+- ADR-003: Negative control per feature. Rationale: the DevGate audits prove untested gates go vacuous. Consequence: no fixture, no merge.
+- ADR-004: External results keep identity. Rationale: laundering third-party results destroys auditability. Consequence: aggregation treats ingested evidence per bundle policy.
+
+# tasks.md
+
+- Stage 1: task traceability engine plus negative controls.
+- Stage 2: spec-to-diff review.
+- Stage 3: reverse drift.
+- Stage 4: pre-commit local runner plus parity harness.
+- Stage 5: SARIF emitter.
+- Stage 6: forge comment adapter.
+- Stage 7: whole-repo mode.
+- Stage 8: external-tool adapter interface plus first adapter.
+- Stage 9: agent-loop verdict endpoint.
+
+# acceptance.md
+
+## Required conformance fixtures (per stage, minimum set)
+
+- Fixture A: orphan commit and orphan task - both reported.
+- Fixture B: undeclared change - flagged, no clean verdict.
+- Fixture C: silent behavior change - reverse-drift finding.
+- Fixture D: SARIF round-trip - schema valid, renders in viewer.
+- Fixture E: local/CI divergence seed - parity harness catches.
+- Fixture F: comment without evidence link - refused.
+- Fixture G: ingested external result - identity preserved.
+- Fixture H: loop self-certification - treated as unverified.
+
+## Release acceptance criteria
+
+- Each stage's fixtures pass before the next begins; every promoted feature emits valid envelopes on its real path; the promoted set is reported with per-feature maturity.
+
+## Open questions requiring owner decisions
+
+- Whether the unmerged parity branch (07aadb05, delivered as a Drive bundle) is applied first and reconciled, or re-implemented stage by stage (proposal: reconcile first, then stage gates).
+- First external-tool adapter target (proposal: the highest-signal scanner already in fleet use).
+
+## Handoff
+
+Reconcile the existing parity branch against current main first (same cherry-pick discipline as AIGGP-01), then run the stages in order. Every stage demo shows the negative control failing first - that is the proof the feature is real.

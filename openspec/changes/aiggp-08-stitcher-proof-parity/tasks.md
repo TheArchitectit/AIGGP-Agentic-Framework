@@ -1,0 +1,9 @@
+- Stage 1: task traceability engine plus negative controls.
+- Stage 2: spec-to-diff review.
+- Stage 3: reverse drift.
+- Stage 4: pre-commit local runner plus parity harness.
+- Stage 5: SARIF emitter.
+- Stage 6: forge comment adapter.
+- Stage 7: whole-repo mode.
+- Stage 8: external-tool adapter interface plus first adapter.
+- Stage 9: agent-loop verdict endpoint.

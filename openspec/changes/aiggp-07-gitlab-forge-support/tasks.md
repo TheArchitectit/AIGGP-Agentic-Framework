@@ -1,0 +1,6 @@
+- Sprint 0 (instance discovery): document the lab GitLab; backup/restore drill; pin version; confirm tailnet posture.
+- Sprint 1 (runner standard): rootless podman runners, digest pinning, fail-closed registration.
+- Sprint 2 (templates): mirror all five gate templates as GitLab includes over shared scripts.
+- Sprint 3 (forge adapter): webhooks, auth, API surface; hub evidence through adapter.
+- Sprint 4 (parity drill): seeded corpus, both forges, identical-findings gate in CI.
+- Sprint 5 (hardening): monitoring, docs, external-instance configuration guide.

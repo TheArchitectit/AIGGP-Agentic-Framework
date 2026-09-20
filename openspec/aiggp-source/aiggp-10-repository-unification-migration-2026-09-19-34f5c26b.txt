@@ -1,0 +1,409 @@
+# AIGGP-10 - Repository Unification and History-Preserving Migration
+
+OpenSpec package - Agent Intelligence Gate Loop Guardrails Platform (AIGGP)
+Status: PROMOTED (delivery plan; not implemented)
+Module: repository/CI/release migration | Date: 2026-09-19
+Depends on: AIGGP-01 reconciliation complete on a named DevGate commit; AIGGP-00 directory and evidence contracts frozen enough to validate the unified tree
+Baseline heads at specification time: DevGate main edca86bc8edb82e8da19022aebba79fc72fd9aca; Agent Guardrails main 9293b0f
+
+## Plain-language summary
+
+This is the move plan the first ten specs assumed but did not spell out. DevGate will move into the Agent Guardrails repository as AIGGP's repo/CI/release module, while Agent Guardrails becomes the policy module. The move will preserve both projects' reachable Git histories, reconcile the unmerged DevGate audit work before the cutover, rewire CI without allowing a false-green window, keep releases and tags traceable, and turn the old standalone repositories into read-only signposts after a defined stabilization period. The migration is reversible until the first unified release is proven. It does not change product behavior by itself and authorizes no repository changes.
+
+# proposal.md
+
+## Summary
+
+Create one canonical AIGGP repository from the existing Agent Guardrails repository and the DevGate repository. Import DevGate by a non-squashed subtree merge, normalize both products behind explicit module boundaries, migrate CI and release automation in parallel, prove history and behavior continuity, then archive the standalone repositories with durable pointers to the unified source.
+
+## Problem
+
+The product decision is settled, but the physical source-of-truth move is unspecified. AIGGP-01 repairs DevGate, AIGGP-00 defines shared truth, and AIGGP-02 through AIGGP-09 define capabilities. None says how two live Git histories become one repository without losing blame, tags, audit work, release provenance, or CI truth. An improvised move could flatten DevGate into one commit, leave the audit branch behind, run duplicate or contradictory release jobs, break consumers pinned to the old repository, or archive the old repository before the unified one has proved itself.
+
+## Desired outcomes
+
+- One canonical AIGGP repository contains the policy, repo/CI/release, kernel, bundle, schema, conformance, and generated-document surfaces.
+- Every commit reachable from the selected DevGate main and Agent Guardrails main cutover heads remains reachable from a documented ref in the unified repository.
+- DevGate's audit branch is reconciled per AIGGP-01 before import; its original tip also remains recoverable as an archival ref.
+- CI runs old-path compatibility checks and new-path checks through a controlled overlap, with no branch-protection window in which required checks disappear.
+- Existing release tags remain unambiguous and resolvable; the first unified release declares both predecessor baselines.
+- Old repository URLs remain readable, clearly archived, and point humans and automation to the replacement.
+- A rehearsed rollback can restore the pre-cutover repositories and required checks before the point of no return.
+
+## Non-goals
+
+- This package does not implement AIGGP-00 through AIGGP-09.
+- It does not bulk-merge the DevGate audit branch or decide unresolved AIGGP-01 findings.
+- It does not redesign module internals merely because files move.
+- It does not remove compatibility shims before their declared window ends.
+- It does not create paid tiers, private editions, or a commercial source split.
+- It does not authorize the migration. It is the delivery contract for a later owner-approved implementation.
+
+## Users and calling systems
+
+- Maintainers working in the unified repository.
+- CI runners and release automation consuming DevGate and Agent Guardrails paths.
+- Repositories that pin DevGate by repository URL, submodule path, action reference, package, container, or release tag.
+- Auditors tracing a finding or release back to predecessor commits.
+- AIGGP conformance fixtures validating module boundaries and evidence continuity.
+
+## Success measures
+
+- History manifest proves 100 percent reachability of both cutover heads, the original audit tip, and every preserved release tag.
+- Fresh-clone CI exercises policy, DevGate, kernel contracts, integration boundaries, and negative controls on the merged tree.
+- A migration fixture containing consumers for each supported integration route passes before archive.
+- Old and new execution paths produce equivalent verdicts and evidence for the agreed golden corpus during overlap.
+- No required branch-protection check is absent, renamed without mapping, or made optional during cutover.
+- First unified release can be traced to both predecessor baselines from its release manifest alone.
+
+## Severity-ranked migration risks
+
+- P0 - false-green cutover: required checks disappear, silently skip modules, or change names under branch protection.
+- P0 - history loss: squash/fresh copy drops commit ancestry or archival branch tips.
+- P0 - divergent writes: work lands in an old repository after the canonical cutover and is not represented in AIGGP.
+- P1 - release ambiguity: colliding tag names, reused versions, or artifacts that cannot name their source tree.
+- P1 - consumer breakage: submodules, reusable workflows, package paths, and pinned action references stop resolving.
+- P1 - premature archive: old repositories become read-only before rollback and consumer migration are proven.
+- P2 - blame discontinuity: mechanical path moves obscure authorship despite preserved ancestry.
+- P2 - documentation drift: hand-written guardrail documents return in repositories instead of being generated from the shipped policy bundle.
+
+# design.md
+
+## Design principles
+
+- Preserve ancestry, not merely files.
+- Reconcile before combining: the unified repository imports a known-good DevGate cutover head, not an unresolved branch.
+- Parallel prove, then switch: replacement CI must be green and negative controls must fire before old checks are retired.
+- One canonical writer after cutover; old repositories are references, not forks.
+- Every destructive or hard-to-reverse step has a checkpoint, an owner, and a rollback command sheet.
+- Generated guardrail documentation comes from the shipped policy bundle; the unified repository does not become a Markdown copy farm.
+
+## Locked decisions
+
+### Canonical repository
+
+The existing Agent Guardrails repository becomes the physical host for the unified AIGGP repository. This preserves its established policy/runtime lineage and avoids creating a third source-of-truth repository. The repository is renamed to the settled AIGGP name only as a separately approved hosting operation; provider redirects SHALL be verified if a rename occurs.
+
+### History strategy
+
+DevGate SHALL enter through a non-squashed subtree merge into modules/devgate. The merge commit SHALL retain the selected DevGate cutover head as a parent, using an explicit unrelated-histories merge where required. A fresh file copy and a squashed subtree import are forbidden because they do not preserve the full reachable ancestry as migration truth.
+
+Filter-repo rewriting is reserved for a rehearsed fallback only if provider or tooling constraints make a parent-preserving merge impossible. Any filtered import SHALL keep an untouched mirror bundle and SHALL publish old-to-new commit mapping. It is not the default because rewriting hashes expands audit and rollback cost.
+
+### DevGate cutover head and audit branch
+
+AIGGP-01 SHALL finish first. Its cherry-pick-by-finding reconciliation produces a named DevGate main cutover commit. The unified import uses that commit, not specification-time head edca86bc8edb82e8da19022aebba79fc72fd9aca unless AIGGP-01 proves it remains the correct cutover. The original unmerged audit tip SHALL be preserved under an archival namespace such as refs/tags/archive/devgate/audit-original-2026-09-13 and recorded in the history manifest. It SHALL NOT be bulk-merged during AIGGP-10.
+
+### Target directory layout
+
+- modules/policy/ - Agent Guardrails policy/runtime module and policy-bundle renderer.
+- modules/devgate/ - DevGate repository, CI, and release enforcement module.
+- kernel/ - AIGGP-00 verdict, evidence, waiver, ledger, and subject contracts.
+- schemas/ - versioned public schemas shared across modules.
+- bundles/ - canonical policy-bundle sources; generated guardrail documents are build outputs, not copied source.
+- conformance/ - positive fixtures, negative controls, golden corpus, cross-module proofs.
+- integrations/ - forge, runner, coding-agent, and external-tool adapters.
+- docs/generated/ - generated documentation output for release artifacts; checked-in status follows the bundle renderer's reproducibility rule.
+- tools/migration/ - one-time manifests, verification scripts, consumer inventory, rollback runbook, and tag map; removed or frozen after stabilization by an explicit follow-up.
+
+The first migration commit MAY stage existing Agent Guardrails files in place if moving them and importing DevGate in one commit would make review unsafe. The terminal AIGGP-10 state SHALL match the layout above. Pure moves SHALL be isolated from behavior changes so Git rename detection and human review remain useful.
+
+### Tags and releases
+
+Predecessor tags SHALL remain immutable and namespaced when imported into the unified repository: devgate/<original-tag> and guardrails/<original-tag>. If the provider forbids slash forms, the migration uses devgate-<tag> and guardrails-<tag> and records the exact mapping. Existing unqualified tags in the host repository remain intact; no tag is force-moved or reused. Unified releases begin in an AIGGP namespace and include a release manifest naming both predecessor cutover commits, the policy-bundle digest, schema version, CI run, and conformance evidence.
+
+### Old repository disposition
+
+Old standalone repositories remain writable during rehearsal, enter a short freeze at cutover, and become archived/read-only only after the stabilization gate passes. Each archived repository SHALL have a top-level notice and provider description pointing to the exact unified repository and migration guide. Releases, issues, pull requests, tags, and security history remain readable. No old repository is deleted.
+
+### Generated guardrail documents
+
+The migration SHALL not copy generated guardrail Markdown into consuming repositories. Guardrail documents SHALL be generated at deploy or release from the shipped, content-addressed policy bundle. Compatibility wrappers may invoke the renderer but may not create a second manually edited source.
+
+## Major migration artifacts
+
+1. Source inventory: repositories, default branches, branch protections, tags, releases, packages, container images, workflows, secrets by name/class, webhooks, environments, submodules, reusable workflow callers, action consumers, and open work.
+2. History manifest: source URLs, cutover heads, archival tips, imported refs, tag map, merge commit, object reachability proof, and mirror-bundle checksums.
+3. Consumer map: every known URL/path/ref dependency, owner, migration mechanism, compatibility window, and status.
+4. CI check map: old required-check name to new check name/job, negative control, branch-protection update, and rollback mapping.
+5. Release continuity manifest: predecessor tags/releases, unified version namespace, artifact and image mapping, provenance record, and deprecation dates.
+6. Rollback runbook: checkpoints, commands, ownership, provider settings, write-unfreeze steps, and data-loss checks.
+
+## Cutover state machine
+
+- INVENTORIED: sources, refs, consumers, CI, releases, and provider settings captured.
+- REHEARSED: migration completed in a disposable mirror; history, CI, tags, and consumers verified.
+- FROZEN: writes paused on both repositories; heads and provider configuration recaptured.
+- IMPORTED: parent-preserving subtree merge and module move exist on a protected migration branch.
+- DUAL-PROVEN: old and new paths run the same corpus and negative controls; results match the allowed equivalence contract.
+- CANONICAL: unified repository is the sole writable source; redirects and consumer mappings are active.
+- STABILIZED: defined observation window passes with no unresolved P0/P1 migration defect.
+- ARCHIVED: predecessor repositories are read-only signposts.
+
+A state transition SHALL be recorded in the migration ledger with actor, time, source and destination commits, evidence links, and rollback checkpoint. Skipping a state is forbidden.
+
+# specs/history-and-lineage/spec.md
+
+## Requirement: parent-preserving import
+
+The DevGate import SHALL retain the selected DevGate cutover commit as an ancestor of the unified migration commit. The import SHALL NOT squash DevGate history or represent it as a fresh file addition.
+
+### Scenario: ancestry check
+
+Given a fresh clone of the unified repository, when the verifier tests merge-base ancestry for the DevGate cutover commit and Agent Guardrails cutover commit against the migration commit, then both checks SHALL succeed.
+
+## Requirement: archival ref coverage
+
+Every branch tip and release tag declared in the approved preservation manifest SHALL remain reachable from a documented ref or immutable mirror bundle. The original audit branch tip SHALL be included even though its changes are reconciled by finding rather than branch merge.
+
+### Scenario: forgotten audit branch
+
+Given a preservation manifest naming the audit tip, when reachability verification runs and no unified ref or mirror object reaches it, then migration acceptance SHALL fail.
+
+## Requirement: immutable tag mapping
+
+The migration SHALL never force-move or reuse a predecessor tag. Colliding or ambiguous tags SHALL be namespaced with a machine-readable old-to-new mapping.
+
+### Scenario: both repositories contain v1.1.0
+
+Given identical tag names pointing to different objects, when tags are imported, then each SHALL receive a distinct predecessor namespace and the verifier SHALL resolve both to their expected objects.
+
+## Requirement: blame-friendly moves
+
+Mechanical path moves SHALL be separated from functional edits. The migration ledger SHALL identify the pure-move commits used to preserve reviewability and blame continuity.
+
+### Scenario: behavior change hidden in move
+
+Given a commit labeled as a pure module move, when normalized file contents before and after are compared, then any non-path content change SHALL fail the fixture.
+
+# specs/layout-and-module-boundaries/spec.md
+
+## Requirement: canonical layout
+
+The terminal tree SHALL expose modules/policy, modules/devgate, kernel, schemas, bundles, conformance, integrations, docs/generated, and tools/migration with documented ownership and public/private boundaries.
+
+### Scenario: forbidden root ambiguity
+
+Given executable policy or DevGate code remaining at undocumented root paths after migration, when layout validation runs, then it SHALL fail and name each unowned path.
+
+## Requirement: no circular module authority
+
+The kernel owns verdict and evidence contracts. Policy and DevGate modules emit or consume those contracts but SHALL NOT each define competing canonical versions. Cross-module calls SHALL pass through declared interfaces.
+
+### Scenario: duplicate verdict enum
+
+Given separate policy and DevGate verdict enums that disagree on EMPTY or ERROR, when schema validation runs, then the build SHALL fail.
+
+## Requirement: generated documentation source
+
+Guardrail documentation SHALL be derived from the shipped policy bundle and SHALL be reproducible from its digest. Hand-edited generated copies in consuming repositories SHALL fail drift validation.
+
+### Scenario: copied guardrail Markdown
+
+Given a consuming repository with a modified generated guardrail document that does not match the bundle renderer, when the coherence gate runs, then it SHALL fail with bundle and output digests.
+
+# specs/ci-cutover/spec.md
+
+## Requirement: required-check continuity
+
+Every protected-branch required check SHALL have a documented successor or an explicit retirement decision. Branch protection SHALL not be changed until the successor has passed its positive fixture and failed its negative control on the migration branch.
+
+### Scenario: renamed check disappears
+
+Given an old required check named devgate and a new job named repo-gate, when branch-protection mapping lacks the successor, then the cutover SHALL fail before CANONICAL.
+
+## Requirement: non-vacuous path filtering
+
+CI path filters SHALL execute the correct module and integration jobs for policy-only, DevGate-only, kernel/schema-only, and cross-module changes. A zero-job or skipped-all result SHALL be EMPTY, never green.
+
+### Scenario: shared schema changes
+
+Given a change only under schemas/, when CI evaluates path filters, then both policy and DevGate contract suites plus kernel conformance SHALL run.
+
+## Requirement: dual proof
+
+Before canonical cutover, old and new execution paths SHALL run the same golden corpus and adversarial negative controls. Verdicts and evidence SHALL match under the declared equivalence rules; tolerated differences SHALL be documented fields such as path prefixes and timestamps, never findings or severity.
+
+### Scenario: new path skips a fixture
+
+Given a negative-control fixture that fails in standalone DevGate, when the unified path returns PASS, SKIP, or EMPTY, then migration SHALL stop as P0.
+
+## Requirement: secret and permission minimization
+
+CI secrets SHALL be re-bound by class and least privilege. Secret values SHALL not be copied into repository files, migration logs, fixtures, or manifests. Permissions and environment approvals SHALL be tested before old credentials are revoked.
+
+### Scenario: release token appears in manifest
+
+Given a migration artifact containing a credential value, when secret scanning runs, then acceptance SHALL fail and the credential SHALL be rotated under incident procedure.
+
+# specs/release-and-consumer-continuity/spec.md
+
+## Requirement: release provenance continuity
+
+The first unified release SHALL include a machine-readable manifest naming the Agent Guardrails and DevGate cutover commits, imported tag map, policy-bundle digest, schema version, build workflow identity, and conformance evidence.
+
+### Scenario: artifact cannot name both parents
+
+Given a candidate AIGGP release missing either predecessor commit, when release validation runs, then publishing SHALL fail.
+
+## Requirement: compatibility window
+
+Each supported consumer route SHALL have either a tested redirect/shim or an owner-approved breaking migration. Compatibility duration and removal criteria SHALL be written before cutover.
+
+### Scenario: pinned reusable workflow
+
+Given a consumer pinned to a DevGate reusable workflow at the old repository, when the repository becomes read-only, then the documented shim or replacement reference SHALL still execute during the compatibility window.
+
+## Requirement: single canonical writer
+
+After CANONICAL, code changes SHALL land only in the unified repository. The archived repositories SHALL reject ordinary writes and SHALL direct contributors to AIGGP.
+
+### Scenario: post-cutover commit to DevGate
+
+Given a new commit on standalone DevGate after canonical cutover, when divergence monitoring runs, then it SHALL raise a P0 migration incident until the commit is represented or explicitly rejected in the unified ledger.
+
+## Requirement: release namespace safety
+
+Unified versions SHALL use an AIGGP release namespace and SHALL not impersonate a predecessor release number. Package names and container tags SHALL have documented continuity or deprecation mappings.
+
+### Scenario: ambiguous v3.7.1
+
+Given Guardrails v3.7.1 already exists, when an AIGGP release attempts to reuse v3.7.1 without namespace qualification, then release validation SHALL block.
+
+# specs/archive-and-rollback/spec.md
+
+## Requirement: archive only after stabilization
+
+Standalone repositories SHALL not be archived until all P0/P1 migration issues are closed, required consumers pass, the first unified release provenance verifies, and the stabilization period completes.
+
+### Scenario: red consumer at archive time
+
+Given any required consumer still failing on the unified path, when archive approval runs, then archive SHALL be denied.
+
+## Requirement: durable archive signpost
+
+Each archived repository SHALL preserve history, tags, releases, issues, security records, and a prominent pointer to the unified repository and migration guide. Deletion is forbidden.
+
+### Scenario: old URL visited
+
+Given a person opens an old repository URL after archive, then they SHALL see the archived state and an exact working link to the canonical AIGGP repository.
+
+## Requirement: rollback checkpoints
+
+Rollback SHALL be rehearsed from IMPORTED, DUAL-PROVEN, and CANONICAL states before the first unified release. The runbook SHALL restore repository writability, branch protection, CI requirements, release safety, and consumer routing without losing commits.
+
+### Scenario: unified CI produces false green
+
+Given a P0 false-green defect found during stabilization, when rollback is invoked, then old required checks and canonical write routes SHALL be restored to the last verified predecessor state, and commits made after cutover SHALL remain preserved for later replay.
+
+## Point of no return
+
+The practical point of no return is not the subtree merge; it is publication of the first unified release plus downstream adoption that cannot be safely reversed. Before that point, rollback is the default P0 response. After it, rollback requires an owner decision and may use a forward repair while keeping the release ledger append-only.
+
+# adrs.md
+
+- ADR-001: Use the Agent Guardrails repository as the AIGGP host. Rationale: it preserves the policy/runtime product lineage and avoids a third repository. Consequence: host-root content must be moved carefully into modules/policy.
+- ADR-002: Import DevGate with a non-squashed, parent-preserving subtree merge. Rationale: full ancestry remains auditable without rewriting hashes. Consequence: the unified graph has unrelated-history ancestry and a deliberate merge commit.
+- ADR-003: Reconcile the DevGate audit branch before import, preserve its original tip separately. Rationale: AIGGP-01's finding-by-finding proof is safer than a stale bulk merge. Consequence: reconciliation completion is a hard dependency.
+- ADR-004: Namespace predecessor tags; never force-move them. Rationale: both projects may use the same version strings. Consequence: release tooling and docs consume a tag map.
+- ADR-005: Parallel CI proof before branch-protection switch. Rationale: a green migration must prove gates fail. Consequence: temporary CI duplication is accepted.
+- ADR-006: Archive, never delete, old repositories after stabilization. Rationale: links, issues, releases, security history, and rollback evidence remain useful. Consequence: archive notices and divergence monitoring are required.
+- ADR-007: Keep generated guardrail documents bundle-derived. Rationale: repo unification must eliminate, not recreate, Markdown sprawl. Consequence: the renderer and drift fixture are migration blockers.
+- ADR-008: Do not use filter-repo by default. Rationale: hash rewriting multiplies provenance and rollback work. Consequence: path history is preserved through ancestry and pure-move commits rather than a cosmetically linear graph.
+
+# tasks.md
+
+## Phase 0 - inventory and freeze design
+
+- Capture repository URLs, default branches, current heads, protections, rulesets, tags, releases, artifacts, packages, images, webhooks, environments, secret names/classes, deploy keys, submodules, open branches, and automation callers.
+- Build the consumer map and required-check map.
+- Define cutover freeze length, stabilization length, owners, incident channel, and point-of-no-return approval.
+- Produce signed mirror bundles of both repositories and checksum them.
+
+## Phase 1 - finish predecessor truth
+
+- Complete AIGGP-01 on DevGate; name the verified cutover commit and finding ledger.
+- Preserve the original audit tip in the history manifest and archival ref plan.
+- Freeze the AIGGP-00 contracts needed by both modules: verdicts, envelope, bundle digest, waiver, ledger, subject identity.
+- Re-run predecessor suites and negative controls at both selected cutover heads.
+
+## Phase 2 - rehearse in disposable mirrors
+
+- Create a migration branch from the Agent Guardrails cutover head.
+- Isolate the policy pure-move commit into modules/policy.
+- Add DevGate with a non-squashed subtree merge into modules/devgate.
+- Add kernel, schemas, bundles, conformance, integrations, docs/generated, and tools/migration boundaries without implementing unrelated features.
+- Import and verify namespaced tags and archival refs.
+- Run object reachability, pure-move, tag-map, and fresh-clone tests.
+
+## Phase 3 - rewire and dual-prove CI
+
+- Port required checks with stable mappings and explicit path filters.
+- Re-bind environments and least-privilege secret classes.
+- Run positive fixtures and negative controls for every successor check.
+- Run standalone and unified paths over the same corpus; compare verdict and evidence outputs.
+- Test fork/PR trust boundaries, protected environments, release dry runs, and failure reporting.
+
+## Phase 4 - consumer and release continuity
+
+- Exercise fixtures for submodule, reusable workflow/action, package, container, CLI, and generated bundle consumers that remain supported.
+- Publish the migration guide and compatibility schedule.
+- Build the first unified release candidate with predecessor manifest and provenance, but do not publish.
+- Test old URL behavior, provider redirects if renamed, package/image mappings, and archived-repository notices.
+
+## Phase 5 - cutover
+
+- Enter FROZEN; record heads and provider configuration again and compare with inventory.
+- Repeat the rehearsed import from the frozen heads; do not hand-edit the result.
+- Verify history manifest, tag map, CI negative controls, corpus equivalence, and release candidate.
+- Switch branch protection and canonical automation only after all successor checks are present and required.
+- Mark the unified repository CANONICAL and old repositories as migration-frozen, not archived.
+
+## Phase 6 - stabilize, release, archive
+
+- Monitor divergence, consumer failures, required-check execution, evidence parity, and release provenance through the stabilization window.
+- Rehearse rollback one final time before publishing the first unified release.
+- Publish only with owner approval and complete provenance.
+- When acceptance holds, archive standalone repositories with notices and retain mirror bundles.
+- Freeze tools/migration artifacts as the permanent migration record; remove one-time credentials and revoke obsolete tokens.
+
+# acceptance.md
+
+## Required acceptance fixtures
+
+- Fixture A - ancestry: both selected cutover commits are ancestors of the unified migration commit.
+- Fixture B - audit preservation: original audit tip resolves from the archival ref or verified mirror bundle.
+- Fixture C - tag collision: same-name predecessor tags resolve distinctly and match the tag map.
+- Fixture D - pure move: policy and DevGate move commits contain no normalized content changes.
+- Fixture E - path matrix: policy-only, DevGate-only, schema-only, and cross-module changes run the intended nonempty job sets.
+- Fixture F - negative control: every successor required check proves it can fail.
+- Fixture G - golden corpus parity: standalone and unified paths agree on verdicts, findings, severity, and subject digest.
+- Fixture H - generated-doc drift: edited guardrail output fails against the policy-bundle renderer.
+- Fixture I - consumer matrix: each supported dependency route works through its declared compatibility path.
+- Fixture J - release provenance: candidate manifest names both predecessor commits and all required digests.
+- Fixture K - old URL: archived notice and exact canonical link are visible and working.
+- Fixture L - rollback: repository settings, required checks, write routes, and post-cutover commits survive a rehearsed rollback.
+
+## Release acceptance criteria
+
+- AIGGP-01 completed on a named DevGate cutover commit with no unresolved P0 false-green finding.
+- History manifest and mirror checksums reviewed; all declared refs reachable.
+- New CI passed all positive fixtures and failed all negative controls from a fresh clone.
+- Golden corpus equivalence holds; no skipped-all or zero-test green.
+- All required consumers pass or have explicit owner-approved breaking migrations.
+- First unified release candidate has complete provenance and no tag collision.
+- Rollback rehearsals pass at the required states.
+- No open P0/P1 migration defect at archive approval.
+- Archive notices and canonical links verified visually and functionally.
+
+## Open owner decisions before implementation
+
+- Exact hosting repository names and whether the Agent Guardrails repository is renamed at cutover or after stabilization.
+- Freeze and stabilization window lengths.
+- Which consumer routes receive compatibility shims and their expiry dates.
+- Unified release namespace and first version number.
+- Whether predecessor issue trackers stay open for historical discussion or are locked after archive.
+
+## Handoff
+
+Start with inventory and mirror bundles, not file moves. Finish AIGGP-01 and name the DevGate cutover commit. Rehearse the exact migration in disposable mirrors until history, CI, tag, consumer, release, and rollback fixtures all pass. At cutover, replay the rehearsed process from frozen heads; do not improvise or combine behavior changes with moves. Do not archive either predecessor until the unified path has survived stabilization. No repository changes are authorized by this document.

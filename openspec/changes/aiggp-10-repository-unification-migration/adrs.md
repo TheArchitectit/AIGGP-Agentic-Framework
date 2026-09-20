@@ -1,0 +1,8 @@
+- ADR-001: Use the Agent Guardrails repository as the AIGGP host. Rationale: it preserves the policy/runtime product lineage and avoids a third repository. Consequence: host-root content must be moved carefully into modules/policy.
+- ADR-002: Import DevGate with a non-squashed, parent-preserving subtree merge. Rationale: full ancestry remains auditable without rewriting hashes. Consequence: the unified graph has unrelated-history ancestry and a deliberate merge commit.
+- ADR-003: Reconcile the DevGate audit branch before import, preserve its original tip separately. Rationale: AIGGP-01's finding-by-finding proof is safer than a stale bulk merge. Consequence: reconciliation completion is a hard dependency.
+- ADR-004: Namespace predecessor tags; never force-move them. Rationale: both projects may use the same version strings. Consequence: release tooling and docs consume a tag map.
+- ADR-005: Parallel CI proof before branch-protection switch. Rationale: a green migration must prove gates fail. Consequence: temporary CI duplication is accepted.
+- ADR-006: Archive, never delete, old repositories after stabilization. Rationale: links, issues, releases, security history, and rollback evidence remain useful. Consequence: archive notices and divergence monitoring are required.
+- ADR-007: Keep generated guardrail documents bundle-derived. Rationale: repo unification must eliminate, not recreate, Markdown sprawl. Consequence: the renderer and drift fixture are migration blockers.
+- ADR-008: Do not use filter-repo by default. Rationale: hash rewriting multiplies provenance and rollback work. Consequence: path history is preserved through ancestry and pure-move commits rather than a cosmetically linear graph.

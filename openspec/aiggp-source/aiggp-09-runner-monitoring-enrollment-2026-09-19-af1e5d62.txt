@@ -1,0 +1,194 @@
+# AIGGP-09 - Runner Monitoring and Authenticated Enrollment
+
+OpenSpec package - Agent Intelligence Gate Loop Guardrails Platform (AIGGP)
+Status: PROMOTED into delivery plan (monitor-of-runners concept promoted into the runner protocol; implementation status: proposed)
+Module: runner | Date: 2026-09-19 | Depends on: AIGGP-00 (signed state, evidence), AIGGP-05 (isolation levels as trust classes)
+Promotes and generalizes: AI01 runner-of-runners monitor spec (branch chore/openspec-ai01-runner-monitor-2026-09-13); salvages open runner protocol, secret classes, rollout/canary/drain/rollback, and fleet evidence from the superseded tiers package
+
+## Plain-language summary
+
+Runners are the machines that actually execute the gates - and a lying or compromised runner turns every green it touches into fiction. Today's setup grew a side monitor for the ai01 runner; this spec promotes that idea into the platform's runner protocol itself: runners enroll with short-lived credentials, declare what they can do, receive signed instructions about what to run, and report evidence the kernel verifies. A runner that stops proving who it is gets drained, not trusted. Mission Control can watch all of this, but it can never vouch for a runner - only verified evidence can.
+
+# proposal.md
+
+## Summary
+
+Define the AIGGP runner protocol: authenticated short-lived enrollment, declared capabilities and trust classes, signed desired state, secret-class boundaries, continuous monitoring with verified heartbeats, and lifecycle operations (rollout, canary, drain, rollback) - all emitting kernel-verifiable evidence, with monitoring built into the protocol rather than bolted on beside it.
+
+## Problem
+
+The Mission Control audit showed what unmanaged runner control looks like: an unauthenticated runner-control surface, where anyone who can reach the endpoint can drive execution. Meanwhile the ai01 monitor-of-runners spec exists only as a local side monitor - useful, but a monitor that invents its own picture of truth instead of verifying protocol evidence is the same mistake in a smaller hat. The superseded fleet package had good runner machinery (enrollment, secret classes, rollout, canary, drain, rollback, drift detection) trapped inside a paid-tier design. This spec frees that machinery into the open protocol.
+
+## Desired outcomes
+
+- Runners enroll with short-lived, authenticated credentials; long-lived static runner secrets are eliminated.
+- Each runner declares capabilities and a trust class mapping to AIGGP-05 isolation levels; work is scheduled only to runners whose class covers the workload.
+- Desired state (what to run, which bundle, which images) is signed; runners verify before executing and reject unsigned or stale instructions.
+- Secrets are divided into declared classes; a runner receives only the classes its trust level and current workload require, delivered ephemerally.
+- Monitoring is protocol-native: verified heartbeats and execution evidence flow to the ledger; absence of verifiable evidence marks a runner suspect and triggers drain.
+- Lifecycle operations (rollout, canary, drain, rollback) are first-class, rehearsed, and evidenced.
+- A compromised or invalid runner is provably rejected: the acceptance suite includes a hostile-runner drill.
+
+## Product boundary
+
+This spec owns the runner protocol and its monitoring. It does not make Mission Control an authority: Mission Control displays runner state and triggers workflows, but runner truth comes from verified evidence. Isolation level definitions are AIGGP-05's; this spec consumes them as trust classes. Forge-specific runner setup is AIGGP-07's runner standard.
+
+## Users and calling systems
+
+- Fleet operators enrolling and lifecycle-managing runners.
+- The kernel verifying enrollment, heartbeats, and execution evidence.
+- Mission Control rendering runner state from ledger data (read-only on truth).
+- Workload schedulers (AIGGP-02 container runs, gate execution) requesting trust-class-appropriate runners.
+
+## Success measures
+
+- Hostile-runner drill: a runner with forged or expired credentials is rejected and its evidence refused, proven in CI.
+- Drain drill: a suspect runner is drained and its workloads rescheduled without verdict loss.
+- 100 percent of runner-executed results carry envelopes from an enrolled, in-class runner.
+- Rollback drill: a bad bundle rollout is rolled back with ledger evidence of both directions.
+
+## Risks
+
+- Enrollment becomes the new single point of failure. Control: enrollment service is small, its decisions are ledger-recorded, and offline queueing lets enrolled runners keep working through an enrollment outage.
+- Monitoring theater: dashboards showing green while runners rot. Control: monitor outputs are kernel-verified evidence, and absence of evidence is itself an alertable state.
+- Secret-class sprawl. Control: classes are few, named, and bundle-declared; new classes require spec amendment.
+
+# design.md
+
+## Design principles
+
+- No evidence, no trust: a runner is exactly as trustworthy as its last verified envelope.
+- Short-lived everything: enrollment, credentials, secret delivery, and desired-state validity all expire.
+- Signed instructions, verified before execution: runners authenticate what they are told, not just who tells them.
+- Protocol-native monitoring: observation is a property of the protocol, not a side process guessing.
+
+## Locked decisions
+
+- Enrollment: short-lived certificates or tokens with rotation; static runner secrets are prohibited.
+- Trust classes: map 1:1 to AIGGP-05 isolation levels; scheduling requires class coverage of the workload's declared level.
+- Desired state: signed by the control side, verified by the runner, carrying bundle digest, image digests, and validity window. Stale or unsigned state is refused.
+- Secret classes: declared set (for example: none, read-only repo, deploy-capable); ephemeral per-workload delivery; no ambient credentials on runners.
+- Heartbeats: signed, ledger-recorded; missing heartbeats transition runner state to suspect, then drained.
+- Lifecycle: rollout with canary stages, drain with workload migration, rollback to prior signed state - all evidenced.
+- Offline queueing: enrolled runners cache signed desired state and continue within its validity window during control outages.
+
+## Major components
+
+1. Enrollment service (issuance, rotation, revocation).
+2. Runner agent (verification of signed state, evidence emission, heartbeat).
+3. Scheduler (class-aware workload placement).
+4. Secret broker (class-scoped ephemeral delivery).
+5. Ledger-integrated monitor (heartbeat and execution evidence verification).
+6. Lifecycle controller (rollout, canary, drain, rollback).
+7. Drill harness (hostile runner, drain, rollback).
+
+## Trust boundaries
+
+- The enrollment service never executes workloads; the scheduler never holds secrets; the broker never schedules.
+- Mission Control triggers lifecycle workflows through authenticated requests; the kernel validates the resulting evidence. The UI cannot declare a runner trusted.
+- Runners are hostile until enrolled, and enrolled-until-proven-otherwise on every heartbeat.
+
+# specs/enrollment-and-identity/spec.md
+
+## Requirement: short-lived authenticated enrollment
+
+Runners SHALL enroll with short-lived rotating credentials. Static long-lived runner secrets SHALL be prohibited.
+
+### Scenario: static secret rejected
+
+Given a runner presenting a long-lived static credential, when enrollment is evaluated, then it SHALL be rejected and the attempt logged.
+
+### Scenario: expired credential
+
+Given a runner whose enrollment expired, when it presents evidence or heartbeats, then they SHALL be refused and the runner SHALL transition to unenrolled.
+
+## Requirement: declared capabilities and trust class
+
+Each runner SHALL declare capabilities and a trust class at enrollment. The scheduler SHALL place workloads only on runners whose class covers the workload's declared level.
+
+### Scenario: under-classed scheduling attempt
+
+Given a workload requiring contained level and a runner at restricted class, when scheduling is attempted, then it SHALL be refused.
+
+## Requirement: signed desired state
+
+Desired state SHALL be signed, carry bundle and image digests plus a validity window, and SHALL be verified by the runner before execution. Unsigned or stale state SHALL be refused.
+
+### Scenario: stale instruction
+
+Given desired state past its validity window, when the runner evaluates it, then execution SHALL be refused and the refusal evidenced.
+
+# specs/monitoring-and-lifecycle/spec.md
+
+## Requirement: verified heartbeats
+
+Runners SHALL emit signed heartbeats recorded to the ledger. Missing heartbeats SHALL transition the runner to suspect and then drained per declared windows.
+
+### Scenario: silent runner
+
+Given a runner missing heartbeats beyond the suspect window, when the monitor evaluates, then the runner SHALL be marked suspect and drain SHALL begin.
+
+## Requirement: evidence-only truth
+
+Runner status in every surface SHALL derive from verified ledger evidence. No surface SHALL display trust from unverified sources.
+
+### Scenario: UI trust claim
+
+Given a UI presenting a runner as trusted without current verified evidence, when conformance checks the surface, then it SHALL be flagged as a truth violation.
+
+## Requirement: rehearsed lifecycle
+
+Rollout, canary, drain, and rollback SHALL be implemented as first-class operations with ledger evidence in both directions, and SHALL be exercised by drills in CI.
+
+### Scenario: bad bundle rollback
+
+Given a canary detecting a bad bundle rollout, when rollback executes, then prior signed state SHALL be restored and both the rollout and rollback SHALL appear in the ledger.
+
+## Requirement: secret-class confinement
+
+A runner SHALL receive only the secret classes its trust class and current workload require, delivered ephemerally. Ambient credentials SHALL NOT persist on runners.
+
+### Scenario: cross-class secret request
+
+Given a runner requesting a secret class outside its entitlement, when the broker evaluates, then the request SHALL be denied and logged.
+
+# adrs.md
+
+- ADR-001: Monitoring in the protocol, not beside it. Rationale: a side monitor invents truth; verified evidence is truth. Consequence: the ai01 side-monitor spec is absorbed and retired as a standalone approach.
+- ADR-002: Short-lived everything. Rationale: static secrets are how fleets get owned. Consequence: rotation machinery is core, and offline queueing compensates for outages.
+- ADR-003: Trust classes equal isolation levels. Rationale: one vocabulary from workload declaration to runner placement. Consequence: AIGGP-05 alignment is mandatory.
+- ADR-004: Salvage, do not rebuild. Rationale: the superseded fleet package's runner machinery was good design trapped in a paid tier. Consequence: protocol work starts from that machinery, re-licensed into the open plan.
+
+# tasks.md
+
+- Phase 0 (protocol contracts): enrollment, desired-state, heartbeat, and evidence schemas on AIGGP-00.
+- Phase 1 (enrollment + agent): issuance, rotation, revocation; runner agent verification of signed state.
+- Phase 2 (scheduler + broker): class-aware placement; ephemeral secret delivery.
+- Phase 3 (monitor): ledger-integrated heartbeat and execution verification; suspect/drain transitions.
+- Phase 4 (lifecycle): rollout, canary, drain, rollback controllers.
+- Phase 5 (drills): hostile runner, drain, and rollback drills in CI; ai01 fleet migration onto the protocol.
+
+# acceptance.md
+
+## Required conformance fixtures
+
+- Fixture A: forged-credential runner - rejected, evidence refused.
+- Fixture B: expired enrollment - heartbeat refused, unenrolled transition.
+- Fixture C: under-classed scheduling - refused.
+- Fixture D: stale signed state - execution refused.
+- Fixture E: silent runner - suspect then drained, workloads migrated.
+- Fixture F: bad bundle rollout - canary detects, rollback evidenced both directions.
+- Fixture G: cross-class secret request - denied and logged.
+
+## Release acceptance criteria
+
+- All fixtures pass; drills run in CI; ai01 and the fleet runners migrate onto the protocol; Mission Control renders runner state from verified ledger evidence only.
+
+## Open questions requiring owner decisions
+
+- Enrollment credential mechanism (platform-issued certificates vs workload-identity federation per host).
+- Whether the existing ai01 monitor is retired immediately on protocol migration or kept as a redundant view during a transition window.
+
+## Handoff
+
+Start from the salvaged fleet machinery and the ai01 monitor's real operational lessons. The hostile-runner drill is the demo: show a forged runner being rejected and its evidence refused, then show Mission Control displaying only what the ledger verifies.

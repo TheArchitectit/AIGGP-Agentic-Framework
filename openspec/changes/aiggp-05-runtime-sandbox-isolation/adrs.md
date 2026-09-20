@@ -1,0 +1,4 @@
+- ADR-001: Four fixed levels. Rationale: named, stable levels are certifiable; a slider is not. Consequence: some workloads over-isolate; overhead is published and accepted.
+- ADR-002: Refusal over downgrade. Rationale: silent weaker enforcement is a false-green of containment. Consequence: some hosts cannot run some levels; that truth is visible.
+- ADR-003: Public escape fixtures. Rationale: containment claims must be reproducible. Consequence: fixtures inform attackers; defense relies on mechanism, not obscurity.
+- ADR-004: Secret classes shared with the runner protocol. Rationale: one vocabulary for credentials across runtime and fleet. Consequence: AIGGP-09 alignment is mandatory, not optional.

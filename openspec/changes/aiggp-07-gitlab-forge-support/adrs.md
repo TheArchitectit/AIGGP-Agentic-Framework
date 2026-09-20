@@ -1,0 +1,4 @@
+- ADR-001: Additive second forge, never a fork. Rationale: one truth model across forges is the platform promise. Consequence: parity is a permanent CI cost, accepted.
+- ADR-002: Discovery gates everything. Rationale: the lab instance is undocumented; assumptions here poison everything downstream. Consequence: Sprint 0 is a hard gate.
+- ADR-003: Thin templates, shared scripts. Rationale: CI syntax diverges; scripts must not. Consequence: template changes are trivial by design.
+- ADR-004: Tailnet-first, not tailnet-only. Rationale: the lab is first consumer; external GitLab adopters matter for the open-source play. Consequence: adapter configuration is instance-generic.

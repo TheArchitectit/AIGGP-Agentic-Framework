@@ -1,0 +1,172 @@
+# AIGGP-04 - Semantic Content Filtering
+
+OpenSpec package - Agent Intelligence Gate Loop Guardrails Platform (AIGGP)
+Status: PROMOTED into delivery plan (implementation status: proposed; classifier/model/version evidence required before any verified label)
+Module: Guardrails runtime module | Date: 2026-09-19 | Depends on: AIGGP-00 (envelope), AIGGP-03 (shares mediation boundaries)
+
+## Plain-language summary
+
+AIGGP-03 stops hostile instructions; this spec classifies the content itself - what an agent reads, generates, or sends - against policy categories a deployment declares (for example: secrets, personal data, licensed material, explicit content). The rule that keeps it honest: every filter decision names the exact classifier, model, and version that made it, and every category declares what happens when the classifier is wrong in each direction. No unnamed model, no silent upgrades, no unexplained blocks.
+
+# proposal.md
+
+## Summary
+
+Add semantic content filtering to the Guardrails runtime module: policy-declared categories, versioned classifiers, per-category mediation actions, declared failure modes, and envelope evidence for every decision, with conformance proving both detection and acceptable false-positive behavior per category.
+
+## Problem
+
+Agents move content at machine speed. Without semantic filtering, a deployment cannot enforce "never send customer data to an external endpoint" or "do not commit secrets" as runtime policy rather than hope. Guardrails main already has content-classification surfaces; what is missing is the evidence contract: decisions that name their classifier and version, categories with declared failure modes, and conformance that proves the filter can fail in both directions and knows it.
+
+## Desired outcomes
+
+- Deployments declare content categories and per-category actions (allow, redact, block, escalate) in the policy bundle.
+- Every filtering decision records classifier identity, model version, category, confidence handling, and action in an AIGGP envelope.
+- Each category declares its failure modes: what a false negative costs, what a false positive costs, and the tuned balance.
+- Classifier upgrades are bundle changes: new version, new digest, re-run conformance before the old claims carry over.
+- Redaction is lossless-auditable: what was removed is recorded in evidence (hashed), never silently dropped.
+
+## Product boundary
+
+Semantic filtering classifies content against declared categories; it does not detect hostile instructions (AIGGP-03) and does not contain execution (AIGGP-05). It is advisory-shaped machinery with enforcement wiring: the kernel owns verdict algebra; the filter supplies categorized findings.
+
+## Users and calling systems
+
+- Guardrails runtime mediation surfaces (command, edit, git, action).
+- Deployments with regulatory or policy obligations mapping categories to their own controls (non-certifying - see the proposed compliance-mapping spec).
+- Operators reviewing filtering evidence in the ledger.
+
+## Success measures
+
+- Per-category detection and false-positive rates measured on versioned corpora and published with each release.
+- 100 percent of decisions carry classifier identity and version in verifiable envelopes.
+- A classifier version bump without conformance re-run is automatically flagged stale.
+- Zero silent content drops: every redaction/block has a hashed evidence trail.
+
+## Risks
+
+- Category inflation: dozens of vague categories nobody can tune. Control: ship a minimal core set; new categories require corpora and failure-mode declarations.
+- Model drift changes behavior silently. Control: version pinning in the bundle; drift detection via scheduled corpus re-runs.
+- False positives train users to click through. Control: false-positive budgets per category are release gates, and escalations are measured.
+
+# design.md
+
+## Design principles
+
+- Named classifiers only: a filter decision without classifier identity is not evidence.
+- Declared failure modes: every category states what wrong looks like in both directions.
+- Bundle-pinned versions: behavior changes are digest changes.
+- Auditable redaction: removed content is hashed into evidence; nothing vanishes.
+
+## Locked decisions
+
+- Core category set at launch: secrets/credentials, personal data, licensed/copyrighted material, explicit content. Extensions require the full category package (corpus, failure modes, budget).
+- Action set per category: allow, redact, block, escalate. Defaults are conservative at send/commit boundaries.
+- Confidence handling: thresholds are bundle parameters; sub-threshold classifications at enforcement boundaries default to escalate, not allow.
+- Classifier identity: provider, model, version, and quantization/runtime where applicable, all recorded per decision.
+- Evidence minimization: envelopes carry hashes and category metadata, not raw sensitive content.
+
+## Major components
+
+1. Category registry (bundle-defined, versioned).
+2. Classifier adapters (pluggable, identity-stamped).
+3. Mediation wiring shared with AIGGP-03 boundaries.
+4. Redaction engine with hashed audit trail.
+5. Corpus runner per category (detection and false-positive suites).
+6. Drift monitor: scheduled corpus re-runs alerting on behavior change.
+
+## Trust boundaries
+
+- Classifier adapters are untrusted versioned components; identity is verified against the bundle pin.
+- Evidence never contains raw sensitive payloads; hashes allow after-the-fact verification without disclosure.
+- Escalation responses arrive through authorized channels only (no content-driven override - consistent with AIGGP-03).
+
+# specs/categories-and-actions/spec.md
+
+## Requirement: bundle-declared categories
+
+Content categories and their actions SHALL be declared in the policy bundle. A category without a declared action set, corpus reference, and failure-mode statement SHALL be invalid.
+
+### Scenario: vague category rejected
+
+Given a bundle adding a category with no corpus or failure modes, when the bundle is validated, then validation SHALL FAIL naming the missing fields.
+
+## Requirement: named classifier per decision
+
+Every filtering decision SHALL record classifier provider, model, version, and runtime where applicable. A decision lacking classifier identity SHALL fail envelope validation.
+
+### Scenario: unnamed model
+
+Given a decision emitted without model version, when the envelope is validated, then it SHALL be rejected.
+
+## Requirement: conservative boundary defaults
+
+At send, commit, and publish boundaries, sub-threshold or errored classification SHALL default to escalate or block per category policy, never silent allow.
+
+### Scenario: classifier error at send
+
+Given the classifier times out while evaluating an outbound message, when mediation decides, then the send SHALL be held for escalation.
+
+# specs/evidence-and-conformance/spec.md
+
+## Requirement: auditable redaction
+
+Redacted content SHALL be recorded as a content hash plus category metadata in the evidence envelope. Raw sensitive payloads SHALL NOT be written to the ledger.
+
+### Scenario: secret redaction
+
+Given a commit containing a credential, when filtering redacts it, then the envelope SHALL carry the hash and category, and the ledger SHALL contain no plaintext secret.
+
+## Requirement: per-category conformance corpora
+
+Each category SHALL have a versioned detection corpus and benign corpus. Verified status SHALL require meeting declared detection and false-positive budgets on the pinned corpus versions.
+
+### Scenario: false-positive budget breach
+
+Given a category exceeding its benign-corpus budget, when the release gate runs, then it SHALL FAIL with measured rates.
+
+## Requirement: version-bump invalidation
+
+A classifier version change SHALL invalidate prior conformance claims until the corpus is re-run at the new version.
+
+### Scenario: silent upgrade flagged
+
+Given a deployment whose classifier updated without a corpus re-run, when conformance status is queried, then the category SHALL report stale.
+
+# adrs.md
+
+- ADR-001: Minimal core category set. Rationale: tunability beats breadth. Consequence: extensions are real work with corpora, which is the point.
+- ADR-002: Evidence minimization by default. Rationale: the ledger must not become a secret store. Consequence: hashes, not payloads; verification without disclosure.
+- ADR-003: Bundle-pinned classifier versions. Rationale: silent drift is silent policy change. Consequence: upgrades are deliberate, reviewed bundle changes.
+- ADR-004: Shared boundaries with injection defense. Rationale: one mediation surface, two classifiers. Consequence: boundary code is built once and reused.
+
+# tasks.md
+
+- Phase 0 (category packages): define the four core categories with corpora, actions, failure modes, budgets.
+- Phase 1 (pipeline): registry, adapters, mediation wiring, redaction engine, envelope emission.
+- Phase 2 (conformance): corpus runners, budget gates, stale-claim detection.
+- Phase 3 (drift monitor): scheduled re-runs, alerting, ledger-visible drift events.
+- Phase 4 (hardening): performance budgets, escalation UX review, red-team content suite.
+
+# acceptance.md
+
+## Required conformance fixtures
+
+- Fixture A: credential in commit - redacted, hash recorded, block at boundary.
+- Fixture B: personal data in outbound send - held for escalation per policy.
+- Fixture C: benign code resembling secrets - allowed within false-positive budget.
+- Fixture D: classifier timeout at boundary - escalate, not allow.
+- Fixture E: version bump without re-run - stale status reported.
+
+## Release acceptance criteria
+
+- All fixtures pass; per-category budgets met on pinned corpora; envelope validation rejects identity-less decisions; drift monitor demonstrates one detected behavior change in test.
+
+## Open questions requiring owner decisions
+
+- Classifier provider(s) for the core categories and their local-vs-hosted posture.
+- Escalation routing (who decides held sends) for solo vs team deployments.
+
+## Handoff
+
+Start with secrets/credentials: the clearest category, the easiest corpus, the fastest trust win. Keep every category honest about both failure directions - the published failure-mode table is a reputation asset, not an admission of weakness.

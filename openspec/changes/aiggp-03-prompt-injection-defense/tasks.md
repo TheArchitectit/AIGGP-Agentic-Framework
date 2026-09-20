@@ -1,0 +1,5 @@
+- Phase 0 (boundaries and taxonomy): enumerate mediation points; finalize classification tiers and disclosure shapes.
+- Phase 1 (pipeline): interceptors, classifier pipeline, mediation engine, envelope emission.
+- Phase 2 (corpus v1): public adversarial corpus across the six categories plus benign corpus and budget.
+- Phase 3 (conformance): corpus runner, per-category reporting, release gate wiring.
+- Phase 4 (hardening): red-team refresh, tuning through bundle parameters, performance budgets.

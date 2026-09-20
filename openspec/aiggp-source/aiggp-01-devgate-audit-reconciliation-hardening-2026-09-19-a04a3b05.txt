@@ -1,0 +1,198 @@
+# AIGGP-01 - DevGate Audit Reconciliation and Truth Hardening
+
+OpenSpec package - Agent Intelligence Gate Loop Guardrails Platform (AIGGP)
+Status: PROMOTED (first priority; DevGate maturity: implemented, fleet-tested, audit-failing)
+Module: DevGate repository module | Date: 2026-09-19 | Depends on: none; feeds AIGGP-00 shadow adapters
+Absorbs: DevGate Kit + Ryan Audit - Current-State Review + OpenSpec (2026-09-19); reconciles audit branch (head 3fe7633d, never merged) against main (edca86b)
+
+## Plain-language summary
+
+DevGate is the engine AIGGP's repository enforcement stands on, and today that engine can tell you a build is clean when it never checked the work. Two independent audits found 34+ ways that happens: gates going green over files they never scanned, a deploy gate auditing the wrong tree, scanners crashing on valid input, most semantic rules silently dead, and zero-test runs exiting success. This spec is the fix-before-you-build package: reconcile the unmerged audit branch with current main, close every false-green path, and install the negative controls that prove each gate can actually fail. Nothing else in AIGGP launches on top of an untrustworthy gate.
+
+# proposal.md
+
+## Summary
+
+Reconcile the 2026-09-13 audit branch against current DevGate main, close every known false-green and crash path with file-evidenced fixes, add a nonzero test floor and adversarial negative controls, and bring DevGate to the point where its green is trustworthy enough to become the AIGGP repository module.
+
+## Problem
+
+The September QA and gap analysis (34 findings) plus the Kit + Ryan audit found that DevGate's blocking gates can report success over missing or wrongly scoped work: vacuous scanner gates, a deploy gate auditing the DevGate submodule instead of the consuming project, path traversal reads, a broken container schema path, dead semantic-rule configuration (9 of 10 rules), shared-baseline contamination from consuming-repo allowlists, duplicated discovery rules, stale workflow pins, npm audit missing HIGH/CRITICAL runtime vulnerabilities, and a test runner that discovers zero tests and exits green. The audit branch with many fixes was never merged, so main still carries every failure. Sprint 3's verified review (248 tests passing at 7981431) improved honesty of individual gates but did not reconcile the branch.
+
+## Desired outcomes
+
+- Every finding from both audits is either closed with a tested fix or explicitly accepted with a scoped, expiring waiver recorded as a finding, not a footnote.
+- Each gate has at least one negative control: a fixture that must make it fail, proving the gate can fire.
+- The test runner must discover a nonzero number of tests or the run fails; zero discovery is never green.
+- Local and CI runs of the same gate over the same revision produce identical verdicts.
+- The adversarial corpus (fixtures for each false-green class) passes: no fixture slips through.
+
+## Product boundary
+
+This spec fixes the existing DevGate engine and its gates as they are. It does not re-architect DevGate behind the kernel module interface (that is migration Phase 5), and it does not add new capability (Stitcher parity and GitLab are AIGGP-08 and AIGGP-07). It does make one forward-compatible change: gate results gain the fields needed to emit AIGGP-00 evidence envelopes later, so shadow adapters in Phase 3 require no rework.
+
+## Users and calling systems
+
+- Every consuming repo with DevGate cloned as a submodule (sunset-rush, game-idea-bible, others).
+- The fleet CI runner executing DevGate templates.
+- AIGGP-00 conformance fixtures consuming DevGate's honest outputs.
+
+## Success measures
+
+- Adversarial corpus: 100 percent of false-green fixtures are caught; none pass.
+- Nonzero test floor enforced: a repo with zero discovered tests fails the test gate with an explicit EMPTY verdict, not a green exit.
+- Identical local/CI runs on the pinned revision, three repetitions, bitwise-identical reports modulo timestamps.
+- Finding ledger: every one of the 34+ findings mapped to fix commit, waiver, or accepted-risk record.
+
+## Risks
+
+- Reconciling an 8-commit unmerged branch against a moved main creates semantic conflicts that look resolved but are not. Control: fix-by-fix re-verification with negative controls, not a bulk merge.
+- Owners patch findings cosmetically (exit codes changed, logic still vacuous). Control: every fix requires a failing-then-passing fixture pair.
+- Scope creep into re-architecture. Control: the boundary above; kernel-shape work is deferred to AIGGP-00 and Phase 5.
+
+# design.md
+
+## Design principles
+
+- A gate that cannot fail is not a gate; it is a progress bar.
+- Fix evidence beats fix claims: every closure names commit, fixture, and before/after behavior.
+- Waiver, do not hide: accepted risks are recorded, scoped, owned, and expiring.
+- No behavior change without a fixture that exercises it.
+
+## Locked decisions
+
+- Reconciliation strategy: cherry-pick-by-finding, not branch merge. Each audit fix is re-applied to current main as its own commit with its own fixture, because main has moved (v1.1.0 at 3415cc8 through edca86b) and bulk merge would re-import stale assumptions.
+- Deploy gate scope: the deploy gate audits the consuming project's tree and history, never the DevGate submodule's. The wrong-tree behavior is a P0 fix.
+- Test floor: run-tests fails EMPTY when discovery returns zero; the floor count is per-project configurable in the bundle projection, never below one.
+- Scanner non-vacuity: every scanner gate fails EMPTY when its target set is empty, and fails ERROR when its parser errors; neither is green.
+- Baseline isolation: the shared baseline carries no consuming-repo allowlists; per-repo exceptions live in that repo's .devgate/.aiggp overlay with scope and expiry.
+- Severity handling: dependency audit maps upstream HIGH/CRITICAL to blocking severity by default; downgrade requires a waiver.
+- Forward compatibility: gate result objects gain subject digest, gate identity/version, and raw-result fields, matching the AIGGP-00 envelope contract.
+
+## Major components
+
+1. Finding ledger: the 34+ findings plus Kit + Ryan items, each with state (open/fixing/closed/waived), evidence, and owner.
+2. Adversarial corpus: one fixture per false-green class (unscanned diff, missing history, parser failure, dead config, contaminated baseline, wrong-tree deploy, severity misclassification, path traversal, zero discovery).
+3. Negative-control harness: runs the corpus in CI; any fixture passing a gate fails the build.
+4. Honest-result plumbing: gate result objects with the envelope fields above.
+5. Bootstrap repair: dependency install and test discovery that work from a clean clone, so the floor is reachable.
+
+## Trust boundaries
+
+- The corpus is adversarial input: it must be maintained as attack fixtures, not examples to be special-cased. A gate that pattern-matches the corpus instead of fixing the class fails review.
+- Waivers enter through the same path as everything else; no direct baseline edits.
+
+# specs/gate-correctness/spec.md
+
+## Requirement: no vacuous gates
+
+Every blocking gate SHALL enumerate its target set and SHALL return EMPTY (never PASS) when the set is empty, and ERROR (never PASS) when its parser or scanner fails.
+
+### Scenario: scanner finds nothing
+
+Given a diff with no files matching a scanner's patterns, when the gate runs, then it SHALL report EMPTY and the aggregate SHALL NOT be green.
+
+### Scenario: parser crash
+
+Given a valid input the parser cannot handle (for example the Godot scene-inventory failure), when the gate runs, then it SHALL report ERROR with the parser diagnostic and SHALL NOT exit green.
+
+## Requirement: correct audit subject
+
+Every gate SHALL audit the consuming project's tree, revision, and history. A gate SHALL NOT audit the DevGate submodule's tree or history in place of the project's.
+
+### Scenario: deploy gate wrong tree
+
+Given a consuming project with unaudited changes and a clean DevGate submodule, when the deploy gate runs, then it SHALL evaluate the project's changes and SHALL FAIL on them.
+
+## Requirement: no dead configuration
+
+Every rule referenced by gate configuration SHALL be loaded and executed, or the gate SHALL fail ERROR naming the dead rule. Extracted-rules corpora that nothing executes SHALL fail validation at gate startup.
+
+### Scenario: nine dead semantic rules
+
+Given the pre-fix configuration where 9 of 10 semantic rules are unreachable, when the gate starts, then startup validation SHALL FAIL and name each unreachable rule.
+
+# specs/test-floor-and-discovery/spec.md
+
+## Requirement: nonzero test floor
+
+The test gate SHALL fail EMPTY when test discovery returns zero tests, and SHALL report the discovered count in its result.
+
+### Scenario: zero tests discovered
+
+Given a repo where discovery finds no tests (the current run-tests behavior), when the gate runs, then it SHALL NOT exit green and SHALL state that zero tests were discovered.
+
+## Requirement: bootstrap from clean clone
+
+Gates SHALL run from a clean clone with documented bootstrap (dependencies installed, discovery working), and CI SHALL prove this on a fresh container.
+
+### Scenario: missing pytest in environment
+
+Given an environment lacking the test runner, when the gate runs, then it SHALL fail ERROR with a bootstrap diagnostic, not green.
+
+# specs/baseline-and-severity/spec.md
+
+## Requirement: isolated baselines
+
+The shared baseline SHALL contain no consuming-repo allowlists. Per-repo exceptions SHALL live in the consuming repo's overlay with scope, reason, and expiry.
+
+### Scenario: contaminated baseline
+
+Given a baseline containing rad-gateway or gamerepo01 allowlists, when baseline validation runs, then it SHALL FAIL and name each foreign entry.
+
+## Requirement: faithful severity mapping
+
+Dependency audit SHALL map upstream HIGH and CRITICAL advisories to blocking severity by default. Downgrading SHALL require a scoped, expiring waiver.
+
+### Scenario: high-severity runtime vulnerability
+
+Given a HIGH runtime vulnerability in a dependency, when the audit gate runs without a waiver, then it SHALL FAIL the gate.
+
+## Requirement: path confinement
+
+Gates SHALL refuse to read outside the audited tree. Path traversal in scanned content SHALL be reported as a finding, not followed.
+
+### Scenario: traversal payload
+
+Given a scanned file referencing ../../ paths, when the gate processes it, then it SHALL NOT read outside the tree and SHALL record the attempt.
+
+# adrs.md
+
+- ADR-001: Cherry-pick-by-finding over branch merge. Rationale: main moved; bulk merge re-imports staleness. Consequence: slower, but every fix is individually evidenced.
+- ADR-002: EMPTY/ERROR are never green, ahead of the kernel. Rationale: the platform algebra starts here. Consequence: some currently-green repos will go red until they fix discovery or add tests; that is the point.
+- ADR-003: Per-repo exceptions live with the repo. Rationale: baseline contamination was an audit finding. Consequence: overlay validation becomes part of gate startup.
+- ADR-004: Envelope fields now, kernel later. Rationale: avoids rework for Phase 3 shadow adapters. Consequence: minor result-object churn before the kernel exists.
+
+# tasks.md
+
+- Phase 0 (ledger and reconciliation plan): build the finding ledger from both audits; map each finding to current main state; classify fix/waive/accept.
+- Phase 1 (P0 false greens): wrong-tree deploy gate, vacuous scanner gates, zero-test green, parser crash paths; each with fixture pairs.
+- Phase 2 (config truth): dead-rule startup validation, baseline decontamination, overlay scoping, duplicated-discovery consolidation, stale pin refresh.
+- Phase 3 (severity and confinement): dependency severity mapping, path confinement, waiver plumbing.
+- Phase 4 (bootstrap and floors): clean-clone bootstrap, nonzero floor, identical local/CI proof, envelope fields.
+- Phase 5 (corpus in CI): adversarial corpus wired into CI as a blocking negative-control suite.
+
+# acceptance.md
+
+## Required conformance fixtures
+
+- Fixture A: unscanned diff attempt - must fail.
+- Fixture B: zero-test repo - must fail EMPTY.
+- Fixture C: wrong-tree deploy - must fail on the project's unaudited change.
+- Fixture D: dead-rule config - startup must fail naming rules.
+- Fixture E: contaminated baseline - validation must fail naming entries.
+- Fixture F: HIGH runtime vulnerability - must block absent waiver.
+- Fixture G: path traversal content - must be contained and reported.
+
+## Release acceptance criteria
+
+- All fixtures pass on current main at a named commit; identical local/CI runs; finding ledger shows every item closed or waived with expiry; corpus runs in CI as blocking.
+
+## Open questions requiring owner decisions
+
+- Whether pre-existing guardrails_scan pytest failures on main (untouched since before v1.1.0) get fixed in this package or tracked separately.
+- Whether the Kit + Ryan audit branch is deleted after cherry-pick reconciliation or archived.
+
+## Handoff
+
+Start with the finding ledger; it is the work plan. Do not bulk-merge the audit branch. Every fix lands with a failing-then-passing fixture pair, and the corpus becomes permanent CI - the fixtures are attack cases, not documentation.

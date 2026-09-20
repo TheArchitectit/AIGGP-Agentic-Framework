@@ -1,0 +1,4 @@
+- ADR-001: Runtime module, not kernel. Rationale: classification is scanner-shaped; the plan assigns it to the Guardrails module. Consequence: kernel stays small; module carries the arms race.
+- ADR-002: Content never self-elevates. Rationale: authority laundering is the highest-impact injection class. Consequence: provenance checks (AIGGP-06) are load-bearing, not optional garnish.
+- ADR-003: Public versioned corpus. Rationale: private corpora produce unverifiable claims. Consequence: attackers can study the corpus; defense must be layered, not fixture-matched.
+- ADR-004: Fail closed at destructive boundaries. Rationale: the cost asymmetry favors blocking. Consequence: some legitimate flows need waivers; that friction is accepted.

@@ -1,0 +1,4 @@
+- ADR-001: Minimal core category set. Rationale: tunability beats breadth. Consequence: extensions are real work with corpora, which is the point.
+- ADR-002: Evidence minimization by default. Rationale: the ledger must not become a secret store. Consequence: hashes, not payloads; verification without disclosure.
+- ADR-003: Bundle-pinned classifier versions. Rationale: silent drift is silent policy change. Consequence: upgrades are deliberate, reviewed bundle changes.
+- ADR-004: Shared boundaries with injection defense. Rationale: one mediation surface, two classifiers. Consequence: boundary code is built once and reused.

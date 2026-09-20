@@ -1,0 +1,6 @@
+- ADR-001: One kernel, no module logic. Rationale: the audits prove truth invented per tool decays into false green. Consequence: modules carry all domain complexity.
+- ADR-002: Content addressing over naming. Rationale: names move; digests do not. Consequence: resolvers must exist at module edges.
+- ADR-003: EMPTY and ERROR can never pass. Rationale: zero-discovery green was a real audit finding. Consequence: non-empty discovery expectations live in the bundle.
+- ADR-004: Waivers are ledger entries with expiry. Rationale: silent permanent exceptions are how gates rot. Consequence: waiver hygiene is auditable by anyone.
+- ADR-005: Standalone verifier with zero module imports. Rationale: verification must survive module failure and module dishonesty. Consequence: verifier duplicates some parsing by design.
+- ADR-006: Renderer inputs in kernel, rendering outside. Rationale: human documents are derived evidence; the kernel guarantees reproducibility without owning presentation.

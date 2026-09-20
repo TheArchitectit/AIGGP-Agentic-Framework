@@ -1,0 +1,4 @@
+- ADR-001: Provenance in the envelope, detection in the module. Rationale: the plan maps provenance concepts to the evidence envelope and keeps decoding/detection as runtime logic. Consequence: kernel gains fields, not classifier code.
+- ADR-002: Four ordinal classes. Rationale: enough to express real policy, few enough to stay honest. Consequence: edge cases land in unverifiable, which is conservative by design.
+- ADR-003: Default untrusted for gaps. Rationale: uninstrumented paths are the attacker's friend. Consequence: gaps are loud, driving instrumentation coverage.
+- ADR-004: Class-raising is an authorized act. Rationale: vouching is a trust decision and must name who made it. Consequence: audit can find the human in the loop.

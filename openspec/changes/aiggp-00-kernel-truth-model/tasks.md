@@ -1,0 +1,5 @@
+- Phase 0 (contract freeze): schema drafts for subject, bundle, evidence, verdict, waiver, ledger; canonical valid examples and invalid counterexamples published.
+- Phase 1 (builder + verifier): deterministic bundle builder; standalone ledger/envelope verifier.
+- Phase 2 (conformance kit): profiles, fixtures, runner; self-test proves the kit fails a deliberately broken module.
+- Phase 3 (shadow adapters): one DevGate gate and one Guardrails runtime check emit kernel fixtures while existing execution continues; divergences classified.
+- Phase 4 (renderer contract): renderer input contract plus reference preview renderer; semantic diff between bundle versions.

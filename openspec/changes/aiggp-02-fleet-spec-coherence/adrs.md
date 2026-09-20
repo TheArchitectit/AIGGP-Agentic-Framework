@@ -1,0 +1,4 @@
+- ADR-001: Absorb the September 17 package rather than rewrite. Rationale: its design survived review; its gap was platform integration. Consequence: this spec changes evidence plumbing and status labels, not the service shape.
+- ADR-002: Container reference runtime, pinned and ephemeral. Rationale: determinism and isolation. Consequence: image publication (including arm64) becomes release work.
+- ADR-003: Ladder over big-bang enforcement. Rationale: adoption survives only if repos can climb. Consequence: ladder state is ledger-recorded and auditable.
+- ADR-004: Advice annotates, never blocks. Rationale: nondeterministic input cannot carry blocking truth. Consequence: LLM/vision output is evidence metadata, not verdict input.

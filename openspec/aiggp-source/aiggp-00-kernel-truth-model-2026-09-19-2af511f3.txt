@@ -1,0 +1,221 @@
+# AIGGP-00 - Kernel Truth Model and Conformance Kit
+
+OpenSpec package - Agent Intelligence Gate Loop Guardrails Platform (AIGGP)
+Status: PROMOTED (foundation; proposed maturity until conformance evidence exists)
+Module: kernel | Date: 2026-09-19 | Depends on: none (everything depends on this)
+
+## Plain-language summary
+
+This spec defines the one small piece of AIGGP everything else must trust: how a piece of work is identified, how a policy bundle is fingerprinted, what an evidence record looks like, how PASS/FAIL/SKIP/ERROR/EMPTY combine, how waivers expire, and how the append-only ledger is verified. It also ships a public conformance kit so any module - ours or a stranger's - can prove it plays by the same rules. If this spec is wrong, every green AIGGP ever prints is wrong, so it is deliberately tiny and dependency-free.
+
+# proposal.md
+
+## Summary
+
+Define and implement the AIGGP enforcement kernel: canonical subject identity, versioned content-addressed policy bundles, signed evidence envelopes, verdict algebra, scoped expiring waivers, an append-only ledger with a standalone verifier, module identity and conformance profiles, and deterministic renderer inputs for generated deployment documents.
+
+## Problem
+
+Today, truth is reinvented per tool. DevGate, Agent Guardrails, and Mission Control each decide what "green" means in their own terms, and the audits showed where that leads: gates reporting success over unscanned work, zero-test runs exiting green, a control plane that centralizes optimism instead of evidence. Without one shared, verifiable truth model, merging the products merges the confusion.
+
+## Desired outcomes
+
+- One verdict algebra across the platform: PASS, FAIL, SKIP, ERROR, EMPTY. EMPTY and ERROR can never aggregate into PASS under any aggregation rule.
+- One evidence envelope every module emits, signed, with provenance chain and content digests.
+- One policy-bundle format: versioned, content-addressed, carrying manifest and schema version, policy and module digests, parameters, compatibility requirements, waiver rules, required evidence categories, non-empty discovery expectations, signatures, and deterministic rendering metadata.
+- One ledger: append-only, exportable, verifiable offline by a standalone verifier with no module dependency.
+- A public conformance kit with canonical valid examples and invalid counterexamples, so any module can prove compatibility.
+- Deterministic renderer inputs so a generated guardrail document reproduces exactly from bundle plus ledger.
+
+## Product boundary
+
+The kernel owns identity, digests, evidence, verdicts, waivers, ledger, conformance, and renderer inputs. The kernel does NOT parse source languages, classify prompts, operate runners, talk to GitHub or GitLab, or render dashboards. If logic is scanner-, runner-, transport-, forge-, or UI-specific, it is a module. This boundary is the anti-monolith test and it is normative.
+
+## Users and calling systems
+
+- DevGate repository module (emits evidence, consumes bundles and verdicts).
+- Guardrails runtime module (same contract).
+- Runner modules and forge adapters (enrollment identity, signed state).
+- Mission Control (reads ledger and evidence through the public protocol; cannot create verdict facts).
+- External adopters running the conformance kit against their own modules.
+
+## Success measures
+
+- DevGate and Agent Guardrails both emit kernel-valid test fixtures without changing their engines (Phase 3 shadow-adapter exit).
+- The standalone verifier validates a real ledger export offline and rejects tampered copies.
+- A generated deployment document regenerates byte-identically from the same bundle plus ledger.
+- A third party can run the conformance kit against a toy module and get a meaningful pass/fail.
+
+## Risks
+
+- Kernel scope creep turns it into the monolith we are avoiding. Control: the boundary test above, applied in review; anything module-shaped is rejected from kernel.
+- Schemas so strict that real modules cannot emit them. Control: Phase 3 shadow adapters on one real DevGate gate and one real Guardrails check before any blocking use.
+- Readable-vs-structured failure: bundles become unreadable YAML soup and review moves back to prose. Control: readable schema, semantic diff, deterministic preview renderer, stable control IDs.
+
+# design.md
+
+## Design principles
+
+- Small and dependency-free relative to modules. The kernel must be auditable by one person in a sitting.
+- Content addressing everywhere. Identity is digest, not name plus good intentions.
+- No central reinterpretation. Fleet systems distribute, observe, and verify; they never re-decide a verdict.
+- Determinism or it did not happen. Same inputs, same bundle, same verdict, same rendered document.
+
+## Locked decisions
+
+- Subject identity: canonical identifiers for repository, revision, change set, artifact, runtime action, agent, workflow, and environment. Each is a typed structure with a digest, not a bare string.
+- Bundle identity: the bundle digest covers manifest, policy references, parameters, waiver rules, evidence categories, and rendering metadata. Any change is a new bundle version. Moving references (branch names, latest tags) are invalid inside a bundle.
+- Evidence envelope: signed; carries subject digests, bundle digest, module identity and version, capability claimed, raw result, timestamps, and provenance chain. The envelope schema is versioned.
+- Verdict algebra: PASS, FAIL, SKIP, ERROR, EMPTY. Aggregation rules are part of the kernel and versioned; no aggregation may collapse EMPTY or ERROR into PASS. SKIP requires a reason code and is auditable.
+- Waivers: scoped to subject and control, owned by a named identity, reasoned in text, and expiring. An expired waiver is a FAIL input, not a silent pass. Waivers are ledger entries, not config.
+- Ledger: append-only, hash-chained, exportable. The verifier is a standalone binary/script with no module imports.
+- Renderer inputs: the kernel defines the deterministic data contract for generated deployment documents; rendering itself is a module/tool, not kernel.
+
+## Major components
+
+1. Schema library: subject, bundle, evidence, verdict, waiver, ledger, module, conformance schemas, versioned together.
+2. Bundle builder: deterministic build from structured source; same source, same digest.
+3. Verifier: validates envelopes, aggregation, waiver validity, and ledger integrity offline.
+4. Conformance kit: canonical valid fixtures and invalid counterexamples per schema; a runner that reports module conformance per claimed capability.
+5. Semantic diff: human-reviewable diff between bundle versions (the pre-deploy review surface).
+
+## Trust boundaries
+
+- Modules are untrusted producers: the kernel validates every envelope against schema, digest, signature, and aggregation rules.
+- The renderer is untrusted: document regeneration must reproduce from kernel data, so a hand-edited document is detectable.
+- Mission Control is a client: it can request runs and host waiver workflows, but waiver objects are validated by the kernel.
+
+# specs/subject-and-bundle/spec.md
+
+## Requirement: canonical subject identity
+
+Every verdict input SHALL be identified by a typed subject structure with a content digest. Names, paths, URLs, branch names, and tags SHALL NOT be accepted as identity without a digest.
+
+### Scenario: branch-named subject rejected
+
+Given a verdict request identifying its subject only as "main", when the kernel validates it, then validation SHALL fail with an identity error.
+
+### Scenario: same content, same identity
+
+Given two references to the same revision by different names, when both are resolved, then they SHALL produce the same subject digest.
+
+## Requirement: content-addressed bundle identity
+
+A policy bundle SHALL carry a digest covering its manifest, schema version, policy and module references, parameters, waiver rules, evidence categories, and rendering metadata. A bundle containing a moving reference SHALL be invalid.
+
+### Scenario: latest tag inside bundle
+
+Given a bundle referencing a module by tag "latest", when the bundle is built, then the build SHALL fail.
+
+### Scenario: parameter change is a new version
+
+Given two bundles differing only in one parameter value, when digests are computed, then they SHALL differ and both SHALL be traceable to their source.
+
+## Requirement: deterministic bundle build
+
+Building a bundle twice from the same structured source SHALL produce the identical digest.
+
+### Scenario: rebuild on a second machine
+
+Given the same source on two machines, when both build, then the digests SHALL be equal.
+
+# specs/evidence-and-verdict/spec.md
+
+## Requirement: signed evidence envelope
+
+Every module result SHALL be wrapped in a signed evidence envelope carrying subject digests, bundle digest, module identity and version, claimed capability, raw result, and provenance chain. An envelope failing schema, digest, or signature validation SHALL be rejected.
+
+### Scenario: substituted result
+
+Given an envelope whose raw result was replaced after signing, when the verifier runs, then it SHALL reject the envelope and name the failing check.
+
+## Requirement: verdict algebra integrity
+
+Aggregation SHALL follow the kernel-versioned algebra: EMPTY and ERROR never aggregate to PASS; SKIP requires a reason code; FAIL dominates PASS.
+
+### Scenario: zero discovery
+
+Given a module run that discovered zero applicable items and returned EMPTY, when results aggregate, then the aggregate SHALL NOT be PASS regardless of other results.
+
+### Scenario: skip without reason
+
+Given a SKIP result with no reason code, when the envelope is validated, then validation SHALL fail.
+
+## Requirement: waiver validity
+
+A waiver SHALL be scoped, owned, reasoned, and expiring, and SHALL exist as a ledger entry. An expired or out-of-scope waiver SHALL be treated as absent.
+
+### Scenario: expired waiver
+
+Given a FAIL result and a waiver whose expiry passed, when aggregation runs, then the result SHALL remain FAIL.
+
+### Scenario: wildcard scope rejected
+
+Given a waiver scoped to all subjects, when validated, then it SHALL be rejected.
+
+# specs/ledger-and-conformance/spec.md
+
+## Requirement: append-only verifiable ledger
+
+Verdicts, waivers, and bundle publications SHALL be recorded in a hash-chained append-only ledger. The standalone verifier SHALL confirm integrity offline and SHALL detect removal, reordering, or modification of entries.
+
+### Scenario: deleted entry
+
+Given a ledger with one entry removed, when the verifier runs, then it SHALL report the exact break in the chain.
+
+## Requirement: public conformance profiles
+
+The kernel SHALL publish conformance profiles per capability, with valid fixtures and invalid counterexamples, and a runner reporting pass/fail per claimed capability.
+
+### Scenario: module overclaims
+
+Given a module claiming a capability it fails, when the kit runs, then the report SHALL list that capability as non-conformant and the module SHALL NOT receive its badge.
+
+## Requirement: deterministic renderer inputs
+
+The kernel SHALL define the data contract from which deployment documents are generated, such that the same bundle plus ledger regenerates the identical document.
+
+### Scenario: hand-edited output detected
+
+Given a generated document edited by hand afterward, when regeneration is compared, then the difference SHALL be detected and reported.
+
+# adrs.md
+
+- ADR-001: One kernel, no module logic. Rationale: the audits prove truth invented per tool decays into false green. Consequence: modules carry all domain complexity.
+- ADR-002: Content addressing over naming. Rationale: names move; digests do not. Consequence: resolvers must exist at module edges.
+- ADR-003: EMPTY and ERROR can never pass. Rationale: zero-discovery green was a real audit finding. Consequence: non-empty discovery expectations live in the bundle.
+- ADR-004: Waivers are ledger entries with expiry. Rationale: silent permanent exceptions are how gates rot. Consequence: waiver hygiene is auditable by anyone.
+- ADR-005: Standalone verifier with zero module imports. Rationale: verification must survive module failure and module dishonesty. Consequence: verifier duplicates some parsing by design.
+- ADR-006: Renderer inputs in kernel, rendering outside. Rationale: human documents are derived evidence; the kernel guarantees reproducibility without owning presentation.
+
+# tasks.md
+
+- Phase 0 (contract freeze): schema drafts for subject, bundle, evidence, verdict, waiver, ledger; canonical valid examples and invalid counterexamples published.
+- Phase 1 (builder + verifier): deterministic bundle builder; standalone ledger/envelope verifier.
+- Phase 2 (conformance kit): profiles, fixtures, runner; self-test proves the kit fails a deliberately broken module.
+- Phase 3 (shadow adapters): one DevGate gate and one Guardrails runtime check emit kernel fixtures while existing execution continues; divergences classified.
+- Phase 4 (renderer contract): renderer input contract plus reference preview renderer; semantic diff between bundle versions.
+
+# acceptance.md
+
+## Required conformance fixtures
+
+- Fixture A: valid bundle, valid envelopes, passing aggregation - full green path.
+- Fixture B: zero-discovery run - must not pass.
+- Fixture C: expired waiver over a FAIL - must remain FAIL.
+- Fixture D: tampered envelope - must be rejected with named check.
+- Fixture E: tampered ledger - verifier names the chain break.
+- Fixture F: nondeterministic bundle source (embedded timestamp) - build must fail or normalize deterministically.
+
+## Release acceptance criteria
+
+- All fixtures pass on the kernel; both shadow adapters emit valid fixtures; verifier runs offline; document regeneration is byte-identical.
+
+## Open questions requiring owner decisions
+
+- Signature algorithm and key custody for envelope signing (per-install keys vs org keys).
+- Ledger storage backend for local-first installs (file vs embedded database).
+
+## Handoff
+
+Build the schema library and fixtures first; nothing else in AIGGP should block on full verifier polish. The conformance kit is the public face of the kernel: treat its clarity as a launch feature, not an afterthought.

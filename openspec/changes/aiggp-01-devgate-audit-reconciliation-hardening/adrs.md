@@ -1,0 +1,4 @@
+- ADR-001: Cherry-pick-by-finding over branch merge. Rationale: main moved; bulk merge re-imports staleness. Consequence: slower, but every fix is individually evidenced.
+- ADR-002: EMPTY/ERROR are never green, ahead of the kernel. Rationale: the platform algebra starts here. Consequence: some currently-green repos will go red until they fix discovery or add tests; that is the point.
+- ADR-003: Per-repo exceptions live with the repo. Rationale: baseline contamination was an audit finding. Consequence: overlay validation becomes part of gate startup.
+- ADR-004: Envelope fields now, kernel later. Rationale: avoids rework for Phase 3 shadow adapters. Consequence: minor result-object churn before the kernel exists.

@@ -1,0 +1,6 @@
+- Phase 0 (ledger and reconciliation plan): build the finding ledger from both audits; map each finding to current main state; classify fix/waive/accept.
+- Phase 1 (P0 false greens): wrong-tree deploy gate, vacuous scanner gates, zero-test green, parser crash paths; each with fixture pairs.
+- Phase 2 (config truth): dead-rule startup validation, baseline decontamination, overlay scoping, duplicated-discovery consolidation, stale pin refresh.
+- Phase 3 (severity and confinement): dependency severity mapping, path confinement, waiver plumbing.
+- Phase 4 (bootstrap and floors): clean-clone bootstrap, nonzero floor, identical local/CI proof, envelope fields.
+- Phase 5 (corpus in CI): adversarial corpus wired into CI as a blocking negative-control suite.

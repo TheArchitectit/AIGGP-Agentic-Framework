@@ -1,0 +1,5 @@
+- Phase 0 (schema and classes): provenance record schema, classes, envelope extension.
+- Phase 1 (instrumentation): fetch/email/tool/file ingestion points; chain store.
+- Phase 2 (policy hooks and verifier): class-aware bundle policy; kernel chain verification.
+- Phase 3 (conformance): class-differentiated fixtures; ancestry reconstruction queries.
+- Phase 4 (coverage audit): enumerate ingestion paths across Guardrails surfaces; close or declare gaps.
