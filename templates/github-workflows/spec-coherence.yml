@@ -1,0 +1,264 @@
+# Spec Coherence — Pinned CI Invocation Template
+#
+# The gate is the SERVICE, not this file. This workflow resolves the pinned
+# runtime, invokes the same protocol local and fleet execution use
+# (`python -m hub.coherence`), and reports the decision. Repository content
+# MUST NOT appear here as gate logic (coh-int-01) — a workflow that recomputes
+# an assertion is a second implementation of the contract, free to disagree
+# with the first.
+#
+# The hub watches this workflow by NAME (config `coherence_workflow_match`,
+# default "coherence"), polls its latest run on the configured watched
+# branches, and alerts when the run is red, stale, SKIPPED, or absent. That
+# is why the name matters and why deleting this file is not an escape: absence
+# is itself the alert (coh-pol-07).
+#
+# WHAT IT DOES
+#   1. Resolves the pinned runtime: clones DevGate at a fixed commit into
+#      .devgate/ and reads the execution-profile registry there. Nothing is
+#      resolved from this repository's content.
+#   2. Optionally verifies the host can run the pinned image (doctor phase).
+#   3. Runs the gate and reports it as a job summary table with ONE row per
+#      requested subject, so no subject can vanish silently.
+#
+# THE GATE EITHER RUNS OR SAYS WHY NOT (coh-int-06)
+#   Every non-executed phase records `SKIPPED (reason)` in the summary and
+#   exits non-zero. A skip is never green and never a neutral: "the gate did
+#   not run here" is a fact the fleet needs, and a workflow that exits 0
+#   having evaluated nothing is the failure this contract exists to prevent.
+#
+# SETUP
+#   - Copy to .github/workflows/spec-coherence.yml in a repo whose runner is
+#     enrolled (label `devgate` or a per-repo label such as `devgate-game`).
+#   - CUSTOMIZE the three values under `env:` below: the pin, the pinned image
+#     digest, and the subjects to gate.
+#   - The runner must have podman and the pinned image already present. The
+#     container phase is host-side: the image is NOT pulled here, because a
+#     pull would make the executed bytes depend on the network rather than on
+#     the registry pin (coh-rt-01). Absent image => SKIPPED with that reason.
+
+name: Spec Coherence
+
+on:
+  workflow_dispatch:
+    inputs:
+      subjects:
+        description: "Space-separated subject roots to gate (default: from env)"
+        required: false
+        type: string
+      doctor:
+        description: "Run the host-capability check first (true/false)"
+        required: false
+        type: string
+        default: "true"
+  # A coherence gate is only meaningful for the candidate being promoted, so
+  # the natural trigger is the promotion path. Wire this to whatever this repo
+  # uses to nominate a candidate; workflow_dispatch is always available.
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: spec-coherence-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  coherence:
+    name: "Spec coherence gate"
+    runs-on: devgate
+    timeout-minutes: 20
+
+    env:
+      # CUSTOMIZE (1/3): the pinned runtime. Same shape as drift-scan.yml —
+      # clone then checkout a fixed commit, so the gate's own code is
+      # addressed by content, not by whatever HEAD happens to be.
+      DEVGATE_REPO: https://github.com/TheArchitectit/DevGate-Agentic-Framework.git
+      DEVGATE_PIN: cb29c002db0fa5c04a3984300e780a0a3e84f76d
+      # CUSTOMIZE (2/3): the pinned evaluator image. What is pinned is the
+      # DIGEST, not the tag — the driver refuses a ref/digest disagreement, so
+      # a stale copy of these two lines fails closed in the summary rather
+      # than running unpinned bytes. Keep the digest equal to the one recorded
+      # in .devgate/container/execution-profiles.json for the profile below.
+      COHERENCE_IMAGE: localhost/devgate-coherence
+      COHERENCE_PROFILE: linux-amd64-v1
+      COHERENCE_IMAGE_MANIFEST_DIGEST: sha256:5e73b5bd6e47c580ac44c5bb49ef7b64a06c44f10e4bfe2ed5b99e0b8c7f2548
+      # CUSTOMIZE (3/3): what to gate. Subjects are directories in THIS repo
+      # that declare a coherence package. An EMPTY list is not a pass.
+      COHERENCE_SUBJECTS: ""
+      # Doctor phase severity. Set to `error` in a repo where a host that
+      # cannot run the pinned image must fail the gate rather than warn.
+      COHERENCE_DOCTOR_LEVEL: warning
+
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0 (node24)
+
+      # No setup-node here, unlike drift-scan.yml: this gate is stdlib-only
+      # Python by contract (design.md), and a coherence gate that needs a
+      # language runtime installed to run the check would be reimplementing
+      # logic the service already owns.
+
+      - name: Resolve pinned runtime
+        id: pin
+        run: |
+          set -euo pipefail
+          if [ ! -d .devgate ]; then
+            echo "::error::no pinned runtime. The container phase is unavailable."
+            { echo "## Spec Coherence"; echo ""; echo "| Subject | Result |"; echo "|---|---|";
+              echo "| (runtime) | SKIPPED (pinned runtime not provisioned) |"; } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          PINNED="$(git -C .devgate rev-parse HEAD)"
+          if [ "$PINNED" != "$DEVGATE_PIN" ]; then
+            echo "::error::pinned runtime mismatch: have $PINNED, expected $DEVGATE_PIN"
+            exit 1
+          fi
+          echo "pin=$PINNED" >> "$GITHUB_OUTPUT"
+
+      - name: Bootstrap pinned scanners (in-tree at .devgate/)
+        run: |
+          set -euo pipefail
+          if [ -d .devgate ]; then
+            echo "runtime already provisioned at .devgate; leaving it in place"
+            exit 0
+          fi
+          git clone "$DEVGATE_REPO" .devgate
+          git -C .devgate checkout "$DEVGATE_PIN"
+          echo "cloned $DEVGATE_REPO at $DEVGATE_PIN"
+
+      - name: Doctor — can this host run the pinned image?
+        id: doctor
+        if: ${{ (inputs.doctor || 'true') == 'true' }}
+        run: |
+          set -uo pipefail
+          REASON=""
+          if ! command -v podman >/dev/null 2>&1; then
+            REASON="podman not on PATH"
+          elif ! podman image exists "$COHERENCE_IMAGE" 2>/dev/null; then
+            REASON="pinned image $COHERENCE_IMAGE not present locally (not pulled by design)"
+          fi
+          if [ -n "$REASON" ]; then
+            echo "::${COHERENCE_DOCTOR_LEVEL}::container phase unavailable: $REASON"
+            echo "doctor=unavailable" >> "$GITHUB_OUTPUT"
+            echo "doctor_reason=$REASON" >> "$GITHUB_OUTPUT"
+          else
+            echo "doctor=ok" >> "$GITHUB_OUTPUT"
+          fi
+
+      # The invocation is `--launch-config`, the host-side containerized
+      # driver: it validates the launch config against the PINNED registry,
+      # executes the digest-pinned image with network=none and a read-only
+      # rootfs, and relays the container's own exit code and canonical result
+      # untouched (coh-rt-01/05/07, coh-dec-04). The request names host-side
+      # roots; the driver rewrites them to container mount targets, so no
+      # repository content decides what runs.
+      - name: Run coherence gate
+        id: gate
+        run: |
+          set -uo pipefail
+
+          # Resolution order: explicit dispatch input, then the env default.
+          SUBJECTS="${{ inputs.subjects }}"
+          SUBJECTS="${SUBJECTS:-$COHERENCE_SUBJECTS}"
+
+          declare -A RES
+          FAIL=0
+          note() { RES["$1"]="$2"; }
+
+          # No subjects is a hard stop, not an empty sweep. A gate that
+          # evaluated nothing and exited 0 would be indistinguishable from a
+          # passing gate in every downstream consumer (coh-int-06).
+          if [ -z "${SUBJECTS// /}" ]; then
+            note "(all)" "SKIPPED (no subjects configured; set COHERENCE_SUBJECTS or the subjects input)"
+            FAIL=1
+          fi
+
+          # Resolve the digest from the PINNED registry, then compare it with
+          # the configuration's expectation. Both directions matter: a config
+          # pointing at other bytes must not run, and a config whose pinned
+          # digest is no longer what the registry says must not run either
+          # (the driver refuses the ref/digest disagreement itself, but the
+          # summary should say which of the two drifted).
+          DIGEST="$(python3 -c "
+          import json
+          reg = json.load(open('.devgate/container/execution-profiles.json'))
+          want = '$COHERENCE_PROFILE'
+          for p in reg.get('profiles', []):
+              if p.get('label') == want:
+                  print(p['image_manifest_digest']); raise SystemExit(0)
+          ")"
+          if [ -z "$DIGEST" ]; then
+            note "(all)" "SKIPPED (profile $COHERENCE_PROFILE absent from the pinned registry)"
+            FAIL=1
+          elif [ "$DIGEST" != "$COHERENCE_IMAGE_MANIFEST_DIGEST" ]; then
+            note "(all)" "SKIPPED (pinned digest $COHERENCE_IMAGE_MANIFEST_DIGEST is not the registry's $DIGEST)"
+            FAIL=1
+          fi
+
+          if [ -n "${SUBJECTS// /}" ] && [ -n "$DIGEST" ] \
+             && [ "$DIGEST" = "$COHERENCE_IMAGE_MANIFEST_DIGEST" ]; then
+            if [ "${{ inputs.doctor }}" = "true" ] \
+               && [ "${{ steps.doctor.outputs.doctor }}" != "ok" ]; then
+              note "(all)" "SKIPPED (host cannot run the pinned image: ${{ steps.doctor.outputs.doctor_reason }})"
+              FAIL=1
+            else
+              for SUBJECT in $SUBJECTS; do
+                if [ ! -d "$SUBJECT" ]; then
+                  note "$SUBJECT" "SKIPPED (subject root not found)"
+                  FAIL=1
+                  continue
+                fi
+                OUT="$RUNNER_TEMP/coherence-$(echo "$SUBJECT" | tr '/.' '--')"
+                mkdir -p "$OUT"
+                REQ="$OUT/request.json"
+                cat > "$REQ" <<EOF
+          {
+            "api_version": "devgate.spec-coherence.request/v1",
+            "subject": {"root": "${PWD}/${SUBJECT}"},
+            "outputs": "${OUT}"
+          }
+          EOF
+                cat > "$OUT/launch.json" <<EOF
+          {
+            "image": "${COHERENCE_IMAGE}@${DIGEST}",
+            "user": "1000:1000",
+            "read_only_rootfs": true,
+            "cap_drop": ["ALL"],
+            "cap_add": [],
+            "network": "none",
+            "mounts": [{"source": "${PWD}/${SUBJECT}", "target": "/input", "readonly": true}],
+            "scratch": {"size": "64m"},
+            "limits": {"memory": "256m", "cpus": "1.0", "time_s": 300,
+                       "pids": 64, "nofile": 128, "output_bytes": 1048576},
+            "profile": "${COHERENCE_PROFILE}",
+            "image_manifest_digest": "${DIGEST}"
+          }
+          EOF
+                if python3 .devgate/hub/coherence/__main__.py \
+                     --request "$REQ" \
+                     --launch-config "$OUT/launch.json" \
+                     > "$OUT/stdout.log" 2> "$OUT/stderr.log"; then
+                  note "$SUBJECT" "PASS"
+                else
+                  CODE=$?
+                  note "$SUBJECT" "FAIL (exit $CODE)"
+                  FAIL=1
+                fi
+              done
+            fi
+          fi
+
+          {
+            echo "## Spec Coherence"
+            echo ""
+            echo "| Subject | Result |"
+            echo "|---------|--------|"
+            echo "| (runtime) | DevGate@${DEVGATE_PIN} OK |"
+            for s in "${!RES[@]}"; do echo "| $s | ${RES[$s]} |"; done
+            echo ""
+            echo "Image: ${COHERENCE_IMAGE} (profile ${COHERENCE_PROFILE}, digest ${DIGEST:-unresolved})"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          exit $FAIL

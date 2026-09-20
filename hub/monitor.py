@@ -364,7 +364,22 @@ class MonitorLoop:
         content, which is exactly what the requirement forbids. Presence of a
         workflow file is not enforcement; a missing one must not be invisible
         either.
+
+        Scope is the configured `watched_branches` (coh-int-07): a green run on
+        a branch nobody watches is not evidence for the watched branch. With no
+        branch configured the check is an explicit no-op — not a pass, and not
+        silence either, since an unconfigured repo is otherwise
+        indistinguishable from a healthy one.
         """
+        branches = [b for b in self.config.watched_branches if b != "default"]
+        if not branches:
+            self._raise_alert(
+                repo, "coherence_unconfigured", "?",
+                detail="no watched branches configured — the coherence check "
+                       "is an explicit no-op, not a pass; set "
+                       "HUB_WATCHED_BRANCHES to enable it")
+            return
+
         match = self.config.coherence_workflow_match
         result = self.client.get_with_backoff(
             f"/repos/{repo}/actions/workflows?per_page=100")
@@ -388,25 +403,42 @@ class MonitorLoop:
             return
 
         result = self.client.get_with_backoff(
-            f"/repos/{repo}/actions/workflows/{wf['id']}/runs?per_page=1")
+            f"/repos/{repo}/actions/workflows/{wf['id']}/runs?per_page=100")
         if result is None:
             return
         status, body = result
         if status != 200:
             return
 
-        runs = body.get("workflow_runs", [])
-        if not runs:
+        latest = None
+        for run in body.get("workflow_runs", []):
+            if run.get("head_branch") in branches:
+                latest = run
+                break
+        if latest is None:
             self._raise_alert(
                 repo, "coherence_missing", "?",
-                detail=f"no completed runs for workflow '{wf['name']}'")
+                detail=f"no run of workflow '{wf['name']}' on any watched "
+                       f"branch ({', '.join(branches)})")
             return
 
-        latest = runs[0]
         if latest.get("conclusion") == "failure":
             self._raise_alert(
                 repo, "coherence_failure", "?",
                 detail=f"latest coherence run failed: "
+                       f"{latest.get('html_url', '')}")
+            return
+
+        if latest.get("conclusion") == "skipped":
+            # coh-int-06: a SKIPPED gate is not a pass. It is not a failure
+            # either — the run explicitly declined to execute and said why —
+            # so it gets its own class rather than being folded into
+            # coherence_failure, which would misattribute a deliberate skip
+            # to a broken gate.
+            self._raise_alert(
+                repo, "coherence_skipped", "?",
+                detail=f"latest coherence run on branch "
+                       f"{latest.get('head_branch')} reported SKIPPED: "
                        f"{latest.get('html_url', '')}")
             return
 
