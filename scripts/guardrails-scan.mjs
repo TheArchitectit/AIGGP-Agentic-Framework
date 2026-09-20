@@ -160,21 +160,29 @@ function isTestFile(rel) {
 // Brace-count #[cfg(test)] … mod { … } regions to their closing brace and
 // blank those lines (keeping indices stable). Braces inside the module are
 // balanced, so cumulative depth returns to 0 only at the module's own `}`.
+// The block cannot close until its opening brace has been seen: Rust lets
+// attributes sit between #[cfg(test)] and `mod … {` (e.g.
+// #[cfg(test)] #[allow(clippy::unwrap_used)] mod tests {), and those lines
+// carry zero braces — without `started`, depth still 0 exits the region on the
+// first such attribute and the whole test module is then scanned as production.
 function blankTestModulesRust(lines) {
 	const out = [];
 	let depth = 0;
 	let inBlock = false;
+	let started = false;
 	for (const line of lines) {
 		if (!inBlock && /#\[cfg\(test\)\]/.test(line)) {
 			inBlock = true;
 			depth = 0;
+			started = false;
 			out.push("");
 			continue;
 		}
 		if (inBlock) {
 			depth += (line.match(/\{/g) || []).length - (line.match(/\}/g) || []).length;
+			if (depth > 0) started = true;
 			out.push("");
-			if (depth <= 0) inBlock = false;
+			if (started && depth <= 0) inBlock = false;
 			continue;
 		}
 		out.push(line);

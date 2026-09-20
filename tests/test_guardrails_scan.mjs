@@ -195,6 +195,39 @@ check("cfg(test): unwrap inside test module is NOT reported", !r.err.includes("a
 check("cfg(test): exactly 2 violation(s), not 3", r.err.includes("2 violation(s)"));
 rmSync(dir8, { recursive: true, force: true });
 
+// --- 8b. cfg(test) + #[allow(…)] before `mod tests {` — zero-brace attribute
+// lines must not close the blanked region prematurely (radical-code REM-172:
+// 18 false PREVENT-RAD-003 findings in crates/agents/src/model_resolve.rs,
+// whose test module starts `#[cfg(test)]\n#[allow(clippy::…)]\nmod tests {`).
+const dir8b = mkdtempSync(join(tmpdir(), "devgate-scan-"));
+makeProject(dir8b, {
+	"agent/model_resolve.rs": [
+		"fn prod() -> u32 { 1 }",
+		"",
+		"#[cfg(test)]",
+		"#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]",
+		"mod tests {",
+		"\tuse super::*;",
+		"\tstruct MockAvailability;",
+		"\t#[test]",
+		"\tfn t() { let z = v.unwrap(); assert!(true); }",
+		"}",
+	].join("\n") + "\n",
+});
+mkdirSync(join(dir8b, ".guardrails", "prevention-rules"), { recursive: true });
+const rules8bPath = join(dir8b, ".guardrails", "prevention-rules", "pattern-rules.json");
+writeFileSync(rules8bPath, JSON.stringify({
+	rules: [
+		{ rule_id: "PREVENT-RS-UNWRAP", enabled: true, pattern: "\\.(unwrap|expect)\\s*\\(", severity: "error", file_glob: ["**/*.rs"], message: "unwrap in production", suggestion: "?" },
+		{ rule_id: "PREVENT-RS-MOCK", enabled: true, pattern: "\\bMock[A-Z]\\w*", severity: "error", file_glob: ["**/*.rs"], message: "mock in production", suggestion: "?" },
+	],
+}));
+r = runScan(dir8b, { rulesEnv: rules8bPath });
+check("8b: attribute between cfg(test) and mod does not reopen production", r.code === 0);
+check("8b: no unwrap finding from the test module", !r.err.includes("model_resolve.rs:9"));
+check("8b: no Mock finding from the test module", !r.err.includes("model_resolve.rs:7"));
+rmSync(dir8b, { recursive: true, force: true });
+
 // --- 9. whole test FILES: blocking rules skip, warnings still apply ----------
 const dir9 = mkdtempSync(join(tmpdir(), "devgate-scan-"));
 makeProject(dir9, {
