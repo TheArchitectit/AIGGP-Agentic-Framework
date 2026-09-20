@@ -442,10 +442,6 @@ sprints. Findings and dispositions:
       signed central bundle with weaker requirements is rejected unless the control plane explicitly
       grandfathers it within a recorded window, and the attempt is visible in fleet reporting
       (coh-pol-01, coh-pol-02).
-- [ ] Anti-rollback policy selection; trusted-but-obsolete bundle rejection; an older, genuinely
-      signed central bundle with weaker requirements is rejected unless the control plane explicitly
-      grandfathers it within a recorded window, and the attempt is visible in fleet reporting
-      (coh-pol-01, coh-pol-02).
 - [ ] Fingerprinted baselines; severity-escalation and recurrence-after-fix behavior (coh-pol-04, coh-pol-05).
 - [ ] Advisory-age enforcement transition: at maximum advisory age with no approved renewal, new AND
       existing required violations block per the central escalation policy (coh-pol-03).
