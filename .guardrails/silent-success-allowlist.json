@@ -780,20 +780,6 @@
     },
     {
       "file": "internal/admin/bootstrap.go",
-      "marker": "_ = json.NewEncoder(w).Encode(response) // best-effort: response committed",
-      "family": "go_return_nil_after_ignored_error",
-      "reason": "Idiomatic Go explicit discard (pre-existing legacy at DevGate adoption): deliberate `_ =` / `, _ =` ignore, not a swallowed production error.",
-      "removal": "n/a (legacy inventory - tighten opportunistically)"
-    },
-    {
-      "file": "internal/admin/bootstrap.go",
-      "marker": "value, _ := json.Marshal(map[string]string{",
-      "family": "go_return_nil_after_ignored_error",
-      "reason": "Idiomatic Go explicit discard (pre-existing legacy at DevGate adoption): deliberate `_ =` / `, _ =` ignore, not a swallowed production error.",
-      "removal": "n/a (legacy inventory - tighten opportunistically)"
-    },
-    {
-      "file": "internal/admin/bootstrap.go",
       "marker": "_, _ = h.db.ExecContext(ctx, // best-effort exec",
       "family": "go_return_nil_after_ignored_error",
       "reason": "Idiomatic Go explicit discard (pre-existing legacy at DevGate adoption): deliberate `_ =` / `, _ =` ignore, not a swallowed production error.",
@@ -12089,6 +12075,13 @@
       "family": "go_return_nil_after_ignored_error",
       "reason": "Idiomatic Go explicit discard (pre-existing legacy at DevGate adoption): deliberate `_ =` / `, _ =` ignore, not a swallowed production error.",
       "removal": "n/a (legacy inventory - tighten opportunistically)"
+    },
+    {
+      "file": "internal/admin/bootstrap.go",
+      "marker": "_ = tx.Rollback()",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "Rollback error is dropped only on the non-commit path, where the function is already returning the failure that caused the rollback; on the commit path it is skipped entirely (guarded by `committed`). A commit failure is returned to the caller.",
+      "removal": "n/a (correct as written - see comment at internal/admin/bootstrap.go)"
     }
   ]
 }
