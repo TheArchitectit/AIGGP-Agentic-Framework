@@ -500,8 +500,80 @@ sprints. Findings and dispositions:
       functions — fixed by matching the sibling's `pytest.main([__file__, "-v"])` main. Battery 572 tests + 35
       subtests green, both new/changed suites dual-runnable, `git diff --check` clean, size gate 0 over hard
       limit (6 pre-existing soft overages, all waived; `monitor.py` 439, inside the 500 hard cap).
-- [ ] CI workflow following `templates/github-workflows/drift-scan.yml` pattern, `runs-on: devgate` (or repo labels like `devgate-game`), pinned runtime invocation + event wiring only; gate executes or reports explicit SKIPPED per `ci-run-01` (coh-int-01, coh-int-06).
+      **Extended in the coh-int-01/06 slice:** branch scoping (coh-int-07) — only runs whose `head_branch` is in
+      the configured `watched_branches` count as the latest run, because a green run on a branch nobody watches
+      is not evidence for the watched branch; with none configured the check raises `coherence_unconfigured`
+      rather than falling silent, since an unconfigured repo is otherwise indistinguishable from a healthy one
+      (the literal `"default"` sentinel is treated as unconfigured, not as a branch name). Plus
+      `coherence_skipped` as a fifth alert class for a run that concluded `skipped` — a deliberate skip is
+      neither a pass nor a broken gate, and folding it into `coherence_failure` would misattribute it while
+      still looking alert. **Mutation battery H1–H4:** H1 drop the branch filter →
+      `test_check_spec_coherence_ignores_runs_on_unwatched_branches`; H2 no-branches silent →
+      `test_check_spec_coherence_no_watched_branches_alerts_unconfigured`; H4 mislabel the skip class →
+      `test_skipped_run_carries_its_own_class`; H3 delete the skip branch → two killers, judged **genuine
+      subsumption rather than masking** (deleting the branch means no class is raised at all, so the
+      never-silent claim legitimately fails too — a coarser defect, not a test asserting another test's claim).
+      **Two findings the battery surfaced were fixed here rather than carried:** (1) the `coherence_overdue`
+      raise was pinned by NOTHING — deleting it left the whole suite green, found by mutation and not by reading
+      — now pinned by `test_check_spec_coherence_alerts_on_overdue_run` (a 30h-old run must alert), verified RED
+      against that mutation. (2) `…skipped_run_is_not_reported_as_staleness` asserted an unreachable state: a
+      FRESH skip can never breach the 24h window, so `coherence_overdue` could not appear and the absence proved
+      nothing about ordering — a test that cannot fail is not a pin. The helper now backdates the skip 30h, past
+      the window, so falling through the skip branch WOULD report staleness; the test was verified RED against a
+      move of the skip branch behind the recency check, killed by exactly that one test. Both `/tmp`-backup
+      restores verified byte-identical.
+- [x] CI workflow following `templates/github-workflows/drift-scan.yml` pattern, `runs-on: devgate` (or repo labels like `devgate-game`), pinned runtime invocation + event wiring only; gate executes or reports explicit SKIPPED per `ci-run-01` (coh-int-01, coh-int-06).
+      SHIPPED as `templates/github-workflows/spec-coherence.yml` — a TEMPLATE, not a live workflow: copying it
+      into a subject repo's `.github/workflows/` is the enrollment step, and the hub finds it by name through
+      `coherence_workflow_match`, which is why `name: Spec Coherence` is load-bearing and its conformance test
+      compares the declared name against `Config().coherence_workflow_match` rather than against a literal.
+      It follows drift-scan.yml's deployed shape (sha-pinned `actions/checkout`, 40-hex `DEVGATE_PIN`, clone +
+      checkout into `.devgate/`, `$GITHUB_STEP_SUMMARY`, `exit $FAIL`) and deviates in one deliberate place:
+      **no `setup-node`.** Drift-scan needs it; this gate is stdlib-only Python by contract, and a coherence
+      gate that needed a language runtime installed to run the check would be reimplementing logic the service
+      already owns. **The invocation is the containerized driver** —
+      `python3 .devgate/hub/coherence/__main__.py --request <req> --launch-config <launch>` — containing the
+      image's `name@sha256:…`, `network: "none"`, `read_only_rootfs: true`, `cap_drop: ["ALL"]`, `cap_add: []`,
+      the profile label and manifest digest. The template resolves the digest out of the PINNED
+      `container/execution-profiles.json` and compares it with its own `COHERENCE_IMAGE_MANIFEST_DIGEST` in both
+      directions, so a stale copy of those two lines fails closed with the summary naming which side drifted,
+      instead of running unpinned bytes. **The doctor phase is wired but optional** (owner decision): it runs
+      `podman image exists` and NEVER pulls, because a pull would make the executed bytes depend on a network the
+      promotion cannot audit (coh-rt-01); `COHERENCE_DOCTOR_LEVEL` defaults to `warning` and one line makes it
+      mandatory in the repos that can host the image. **coh-int-06 is enforced structurally: the gate either runs
+      or says why not.** Five paths record `SKIPPED (reason)` and every one of them ends the step non-zero —
+      absent pinned runtime and pin mismatch `exit 1` directly (they have no aggregate to contribute to:
+      one verdict, one exit), while no-subjects, profile-absent-from-registry, digest drift, unavailable host
+      and missing subject-root all set `FAIL=1`, and the step's verdict is `exit $FAIL`. An empty subject list is
+      a hard stop, not an empty sweep: a gate that evaluated nothing and exited 0 is indistinguishable from a
+      passing gate downstream, which is precisely the vacuous-green this requirement exists to forbid.
+      **Mutation battery M-A…M9, each killed by exactly one named test:** M-A/E/F skip path dropped →
+      `test_every_skip_path_is_non_green` (three variants of the same defect in three different branches);
+      M1 pin → `main` → `test_template_pins_a_full_commit`; M2 float an action tag →
+      `test_template_does_not_declare_floating_versions`; M3 rename the workflow →
+      `test_template_name_matches_the_hub_matcher`; M4 `exit 0` for `exit $FAIL` →
+      `test_gate_exits_on_the_failure_flag`; M5 inline an evaluator name →
+      `test_adapter_does_not_reimplement_evaluators`; M6 drop `--launch-config` →
+      `test_gate_uses_the_containerized_driver`; M7 drop the registry digest comparison →
+      `test_pinned_digest_is_checked_against_the_registry`; M8 permissive launch config →
+      `test_container_phase_fails_closed_on_isolation_settings`; M9 `podman pull` →
+      `test_doctor_phase_never_pulls_the_image`. **Two initially-masked pairs were fixed rather than accepted:**
+      M5 and M6 originally shared one killer because a single test asserted both the pinned-protocol path and the
+      containerized driver; the failure messages confirmed they were distinct claims (a template can get the path
+      right and still skip containment), so the test was split three ways. And M-B SURVIVED at first — not a
+      missing test but a test bug: the skip-path window was a fixed 400 chars that truncated before the `exit 1`,
+      so the assertion never saw the verdict it was looking for. Widened to 600 with `fi` boundaries added; M-B
+      then died correctly. All mutations ran against `/tmp` file backups, never `git checkout --`. Template
+      validated beyond the suite: it parses as YAML and all four `run:` blocks pass `bash -n`. Battery 590 tests
+      + 35 subtests green, `git diff --check` clean.
 - [ ] Thin pinned CI invocation template + local developer command with byte-equivalent results (coh-int-01, coh-int-05).
+      PARTIAL (`templates/github-workflows/spec-coherence.yml`, above): the CI half is shipped, and its
+      "byte-equivalent" obligation is discharged the only way it can be at this layer — both paths are the SAME
+      `python3 .devgate/hub/coherence/__main__.py --request … --launch-config …` invocation against the same
+      digest-pinned image, so equivalence is identity of command and image rather than a property that has to be
+      tested for. What is still open is the local-developer half: a documented wrapper (or a documented one-liner)
+      that a developer runs to get the identical decision without hand-writing `request.json`/`launch.json`, plus
+      the test that pins the two invocations to the same command.
 - [ ] Adapter default-deny: timeouts/unparseable results surface ERROR, never neutral/pass (coh-int-05).
 - [ ] Account for repo-scoped runners and multi-runner hosts: stock `runner-enroll.sh` is single-runner-per-host (fixed unit names); per-runner units (`devgate-hb-<name>.{service,timer}`) where a host runs multiple spokes (coh-int-07).
 - [ ] Outage, mirror, cached-attestation, protocol-mismatch behavior; migration guide + operator runbook.
