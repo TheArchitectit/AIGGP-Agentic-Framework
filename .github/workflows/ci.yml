@@ -197,7 +197,7 @@ jobs:
       - name: Mutation strength on evidence module
         run: |
           python3 scripts/mutation_check.py --target hub/coherence/evidence.py \
-            --tests "python3 -m pytest tests/test_hub_coherence.py tests/test_hub_coherence_runtime.py tests/test_hub_coherence_conformance.py -x -q" \
+            --tests "python3 -m pytest tests/test_hub_coherence.py tests/test_hub_coherence_runtime.py tests/test_hub_coherence_conformance.py tests/test_hub_coherence_fw.py -x -q" \
             --timeout 240
       - name: Negative controls (evaluator must reject)
         run: python3 scripts/negative_controls.py

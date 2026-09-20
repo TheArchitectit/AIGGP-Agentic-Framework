@@ -145,13 +145,42 @@ def mutations_for(source: str) -> list:
 
 
 class _Restore:
-    """Context manager that guarantees the original bytes come back."""
+    """Guarantees the original bytes come back — even across SIGKILL.
+
+    A sidecar backup (<target>.mutation-backup) is written BEFORE the
+    first mutant and removed after restore. A previous run killed hard
+    (power loss, OOM, Ctrl-Backslash) leaves the sidecar behind; the next run
+    detects it, restores the original, and reports the incident instead
+    of mutating on top of an unknown file state.
+    """
+
+    BACKUP_SUFFIX = ".mutation-backup"
 
     def __init__(self, path: Path):
         self.path = path
+        self.backup = path.with_name(path.name + self.BACKUP_SUFFIX)
         self.original = path.read_bytes()
 
+    @classmethod
+    def recover(cls, path: Path) -> bool:
+        """Restore from a stale sidecar if present. True when a recovery
+        happened."""
+        backup = path.with_name(path.name + cls.BACKUP_SUFFIX)
+        if not backup.exists():
+            return False
+        original = backup.read_bytes()
+        current = path.read_bytes()
+        path.write_bytes(original)
+        backup.unlink()
+        if current != original:
+            print(f"mutation_check: RECOVERED {path.name} from a stale "
+                  f"backup — the previous run was killed with a mutant on "
+                  f"disk (disk state was NOT the original; restored "
+                  f"{len(original)} bytes)", file=sys.stderr)
+        return True
+
     def __enter__(self):
+        self.backup.write_bytes(self.original)
         return self
 
     def write(self, text: str):
@@ -159,6 +188,7 @@ class _Restore:
 
     def __exit__(self, exc_type, exc, tb):
         self.path.write_bytes(self.original)
+        self.backup.unlink(missing_ok=True)
         return False
 
 
@@ -177,7 +207,12 @@ def _git_clean(path: Path) -> bool:
 def run_mutations(target: Path, test_cmd: list, timeout: float,
                   max_mutants: int, workdir: str) -> list:
     """Apply every generated mutant, run the test command, classify results."""
-    source = target.read_text(encoding="utf-8")
+    # Crash-safety first: a previous killed run may have left a mutant on
+    # disk — recover the original before reading anything.
+    if _Restore.recover(target):
+        source = target.read_text(encoding="utf-8")
+    else:
+        source = target.read_text(encoding="utf-8")
     muts = mutations_for(source)
     if max_mutants and len(muts) > max_mutants:
         muts = muts[:max_mutants]
