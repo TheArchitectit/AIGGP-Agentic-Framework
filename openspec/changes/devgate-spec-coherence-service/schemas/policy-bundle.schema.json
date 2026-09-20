@@ -6,6 +6,9 @@
   "type": "object",
   "additionalProperties": false,
   "required": ["api_version", "policy_version", "bundle_epoch", "required_assertions", "approved_evaluators", "approved_signers", "stages"],
+  "dependentRequired": {
+    "stages": ["advisory_escalation"]
+  },
   "properties": {
     "api_version": { "const": "devgate.spec-coherence.policy/v1" },
     "policy_version": { "type": "string" },
@@ -53,6 +56,28 @@
           "valid_from": { "type": ["string", "null"], "format": "date-time" },
           "valid_until": { "type": ["string", "null"], "format": "date-time" },
           "revoked": { "type": "boolean", "default": false }
+        }
+      }
+    },
+    "advisory_escalation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["on_expiry"],
+      "description": "What exceeding stages.max_advisory_age_days does (coh-pol-03). Required whenever `stages` is declared — a bundle naming a dwell limit with no consequence for exceeding it is incomplete configuration (design.md round-16).",
+      "properties": {
+        "on_expiry": {
+          "enum": ["block"],
+          "description": "Closed enum, one value today: expiring advisory shelter is removed and the violation BLOCKS at enforcing stages. Widened deliberately, not by guess."
+        },
+        "renewal": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["requires", "max_extension_days"],
+          "description": "What may extend an advisory. A renewal is an ordinary scoped expiring exception; this only bounds what an approving authority may grant.",
+          "properties": {
+            "requires": { "enum": ["central-approval"] },
+            "max_extension_days": { "type": "integer", "minimum": 1 }
+          }
         }
       }
     },

@@ -80,6 +80,7 @@ def build_root(tmp: Path, *, declared_name="widget", approved_name="widget",
                stage=1, semantics="fresh-promotion", evaluation_time=FIXED_TIME,
                policy_digest_ok=True, subject_files=None,
                execution_profile="linux-amd64-v1", stages=None,
+               advisory_escalation="__default__", repository=None,
                bundle_epoch=1, min_bundle_epoch=None,
                binding_expected_digest=None, grandfather_self_until=None,
                binding=True) -> tuple:
@@ -121,6 +122,16 @@ def build_root(tmp: Path, *, declared_name="widget", approved_name="widget",
         "approved_signers": [],
         "stages": stages if stages is not None else {"max_advisory_age_days": 30},
     }
+    # design.md round-16: declaring `stages` owes an escalation policy. The
+    # sentinel keeps the default pair together while letting a test omit one
+    # side deliberately (pass None) to exercise the refusal.
+    if advisory_escalation == "__default__":
+        bundle["advisory_escalation"] = {
+            "on_expiry": "block",
+            "renewal": {"requires": "central-approval",
+                        "max_extension_days": 30}}
+    elif advisory_escalation is not None:
+        bundle["advisory_escalation"] = advisory_escalation
     if min_bundle_epoch is not None:
         bundle["min_bundle_epoch"] = min_bundle_epoch
     if baseline is not None:
@@ -180,6 +191,11 @@ def build_root(tmp: Path, *, declared_name="widget", approved_name="widget",
         "context": {"root": str(ctx), "expected_digest": context_digest},
         "semantics": semantics, "outputs": str(out),
     }
+    # The repository record the advisory-age cap is measured against. It is
+    # caller-supplied REQUEST state, not policy: the cap (a duration) is
+    # central policy, how long THIS repo has been advisory is not.
+    if repository is not None:
+        req["repository"] = repository
     req_path = root / "request.json"
     req_path.write_text(json.dumps(req))
     return req_path, out

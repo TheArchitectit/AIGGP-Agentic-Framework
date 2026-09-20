@@ -214,65 +214,291 @@ class TestFixtureC_Exceptions(unittest.TestCase):
             self.assertEqual(res["decision"], "ERROR")
 
 
-class TestAdvisoryAgeEnforcementGap(unittest.TestCase):
-    """coh-pol-03 ENFORCEMENT GAP (recorded, not yet implemented).
+class TestAdvisoryAgeEscalation(unittest.TestCase):
+    """coh-pol-03 enforcement: exceeding the advisory cap removes the shelter.
 
-    The requirement: at maximum advisory age with no approved renewal, new
-    AND existing required violations block per the central escalation
-    policy. What actually ships today is the REPORTING half only —
-    report.advisory_status() computes `expired` from advisory_started /
-    advisory_expiry / max_advisory_age_days and surfaces it in the summary,
-    but the ENFORCEMENT half is absent: adoption.evaluate() never receives
-    the age data (nor the repo record it lives on) and never consults it, so
-    an expired advisory does not by itself change any finding's enforcement.
+    Ratified in design.md round-16 as a top-level `advisory_escalation`
+    policy object beside the severity floor — not a `stages` field, because
+    the cap is a duration while the escalation is a policy. These tests
+    replace the gap tests that pinned the enforcement half's ABSENCE; the
+    reporting half's own tests stay where they were.
 
-    The remaining blocker is a genuine design question, not an oversight:
-    the bundle's `stages` object carries `max_advisory_age_days` (a
-    duration) but no field expressing WHAT the escalation should be — the
-    spec's phrase "per the central escalation policy" has nothing to
-    resolve against. Inventing that field is a control-plane policy
-    decision, so it is escalated rather than guessed (same standing as the
-    anti-rollback model, which was ratified before it was coded).
-
-    These tests pin the CURRENT state so the gap cannot silently close
-    unnoticed — and so that closing it flips them loudly.
+    The escalation is a BOOLEAN the caller resolves from the trusted
+    evaluation_time, so the ladder itself never computes an age — there is
+    one clock and one reading of it.
     """
 
-    def test_advisory_age_is_reported_but_not_enforced(self):
-        # Reporting half: expiry is computed correctly from the trusted
-        # evaluation_time.
-        from hub.coherence import report
-        record = {"stage": 1, "owner": "o",
-                  "advisory_started": "2026-06-01T00:00:00Z",
-                  "advisory_expiry": "2026-07-01T00:00:00Z"}
-        status = report.advisory_status(record, 30, "2026-09-17T00:00:00Z")
-        self.assertTrue(status["expired"])
-        self.assertIn("coh-pol-03", status["notes"][0])
-        # Enforcement half: evaluate() has no channel for age data at all.
-        import inspect
-        from hub.coherence import adoption
-        params = set(inspect.signature(adoption.evaluate).parameters)
-        self.assertFalse(
-            params & {"max_advisory_age_days", "advisory_expiry",
-                      "repo_record", "advisory_expired"},
-            "adoption.evaluate gained an advisory-age channel; the "
-            "coh-pol-03 enforcement half is being implemented and this "
-            "gap test must be replaced by a behavioral spec test")
+    AID = "devgate.builtin.captured-fact-consistency"
+    STALE = "2026-06-01T00:00:00Z"      # well past any cap, against FIXED_TIME
+    FRESH = "2026-09-16T00:00:00Z"      # one day before FIXED_TIME
 
-    def test_bundle_cannot_express_the_escalation(self):
-        # The design blocker, pinned: a duration exists, a policy does not.
-        import json
-        from pathlib import Path
-        repo = Path(__file__).resolve().parent.parent
-        schema = json.loads((repo / "openspec" / "changes"
-                             / "devgate-spec-coherence-service" / "schemas"
-                             / "policy-bundle.schema.json").read_text())
-        stages_props = schema["properties"]["stages"]["properties"]
-        self.assertIn("max_advisory_age_days", stages_props)
-        self.assertEqual(
-            [k for k in stages_props if "escalat" in k.lower()], [],
-            "the bundle now expresses an escalation policy; resolve its "
-            "semantics and implement coh-pol-03's enforcement half")
+    def _ledger(self):
+        return [{"assertion_id": self.AID, "outcome": "VIOLATED"}]
+
+    def _finding(self):
+        return {"assertion_id": self.AID, "subject_locations": ["README.md"],
+                "violation_class": "captured-fact-mismatch",
+                "finding_key": f"{self.AID}|README.md|captured-fact-mismatch"}
+
+    def _planned(self):
+        return [{"id": self.AID, "version": 1, "evaluator": {"id": "e1"}}]
+
+    def _baseline(self):
+        return [fx.baseline_entry(self.AID, 1, "README.md",
+                                  "captured-fact-mismatch")]
+
+    def _evaluate(self, **kw):
+        from hub.coherence import adoption
+        kw.setdefault("exceptions", [])
+        return adoption.evaluate(
+            self._ledger(), [self._finding()], self._planned(),
+            self._baseline(), kw.pop("exceptions"), kw.pop("stage", 2),
+            kw.pop("evaluation_time", fx.FIXED_TIME), **kw)
+
+    def test_expired_advisory_blocks_existing_debt(self):
+        """The scenario's "existing" half: debt already named in the
+        baseline loses its shelter when the cap is exceeded."""
+        out = self._evaluate(advisory_expired=True)
+        f = out["findings"][0]
+        self.assertEqual(f["enforcement"], "BLOCK")
+        self.assertTrue(out["blocked"])
+        self.assertEqual(f["reason"], "advisory-expired:existing-debt")
+
+    def test_intact_advisory_still_shelters_the_same_debt(self):
+        """Direction control: without the expiry verdict, the SAME inputs
+        stay ADVISORY. Without this, a ladder that blocked everything would
+        pass the test above."""
+        out = self._evaluate(advisory_expired=False)
+        f = out["findings"][0]
+        self.assertEqual(f["enforcement"], "ADVISORY")
+        self.assertFalse(out["blocked"])
+        self.assertNotIn("reason", f)
+
+    def test_expiry_does_not_block_below_the_ratchet(self):
+        """Stage 0/1 never block, expired or not — the stage<2 arm wins, so
+        an expired advisory REPORTS but cannot gate before a ratchet exists."""
+        out = self._evaluate(stage=1, advisory_expired=True)
+        self.assertEqual(out["findings"][0]["enforcement"], "ADVISORY")
+        self.assertFalse(out["blocked"])
+
+    def test_unexpired_exception_still_covers_expired_advisories(self):
+        """A renewal IS an ordinary unexpired exception (coh-eval-05), so it
+        survives the cap: an approved extension softens, expiring the cap
+        does not override written control-plane approval."""
+        ex = fx.exception_entry(self.AID, 1, "README.md",
+                                "captured-fact-mismatch",
+                                expires_at="2026-12-31T00:00:00Z")
+        out = self._evaluate(advisory_expired=True, exceptions=[ex])
+        f = out["findings"][0]
+        self.assertEqual(f["enforcement"], "EXCEPTION-ADVISORY")
+        self.assertFalse(out["blocked"])
+
+    def test_expired_exception_blocks_alongside_the_expired_cap(self):
+        ex = fx.exception_entry(self.AID, 1, "README.md",
+                                "captured-fact-mismatch",
+                                expires_at="2026-01-01T00:00:00Z")
+        out = self._evaluate(advisory_expired=True, exceptions=[ex])
+        self.assertEqual(out["findings"][0]["enforcement"], "BLOCK")
+        self.assertTrue(out["blocked"])
+
+    def test_no_repository_record_never_escalates(self):
+        """A caller that supplies no record must not be blocked by the cap it
+        never opted into. The enforcement path reads a missing start as
+        SILENCE; inferring an expiry from an absent field would gate every
+        run that predates the regime (and would report a violation nobody
+        committed). Nothing else in the suite pins this, so it is the guard's
+        only tripwire."""
+        from hub.coherence import report
+        for stage in (1, 2, 3, 4):
+            with self.subTest(stage=stage):
+                age = report.advisory_age({"stage": stage}, 30, fx.FIXED_TIME)
+                self.assertFalse(age["expired"])
+                self.assertIsNone(age["advisory_age_days"])
+        age = report.advisory_age({}, 30, fx.FIXED_TIME)
+        self.assertFalse(age["expired"], "an empty record must not escalate")
+
+    def test_inventory_stage_does_not_measure_age(self):
+        """Stage 0 has no shelter to lose, so the cap is not measured there —
+        and a stale record at inventory reads as unexpired, not as a
+        violation."""
+        from hub.coherence import report
+        age = report.advisory_age({"stage": 0, "advisory_started": self.STALE},
+                                  30, fx.FIXED_TIME)
+        self.assertFalse(age["expired"])
+
+    def test_enforcement_path_measures_age_past_the_advisory_stage(self):
+        """The reporting view returns `expired: False` for stage != 1 with
+        "cap does not apply"; the enforcement view must NOT, or the cap is
+        inert for exactly the repositories coh-pol-03 targets (design.md
+        round-16). Both readings are pinned here so a future unification of
+        the two cannot silently pick the inert one."""
+        from hub.coherence import report
+        rec = {"stage": 2, "advisory_started": self.STALE}
+        self.assertFalse(report.advisory_status(rec, 30, fx.FIXED_TIME)["expired"])
+        self.assertTrue(report.advisory_age(rec, 30, fx.FIXED_TIME)["expired"])
+
+    def test_expired_regression_is_not_labelled_existing_debt(self):
+        """The reason prefix must be honest. Two ways it could lie, both
+        pinned here: a fingerprint that was never in the baseline blocked as
+        a REGRESSION (labelling it "existing-debt" would misreport the fleet
+        signal), and a baseline entry escalated by central policy blocked for
+        a DIFFERENT reason than plain expiry (labelling it "existing-debt"
+        would hide the escalation)."""
+        from hub.coherence import adoption
+        other = {
+            "assertion_id": "new.assertion", "subject_locations": ["README.md"],
+            "violation_class": "identity-mismatch",
+            "finding_key": "new.assertion|README.md|identity-mismatch"}
+        out2 = adoption.evaluate(
+            [{"assertion_id": "new.assertion", "outcome": "VIOLATED"}], [other],
+            [{"id": "new.assertion", "version": 1, "evaluator": {"id": "e1"}}],
+            self._baseline(), [], 2, fx.FIXED_TIME, advisory_expired=True)
+        self.assertEqual(out2["findings"][0]["enforcement"], "BLOCK")
+        self.assertNotIn("reason", out2["findings"][0])
+
+        # Escalated baseline entry: the severity floor raised it, so the
+        # block is an ESCALATION that expiry merely coincides with.
+        out3 = self._evaluate(advisory_expired=True,
+                              severity_floor={self.AID: "critical"})
+        self.assertEqual(out3["findings"][0]["enforcement"], "BLOCK")
+        self.assertEqual(out3["findings"][0]["reason"],
+                         "advisory-expired:severity-escalated")
+
+
+class TestAdvisoryEscalationPolicyRefusal(unittest.TestCase):
+    """The bundle must express the escalation, or the run refuses (exit 31).
+
+    A bundle naming a dwell limit with no consequence for exceeding it is
+    incomplete configuration; silence must not read as "cap declared,
+    nothing happens". Same standing as a missing policy_binding.
+    """
+
+    def _bundle(self, **kw):
+        b = {"api_version": "devgate.spec-coherence.policy/v1",
+             "policy_version": "1", "bundle_epoch": 0,
+             "required_assertions": [], "approved_evaluators": [],
+             "approved_signers": [],
+             "stages": {"max_advisory_age_days": 30}}
+        b.update(kw)
+        return b
+
+    def _refusal(self, bundle):
+        from hub.coherence import policy
+        with self.assertRaises(policy.PolicyError) as cm:
+            policy.check_advisory_escalation(bundle)
+        return str(cm.exception)
+
+    def test_cap_without_escalation_refuses(self):
+        self.assertIn("advisory-escalation:", self._refusal(self._bundle()))
+
+    def test_ratified_bundle_is_accepted(self):
+        from hub.coherence import policy
+        pol = self._bundle(advisory_escalation={
+            "on_expiry": "block",
+            "renewal": {"requires": "central-approval", "max_extension_days": 30}})
+        self.assertEqual(policy.check_advisory_escalation(pol),
+                         pol["advisory_escalation"])
+
+    def test_bundle_with_no_stages_has_nothing_to_escalate(self):
+        from hub.coherence import policy
+        b = self._bundle()
+        del b["stages"]
+        self.assertEqual(policy.check_advisory_escalation(b), {})
+
+    def test_invented_enum_value_refuses(self):
+        b = self._bundle(advisory_escalation={"on_expiry": "warn"})
+        self.assertIn("on_expiry", self._refusal(b))
+
+    def test_repository_cannot_renew_its_own_advisory(self):
+        b = self._bundle(advisory_escalation={
+            "on_expiry": "block",
+            "renewal": {"requires": "repo-owner", "max_extension_days": 30}})
+        self.assertIn("renewal.requires", self._refusal(b))
+
+    def test_non_positive_extension_refuses(self):
+        for bad in (0, -1, True, "30"):
+            with self.subTest(bad=bad):
+                b = self._bundle(advisory_escalation={
+                    "on_expiry": "block",
+                    "renewal": {"requires": "central-approval",
+                                "max_extension_days": bad}})
+                self.assertIn("max_extension_days", self._refusal(b))
+
+    def test_malformed_shapes_refuse_rather_than_crash(self):
+        for bad in ("block", [], 7):
+            with self.subTest(bad=bad):
+                self.assertIn("advisory-escalation:",
+                              self._refusal(self._bundle(advisory_escalation=bad)))
+
+    def test_schema_requires_the_escalation_when_the_cap_is_declared(self):
+        """The refusal is also structural, so a bundle that never reaches the
+        runtime check is still rejected at admission."""
+        from hub.coherence import schemacheck
+        schema = schemacheck.load("policy-bundle.schema.json")
+        errs = schemacheck.validate(self._bundle(), schema)
+        self.assertTrue(any("advisory_escalation" in e for e in errs), errs)
+        ok = self._bundle(advisory_escalation={"on_expiry": "block"})
+        self.assertEqual(schemacheck.validate(ok, schema), [])
+
+
+class TestAdvisoryEscalationEndToEnd(unittest.TestCase):
+    """Driven through the real CLI: the verdict is read from the CONTEXT's
+    evaluation_time and the repository record the caller supplied."""
+
+    AID = "product.identity"
+
+    def _request(self, td, *, started, expiry=None, stage=2):
+        """The drift must be BASELINE-NAMED debt, or it blocks as a plain
+        regression and the expiry is never what decides the outcome."""
+        rec = {"owner": "o", "advisory_started": started}
+        if expiry:
+            rec["advisory_expiry"] = expiry
+        baseline = [fx.baseline_entry(self.AID, 1, "README.md",
+                                      "identity-mismatch")]
+        return fx.build_root(Path(td), declared_name="other",
+                             approved_name="widget",
+                             assertions=[fx.assertion(aid=self.AID)],
+                             baseline=baseline, stage=stage,
+                             repository=rec)
+
+    def test_overdue_advisory_blocks_through_the_cli(self):
+        with tempfile.TemporaryDirectory() as td:
+            req, out = self._request(td, started="2026-06-01T00:00:00Z")
+            code, res = _run(req, out)
+            self.assertEqual(code, result.EXIT_FAIL)
+            self.assertEqual(res["decision"], "FAIL")
+            blocking = [f for f in res["findings"]
+                        if f["enforcement"] == "BLOCK"]
+            self.assertEqual(len(blocking), 1)
+            self.assertEqual(blocking[0]["reason"],
+                             "advisory-expired:existing-debt")
+
+    def test_recent_advisory_does_not_block(self):
+        """Direction control: inside the cap, the same fixture is advisory.
+        Without this, the test above would pass on a service that blocked
+        unconditionally."""
+        with tempfile.TemporaryDirectory() as td:
+            req, out = self._request(td, started="2026-09-16T00:00:00Z")
+            code, res = _run(req, out)
+            self.assertEqual(res["decision"], "ADVISORY")
+
+    def test_recorded_expiry_is_honoured_over_the_computed_cap(self):
+        with tempfile.TemporaryDirectory() as td:
+            req, out = self._request(td, started="2026-09-16T00:00:00Z",
+                                     expiry="2026-09-17T00:00:00Z")
+            _, res = _run(req, out)
+            self.assertEqual(res["decision"], "FAIL")
+
+    def test_cap_declared_without_escalation_refuses_through_the_cli(self):
+        """Exit 31 with the prefix — the refusal is reachable end to end, not
+        only by calling the checker directly."""
+        with tempfile.TemporaryDirectory() as td:
+            req, out = fx.build_root(Path(td), advisory_escalation=None)
+            code, res = _run(req, out)
+            self.assertEqual(code, result.EXIT_POLICY)
+            self.assertEqual(res["decision"], "ERROR")
+            self.assertIn("advisory-escalation:", res["error"]["reason"])
+
 
 if __name__ == "__main__":
     unittest.main()

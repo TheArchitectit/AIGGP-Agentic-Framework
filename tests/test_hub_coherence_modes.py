@@ -185,6 +185,12 @@ class TestSchemaAdmission(unittest.TestCase):
                   "required_assertions": [],
                   "approved_evaluators": [], "approved_signers": [],
                   "stages": stages}
+        # round-16: declaring `stages` owes an escalation policy, so a bundle
+        # built to probe the core-set field must carry one — otherwise every
+        # probe here returns the same dependentRequired error and the field
+        # under test is masked.
+        if stages is not None:
+            bundle["advisory_escalation"] = {"on_expiry": "block"}
         return schemacheck.validate(bundle,
                                     schemacheck.load("policy-bundle.schema.json"))
 

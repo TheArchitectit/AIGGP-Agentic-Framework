@@ -5,32 +5,87 @@
   "description": "Invocation request. Carries only digested immutable inputs plus correlation id and semantics. No caller-supplied mode, time, or stage (see evaluation-context).",
   "type": "object",
   "additionalProperties": false,
-  "required": ["api_version", "subject", "openspec", "policy", "context", "semantics", "outputs"],
+  "required": [
+    "api_version",
+    "subject",
+    "openspec",
+    "policy",
+    "context",
+    "semantics",
+    "outputs"
+  ],
   "properties": {
-    "api_version": { "const": "devgate.spec-coherence/v1" },
+    "api_version": {
+      "const": "devgate.spec-coherence/v1"
+    },
     "request_id": {
       "description": "Caller-supplied stable id for correlation only; excluded from decision semantics.",
       "type": "string"
     },
-    "subject": { "$ref": "#/definitions/inputRef" },
-    "openspec": { "$ref": "#/definitions/inputRef" },
-    "policy": { "$ref": "#/definitions/inputRef" },
-    "context": { "$ref": "#/definitions/inputRef" },
+    "subject": {
+      "$ref": "#/definitions/inputRef"
+    },
+    "openspec": {
+      "$ref": "#/definitions/inputRef"
+    },
+    "policy": {
+      "$ref": "#/definitions/inputRef"
+    },
+    "context": {
+      "$ref": "#/definitions/inputRef"
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Caller-supplied repository record: how long THIS repo has been advisory, who owns it, its recorded renewal. Advisory age is request state, never policy \u2014 the cap (a duration) is central policy, the age is not. Drives coh-pol-03's escalation (design.md round-16).",
+      "properties": {
+        "owner": {
+          "type": "string"
+        },
+        "advisory_started": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "advisory_expiry": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "next_stage": {
+          "type": "string"
+        }
+      }
+    },
     "semantics": {
       "description": "fresh-promotion checks current authority/revocation/expiry and may authorize; replay reproduces a historical decision and is non-authorizing unless re-attested.",
-      "enum": ["fresh-promotion", "replay"]
+      "enum": [
+        "fresh-promotion",
+        "replay"
+      ]
     },
-    "outputs": { "type": "string", "description": "Designated bounded output location." }
+    "outputs": {
+      "type": "string",
+      "description": "Designated bounded output location."
+    }
   },
   "definitions": {
     "inputRef": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["root", "expected_digest"],
+      "required": [
+        "root",
+        "expected_digest"
+      ],
       "properties": {
-        "kind": { "type": "string", "description": "Subject kind, e.g. source-tree, artifact-set, world-bundle. Required for subject in practice." },
-        "root": { "type": "string" },
-        "expected_digest": { "$ref": "#/definitions/digest" }
+        "kind": {
+          "type": "string",
+          "description": "Subject kind, e.g. source-tree, artifact-set, world-bundle. Required for subject in practice."
+        },
+        "root": {
+          "type": "string"
+        },
+        "expected_digest": {
+          "$ref": "#/definitions/digest"
+        }
       }
     },
     "digest": {

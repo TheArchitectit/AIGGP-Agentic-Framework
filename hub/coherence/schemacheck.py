@@ -2,8 +2,9 @@
 """Minimal stdlib JSON-Schema checker for the frozen coherence contracts.
 
 Supports the subset the DevGate schemas actually use: type, required,
-additionalProperties, properties, enum, const, pattern, minItems, minimum,
-items, and local $ref into #/definitions. Stdlib-only (no jsonschema dep).
+dependentRequired, additionalProperties, properties, enum, const, pattern,
+minItems, minimum, items, and local $ref into #/definitions. Stdlib-only (no
+jsonschema dep).
 
 Purpose: wire the frozen schemas into a real gate so a result whose emitted
 shape drifts from the contract fails a test rather than reaching a consumer.
@@ -28,7 +29,7 @@ def load(name: str) -> dict:
 
 SUPPORTED = {"type", "required", "additionalProperties", "properties", "enum",
              "const", "pattern", "minItems", "minimum", "minLength", "items",
-             "$ref", "format",
+             "$ref", "format", "dependentRequired",
              "description", "default", "$schema", "$id", "title", "definitions"}
 
 _TYPES = {
@@ -127,6 +128,17 @@ def validate(doc, schema: dict, root: dict = None, path: str = "$") -> list:
         for req in schema.get("required", []):
             if req not in doc:
                 errs.append(f"{path}: missing required property {req!r}")
+        # draft-07 dependentRequired: a property's presence obliges others.
+        # Needed because a bundle declaring an advisory age cap without the
+        # escalation that cap triggers is incomplete configuration, and
+        # `required` alone cannot express "required only when X is present".
+        for trigger, needed in schema.get("dependentRequired", {}).items():
+            if trigger in doc:
+                for name in needed:
+                    if name not in doc:
+                        errs.append(
+                            f"{path}: property {name!r} is required when "
+                            f"{trigger!r} is present (dependentRequired)")
         props = schema.get("properties", {})
         if schema.get("additionalProperties") is False:
             for key in doc:

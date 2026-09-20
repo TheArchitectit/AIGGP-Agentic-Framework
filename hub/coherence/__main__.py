@@ -19,7 +19,7 @@ import sys
 from functools import lru_cache
 from pathlib import Path
 
-from . import (adoption, attest, container_exec, context,
+from . import (adoption, attest, container_exec, context, report,
                evaluate, evidence, manifest, package, plan, policy, profiles,
                result, schemacheck)
 
@@ -227,6 +227,20 @@ def run(request_path: str) -> int:
     # malformed baseline/exceptions file is exit 31, never a traceback.
     try:
         baseline, exceptions = policy.load_adoption_sets(req["policy"]["root"])
+        # coh-pol-03 (design.md round-16): the bundle's advisory-age cap is a
+        # duration; advisory_escalation says what exceeding it does. Resolved
+        # here from the CONTEXT's evaluation_time and the repository record
+        # the caller supplied, so the age is read once, against the one
+        # trusted clock, and the ladder receives a verdict rather than a date.
+        record = req.get("repository") if isinstance(
+            req.get("repository"), dict) else {}
+        age = report.advisory_age(
+            {**record, "stage": ctx["stage"]},
+            (pol.get("stages") or {}).get("max_advisory_age_days", 0),
+            ctx["evaluation_time"])
+        escalation = policy.check_advisory_escalation(pol)
+        advisory_expired = bool(age.get("expired")
+                                and escalation.get("on_expiry") == "block")
         # Sets must hash to the digests bound in the signed context
         # (coh-ctx-01): a policy content-swap after issuance is detected here.
         context.verify_bound_sets(ctx, baseline, exceptions)
@@ -242,7 +256,8 @@ def run(request_path: str) -> int:
             # debt. Passed explicitly so a bundle's floor is actually
             # consulted — a default standing in for it would be dead
             # configuration (the Cycle A m8 defect class).
-            severity_floor=pol.get("assertion_severity_floor") or {})
+            severity_floor=pol.get("assertion_severity_floor") or {},
+            advisory_expired=advisory_expired)
     except (policy.PolicyError, json.JSONDecodeError, KeyError, TypeError,
             ValueError) as e:
         return _fail(out_dir, "policy-resolution", str(e), "adoption", identities)

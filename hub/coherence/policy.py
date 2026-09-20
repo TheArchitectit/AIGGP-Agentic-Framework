@@ -27,6 +27,51 @@ def _is_int(v) -> bool:
     return isinstance(v, int) and not isinstance(v, bool)
 
 
+def check_advisory_escalation(bundle: dict) -> dict:
+    """The bundle's advisory-age escalation policy (design.md round-16).
+
+    `stages.max_advisory_age_days` is a duration, not a consequence. A bundle
+    that declares the cap must also declare `advisory_escalation` — the field
+    is required whenever `stages` is present, because naming a dwell limit
+    with no policy for exceeding it is incomplete configuration, and silence
+    must not read as "cap declared, nothing happens". Refuses (exit 31,
+    `advisory-escalation:` prefix) rather than defaulting.
+
+    A bundle with no `stages` has no cap and nothing to escalate; that is the
+    one shape where absence is meaningful. Returns the policy (possibly {}).
+    """
+    if not isinstance(bundle, dict):
+        raise PolicyError("advisory-escalation: policy bundle is not an object")
+    if "stages" not in bundle:
+        return {}
+    esc = bundle.get("advisory_escalation")
+    if esc is None:
+        raise PolicyError(
+            "advisory-escalation: bundle declares stages.max_advisory_age_days "
+            "but no advisory_escalation policy for exceeding it (coh-pol-03)")
+    if not isinstance(esc, dict):
+        raise PolicyError(
+            "advisory-escalation: advisory_escalation must be an object")
+    if esc.get("on_expiry") not in _ON_EXPIRY:
+        raise PolicyError(
+            f"advisory-escalation: on_expiry must be one of "
+            f"{sorted(_ON_EXPIRY)}, got {esc.get('on_expiry')!r}")
+    renewal = esc.get("renewal")
+    if renewal is not None:
+        if not isinstance(renewal, dict):
+            raise PolicyError("advisory-escalation: renewal must be an object")
+        if renewal.get("requires") not in _RENEWAL_REQUIRES:
+            raise PolicyError(
+                f"advisory-escalation: renewal.requires must be one of "
+                f"{sorted(_RENEWAL_REQUIRES)}, got {renewal.get('requires')!r}")
+        days = renewal.get("max_extension_days")
+        if not isinstance(days, int) or isinstance(days, bool) or days < 1:
+            raise PolicyError(
+                f"advisory-escalation: renewal.max_extension_days must be a "
+                f"positive integer, got {days!r}")
+    return esc
+
+
 def check_anti_rollback(digest: str, bundle: dict, binding: dict,
                         evaluation_time: str) -> None:
     """Run-path anti-rollback (design.md round-15, coh-pol-01/02).
@@ -136,6 +181,7 @@ def resolve(root: str, expected_digest: str, binding: dict = None,
             f"policy digest mismatch: expected {expected_digest}, computed {computed}")
 
     check_anti_rollback(computed, bundle, binding, evaluation_time)
+    check_advisory_escalation(bundle)
 
     bundle["policy_digest"] = computed
     return bundle
@@ -226,6 +272,13 @@ def enforced_core_classes(bundle: dict) -> frozenset:
 
 # Severity ordering: a repository may raise severity, never lower it.
 _SEVERITY_RANK = {"low": 0, "medium": 1, "high": 2, "critical": 3}
+
+# Advisory-age escalation vocabulary (design.md round-16). `block` alone
+# today: the ratified model picked one value that means what coh-pol-03's
+# spec says over pre-guessing a ladder of synonyms. `central-approval` is
+# the only renewal authority — a repository cannot renew its own advisory.
+_ON_EXPIRY = frozenset({"block"})
+_RENEWAL_REQUIRES = frozenset({"central-approval"})
 
 
 class OverlayError(ValueError):

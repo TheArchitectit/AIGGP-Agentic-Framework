@@ -16,24 +16,40 @@ def _parse(ts: str) -> datetime:
     return datetime.fromisoformat(ts.replace("Z", "+00:00"))
 
 
-def advisory_status(repo_record: dict, max_advisory_age_days: int,
-                    reference_time: str) -> dict:
-    """Advisory age vs the central cap for one repo at one reference time."""
+def advisory_age(repo_record: dict, max_advisory_age_days: int,
+                 reference_time: str) -> dict:
+    """Age vs the central cap, in the terms the ENFORCEMENT path needs.
+
+    Distinct from `advisory_status` below, which is the REPORTING view and
+    deliberately scoped to the Stage-1 ordinal: this answers "is the shelter
+    spent at `reference_time`", which coh-pol-03 bounds the promotion of a
+    repository that has ALREADY reached the ratchet (design.md round-16).
+    Stretching the reporting view's `stage != 1` early return into the run
+    path would make the cap inert for exactly the repositories it targets.
+
+    Age is computed from the trusted reference time, never the host clock.
+    """
     ref = _parse(reference_time)
-    stage = repo_record.get("stage")
-    out = {"repo_stage": stage, "owner": repo_record.get("owner"),
-           "next_stage": repo_record.get("next_stage"),
-           "advisory_age_days": None, "max_advisory_age_days":
-               max_advisory_age_days,
+    out = {"advisory_age_days": None,
+           "max_advisory_age_days": max_advisory_age_days,
            "expired": False, "notes": []}
-    if stage != 1:
-        out["notes"].append("not in advisory stage; cap does not apply")
+    stage = repo_record.get("stage")
+    if stage == 0:
+        # Nothing blocks at inventory, so an expired cap has no consequence
+        # to report. This is the ONE stage where age is not measured.
+        out["notes"].append("inventory stage; cap does not apply")
         return out
     started = repo_record.get("advisory_started")
     if not started:
-        out["expired"] = True
-        out["notes"].append("advisory stage without a recorded start — "
-                            "bounded-adoption requirement is violated")
+        # NO record is NOT an expired one. The escalation must be silent when
+        # the caller supplies nothing to measure — inferring an expiry from a
+        # missing field would block every run that did not opt into the
+        # regime, and would report a violation nobody actually committed.
+        # (The REPORTING view keeps its opposite reading for the Stage-1
+        # ordinal, where a missing start on a dwelling repo IS the violation
+        # coh-pol-03 names; this is the enforcement path, where silence is
+        # the only honest verdict available.)
+        out["notes"].append("no recorded advisory start; cap not measured")
         return out
     age_days = (ref - _parse(started)).total_seconds() / DAY
     out["advisory_age_days"] = round(age_days, 2)
@@ -50,6 +66,36 @@ def advisory_status(repo_record: dict, max_advisory_age_days: int,
         out["notes"].append(
             f"advisory age {out['advisory_age_days']}d exceeds the central "
             f"cap of {max_advisory_age_days}d with no renewal recorded")
+    return out
+
+
+def advisory_status(repo_record: dict, max_advisory_age_days: int,
+                    reference_time: str) -> dict:
+    """Advisory age vs the central cap for one repo at one reference time.
+
+    The REPORTING view: it measures the Stage-1 dwelling state alone, so a
+    record past Stage 1 reports "cap does not apply" here. Enforcement uses
+    `advisory_age`, which is not stage-gated that way (round-16).
+    """
+    ref = _parse(reference_time)
+    stage = repo_record.get("stage")
+    out = {"repo_stage": stage, "owner": repo_record.get("owner"),
+           "next_stage": repo_record.get("next_stage"),
+           "advisory_age_days": None, "max_advisory_age_days":
+               max_advisory_age_days,
+           "expired": False, "notes": []}
+    if stage != 1:
+        out["notes"].append("not in advisory stage; cap does not apply")
+        return out
+    started = repo_record.get("advisory_started")
+    if not started:
+        out["expired"] = True
+        out["notes"].append("advisory stage without a recorded start — "
+                            "bounded-adoption requirement is violated")
+        return out
+    age = advisory_age(repo_record, max_advisory_age_days, reference_time)
+    out.update({k: v for k, v in age.items() if k != "notes"})
+    out["notes"].extend(age["notes"])
     return out
 
 

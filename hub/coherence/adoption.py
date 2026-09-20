@@ -63,7 +63,8 @@ def validate_exceptions(exceptions: list) -> None:
 
 def evaluate(ledger: list, findings: list, planned: list, baseline: list,
              exceptions: list, stage: int, evaluation_time: str,
-             core_classes: frozenset = None, severity_floor: dict = None) -> dict:
+             core_classes: frozenset = None, severity_floor: dict = None,
+             advisory_expired: bool = False) -> dict:
     """Apply the ladder. Returns ledger, findings, and whether anything blocks.
 
     `core_classes` are the evaluator IDs whose baseline shelter ends at Stage 3
@@ -77,6 +78,14 @@ def evaluate(ledger: list, findings: list, planned: list, baseline: list,
     escalated by central policy and no longer inherits advisory shelter
     (coh-pol-05) — it blocks unless an unexpired exception covers it. Absent
     or empty, nothing escalates: a floor is central policy, never inferred.
+
+    `advisory_expired` is the bundle's `advisory_escalation` verdict for this
+    repository at `evaluation_time` (coh-pol-03, design.md round-16): the age
+    cap has been exceeded with no covering renewal, so the advisory shelter
+    is spent. It is a BOOLEAN the caller resolved from the trusted evaluation
+    time — this function never computes an age, so there is one clock and one
+    reading of it. Default False is the un-escalated state: a caller that
+    passes nothing gets the pre-round-16 ladder, and every existing path does.
     """
     validate_exceptions(exceptions)
     if core_classes is None:
@@ -142,10 +151,24 @@ def evaluate(ledger: list, findings: list, planned: list, baseline: list,
             f["enforcement"] = "EXCEPTION-ADVISORY"
             f["exception_id"] = active_exc[fp]["exception_id"]
         elif fp in baseline_fps and fp not in escalated_fps and \
+                not advisory_expired and \
                 not _shelter_ends(stage, evaluator_of, aid, core_classes):
-            f["enforcement"] = "ADVISORY"          # named inherited debt
+            # Named inherited debt. The advisory-age cap removes this shelter
+            # for NEW and EXISTING violations alike (coh-pol-03) — "existing"
+            # is exactly what this branch covers, which is why the expiry test
+            # belongs here and not only on the regression path. The stage<2
+            # arm above still wins, so an expired advisory reports but cannot
+            # block before the ratchet exists.
+            f["enforcement"] = "ADVISORY"
         else:
             f["enforcement"] = "BLOCK"             # regression -> blocks
+            if advisory_expired and fp in baseline_fps:
+                # Machine-parsable: the finding blocked because the advisory
+                # age cap expired, not because it is a regression. Same
+                # convention as the anti-rollback reason prefixes.
+                f["reason"] = "advisory-expired:" + (
+                    "existing-debt" if fp not in escalated_fps
+                    else "severity-escalated")
             blocked = True
 
     # Ledger enforcement mirrors findings; unresolved required assertions are
