@@ -451,11 +451,55 @@ sprints. Findings and dispositions:
       existing required violations block per the central escalation policy (coh-pol-03).
       Ratified as a top-level `advisory_escalation` policy object (design.md round-16) and shipped in
       `8bf51d8`; a cap with no escalation refuses, and a missing repository record is silence, not expiry.
-- [ ] External enforcement boundary: required checks/rulesets/promotion-controller binding; workflow-deletion test (coh-pol-07).
-      REPORTED ABSENT (round-16): no required-status-check, ruleset, or promotion controller binding the
-      trusted producer to the candidate digest exists in-tree. Building one is out of scope for the
-      coherence service's own slice.
-- [ ] Hub integration: add a fifth `MonitorLoop` check class `_check_spec_coherence(repo, owner)` alongside the existing four (`_check_runner_status`, `_check_queue_drain`, `_check_gate_results`, `_check_drift_scan`), polling the check-runs API for a coherence workflow conclusion on `HUB_WATCHED_BRANCHES` and alerting via `_raise_alert(repo, "coherence_failure", runner, detail)` → existing `AlertSink` dedup `(repo, check-class, runner)`; hub endpoints and `runners.schema.json` unchanged unless the S1 field-collision map says otherwise (coh-int-02, coh-int-07).
+- [x] External enforcement boundary: required checks/rulesets/promotion-controller binding; workflow-deletion test (coh-pol-07).
+      SPLIT AND RESOLVED (`04abf38`, round-17). The requirement's two scenarios share no implementation, and
+      bundling them under one MUST is what made it look like one unbuildable thing — round-16 recorded it as
+      wholly absent on the strength of the half that cannot be built here. **(a) "workflow deleted"** is not a
+      code gap: the deployed hub already alerts on a missing/renamed watched workflow within one poll cycle
+      across all six repos (`_check_drift_scan` + `drift_overdue`; `infra-info/devgate-ci-fleet.md`), and the
+      fifth check class below extends the same treatment to coherence — deleting the workflow makes the gate
+      LOUDER, not quieter. Enforcement is therefore anchored outside the repository that could remove it, which
+      is what the requirement is actually asking for; the required-status-check/ruleset framing it reaches for
+      is the PR-time mechanism, and is inapplicable to a repo whose merges are not gated by anyone else's
+      approval. **(b) "result from another candidate"** was a genuine code gap and is now
+      `attest.verify_promotion(run_dir, signer_set, candidate_digest)`: `verify()` compares
+      `bound["subject_digest"]` against the digest *inside* the run, which proves internal consistency and says
+      nothing about what the run is being presented FOR — the candidate is knowledge only the caller has, which
+      is why it is an argument. The seal chain runs first and its failure is returned verbatim, so a tampered
+      run is never misreported as a benign wrong-candidate rejection. It lives in `attest.py` rather than a
+      separate consumer package because it *exposes* verification the attestation already requires; it does not
+      judge a promotion, and the consumer still decides. A load-balanced separate podman quad for it was
+      declined as premature — it is arithmetic over already-signed bytes, run once per promotion, adding no
+      check the function does not already contain.
+- [x] Hub integration: add a fifth `MonitorLoop` check class `_check_spec_coherence(repo, owner)` alongside the existing four (`_check_runner_status`, `_check_queue_drain`, `_check_gate_results`, `_check_drift_scan`), polling the check-runs API for a coherence workflow conclusion on `HUB_WATCHED_BRANCHES` and alerting via `_raise_alert(repo, "coherence_failure", runner, detail)` → existing `AlertSink` dedup `(repo, check-class, runner)`; hub endpoints and `runners.schema.json` unchanged unless the S1 field-collision map says otherwise (coh-int-02, coh-int-07).
+      SHIPPED (`04abf38`). The class polls workflow presence, then the latest run, and files `coherence_failure`
+      on a red conclusion, `coherence_overdue` past 24h + `drift_grace_min`, and `coherence_missing` when no
+      workflow matches at all — that last one is coh-pol-07(a)'s teeth. It got its **own**
+      `coherence_workflow_match` config field (default `"coherence"`, `HUB_COHERENCE_WORKFLOW_MATCH`) rather
+      than reusing `drift_workflow_match`: the two are different jobs in the same repo, and a repo holding only
+      one of them must be reported on the one it lacks, never quietly matched against the other (coh-int-07).
+      Hub endpoints and `runners.schema.json` unchanged, as the S1 field-collision map allowed. The polling
+      shape (workflow list → latest run) is deliberately the drift one, mirrored rather than generalised — a
+      shared helper would have to be parameterised on exactly the matcher that must stay separate. **Mutation
+      battery M1–M6, each killed by exactly one named test:** M1 unwire from `_poll_repo` →
+      `test_poll_repo_runs_the_coherence_check`; M2 missing workflow silent →
+      `test_check_spec_coherence_no_workflow_found`; M3 share the drift matcher → 5 tests incl.
+      `test_check_spec_coherence_does_not_match_the_drift_workflow`; M4 colliding config default → 5 tests incl.
+      `test_coherence_workflow_match_default_and_env_override`; M5 binding disabled →
+      `test_attestation_for_another_candidate_is_refused`; M6 swallow the seal failure →
+      `test_verify_failures_still_propagate`. **M2 initially killed TWO tests and the TESTS were at fault:** the
+      shadowing test's first assertion (`coherence_missing in classes`) was a strict subset of
+      `test_check_spec_coherence_no_workflow_found`'s claim, so its own distinct claim was not what pinned it;
+      re-pointed at its own claim by making the drift workflow FAILING in the fake server (a shared matcher
+      would then have reported `coherence_failure`) and deleting the subset assertion. All mutations ran
+      against `/tmp` file backups, never `git checkout --`. **Suite split, forced by the size gate:** the six
+      coherence tests took `test_hub_monitor.py` to 677 lines, OVER the 600-line test HARD limit, so they moved
+      to `tests/test_hub_spec_coherence.py` (251 lines) along the capability seam; that suite keeps the four
+      pre-existing check classes and shares its fake-GitHub harness with the new one. The split suite initially
+      collected 0 tests under direct `python` invocation — `unittest.main()` does not see pytest-style module
+      functions — fixed by matching the sibling's `pytest.main([__file__, "-v"])` main. Battery 572 tests + 35
+      subtests green, both new/changed suites dual-runnable, `git diff --check` clean, size gate 0 over hard
+      limit (6 pre-existing soft overages, all waived; `monitor.py` 439, inside the 500 hard cap).
 - [ ] CI workflow following `templates/github-workflows/drift-scan.yml` pattern, `runs-on: devgate` (or repo labels like `devgate-game`), pinned runtime invocation + event wiring only; gate executes or reports explicit SKIPPED per `ci-run-01` (coh-int-01, coh-int-06).
 - [ ] Thin pinned CI invocation template + local developer command with byte-equivalent results (coh-int-01, coh-int-05).
 - [ ] Adapter default-deny: timeouts/unparseable results surface ERROR, never neutral/pass (coh-int-05).
