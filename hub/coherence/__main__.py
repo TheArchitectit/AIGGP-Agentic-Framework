@@ -237,7 +237,12 @@ def run(request_path: str) -> int:
         adoption_out = adoption.evaluate(
             ledger, findings, planned, baseline, exceptions,
             ctx["stage"], ctx["evaluation_time"],
-            core_classes=policy.enforced_core_classes(pol))
+            core_classes=policy.enforced_core_classes(pol),
+            # coh-pol-05: central policy's severity floor escalates adopted
+            # debt. Passed explicitly so a bundle's floor is actually
+            # consulted — a default standing in for it would be dead
+            # configuration (the Cycle A m8 defect class).
+            severity_floor=pol.get("assertion_severity_floor") or {})
     except (policy.PolicyError, json.JSONDecodeError, KeyError, TypeError,
             ValueError) as e:
         return _fail(out_dir, "policy-resolution", str(e), "adoption", identities)

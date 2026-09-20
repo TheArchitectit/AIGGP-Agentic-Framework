@@ -63,13 +63,20 @@ def validate_exceptions(exceptions: list) -> None:
 
 def evaluate(ledger: list, findings: list, planned: list, baseline: list,
              exceptions: list, stage: int, evaluation_time: str,
-             core_classes: frozenset = None) -> dict:
+             core_classes: frozenset = None, severity_floor: dict = None) -> dict:
     """Apply the ladder. Returns ledger, findings, and whether anything blocks.
 
     `core_classes` are the evaluator IDs whose baseline shelter ends at Stage 3
     (enforced-core); None means the bundle named no set, so the ladder falls
     back to policy.DEFAULT_ENFORCED_CORE. Callers resolve the set from the
     bundle rather than here, keeping this function a pure ladder.
+
+    `severity_floor` is central policy's per-assertion minimum severity
+    (`assertion_severity_floor`). When the floor for an assertion has RISEN
+    above the severity recorded on its baseline entry, that debt has been
+    escalated by central policy and no longer inherits advisory shelter
+    (coh-pol-05) — it blocks unless an unexpired exception covers it. Absent
+    or empty, nothing escalates: a floor is central policy, never inferred.
     """
     validate_exceptions(exceptions)
     if core_classes is None:
@@ -87,6 +94,25 @@ def evaluate(ledger: list, findings: list, planned: list, baseline: list,
                     b["fingerprint"]["violation_key"])
         for b in baseline if b.get("status", "open") == "open"
     }
+    # coh-pol-05 escalation: a baseline entry whose assertion severity has been
+    # raised by central policy above the severity recorded at adoption loses
+    # its shelter. Keyed by fingerprint so the decision is per-debt-item, and
+    # compared with the same severity rank the overlay uses (one ordering, one
+    # meaning of "raised"). A missing floor, or an entry with no recorded
+    # severity, escalates nothing — silence is not an escalation.
+    escalated_fps = set()
+    if severity_floor:
+        rank = policy._SEVERITY_RANK
+        for b in baseline:
+            if b.get("status", "open") != "open":
+                continue
+            bf = b["fingerprint"]
+            floor = severity_floor.get(bf["assertion_id"])
+            adopted = b.get("severity")
+            if floor in rank and adopted in rank and rank[floor] > rank[adopted]:
+                escalated_fps.add(
+                    fingerprint(bf["assertion_id"], bf["assertion_version"],
+                                bf["subject_location"], bf["violation_key"]))
 
     now = _parse(evaluation_time)
     active_exc, expired_exc = {}, set()
@@ -115,8 +141,8 @@ def evaluate(ledger: list, findings: list, planned: list, baseline: list,
         elif fp in active_exc:
             f["enforcement"] = "EXCEPTION-ADVISORY"
             f["exception_id"] = active_exc[fp]["exception_id"]
-        elif fp in baseline_fps and not _shelter_ends(stage, evaluator_of, aid,
-                                                     core_classes):
+        elif fp in baseline_fps and fp not in escalated_fps and \
+                not _shelter_ends(stage, evaluator_of, aid, core_classes):
             f["enforcement"] = "ADVISORY"          # named inherited debt
         else:
             f["enforcement"] = "BLOCK"             # regression -> blocks
