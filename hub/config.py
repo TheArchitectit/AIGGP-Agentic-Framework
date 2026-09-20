@@ -41,6 +41,7 @@ class Config:
     queue_threshold_min: float = 30.0     # mon-queue-01 default, per-runner override
     drift_grace_min: float = 10.0         # mon-drift-01 grace window
     drift_workflow_match: str = "drift"   # config-provided name pattern (spec does not name it)
+    coherence_workflow_match: str = "coherence"  # separate matcher: the two must not shadow each other (coh-int-07)
     watched_branches: list[str] = field(default_factory=lambda: ["default"])
 
     # Minimum seconds between recurrence comments on the same open issue.
@@ -82,6 +83,8 @@ class Config:
             cfg.drift_grace_min = float(v)
         if v := os.environ.get("HUB_DRIFT_WORKFLOW_MATCH"):
             cfg.drift_workflow_match = v
+        if v := os.environ.get("HUB_COHERENCE_WORKFLOW_MATCH"):
+            cfg.coherence_workflow_match = v
         if v := os.environ.get("HUB_WATCHED_BRANCHES"):
             cfg.watched_branches = [b for b in v.split(",") if b]
         if v := os.environ.get("GITHUB_API_BASE"):

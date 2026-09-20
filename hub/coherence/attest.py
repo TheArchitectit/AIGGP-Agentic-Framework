@@ -154,6 +154,35 @@ def verify(run_dir: str, signer_set: dict) -> tuple[bool, str]:
     return True, "ok"
 
 
+def verify_promotion(run_dir: str, signer_set: dict,
+                     candidate_digest: str) -> tuple[bool, str]:
+    """Verify a sealed run AND that it binds the candidate being promoted.
+
+    coh-pol-07 scenario 2: "a valid PASS attestation for subject digest D1
+    presented for promotion of digest D2 MUST be refused." `verify()` cannot
+    answer that on its own — it compares `bound["subject_digest"]` against
+    the digest inside the run, which proves the run is internally consistent
+    and says nothing about what it is being presented FOR. The candidate is
+    knowledge only the caller has, so it is an argument here.
+
+    The seal chain runs first and its failure is returned verbatim: a run
+    that is tampered with must be reported as tampered, never misreported as
+    a benign wrong-candidate rejection (the two are different incidents).
+    """
+    ok, reason = verify(run_dir, signer_set)
+    if not ok:
+        return False, reason
+    try:
+        attestation = json.loads(
+            (Path(run_dir) / "attestation.json").read_text())
+    except (OSError, json.JSONDecodeError):
+        return False, "unparseable-artifact"
+    bound = attestation.get("bound", {})
+    if bound.get("subject_digest") != candidate_digest:
+        return False, "candidate-digest-mismatch"
+    return True, "ok"
+
+
 def _check_signer(attestation: dict, signer_set: dict) -> tuple:
     """Resolve the signing key against the approved set (coh-ev-05).
 

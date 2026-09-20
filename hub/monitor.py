@@ -112,6 +112,7 @@ class MonitorLoop:
          b. Check queued-run age (mon-queue-01)
          c. Check check-run conclusions on watched branches (mon-gates-01)
          d. Check drift-scan recency (mon-drift-01)
+         e. Check spec-coherence presence/recency (coh-int-02, coh-int-07)
       2. Evaluate heartbeat freshness (mon-online-01, mon-channels-01)
       3. Raise alerts via AlertSink for any failures detected.
 
@@ -178,6 +179,9 @@ class MonitorLoop:
 
         # --- 3.3 Drift-scan presence/recency (mon-drift-01)
         self._check_drift_scan(repo, owner)
+
+        # --- 3.4 Spec-coherence presence/recency (coh-int-02, coh-int-07)
+        self._check_spec_coherence(repo, owner)
 
     def _check_runner_status(self, repo: str, runners: list[dict]) -> None:
         """Check GitHub API runner status + heartbeat freshness (mon-online-01)."""
@@ -345,6 +349,82 @@ class MonitorLoop:
             self._raise_alert(
                 repo, "drift_overdue", "?",
                 detail=f"last drift scan {age_sec / 3600:.1f}h ago (max {max_age_sec / 3600:.1f}h)")
+
+    def _check_spec_coherence(self, repo: str, owner: str) -> None:
+        """Check coherence-workflow presence/recency (coh-int-02, coh-int-07).
+
+        The FIFTH check class (design.md round-9). Its own matcher, separate
+        from drift's: the two workflows are different jobs in the same repo,
+        and a repo with only one of them must be reported on the one it lacks,
+        never quietly matched against the other.
+
+        A MISSING coherence workflow is an alert, not silence (coh-pol-07).
+        That is the point of the class — if deleting the workflow made the
+        gate disappear quietly, the boundary would be removable by repository
+        content, which is exactly what the requirement forbids. Presence of a
+        workflow file is not enforcement; a missing one must not be invisible
+        either.
+        """
+        match = self.config.coherence_workflow_match
+        result = self.client.get_with_backoff(
+            f"/repos/{repo}/actions/workflows?per_page=100")
+        if result is None:
+            return
+        status, body = result
+        if status != 200:
+            return
+
+        wf = None
+        for candidate in body.get("workflows", []):
+            if match.lower() in candidate.get("name", "").lower():
+                wf = candidate
+                break
+
+        if wf is None:
+            self._raise_alert(
+                repo, "coherence_missing", "?",
+                detail=f"no workflow matching '{match}' found — the coherence "
+                       f"gate has been removed or renamed")
+            return
+
+        result = self.client.get_with_backoff(
+            f"/repos/{repo}/actions/workflows/{wf['id']}/runs?per_page=1")
+        if result is None:
+            return
+        status, body = result
+        if status != 200:
+            return
+
+        runs = body.get("workflow_runs", [])
+        if not runs:
+            self._raise_alert(
+                repo, "coherence_missing", "?",
+                detail=f"no completed runs for workflow '{wf['name']}'")
+            return
+
+        latest = runs[0]
+        if latest.get("conclusion") == "failure":
+            self._raise_alert(
+                repo, "coherence_failure", "?",
+                detail=f"latest coherence run failed: "
+                       f"{latest.get('html_url', '')}")
+            return
+
+        # Recency, same 24h + grace window drift uses. The schedule period is
+        # not visible from the API, so this is the same conservative default.
+        completed_at = _parse_iso(latest.get("completed_at"))
+        if completed_at is None:
+            self._raise_alert(
+                repo, "coherence_overdue", "?",
+                detail="latest coherence run has no completion timestamp")
+            return
+        max_age_sec = 24 * 3600 + self.config.drift_grace_min * 60
+        age_sec = (datetime.now(timezone.utc) - completed_at).total_seconds()
+        if age_sec > max_age_sec:
+            self._raise_alert(
+                repo, "coherence_overdue", "?",
+                detail=f"last coherence run {age_sec / 3600:.1f}h ago "
+                       f"(max {max_age_sec / 3600:.1f}h)")
 
     def _raise_alert(self, repo: str, check_class: str, runner: str, detail: str) -> None:
         """Raise an alert. Sprint 4 adds dedupe + GitHub issue filing."""

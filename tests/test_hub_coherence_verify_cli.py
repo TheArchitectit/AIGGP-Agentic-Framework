@@ -214,3 +214,88 @@ class TestVerificationCLI(unittest.TestCase):
                 capture_output=True, text=True, cwd=str(REPO))
             self.assertEqual(r.returncode, 2)
             self.assertIn("--signer-set is required", r.stderr)
+
+
+class TestPromotionBinding(unittest.TestCase):
+    """coh-pol-07 scenario 2: an attestation for D1 must not promote D2.
+
+    `verify()` compares the bound subject digest against the digest INSIDE
+    the run — that proves internal consistency and nothing more. It has no
+    way to express "this attestation is being presented for candidate D2",
+    because the run directory does not know what it is being used for. The
+    candidate is supplied by the CALLER (the promotion path), which is what
+    verify_promotion adds.
+    """
+
+    def _sealed_run(self, td, *, declared_name, approved_name):
+        # Each run gets its own fixture dir: two runs in one dir would collide
+        # on the shared subject/ tree and throw FileExistsError.
+        req, out = fx.build_root(Path(td) / f"f-{declared_name}",
+                                 declared_name=declared_name,
+                                 approved_name=approved_name, stage=2)
+        r = subprocess.run(
+            [sys.executable, "-m", "hub.coherence", "--request", str(req)],
+            capture_output=True, text=True, cwd=str(REPO),
+            env={**os.environ, **fx.cli_env()})
+        self.assertEqual(r.returncode, 0, r.stderr)
+        return out
+
+    def _signer_set(self):
+        return fx.signer_set("a" * 64, key_id="signer-1",
+                             identity="pilot-signer", as_of=fx.FIXED_TIME)
+
+    def test_bound_candidate_verifies(self):
+        """Control: verifying a run against its OWN subject digest passes."""
+        with tempfile.TemporaryDirectory() as td:
+            out = self._sealed_run(td, declared_name="widget",
+                                   approved_name="widget")
+            bound = json.loads((out / "attestation.json").read_text())["bound"]
+            ok, reason = attest.verify_promotion(
+                str(out), self._signer_set(), bound["subject_digest"])
+            self.assertTrue(ok, reason)
+
+    def test_attestation_for_another_candidate_is_refused(self):
+        """The coh-pol-07 scenario: a valid PASS attestation for D1 presented
+        for D2 is refused, and the reason names the candidate binding."""
+        with tempfile.TemporaryDirectory() as td:
+            d1 = self._sealed_run(td, declared_name="widget",
+                                  approved_name="widget")
+            d2 = self._sealed_run(td, declared_name="other",
+                                  approved_name="other")
+            d1_bound = json.loads(
+                (d1 / "attestation.json").read_text())["bound"]
+            d2_bound = json.loads(
+                (d2 / "attestation.json").read_text())["bound"]
+            self.assertNotEqual(d1_bound["subject_digest"],
+                                d2_bound["subject_digest"],
+                                "fixture defect: the two runs must differ")
+
+            # D1's run is intact and verifies on its own terms...
+            self.assertTrue(attest.verify(str(d1), self._signer_set())[0])
+            # ...but it does NOT authorize promoting D2.
+            ok, reason = attest.verify_promotion(
+                str(d1), self._signer_set(), d2_bound["subject_digest"])
+            self.assertFalse(ok, "an attestation for D1 must not promote D2")
+            self.assertIn("candidate-digest-mismatch", reason)
+
+    def test_verify_failures_still_propagate(self):
+        """The binding check must not mask an already-failing run.
+
+        A tampered run refused for being tampered must say so, not report a
+        candidate mismatch — otherwise a broken seal would be misreported as
+        a benign wrong-candidate rejection.
+        """
+        with tempfile.TemporaryDirectory() as td:
+            out = self._sealed_run(td, declared_name="widget",
+                                   approved_name="widget")
+            bound = json.loads(
+                (out / "attestation.json").read_text())["bound"]
+            (out / "result.json").write_bytes(b'{"decision": "PASS"}')
+            ok, reason = attest.verify_promotion(
+                str(out), self._signer_set(), bound["subject_digest"])
+            self.assertFalse(ok)
+            self.assertNotIn("candidate-digest-mismatch", reason)
+
+
+if __name__ == "__main__":
+    unittest.main()

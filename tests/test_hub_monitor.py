@@ -11,6 +11,7 @@ are made. Verifies:
 Dual-runnable: pytest collects test_*; `python3 tests/test_hub_monitor.py` runs them too.
 """
 import json
+import os
 import sys
 import threading
 from datetime import datetime, timedelta, timezone
