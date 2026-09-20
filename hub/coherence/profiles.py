@@ -80,3 +80,33 @@ def check_launch_digest(reg: dict, label: str, manifest_digest: str) -> None:
         raise ProfileRegistryError(
             f"profile-digest-mismatch:{label}"
         )
+
+
+# Execution-identity self-check (coh-id-04, S4/S6): the HOST launcher knows
+# the digest-pinned ref it executed and injects it into the container. The
+# runtime reads it, shape-validates it, and records its own identity instead
+# of a null. Absence stays null — an unknown identity is never fabricated.
+EXECUTION_IDENTITY_ENV = "DEVGATE_IMAGE_DIGEST"
+_DIGEST_RE = None
+
+
+def execution_identity(environ=None) -> str:
+    """The running evaluator's image manifest digest, or None when unknown.
+
+    A malformed value is an identity ERROR, not a silent null: a digest
+    that fails shape validation means someone injected nonsense into the
+    execution environment.
+    """
+    import os as _os
+    import re as _re
+    global _DIGEST_RE
+    if _DIGEST_RE is None:
+        _DIGEST_RE = _re.compile(r"sha256:[0-9a-f]{64}")
+    env = _os.environ if environ is None else environ
+    raw = env.get(EXECUTION_IDENTITY_ENV, "").strip()
+    if not raw:
+        return None
+    if not _DIGEST_RE.fullmatch(raw):
+        raise ProfileRegistryError(
+            f"execution-identity-malformed:{raw[:64]!r}")
+    return raw

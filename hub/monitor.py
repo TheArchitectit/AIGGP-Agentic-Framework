@@ -192,6 +192,9 @@ class MonitorLoop:
         # --- 3.3 Drift-scan presence/recency (mon-drift-01)
         self._check_drift_scan(repo)
 
+        # --- 3.4 Spec-coherence gate conclusions (coh-int-02, S6)
+        self._check_spec_coherence(repo)
+
     def _default_branch(self, repo: str) -> str | None:
         """Resolve the repo's actual default branch (F6). The config sentinel
         'default' is NOT a branch name — the old literal 404'd the gate-results
@@ -387,6 +390,57 @@ class MonitorLoop:
             self._raise_alert(
                 repo, "drift_overdue", "?",
                 detail=f"last drift scan {age_sec / 3600:.1f}h ago (max {max_age_sec / 3600:.1f}h)")
+
+    def _check_spec_coherence(self, repo: str) -> None:
+        """Check spec-coherence gate conclusions on watched branches
+        (coh-int-02, S6 — the fifth check class).
+
+        Default-deny like the drift-scan check: a failing coherence
+        conclusion raises coherence_failure, and NO coherence check-run on
+        a watched branch raises coherence_absent — the gate may not
+        silently stop existing on a branch the fleet watches. Checks whose
+        conclusion is neutral/skipping/action_required are NOT failures
+        (an explicitly SKIPPED gate is honest; a missing one is not).
+        """
+        match = self.config.coherence_workflow_match.lower()
+        for branch in self._watched_branches(repo):
+            result = self.client.get_with_backoff(
+                f"/repos/{repo}/commits/{branch}?per_page=1")
+            if result is None:
+                continue
+            status, body = result
+            if status != 200:
+                continue
+            sha = body.get("sha", "")
+            if not sha:
+                continue
+
+            result = self.client.get_with_backoff(
+                f"/repos/{repo}/commits/{sha}/check-runs?per_page=100")
+            if result is None:
+                continue
+            status, body = result
+            if status != 200:
+                continue
+
+            coherence_checks = [
+                c for c in body.get("check_runs", [])
+                if match in (c.get("name") or "").lower()]
+            if not coherence_checks:
+                self._raise_alert(
+                    repo, "coherence_absent", "?",
+                    detail=(f"no check-run matching '{match}' on branch "
+                            f"{branch} (sha {sha[:8]}) — the coherence "
+                            f"gate must run or report SKIPPED"))
+                continue
+
+            for check in coherence_checks:
+                conclusion = check.get("conclusion")
+                if conclusion in ("failure", "timed_out"):
+                    self._raise_alert(
+                        repo, "coherence_failure", check.get("name", "?"),
+                        detail=(f"conclusion={conclusion}, branch={branch}, "
+                                f"sha={sha[:8]}"))
 
     def _raise_alert(self, repo: str, check_class: str, runner: str, detail: str) -> None:
         """Raise an alert. Sprint 4 adds dedupe + GitHub issue filing."""

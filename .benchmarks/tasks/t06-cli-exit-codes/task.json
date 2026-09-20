@@ -1,0 +1,8 @@
+{
+ "id": "t06-cli-exit-codes",
+ "category": "bug_fix",
+ "description": "The check CLI always exits 0. Fix main() to exit 2 when the check fails, 1 on usage error (no argument), and 0 on success. Keep printing OK/FAIL to stdout.",
+ "verify_cmd": [
+  "verify/check.py"
+ ]
+}

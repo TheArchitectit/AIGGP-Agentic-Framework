@@ -27,11 +27,13 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-TICKET_FILE="$HOME/.devgate-heartbeat.env"
-TIMER_UNIT="$HOME/.config/systemd/user/devgate-heartbeat.timer"
-SERVICE_UNIT="$HOME/.config/systemd/user/devgate-heartbeat.service"
-WATCHDOG_TIMER_UNIT="$HOME/.config/systemd/user/devgate-hub-watchdog.timer"
-WATCHDOG_SERVICE_UNIT="$HOME/.config/systemd/user/devgate-hub-watchdog.service"
+TICKET_FILE=""            # per-runner; computed by compute_unit_paths
+TIMER_UNIT=""
+SERVICE_UNIT=""
+WATCHDOG_TIMER_UNIT=""
+WATCHDOG_SERVICE_UNIT=""
+HB_TIMER_NAME=""          # systemd unit basenames (per-runner, coh-int-07)
+WD_TIMER_NAME=""
 
 log() { echo "[runner-enroll] $*"; }
 die() { log "ERROR: $*"; exit "${2:-1}"; }
@@ -96,6 +98,21 @@ done
 
 # --- validate -----------------------------------------------------------------
 
+# Per-runner unit names (coh-int-07): a host may run MULTIPLE spokes, so a
+# second enrollment must never overwrite the first's env file or units.
+# RUNNER_NAME is validated to [A-Za-z0-9._-]+ before this is called, which
+# is also the systemd-unit-safe charset.
+compute_unit_paths() {
+    local name="$1"
+    TICKET_FILE="$HOME/.devgate-heartbeat-${name}.env"
+    TIMER_UNIT="$HOME/.config/systemd/user/devgate-hb-${name}.timer"
+    SERVICE_UNIT="$HOME/.config/systemd/user/devgate-hb-${name}.service"
+    WATCHDOG_TIMER_UNIT="$HOME/.config/systemd/user/devgate-hb-watchdog-${name}.timer"
+    WATCHDOG_SERVICE_UNIT="$HOME/.config/systemd/user/devgate-hb-watchdog-${name}.service"
+    HB_TIMER_NAME="devgate-hb-${name}.timer"
+    WD_TIMER_NAME="devgate-hb-watchdog-${name}.timer"
+}
+
 if [[ "$MODE" == "enroll" ]]; then
     [[ -n "$HUB_URL" ]] || { usage; }
     [[ -n "$ENROLL_TOKEN" ]] || die "enrollment token required" 1
@@ -107,10 +124,12 @@ if [[ "$MODE" == "enroll" ]]; then
         die "runner name must match [A-Za-z0-9._-]+ (got: $RUNNER_NAME)" 1
     [[ "$HOST_ALIAS" =~ ^[A-Za-z0-9._-]+$ ]] || \
         die "host alias must match [A-Za-z0-9._-]+ (got: $HOST_ALIAS)" 1
+    compute_unit_paths "$RUNNER_NAME"
 elif [[ "$MODE" == "revoke" ]]; then
     [[ -n "$HUB_URL" ]] || { usage; }
     [[ -n "$REVOKE_HB_TOKEN" ]] || die "heartbeat token required for revoke" 1
     [[ -n "$REVOKE_RUNNER" ]] || die "runner name required for revoke" 1
+    compute_unit_paths "$REVOKE_RUNNER"
 fi
 
 # --- helpers ------------------------------------------------------------------
@@ -205,10 +224,10 @@ WantedBy=timers.target
 EOF
 
     systemctl --user daemon-reload
-    systemctl --user enable devgate-heartbeat.timer 2>/dev/null || true
-    systemctl --user start devgate-heartbeat.timer
+    systemctl --user enable "$HB_TIMER_NAME" 2>/dev/null || true
+    systemctl --user start "$HB_TIMER_NAME"
 
-    log "Timer installed and enabled: devgate-heartbeat.timer"
+    log "Timer installed and enabled: $HB_TIMER_NAME"
 
     install_watchdog
 }
@@ -258,10 +277,10 @@ WantedBy=timers.target
 EOF
 
     systemctl --user daemon-reload
-    systemctl --user enable devgate-hub-watchdog.timer 2>/dev/null || true
-    systemctl --user start devgate-hub-watchdog.timer
+    systemctl --user enable "$WD_TIMER_NAME" 2>/dev/null || true
+    systemctl --user start "$WD_TIMER_NAME"
 
-    log "Watchdog installed: devgate-hub-watchdog.timer (status: systemctl --user status devgate-hub-watchdog)"
+    log "Watchdog installed: $WD_TIMER_NAME (status: systemctl --user status $WD_TIMER_NAME)"
 }
 
 # --- enroll mode --------------------------------------------------------------
@@ -306,10 +325,10 @@ if [[ "$MODE" == "revoke" ]]; then
     # Remove local timers + env file. The watchdog goes too: it reads
     # HUB_URL from the env file being deleted, so leaving it behind would
     # leave a unit that fails forever with a confusing config error.
-    systemctl --user stop devgate-heartbeat.timer 2>/dev/null || true
-    systemctl --user disable devgate-heartbeat.timer 2>/dev/null || true
-    systemctl --user stop devgate-hub-watchdog.timer 2>/dev/null || true
-    systemctl --user disable devgate-hub-watchdog.timer 2>/dev/null || true
+    systemctl --user stop "$HB_TIMER_NAME" 2>/dev/null || true
+    systemctl --user disable "$HB_TIMER_NAME" 2>/dev/null || true
+    systemctl --user stop "$WD_TIMER_NAME" 2>/dev/null || true
+    systemctl --user disable "$WD_TIMER_NAME" 2>/dev/null || true
     rm -f "$TIMER_UNIT" "$SERVICE_UNIT" "$TICKET_FILE" \
           "$WATCHDOG_TIMER_UNIT" "$WATCHDOG_SERVICE_UNIT"
     systemctl --user daemon-reload

@@ -1,0 +1,8 @@
+{
+ "id": "t10-command-injection",
+ "category": "security",
+ "description": "archive_logs() builds a shell command by string interpolation \u2014 a hostile filename injects commands. Rewrite it to use subprocess with an argv list (shell=False), and validate the name BEFORE touching the filesystem: only [A-Za-z0-9][A-Za-z0-9._-]* ending in .log is allowed; anything else (injection strings, path separators, dash-lead, or a safe name that does not exist) raises ValueError.",
+ "verify_cmd": [
+  "verify/check.py"
+ ]
+}

@@ -41,6 +41,12 @@ class Config:
     queue_threshold_min: float = 30.0     # mon-queue-01 default, per-runner override
     drift_grace_min: float = 10.0         # mon-drift-01 grace window
     drift_workflow_match: str = "drift"   # config-provided name pattern (spec does not name it)
+    # Coherence gate workflow name pattern (coh-int-02, S6): check-runs whose
+    # name matches this are the coherence evidence channel on watched
+    # branches; a failing conclusion raises "coherence_failure" and ABSENCE
+    # raises "coherence_absent" (default-deny — the gate may not silently
+    # stop existing, mirroring the drift-scan convention).
+    coherence_workflow_match: str = "coherence"
     # "default" is a SENTINEL, not a branch name: the monitor resolves it to
     # the repo's actual default branch via the API each cycle (F6 — the old
     # hardcoded literal silently 404'd the gate-results check on every
@@ -91,6 +97,8 @@ class Config:
             cfg.drift_grace_min = float(v)
         if v := os.environ.get("HUB_DRIFT_WORKFLOW_MATCH"):
             cfg.drift_workflow_match = v
+        if v := os.environ.get("HUB_COHERENCE_WORKFLOW_MATCH"):
+            cfg.coherence_workflow_match = v
         if v := os.environ.get("HUB_WATCHED_BRANCHES"):
             cfg.watched_branches = [b for b in v.split(",") if b]
         if v := os.environ.get("HUB_MAX_BODY_BYTES"):

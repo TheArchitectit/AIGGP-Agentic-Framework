@@ -178,11 +178,22 @@ def apply_overlay(assertions: list, overlay: dict, central: dict) -> list:
 
 
 def load_overlay(root: str) -> dict:
-    """Load an optional repository overlay from the policy root."""
+    """Load an optional repository overlay from the policy root.
+
+    The overlay is repository-supplied content: anything that parses as JSON
+    but is not an object (array, string, number, null) is a policy-resolution
+    error, not an AttributeError traceback (fw-pol-01 — `overlay.get` on a
+    non-dict crashed the CLI outside every stage handler's except tuple).
+    """
     fp = Path(root).resolve() / "overlay.json"
     if not fp.exists():
         return {}
     try:
-        return json.loads(fp.read_text())
+        overlay = json.loads(fp.read_text())
     except (OSError, json.JSONDecodeError) as e:
         raise PolicyError(f"cannot read overlay {fp}: {e}") from e
+    if not isinstance(overlay, dict):
+        raise PolicyError(
+            f"cannot read overlay {fp}: must be a JSON object, got "
+            f"{type(overlay).__name__}")
+    return overlay

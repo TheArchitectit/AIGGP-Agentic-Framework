@@ -8,6 +8,148 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Readiness delta round 2** (S5/S6/S8 remainder, runtime-verifiable scope):
+  - **Fifth monitor check class** `_check_spec_coherence` (coh-int-02) —
+    polls coherence-gate check-runs on watched branches; failing or timed-
+    out conclusions raise `coherence_failure`, and ABSENCE raises
+    `coherence_absent` (default-deny: the gate may run-and-fail or
+    explicitly skip, never silently vanish). Config:
+    `HUB_COHERENCE_WORKFLOW_MATCH` (default "coherence").
+  - **Immutable evidence store** (`hub/coherence/store.py`, S5) —
+    content-addressed append-only objects; digest collisions with
+    different content are hard errors; tamper-at-rest detected on read;
+    upload after seal is retryable and RESUMABLE (already-held objects are
+    verified skips, never blind duplicates).
+  - **Total decision-cache key + retention invalidation** (coh-ctx-05,
+    coh-ev-04) — the key binds subject, package, policy, context, image,
+    plugins, captured facts, TTL, retention, AND signer; unknown-vs-
+    attributed evaluator identity is part of the key; malformed cache
+    entries miss, never hit; TTL and retention expiry both invalidate.
+  - **Determinism drill** (`scripts/determinism_drill.py`, S8) — N repeat
+    evaluations must be byte-identical (decision + claim); 100/100 locally,
+    30 per CI run in the evaluator-integrity job.
+  - **Per-runner fleet units** (coh-int-07) — `runner-enroll.sh` now
+    installs `devgate-hb-<name>.{service,timer}` and
+    `devgate-hb-watchdog-<name>.{service,timer}` plus a name-scoped env
+    file, so one host can enroll multiple spokes without clobbering.
+  - **Coherence CI workflow template** (`templates/github-workflows/
+    spec-coherence.yml`, coh-int-01/05/06) — frozen exit-code-to-verdict
+    adapter (default-deny: timeout/crash/unknown exit are ERROR, never
+    neutral), named for the hub's check-run matcher.
+  - **Runbooks** (`docs/runbooks/`) — hub outage, policy rollback + key
+    rotation, evidence/attestation verification and transport; every
+    command references implemented code, and external dependencies
+    (registry credentials, branch-protection admin, pilot approvals) are
+    named as blocked rather than papered over.
+
+### Added
+- **Coherence S5/S6 core — decisions become attributable and authoritative-
+  ready** (`hub/coherence/attest.py`, new `--verify` CLI mode):
+  - Detached attestations over canonical decisions per the frozen
+    `attestation.schema.json` (coh-ev-01): produced in the acyclic sealing
+    order AFTER the decision, binding all six input digests; re-signing
+    leaves decision bytes unchanged. Honest stand-in scope: HMAC-SHA256
+    under `HUB_COHERENCE_SIGNER_KEYS` (ADR-018 remains open for real key
+    management). Attesting an execution with an unknown evaluator image
+    identity is refused — an attestation witnesses the evaluator too.
+  - Signer-set verification + revocation fail-closed (coh-ev-05):
+    unknown-signer / revoked-signer / signer-outside-validity-window /
+    key-mismatch / signature-mismatch / statement-substitution /
+    bound-input-substitution — each a stable rejection reason; the offline
+    verifier refuses to run without a signer set.
+  - Anti-rollback (coh-pol-02): the signed context may carry
+    `policy_epoch_floor` (additive context-schema field); bundles with
+    `min_bundle_epoch` below the floor are rejected as rolled back, and
+    `issue_context` can bind the floor plus a `signers.json` signer-set
+    digest (coh-ctx-01 discipline applied to signers).
+  - Execution identity (coh-id-04): the launcher injects the digest-pinned
+    image ref (`DEVGATE_IMAGE_DIGEST`) and the in-container runtime
+    self-identifies instead of recording null; malformed injections are a
+    protocol error, absence stays an honest null.
+  - Decision claims (fw-*): the pipeline emits `decision.claim.json` bound
+    to every input digest and stops at OBSERVED — a producer cannot
+    self-certify; consumers raise claims via `scripts/evidence-validate.py`.
+  - Negative controls nc-09 (rolled-back bundle) and nc-10 (substituted
+    decision under a valid attestation) join the permanent suite.
+- **Fleet drill** (`scripts/fleet_drill.py`) — 19-step end-to-end drill of
+  the real fleet path: hub subprocess over real HTTP, enrollment semantics
+  (one-time consumption, duplicate 409, forged 401), heartbeats, the real
+  watchdog script against alive AND dead hubs, SIGTERM clean shutdown,
+  registry + token survival across restart, heartbeat soak. 19/19 held.
+- **Benchmark corpus doubled to 12 tasks** (race condition, config
+  precedence, idempotency-state, command injection, journal recovery,
+  multi-file feature) — every task validated in BOTH directions. The
+  control phase caught two flawed verifiers before they could produce
+  numbers, and a real harness defect: control/verify phases now run on
+  SEPARATE repo copies (fw-bench-02).
+
+### Changed
+- **The two vacuous self-gates are live** (fw-gate-*):
+  - `silent-success-scan.sh` now runs 2 enabled families over the shipped
+    service tree (inline swallowed `except: pass`; TODO/FIXME markers in
+    `hub/`), with a scan-root/allowlist override and a canary suite
+    (`tests/test_silent_success_gate.py`) proving the gate FAILS on a
+    planted violation — a gate that cannot fail is decoration.
+  - `spec_traceability.py --ratchet` records a covered-requirements floor
+    (63/119, `.guardrails/traceability-ratchet.json`) and fails CI on any
+    regression while unbuilt capabilities stay advisory; coverage growth
+    is surfaced with a raise-the-floor hint (`--update-ratchet`).
+
+### Added
+- **Evaluator-integrity & evidence architecture** (`fw-*` audit pass) — the
+  audit methodology becomes permanent infrastructure:
+  - `hub/coherence/verification.py` — claim lifecycle with a frozen state
+    ladder (REQUESTED→…→VERIFIED), digest-bound staleness invalidation
+    (changed inputs demote VERIFIED→UNKNOWN, never silently), independent
+    verification as the only path to VERIFIED, whole-tree content
+    commitments, and honest completion summaries that cannot average
+    claims into success.
+  - `scripts/evidence-validate.py` — standalone fail-closed validator for
+    sealed evidence bundles and verification claims (rejects tamper,
+    malformed shapes, parent-escaping paths, self-certified VERIFIED).
+  - `scripts/mutation_check.py` — controlled mutation testing
+    (comparison/bool/constant/raise-removal operators, comment/docstring
+    exclusion, crash-safe restore, `--self-check`). `evidence.py` now
+    holds a 100% mutation kill rate; 9 blind spots found and closed.
+  - `scripts/negative_controls.py` — permanent evaluator-integrity suite:
+    8 controls (forged digests, foreign protocol, unapproved evaluator,
+    hostile overlay, identity violation…) run through the real CLI, plus a
+    positive canary so reject-everything degeneration is also caught.
+  - `.benchmarks/` — coding-agent benchmark harness with hidden
+    behavioral verification (argv[1] repo contract), control validation
+    (a verifier passing the unsolved repo invalidates the task), 6 tasks
+    across bugfix/feature/refactor/security/reliability/CLI, metrics with
+    a failure taxonomy, and `multi_solver.py` strategy comparison with
+    anti-correlation analysis and a shipped GAMING strategy that must
+    stay rejected (proves hidden checks resist hardcoding).
+  - `hub/coherence/resource_limits.py` + `scripts/resource_audit.py` —
+    wall-clock budgets, output-capped subprocess runs, runaway detection,
+    capped backoff, and honest child-process resource measurement.
+  - `scripts/regression_corpus.py` — engineering memory: relevance
+    selection (which historical failures does this diff risk?) and
+    staleness audit (dead patterns, missing paths, unresolved entries).
+  - CI `evaluator-integrity` job runs all of the above on every PR.
+- **Verification-semantics tests** — `tests/test_evidence_integrity.py`,
+  `tests/test_metamorphic.py`, `tests/test_resource_governance.py`,
+  `tests/test_regression_corpus.py`: self-certification rejected, stale
+  evidence demoted, canon/claim/overlay round-trip and commutation
+  invariants, governed retry loops terminate, corpus semantics pinned.
+
+### Fixed
+- **`evidence.verify()` crashed on malformed manifests** (fw-ev-01) —
+  objects as dict/string, entries with missing or non-string fields, and
+  unreadable evidence files raised TypeError/KeyError through the tamper
+  detector; all shapes now fail closed (False). Parent-escaping object
+  paths are rejected without being read (fw-ev-02).
+- **Pathologically deep JSON escaped as a raw traceback** (fw-rt-01) —
+  RecursionError from the stdlib parser is a RuntimeError outside every
+  stage handler's except tuple; the CLI now yields the documented
+  invalid-input envelope (exit 30), with a main() backstop for all stages.
+- **Non-object `overlay.json` crashed the CLI** (fw-pol-01) — an overlay
+  file containing valid-but-non-object JSON raised AttributeError outside
+  every caught family; now a policy-resolution error (exit 31).
+
+### Added
 - **Test-suite hardening** (`harden-test-suite`) — the coherence golden
   vectors are load-bearing: `compute_golden.py` imports the real canon module
   (verified byte-identical) and `test_hub_coherence_golden.py` asserts the

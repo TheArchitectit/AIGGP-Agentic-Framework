@@ -5,10 +5,21 @@
   "description": "Control-plane-issued bound input carrying everything policy-relevant that varies with time or adoption state. Digested and bound like every other input (R2 / ADR-012).",
   "type": "object",
   "additionalProperties": false,
-  "required": ["api_version", "context_id", "evaluation_time", "stage", "execution_profile", "issuance"],
+  "required": [
+    "api_version",
+    "context_id",
+    "evaluation_time",
+    "stage",
+    "execution_profile",
+    "issuance"
+  ],
   "properties": {
-    "api_version": { "const": "devgate.spec-coherence.context/v1" },
-    "context_id": { "type": "string" },
+    "api_version": {
+      "const": "devgate.spec-coherence.context/v1"
+    },
+    "context_id": {
+      "type": "string"
+    },
     "evaluation_time": {
       "type": "string",
       "format": "date-time",
@@ -16,19 +27,40 @@
     },
     "stage": {
       "description": "Effective adoption stage from the authoritative adoption record, not the requested mode.",
-      "enum": [0, 1, 2, 3, 4]
+      "enum": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ]
     },
-    "semantics": { "enum": ["fresh-promotion", "replay"] },
-    "baseline_set_digest": { "$ref": "#/definitions/digestOrNull" },
-    "exception_set_digest": { "$ref": "#/definitions/digestOrNull" },
-    "signer_set_digest": { "$ref": "#/definitions/digestOrNull" },
+    "semantics": {
+      "enum": [
+        "fresh-promotion",
+        "replay"
+      ]
+    },
+    "baseline_set_digest": {
+      "$ref": "#/definitions/digestOrNull"
+    },
+    "exception_set_digest": {
+      "$ref": "#/definitions/digestOrNull"
+    },
+    "signer_set_digest": {
+      "$ref": "#/definitions/digestOrNull"
+    },
     "capability_grants": {
       "type": "array",
-      "items": { "$ref": "#/definitions/capabilityGrant" }
+      "items": {
+        "$ref": "#/definitions/capabilityGrant"
+      }
     },
     "captured_facts": {
       "type": "array",
-      "items": { "$ref": "#/definitions/capturedFact" }
+      "items": {
+        "$ref": "#/definitions/capturedFact"
+      }
     },
     "execution_profile": {
       "type": "string",
@@ -36,42 +68,108 @@
     },
     "supported_runners": {
       "type": "array",
-      "items": { "type": "string" }
+      "items": {
+        "type": "string"
+      }
     },
     "issuance": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["issued_at", "issuer"],
+      "required": [
+        "issued_at",
+        "issuer"
+      ],
       "properties": {
-        "issued_at": { "type": "string", "format": "date-time" },
-        "issuer": { "type": "string", "description": "Control-plane issuer identity." },
-        "countersignature": { "type": ["string", "null"] }
+        "issued_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "issuer": {
+          "type": "string",
+          "description": "Control-plane issuer identity."
+        },
+        "countersignature": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
       }
+    },
+    "policy_epoch_floor": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Control-plane anti-rollback floor (coh-pol-02): policy bundles whose min_bundle_epoch is below this are rejected as rolled back."
     }
   },
   "definitions": {
-    "digestOrNull": { "type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$" },
+    "digestOrNull": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
     "capabilityGrant": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "assertion_id"],
+      "required": [
+        "name",
+        "assertion_id"
+      ],
       "properties": {
-        "name": { "type": "string" },
-        "assertion_id": { "type": "string" },
-        "endpoint": { "type": ["string", "null"] },
-        "secret_ref": { "type": ["string", "null"] },
-        "ttl_seconds": { "type": ["integer", "null"], "minimum": 0 }
+        "name": {
+          "type": "string"
+        },
+        "assertion_id": {
+          "type": "string"
+        },
+        "endpoint": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "secret_ref": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ttl_seconds": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
       }
     },
     "capturedFact": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["fact_id", "digest", "captured_at"],
+      "required": [
+        "fact_id",
+        "digest",
+        "captured_at"
+      ],
       "properties": {
-        "fact_id": { "type": "string" },
-        "digest": { "$ref": "#/definitions/digestOrNull" },
-        "source": { "type": ["string", "null"] },
-        "captured_at": { "type": "string", "format": "date-time" }
+        "fact_id": {
+          "type": "string"
+        },
+        "digest": {
+          "$ref": "#/definitions/digestOrNull"
+        },
+        "source": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "captured_at": {
+          "type": "string",
+          "format": "date-time"
+        }
       }
     }
   }

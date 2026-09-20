@@ -112,7 +112,9 @@ def issue_context(ctx_dir: str, policy_dir: str, *, repo: str,
                   capability_grants=None, captured_facts=None,
                   context_id: str = "pilot-context",
                   semantics: str = "fresh-promotion",
-                  issuer: str = None) -> dict:
+                  issuer: str = None,
+                  policy_epoch_floor: int = None,
+                  signer_set=None) -> dict:
     """Issue a pilot evaluation context.
 
     Writes context.json into ctx_dir; baseline/exception sets into policy_dir
@@ -123,6 +125,12 @@ def issue_context(ctx_dir: str, policy_dir: str, *, repo: str,
     fields (evaluation_time/stage/sets) and is structurally labeled
     non-promotion-authorizing in the canonical payload (coh-ctx-03). A
     replay may not change the time, stage, or sets it replays.
+
+    `policy_epoch_floor` (coh-pol-02) is the control-plane anti-rollback
+    anchor: evaluation rejects policy bundles whose min_bundle_epoch is
+    below it. `signer_set` binds the approved-signer set's digest into the
+    context (signer_set_digest), so attestation verification can detect a
+    swapped set.
     """
     if semantics not in ("fresh-promotion", "replay"):
         raise ValueError(f"invalid semantics {semantics!r}")
@@ -134,13 +142,17 @@ def issue_context(ctx_dir: str, policy_dir: str, *, repo: str,
     pol_root = Path(policy_dir)
     pol_root.mkdir(parents=True, exist_ok=True)
 
-    baseline_digest = exception_digest = None
+    baseline_digest = exception_digest = signer_set_digest = None
     if baseline_set is not None:
         baseline_digest = set_digest(baseline_set, "baseline")
         (pol_root / "baseline.json").write_bytes(canon.canon(baseline_set))
     if exception_set is not None:
         exception_digest = set_digest(exception_set, "exception")
         (pol_root / "exceptions.json").write_bytes(canon.canon(exception_set))
+    if signer_set is not None:
+        from . import attest
+        signer_set_digest = attest.signer_set_digest(signer_set)
+        (pol_root / "signers.json").write_bytes(canon.canon(signer_set))
 
     ctx = {
         "api_version": "devgate.spec-coherence.context/v1",
@@ -150,7 +162,7 @@ def issue_context(ctx_dir: str, policy_dir: str, *, repo: str,
         "semantics": semantics,
         "baseline_set_digest": baseline_digest,
         "exception_set_digest": exception_digest,
-        "signer_set_digest": None,
+        "signer_set_digest": signer_set_digest,
         "capability_grants": capability_grants or [],
         "captured_facts": captured_facts or [],
         "execution_profile": execution_profile,
@@ -160,6 +172,8 @@ def issue_context(ctx_dir: str, policy_dir: str, *, repo: str,
             "issuer": issuer or os.environ.get(CP_IDENTITY_ENV, "cp-stand-in"),
         },
     }
+    if policy_epoch_floor is not None:
+        ctx["policy_epoch_floor"] = policy_epoch_floor
     if _key() is not None:
         ctx["issuance"]["countersignature"] = sign_context(ctx)
     payload = canon.canon(ctx)
@@ -171,4 +185,5 @@ def issue_context(ctx_dir: str, policy_dir: str, *, repo: str,
             "stage": stage,
             "baseline_set_digest": baseline_digest,
             "exception_set_digest": exception_digest,
+            "signer_set_digest": signer_set_digest,
             "signed": "countersignature" in ctx["issuance"]}

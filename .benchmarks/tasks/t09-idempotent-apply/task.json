@@ -1,0 +1,8 @@
+{
+ "id": "t09-idempotent-apply",
+ "category": "reliability",
+ "description": "apply_discounts(prices, discounts, state=None) applies percentage discounts; callers RETRY on timeout, so re-application must be prevented via the state dict the function itself returns: first call applies and returns (discounted, state) where state records sku->pct applied; a retry passing that state back must skip already-applied skus and return the same prices with the SAME state. Never mutate the input prices.",
+ "verify_cmd": [
+  "verify/check.py"
+ ]
+}

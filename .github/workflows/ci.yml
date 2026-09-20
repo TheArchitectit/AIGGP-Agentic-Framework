@@ -106,6 +106,68 @@ jobs:
         run: |
           python3 scripts/spec_traceability.py --root . --report | tail -8
           python3 scripts/spec_traceability.py --root . | tail -2
+          # fw-tr-01 ratchet: coverage may grow, never shrink. The floor
+          # rides in .guardrails/traceability-ratchet.json; raise it with
+          # --update-ratchet when new capabilities gain their markers.
+          python3 scripts/spec_traceability.py --root . --ratchet
+
+  evaluator-integrity:
+    name: The evaluator itself is attacked (fw-*)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        # Full history: mutation_test refuses to mutate files with
+        # uncommitted changes, and the staleness audit wants the real tree.
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+      - name: Install pytest
+        run: python3 -m pip install --quiet pytest
+      # The mutation tool must detect a deliberately introduced defect on a
+      # known fixture — a misreporting tool is an evaluator integrity failure.
+      - name: Mutation tool self-check
+        run: python3 scripts/mutation_check.py --self-check
+      # The core evidence module must keep a 100% mutation kill rate: every
+      # deliberately broken behavior in it is caught by the test suite.
+      - name: Mutation strength on evidence module
+        run: |
+          python3 scripts/mutation_check.py --target hub/coherence/evidence.py \
+            --tests "python3 -m pytest tests/test_hub_coherence.py tests/test_hub_coherence_runtime.py tests/test_evidence_integrity.py -x -q" \
+            --timeout 180
+      # Deliberately broken evaluations must be REJECTED by the real CLI,
+      # and the unbroken canary must still PASS.
+      - name: Negative controls (evaluator must reject)
+        run: python3 scripts/negative_controls.py
+      # The benchmark corpus must be valid in BOTH directions: a no-op
+      # solver fails every hidden verifier (harness exit 1 is EXPECTED —
+      # any other exit is a corpus defect); the golden solutions pass.
+      - name: Benchmark corpus — no-op solver must fail everything
+        run: |
+          python3 .benchmarks/harness.py --all --solver "true" && {
+            echo "no-op solver PASSED a task — hidden verification cannot detect work"
+            exit 1
+          }
+          test $? -eq 1 || { echo "corpus invalid (exit != 1)"; exit 1; }
+      - name: Benchmark corpus — golden solutions must pass everything
+        run: |
+          python3 .benchmarks/harness.py --all \
+            --solver "python3 {task_dir}/solution/solve.py {repo_dir}"
+      # The shipped gaming strategy must NEVER pass the strengthened checks.
+      - name: Gaming strategy rejected (multi-solver)
+        run: |
+          python3 .benchmarks/multi_solver.py --task t02-feature-env-bool \
+            --gaming-demo \
+            --strategy golden="python3 {task_dir}/solution/solve.py {repo_dir}"
+      # Engineering-memory audit (advisory here; flip to --strict once the
+      # pre-existing foreign-repo entries are refreshed).
+      - name: Regression-corpus staleness audit
+        run: python3 scripts/regression_corpus.py --stale
+      # S8 determinism criterion: identical inputs must produce
+      # byte-identical canonical decisions — 30 runs in CI (100 nightly).
+      - name: Determinism drill (byte-identical decisions)
+        run: python3 scripts/determinism_drill.py --runs 30
 
   container-image:
     name: Evaluator image builds with its contracts (coh-rt-08)

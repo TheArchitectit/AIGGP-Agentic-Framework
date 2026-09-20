@@ -1,0 +1,8 @@
+{
+ "id": "t12-multifile-ratelimiter",
+ "category": "feature",
+ "description": "Add a token-bucket rate limiter: create ratelimit.py with class TokenBucket(rate_per_sec, capacity) exposing try_acquire(n=1) -> bool; wire client.fetch_with_limit(url) (new function in client.py) to return (None, 'rate-limited') WITHOUT calling fetch when the bucket lacks tokens, else (fetch(url), None).",
+ "verify_cmd": [
+  "verify/check.py"
+ ]
+}

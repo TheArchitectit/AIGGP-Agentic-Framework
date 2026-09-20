@@ -47,6 +47,7 @@ fi
 python3 - "$RULES" "$ALLOWLIST" <<'PY'
 import fnmatch
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -55,10 +56,14 @@ rules_path, allowlist_path = sys.argv[1], sys.argv[2]
 
 # DevGate lives at <project>/.devgate, so the scan target is the PROJECT root
 # (the parent) when that is where the source lives; fall back to the DevGate root
-# for a standalone checkout.
+# for a standalone checkout. SILENT_SUCCESS_SCAN_ROOT overrides the target —
+# the canary test uses it to prove this gate FAILS on a planted violation
+# (a gate that cannot fail is decoration, not a gate).
 devgate_root = Path.cwd()
-project_root = devgate_root.parent if (devgate_root.parent / ".git").exists() \
-    or (devgate_root.name == ".devgate") else devgate_root
+project_root = Path(os.environ["SILENT_SUCCESS_SCAN_ROOT"]) \
+    if os.environ.get("SILENT_SUCCESS_SCAN_ROOT") \
+    else (devgate_root.parent if (devgate_root.parent / ".git").exists()
+          or (devgate_root.name == ".devgate") else devgate_root)
 
 try:
     rules_doc = json.loads((devgate_root / rules_path).read_text(encoding="utf-8"))
@@ -66,8 +71,13 @@ except (OSError, json.JSONDecodeError) as exc:
     print(f"silent-success-scan: cannot read {rules_path}: {exc}", file=sys.stderr)
     sys.exit(1)
 
+# SILENT_SUCCESS_SCAN_ALLOWLIST overrides the allowlist location for the
+# canary test (same principle: the test must exercise the real code path).
+allow_src = Path(os.environ["SILENT_SUCCESS_SCAN_ALLOWLIST"]) \
+    if os.environ.get("SILENT_SUCCESS_SCAN_ALLOWLIST") \
+    else (devgate_root / allowlist_path)
 try:
-    allow = json.loads((devgate_root / allowlist_path).read_text(encoding="utf-8"))
+    allow = json.loads(allow_src.read_text(encoding="utf-8"))
 except (OSError, json.JSONDecodeError) as exc:
     print(f"silent-success-scan: cannot read {allowlist_path}: {exc}", file=sys.stderr)
     sys.exit(1)

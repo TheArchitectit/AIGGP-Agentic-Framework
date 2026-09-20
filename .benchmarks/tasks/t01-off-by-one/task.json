@@ -1,0 +1,8 @@
+{
+ "id": "t01-off-by-one",
+ "category": "bug_fix",
+ "description": "paginate() returns one extra item at page boundaries; fix so page(size, index) returns exactly the requested slice, and an empty page past the end returns [].",
+ "verify_cmd": [
+  "verify/check.py"
+ ]
+}

@@ -89,6 +89,16 @@ def main() -> int:
     parser.add_argument("--root", type=Path, default=Path.cwd())
     parser.add_argument("--report", action="store_true",
                         help="print per-requirement coverage detail")
+    parser.add_argument("--ratchet", action="store_true",
+                        help="fail when covered requirements drop below the "
+                             "recorded floor (.guardrails/"
+                             "traceability-ratchet.json, {\"min_covered\": "
+                             "N}). Advisory-only coverage can silently "
+                             "shrink; the floor makes regression visible "
+                             "while unbuilt capabilities stay advisory.")
+    parser.add_argument("--update-ratchet", action="store_true",
+                        help="with --ratchet: raise the recorded floor to "
+                             "the current covered count")
     args = parser.parse_args()
     root = args.root.resolve()
 
@@ -137,6 +147,40 @@ def main() -> int:
         return 1
     if uncovered:
         print(f"spec-traceability: advisory — {uncovered} uncovered requirement(s)")
+
+    if args.ratchet:
+        # fw-tr-01: the covered-count floor. A drop below the floor means
+        # markers were deleted (or specs added without implementation) — a
+        # regression the advisory mode alone would wave through.
+        ratchet_path = root / ".guardrails" / "traceability-ratchet.json"
+        try:
+            recorded = json.loads(ratchet_path.read_text()) \
+                if ratchet_path.exists() else {}
+        except (OSError, json.JSONDecodeError) as exc:
+            print(f"spec-traceability: cannot read ratchet floor "
+                  f"{ratchet_path}: {exc}", file=sys.stderr)
+            return 2
+        floor = recorded.get("min_covered")
+        if floor is None:
+            ratchet_path.parent.mkdir(parents=True, exist_ok=True)
+            ratchet_path.write_text(json.dumps(
+                {"min_covered": covered_count}, indent=1) + "\n")
+            print(f"spec-traceability: ratchet floor initialized at "
+                  f"{covered_count} ({ratchet_path})")
+        elif covered_count < floor:
+            print(f"spec-traceability: RATCHET REGRESSION — {covered_count} "
+                  f"covered is below the floor of {floor}. Markers were "
+                  f"removed or specs outgrew the implementation.")
+            return 1
+        elif covered_count > floor:
+            if args.update_ratchet:
+                ratchet_path.write_text(json.dumps(
+                    {"min_covered": covered_count}, indent=1) + "\n")
+                print(f"spec-traceability: ratchet floor raised to "
+                      f"{covered_count}")
+            else:
+                print(f"spec-traceability: coverage grew above the floor "
+                      f"({floor}) — raise it with --update-ratchet")
     return 0
 
 

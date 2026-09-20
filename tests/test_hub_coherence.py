@@ -371,6 +371,161 @@ class TestEvidence(unittest.TestCase):
             p.write_text('{"tampered":true}')
             self.assertFalse(evidence.verify(td, digest))
 
+    def test_verify_missing_manifest_fails_closed(self):
+        # Mutation-testing finding: an empty/absent bundle must be rejected.
+        from hub.coherence import evidence
+        with tempfile.TemporaryDirectory() as td:
+            self.assertFalse(evidence.verify(td, "any-digest"))
+
+    def test_verify_corrupt_json_manifest_fails_closed(self):
+        # Mutation-testing blind spot (fw-ev-06): an unparseable manifest is
+        # a rejected bundle, never silently accepted.
+        from hub.coherence import evidence
+        with tempfile.TemporaryDirectory() as td:
+            (Path(td) / "evidence-manifest.json").write_text('{"objects": [')
+            self.assertFalse(evidence.verify(td, "any-digest"))
+
+    def test_verify_manifest_with_float_fails_closed(self):
+        # Mutation-testing blind spot (fw-ev-07): floats are outside the
+        # canonical profile; a manifest containing one cannot be digested and
+        # must be rejected, not accepted.
+        from hub.coherence import evidence
+        with tempfile.TemporaryDirectory() as td:
+            manifest = {"api_version": "x", "objects": [], "extra": 1.5}
+            (Path(td) / "evidence-manifest.json").write_text(
+                json.dumps(manifest))
+            self.assertFalse(evidence.verify(td, "any-digest"))
+
+    def test_verify_unreadable_object_fails_closed_via_oserror(self):
+        # Mutation-testing blind spot (fw-ev-08): an OSError while reading an
+        # evidence file is a rejection, never an acceptance.
+        from unittest import mock
+        from hub.coherence import evidence
+        with tempfile.TemporaryDirectory() as td:
+            digest = evidence.seal([{
+                "assertion_id": "a1", "finding_key": "a1|x|identity-mismatch",
+                "outcome": "VIOLATED", "enforcement": "BLOCK",
+                "severity": "high", "subject_locations": ["README.md"],
+                "expected": "w", "observed": "o", "evidence_refs": [],
+            }], td)
+            with mock.patch.object(Path, "read_bytes",
+                                   side_effect=OSError("denied")):
+                self.assertFalse(evidence.verify(td, digest))
+
+    def test_verify_consistent_escaping_bundle_rejected(self):
+        # Mutation-testing blind spot (fw-ev-09): the containment check must
+        # reject a FULLY CONSISTENT bundle whose object path escapes the
+        # bundle directory — an attacker who controls the manifest can make
+        # every digest line up; containment is the defense that still holds.
+        from hub.coherence import canon as C
+        from hub.coherence import evidence
+        with tempfile.TemporaryDirectory() as td:
+            outer = Path(td)
+            # The file the escaping path points at, OUTSIDE the bundle.
+            payload = canon.canon({"secret": "value"})
+            (outer / "payload.json").write_bytes(payload)
+            h = C.digest_bytes("evidence-manifest/v1", payload)
+            bundle = outer / "bundle"
+            bundle.mkdir()
+            manifest = {"api_version": "devgate.spec-coherence.evidence/v1",
+                        "objects": [{"path": "../payload.json", "digest": h,
+                                     "media_type": "application/json",
+                                     "assertion_id": "a1",
+                                     "retention_class": "standard",
+                                     "redacted": True}]}
+            md = C.digest_obj("evidence-manifest/v1", manifest)
+            (bundle / "evidence-manifest.json").write_bytes(
+                C.canon(manifest))
+            self.assertFalse(evidence.verify(str(bundle), md))
+
+    def test_seal_filters_nonstring_and_empty_redact_values(self):
+        # Mutation-testing blind spot (fw-ev-10): the redact list is filtered
+        # to non-empty strings; junk entries must be dropped, never crash
+        # sealing or trigger a spurious fail-safe.
+        from hub.coherence import evidence
+        with tempfile.TemporaryDirectory() as td:
+            findings = [{
+                "assertion_id": "a1", "finding_key": "a1|x|identity-mismatch",
+                "outcome": "VIOLATED", "enforcement": "BLOCK", "severity": "high",
+                "subject_locations": ["README.md"], "expected": "w",
+                "observed": "o", "evidence_refs": [],
+            }]
+            digest = evidence.seal(findings, td, redact=["", 123, None])
+            self.assertTrue(evidence.verify(td, digest))
+
+    def test_seal_zero_findings_still_writes_manifest(self):
+        # The fully-PASS shape: no findings, manifest is the only write.
+        from hub.coherence import evidence
+        with tempfile.TemporaryDirectory() as td:
+            digest = evidence.seal([], td)
+            self.assertTrue((Path(td) / "evidence-manifest.json").exists())
+            self.assertTrue(evidence.verify(td, digest))
+
+    # fw-ev-01/fw-ev-02 regression: verify() is the tamper detector, so a
+    # malformed or hostile manifest must be REJECTED (False), never crash the
+    # verification path and never read outside the bundle.
+    def test_verify_rejects_malformed_manifests(self):
+        from hub.coherence import evidence
+        cases = [
+            # objects as a dict instead of a list
+            {"api_version": "x", "objects": {"evil": True}},
+            # objects as a bare string
+            {"api_version": "x", "objects": "evil"},
+            # objects missing entirely
+            {"api_version": "x"},
+            # entry is not an object
+            {"api_version": "x", "objects": ["not-a-dict"]},
+            # entry missing required fields
+            {"api_version": "x", "objects": [{"digest": "aa"}]},
+            {"api_version": "x", "objects": [{"path": "evidence/findings/a.json"}]},
+            # non-string field types
+            {"api_version": "x", "objects": [{"path": 1, "digest": "aa"}]},
+            # manifest itself is not an object
+            [1, 2, 3],
+        ]
+        for i, manifest_obj in enumerate(cases):
+            with tempfile.TemporaryDirectory() as td:
+                with open(Path(td) / "evidence-manifest.json", "w") as fh:
+                    json.dump(manifest_obj, fh)
+                self.assertFalse(
+                    evidence.verify(td, "fake-digest"),
+                    f"malformed manifest case {i} must be rejected, not crash")
+
+    def test_verify_rejects_parent_escaping_paths(self):
+        # fw-ev-02: an object path escaping the bundle directory must be
+        # rejected without reading the referenced file.
+        from hub.coherence import evidence
+        with tempfile.TemporaryDirectory() as td:
+            outside = Path(td) / "secret.txt"
+            outside.write_text("payload")
+            bundle = Path(td) / "bundle"
+            bundle.mkdir()
+            for rel in ("../secret.txt", "evidence/../../secret.txt",
+                        "/etc/hostname"):
+                manifest_obj = {"api_version": "x",
+                                "objects": [{"path": rel, "digest": "aa"}]}
+                with open(bundle / "evidence-manifest.json", "w") as fh:
+                    json.dump(manifest_obj, fh)
+                self.assertFalse(
+                    evidence.verify(str(bundle), "fake-digest"),
+                    f"escaping path {rel!r} must be rejected")
+
+    def test_verify_unreadable_object_fails_closed(self):
+        # fw-ev-03: an unreadable evidence file is a rejection, not a crash.
+        from hub.coherence import evidence
+        with tempfile.TemporaryDirectory() as td:
+            findings = [{
+                "assertion_id": "a1", "finding_key": "a1|x|identity-mismatch",
+                "outcome": "VIOLATED", "enforcement": "BLOCK", "severity": "high",
+                "subject_locations": ["README.md"], "expected": "w",
+                "observed": "o", "evidence_refs": [],
+            }]
+            digest = evidence.seal(findings, td)
+            obj = Path(td) / "evidence" / "findings" / "a1.json"
+            obj.unlink()
+            obj.mkdir()  # a directory where the evidence file belongs
+            self.assertFalse(evidence.verify(td, digest))
+
 
 class TestTraceabilityMarkerScan(unittest.TestCase):
     """Repo-marker half of traceability_completeness (coh-assert-04,

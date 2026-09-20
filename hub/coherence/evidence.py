@@ -7,6 +7,7 @@ secret values are redacted before sealing (coh-rt-04); an unredacted secret in
 sealed evidence is an evidence ERROR, never a silent seal.
 """
 import json
+import os
 from pathlib import Path
 
 from . import canon, result
@@ -88,20 +89,48 @@ def seal(findings: list, output_dir: str, redact: list = None) -> str:
 def verify(output_dir: str, expected_manifest_digest: str) -> bool:
     """Verify a sealed bundle: recompute every object's digest against the
     manifest, then the manifest digest against the expected value. Detects
-    tamper of both individual evidence files and the manifest itself."""
+    tamper of both individual evidence files and the manifest itself.
+
+    Fail-closed (fw-ev-01): any malformed manifest shape — objects that is not
+    a list, an entry that is not an object with string path/digest fields —
+    is a rejected bundle (False), never a crash. A tamper detector that can
+    be crashed by crafted input is a denial-of-service on the verification
+    path itself.
+    """
     out = Path(output_dir)
     manifest_path = out / "evidence-manifest.json"
     if not manifest_path.exists():
         return False
     try:
         manifest = json.loads(manifest_path.read_text())
-    except (OSError, json.JSONDecodeError):
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
         return False
-    for obj in manifest.get("objects", []):
-        fp = out / obj["path"]
-        if not fp.exists():
+    if not isinstance(manifest, dict):
+        return False
+    objects = manifest.get("objects")
+    if not isinstance(objects, list):
+        return False
+    for obj in objects:
+        if not isinstance(obj, dict):
             return False
-        if canon.digest_bytes("evidence-manifest/v1", fp.read_bytes()) != obj["digest"]:
+        rel, digest = obj.get("path"), obj.get("digest")
+        if not isinstance(rel, str) or not isinstance(digest, str):
             return False
-    actual = canon.digest_obj("evidence-manifest/v1", manifest)
+        # Sealed evidence is bundle-relative; an absolute or parent-escaping
+        # path is not a bundle member (fw-ev-02) — reject, do not read.
+        if os.path.isabs(rel) or os.pardir in Path(rel).parts:
+            return False
+        fp = out / rel
+        try:
+            if not fp.is_file():
+                return False
+            actual = canon.digest_bytes("evidence-manifest/v1", fp.read_bytes())
+        except OSError:
+            return False
+        if actual != digest:
+            return False
+    try:
+        actual = canon.digest_obj("evidence-manifest/v1", manifest)
+    except (TypeError, ValueError):
+        return False
     return actual == expected_manifest_digest

@@ -1,0 +1,83 @@
+# Spec-Coherence Gate — Reusable CI Template
+#
+# Runs the spec-coherence evaluator against this repo on every PR and push
+# to watched branches (coh-int-01, coh-int-06). The hub's monitor watches
+# this workflow's check-runs by name (default pattern: "coherence") — a
+# failure raises coherence_failure and ABSENCE raises coherence_absent
+# (coh-int-02): the gate may run and fail, or run and explicitly SKIP, but
+# never silently vanish from a watched branch.
+#
+# DEFAULT-DENY ADAPTER CONTRACT (coh-int-05): the coherence CLI's exit code
+# is the contract (0 PASS / 10 ADVISORY / 20 FAIL / 30-40 ERROR). A timeout
+# or an unparseable result must surface as a FAILED step, never as a
+# neutral pass — that is what `set -euo pipefail` plus the explicit verdict
+# table below enforce.
+#
+# SETUP:
+#   - DevGate present as .devgate/ (submodule or clone), checked out with
+#     `submodules: true`.
+#   - Copy to .github/workflows/spec-coherence.yml
+#   - Optional inputs via env: coherence reads the OpenSpec tree, policy
+#     root, and signed evaluation context — see docs/RELEASE_GATE.md.
+
+name: Spec Coherence Gate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+# A coherence verdict is per-commit evidence: a superseded run on the same
+# ref is noise, and the hub reads only the latest check-run per commit.
+concurrency:
+  group: spec-coherence-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  spec-coherence:
+    name: spec-coherence-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15   # coh-int-05: a hung evaluation fails, never wedges
+    steps:
+      - name: Checkout code (with DevGate submodule)
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4 (SHA resolved 2026-09-19)
+        with:
+          submodules: true
+
+      - name: Run spec-coherence evaluation
+        id: evaluate
+        run: |
+          set -euo pipefail
+          # Build the request (subject/openspec/policy/context roots) per
+          # docs/RELEASE_GATE.md, then invoke the evaluator. The verdict
+          # table is the adapter: ONLY the frozen exit codes map to a
+          # verdict; anything else (timeout, crash, unparseable) is ERROR
+          # and fails the job.
+          set +e
+          timeout 600 python3 -m hub.coherence --request request.json
+          code=$?
+          set -e
+          case $code in
+            0)  verdict=PASS;     exit 0 ;;
+            10) verdict=ADVISORY; exit 0 ;;   # advisory is visible, not blocking
+            20) verdict=FAIL;     exit 1 ;;
+            30|31|32|33|40)
+                verdict="ERROR($code)"; exit 1 ;;
+            124) verdict="ERROR(timeout)"; exit 1 ;;  # timeout's own code
+            *)   verdict="ERROR(unknown-exit-$code)"; exit 1 ;;
+          esac
+
+      - name: Record verdict
+        if: always()
+        run: |
+          {
+            echo "## Spec-Coherence Gate"
+            echo ""
+            echo "| Verdict | Detail |"
+            echo "|---------|--------|"
+            echo "| ${{ steps.evaluate.outcome == 'failure' && 'FAIL/ERROR' || 'PASS/ADVISORY' }} | exit-contract mapping in workflow |"
+          } >> "$GITHUB_STEP_SUMMARY"

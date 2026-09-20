@@ -252,6 +252,12 @@ def podman_args(ctx: dict, *, output_dir: Path) -> list:
         f"--pids-limit={lim['pids']}",
         "--ulimit", f"nofile={lim['nofile']}:{lim['nofile']}",
         "--shm-size=64m",
+        # Execution identity (coh-id-04, S4/S6): the launcher KNOWS the
+        # executed image digest (the ref is digest-pinned, coh-rt-01) and
+        # injects it so the in-container runtime can self-identify instead
+        # of recording a null. Within this threat model the host launcher
+        # is the trusted injection point.
+        "-e", f"DEVGATE_IMAGE_DIGEST={ctx['image'].rsplit('@', 1)[1]}",
     ]
     for target in _TMPFS_TARGETS:
         args += ["--tmpfs", f"{target}:size={ctx['scratch_bytes']},noexec,nodev"]

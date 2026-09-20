@@ -88,7 +88,9 @@ PY
     check "$label: curl is time-bounded" \
         "$(grep -q -- '--max-time' "$CURL_CAPTURE" && echo 0 || echo 1)"
 
-    envfile="$tmp/.devgate-heartbeat.env"
+    # Per-runner env file (coh-int-07): units and env are name-scoped so a
+    # host can enroll several spokes without them clobbering each other.
+    envfile="$tmp/.devgate-heartbeat-r1.env"
     if [ -f "$envfile" ]; then
         perms="$(stat -c '%a' "$envfile")"
         check "$label: env file is 0600" "$([ "$perms" = "600" ] && echo 0 || echo 1)" "perms=$perms"

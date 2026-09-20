@@ -336,6 +336,31 @@ class TestOverlayCannotWeaken(unittest.TestCase):
             policy.apply_overlay(self._assertions(), {"network": "egress"}, self._central())
         self.assertIn("control-plane policy", str(c.exception))
 
+    # fw-pol-01 regression: the overlay file is repository-supplied content.
+    # JSON that parses but is not an object (array, string, number, null)
+    # must be a PolicyError (exit 31), never an AttributeError traceback that
+    # escapes every stage handler as undocumented exit 1.
+    def test_non_object_overlay_is_policy_error_not_crash(self):
+        from hub.coherence import policy
+        with tempfile.TemporaryDirectory() as td:
+            polroot = Path(td)
+            for i, text in enumerate(('["not", "an", "object"]', "null",
+                                      '"evil"', "42", "true")):
+                (polroot / "overlay.json").write_text(text)
+                with self.assertRaises(policy.PolicyError, msg=f"case {i}"):
+                    policy.load_overlay(str(polroot))
+
+    def test_non_object_overlay_end_to_end_is_policy_error(self):
+        """The hostile-overlay crash class through the real pipeline shape:
+        load (and therefore apply, which never sees the value) must raise
+        PolicyError, never AttributeError."""
+        from hub.coherence import policy
+        with tempfile.TemporaryDirectory() as td:
+            polroot = Path(td)
+            (polroot / "overlay.json").write_text("[1, 2, 3]")
+            with self.assertRaises(policy.PolicyError):
+                policy.load_overlay(str(polroot))
+
     def test_overlay_bypass_end_to_end_is_error(self):
         """A real overlay file attempting a bypass must yield ERROR, never PASS."""
         with tempfile.TemporaryDirectory() as td:

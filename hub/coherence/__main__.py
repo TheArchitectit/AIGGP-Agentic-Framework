@@ -14,12 +14,14 @@ family.
 """
 import argparse
 import json
+import os
 import sys
 from functools import lru_cache
 from pathlib import Path
 
-from . import (adoption, container_exec, context, evaluate, evidence, manifest,
-               package, plan, policy, result, schemacheck)
+from . import (adoption, attest, canon, container_exec, context, evaluate,
+               evidence, manifest, package, plan, policy, profiles, result,
+               schemacheck, verification)
 
 # Runtime contracts live with the service package (fix-coherence-container-
 # contract): resolving relative to THIS file keeps host-side and in-container
@@ -115,10 +117,13 @@ def run(request_path: str) -> int:
         # Empty/whitespace outputs must NOT mean "caller's cwd" — fall back to
         # the request's own directory.
         out_dir = (raw_out or "").strip() or out_dir
-    except (OSError, json.JSONDecodeError, ValueError, schemacheck.SchemaError) as e:
+    except (OSError, json.JSONDecodeError, ValueError,
+            schemacheck.SchemaError, RecursionError) as e:
         # Malformed request must yield an envelope, never a raw traceback
         # (round-2 audit finding 6b), written beside the request file rather
-        # than polluting the working directory.
+        # than polluting the working directory. RecursionError included
+        # (fw-rt-01): the stdlib parser raises it on pathologically deep
+        # nesting, and it is a RuntimeError — outside the ValueError family.
         return _fail(out_dir, "invalid-input", f"malformed request: {e}",
                      "invocation", {})
 
@@ -161,11 +166,27 @@ def run(request_path: str) -> int:
         pol = policy.resolve(_require(req["policy"], "root", "policy"),
                              _require(req["policy"], "expected_digest", "policy"))
         identities["policy_digest"] = pol["policy_digest"]
-    except (policy.PolicyError, KeyError, TypeError) as e:
-        return _fail(out_dir, "policy-resolution", str(e), "policy-resolution", identities)
+        # Anti-rollback (coh-pol-02, S6): the signed context carries the
+        # control-plane epoch floor; a bundle below it is a rolled-back,
+        # trusted-but-obsolete bundle and is rejected here, before it can
+        # influence any decision.
+        attest.check_anti_rollback(pol.get("min_bundle_epoch"),
+                                   ctx.get("policy_epoch_floor"))
+    except (policy.PolicyError, attest.AttestationError, KeyError,
+            TypeError) as e:
+        return _fail(out_dir, "policy-resolution", str(e), "policy-resolution",
+                     identities)
 
-    # Slice cannot compute these; explicit nulls, never fabricated (coh-dec-02).
-    identities["evaluator_image_digest"] = None
+    # Execution identity (coh-id-04, S4/S6): the host launcher injects the
+    # digest-pinned ref it executed (DEVGATE_IMAGE_DIGEST); the runtime
+    # self-identifies instead of recording a fabricated-or-null digest.
+    # Absence remains an explicit null (coh-dec-02) — known-unknown, never
+    # invented. A malformed injection is a hard protocol error.
+    try:
+        identities["evaluator_image_digest"] = \
+            profiles.execution_identity()
+    except profiles.ProfileRegistryError as e:
+        return _fail(out_dir, "protocol", str(e), "invocation", identities)
     identities["platform"] = {
         "index_digest": None,
         "manifest_digest": None,
@@ -174,7 +195,9 @@ def run(request_path: str) -> int:
 
     try:
         assertions = _load_assertions(req["openspec"]["root"])
-    except (OSError, json.JSONDecodeError) as e:
+    except (OSError, json.JSONDecodeError, RecursionError) as e:
+        # RecursionError (fw-rt-01): an assertion file with pathological
+        # nesting is invalid input, not a crash.
         return _fail(out_dir, "invalid-input", f"cannot load assertions: {e}",
                      "planning", identities)
 
@@ -235,8 +258,87 @@ def run(request_path: str) -> int:
     # decision was computed but result.json cannot be written (occupied by a
     # directory, dir flipped read-only after seal), the payload lands beside
     # the request with an stderr announcement — never exit 1 + traceback.
-    result.emit_with_fallback(out_dir, result.to_canonical(res))
+    payload = result.to_canonical(res)
+    final_dir = result.emit_with_fallback(out_dir, payload)
     _, code = result.decide(ledger, ctx["stage"], blocked=adoption_out["blocked"])
+
+    # Detached attestation (coh-ev-01, coh-ev-05, S5): produced AFTER the
+    # decision and evidence are sealed — the acyclic sealing order. The
+    # decision payload contains no attestation material; the attestation
+    # binds the exact emitted bytes. Unconfigured signing is honest absence:
+    # no attestation file, unchanged exit code. CONFIGURED-but-unauthorized
+    # (identity without a key, or not in the policy's approved signer set,
+    # or revoked) is a policy error — an operator who turned signing on must
+    # never get silent non-signing on a promotion-authorizing run.
+    if attest._keys():
+        identity = attest.signer_identity()
+        try:
+            if not identity:
+                raise attest.AttestationError(
+                    "signer keys configured but HUB_COHERENCE_SIGNER_IDENTITY "
+                    "is unset; refusing to skip attestation silently")
+            approved = {
+                e.get("identity"): e
+                for e in (pol.get("approved_signers") or [])
+                if isinstance(e, dict)}
+            if identity not in approved:
+                raise attest.AttestationError(
+                    f"signer identity {identity!r} is not in the policy's "
+                    f"approved signer set")
+            if approved[identity].get("revoked"):
+                raise attest.AttestationError(
+                    f"signer identity {identity!r} is revoked")
+            att = attest.attest(payload, {
+                "subject_digest": identities["subject_digest"],
+                "openspec_digest": identities["openspec_digest"],
+                "policy_digest": identities["policy_digest"],
+                "context_digest": identities["context_digest"],
+                "evaluator_image_digest": identities["evaluator_image_digest"],
+                "evidence_manifest_digest": ev_digest,
+            }, identity, issued_at=ctx.get("evaluation_time"))
+            result.emit(str(Path(final_dir) / "attestation.json"),
+                        canon.canon(att))
+        except attest.AttestationError as e:
+            return _fail(out_dir, "policy-resolution", str(e),
+                         "attestation", identities)
+
+    # Decision claim (fw-* verification semantics): the pipeline records
+    # what it OBSERVED, bound to every input digest — and deliberately stops
+    # at OBSERVED. A producer cannot certify its own output (the claim
+    # lifecycle forbids self-issued VERIFIED); a consumer raises the claim
+    # via independent re-verification (scripts/evidence-validate.py).
+    claim = verification.new_claim(
+        f"coherence-decision:{identities['subject_digest'][:23]}",
+        f"spec-coherence decision for subject "
+        f"{identities['subject_digest']}",
+        subject_digest=identities["subject_digest"], actor="devgate-coherence")
+    for role, digest in (
+            ("subject", identities["subject_digest"]),
+            ("openspec", identities["openspec_digest"]),
+            ("policy", identities["policy_digest"]),
+            ("context", identities["context_digest"]),
+            ("evidence-manifest", ev_digest),
+            ("decision", canon.digest_bytes("decision/v1", payload))):
+        verification.bind(claim, role, digest)
+    for state, reason in (
+            (verification.ATTEMPTED, "request accepted, identities computed"),
+            (verification.EXECUTED, "assertions executed"),
+            (verification.COMPLETED, "decision computed"),
+            (verification.TESTED, "assertion ledger complete"),
+            (verification.OBSERVED,
+             f"decision {res['decision']} sealed with evidence")):
+        verification.transition(claim, state, reason=reason)
+    verification.attach_evidence(claim, "evidence-manifest.json")
+    claim_path = Path(final_dir) / "decision.claim.json"
+    try:
+        result.emit(str(claim_path), canon.canon(claim))
+        result.emit(str(claim_path) + ".digest",
+                    verification.digest_claim(claim).encode("utf-8"))
+    except OSError:
+        # The decision itself is already sealed; a claim-write failure must
+        # not corrupt or mask it — surface loudly on stderr.
+        print("warning: decision claim could not be written; the sealed "
+              "decision is unaffected", file=sys.stderr)
     return code
 
 
@@ -251,20 +353,102 @@ def _load_assertions(openspec_root: str) -> list:
     return out
 
 
+def _verify_outcome(args) -> int:
+    """Offline attestation verification (S5): check a sealed output
+    directory's attestation.json against its result.json and an approved
+    signer set. Exit 0 verified; 1 rejected (with the stable reason);
+    30 usage/missing-input error."""
+    out_dir = Path(args.verify)
+    result_fp = out_dir / "result.json"
+    att_fp = out_dir / "attestation.json"
+    missing = [str(p) for p in (result_fp, att_fp) if not p.is_file()]
+    if missing:
+        print(f"hub.coherence --verify: missing input(s): "
+              f"{', '.join(missing)}", file=sys.stderr)
+        return EXIT_USAGE
+    if not args.signers:
+        print("hub.coherence --verify: --signers PATH (approved signer set) "
+              "is required; verification without a signer set would be a "
+              "rubber stamp", file=sys.stderr)
+        return EXIT_USAGE
+    try:
+        result_payload = result_fp.read_bytes()
+        attestation = json.loads(att_fp.read_text())
+        signer_set = json.loads(Path(args.signers).read_text())
+    except (OSError, json.JSONDecodeError) as e:
+        print(f"hub.coherence --verify: cannot read inputs: {e}",
+              file=sys.stderr)
+        return EXIT_USAGE
+
+    # The decision's own claimed identities come from the result payload;
+    # the attestation must bind exactly these (substitution detection).
+    try:
+        decided = json.loads(result_payload)
+    except json.JSONDecodeError:
+        print("hub.coherence --verify: result.json is not valid JSON",
+              file=sys.stderr)
+        return EXIT_USAGE
+    identities = {
+        "subject_digest": decided.get("subject_digest"),
+        "openspec_digest": decided.get("openspec_digest"),
+        "policy_digest": decided.get("policy_digest"),
+        "context_digest": decided.get("context_digest"),
+        "evaluator_image_digest": decided.get("evaluator_image_digest"),
+        "evidence_manifest_digest": decided.get("evidence_manifest_digest"),
+    }
+    ok, reason = attest.verify(attestation, result_payload, identities,
+                               signer_set,
+                               reference_time=args.reference_time)
+    if ok:
+        print(f"attestation OK — signer {attestation['signer']['identity']} "
+              f"({attestation['signer']['key_id']}) binds decision "
+              f"{attestation['statement_digest']}")
+        return 0
+    print(f"attestation REJECTED: {reason}")
+    return 1
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(prog="hub.coherence")
-    ap.add_argument("--request", required=True, help="Path to request JSON")
+    ap.add_argument("--request", help="Path to request JSON")
     ap.add_argument("--launch-config",
                     help="Host-side containerized execution: validate the "
                          "launch config against the execution-profile "
                          "registry, run the evaluation inside the pinned "
                          "image, and map launch failures to the exit-code "
                          "contract (coh-rt-05/07, coh-dec-04)")
+    ap.add_argument("--verify", metavar="OUT_DIR",
+                    help="offline attestation verification over a sealed "
+                         "output directory (S5)")
+    ap.add_argument("--signers", metavar="PATH",
+                    help="approved signer set JSON for --verify")
+    ap.add_argument("--reference-time",
+                    help="reference time for signer validity windows "
+                         "(coh-ctx-01: supply the context's "
+                         "evaluation_time, never a host clock)")
     args = ap.parse_args()
+
+    if args.verify:
+        return _verify_outcome(args)
+
+    if not args.request:
+        ap.error("--request is required (or use --verify)")
     if args.launch_config:
         return container_exec.run_containerized(
             args.request, args.launch_config, str(PROFILE_REGISTRY))
-    return run(args.request)
+    try:
+        return run(args.request)
+    except RecursionError:
+        # fw-rt-01 backstop: ANY stage can raise RecursionError from the
+        # stdlib JSON parser given pathologically deep nesting (manifest,
+        # package, context, and policy files all parse repository-supplied
+        # content). Hostile input gets the documented invalid-input envelope
+        # beside the request, never a raw traceback with an undocumented
+        # exit code.
+        request_dir = str(Path(args.request).resolve().parent)
+        return _fail(request_dir, "invalid-input",
+                     "request inputs exceed supported nesting depth",
+                     "invocation", {})
 
 
 if __name__ == "__main__":
