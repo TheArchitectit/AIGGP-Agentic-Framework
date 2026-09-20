@@ -427,6 +427,72 @@ class TestContainerExec(unittest.TestCase):
         self.assertEqual(rc, 0)
         self.assertIn(ce.STAGED_REQUEST_NAME, emitted)
 
+    # --- coh-int-05: adapter default-deny (ERROR, never neutral/pass) ---
+
+    def test_timeout_surfaces_error_not_pass(self):
+        """coh-int-05: a container that times out MUST produce ERROR/32,
+        never a neutral or passing verdict."""
+        rc, _ = self._run(driver_request(), launch_cfg(),
+                          lambda *a, **kw: LaunchRun(0, b"", "timeout"))
+        self.assertEqual(rc, 32)
+        env = self._envelope()
+        self.assertEqual(env["decision"], "ERROR")
+        self.assertEqual(env["error"]["class"], "execution")
+        self.assertIn("launch-timeout", env["error"]["reason"])
+        # Must NOT read as PASS or ADVISORY
+        self.assertNotIn(env["decision"], ("PASS", "ADVISORY", "FAIL"))
+
+    def test_unparseable_result_is_error_not_pass(self):
+        """coh-int-05: a result.json that cannot be parsed (truncated,
+        corrupted, or malformed JSON) MUST surface ERROR/32 — never a
+        default-allow or neutral verdict."""
+        def fake_run(ctx, *, output_dir, container_args, env=None):
+            # Write garbage that is not valid JSON
+            (output_dir / "result.json").write_text("{broken json!!!")
+            return LaunchRun(0, b"", "completed")
+
+        rc, _ = self._run(driver_request(), launch_cfg(), fake_run)
+        self.assertEqual(rc, 32)
+        env = self._envelope()
+        self.assertEqual(env["decision"], "ERROR")
+        self.assertEqual(env["error"]["class"], "execution")
+        self.assertIn("exit-code contract", env["error"]["reason"])
+        self.assertNotIn(env["decision"], ("PASS", "ADVISORY"))
+
+    def test_no_result_file_is_error_not_pass(self):
+        """coh-int-05: when the container produces no result.json at all
+        (e.g. it was killed before writing, or the output bind vanished),
+        the adapter MUST surface ERROR/32 — never absence-as-pass."""
+        def fake_run(ctx, *, output_dir, container_args, env=None):
+            # Container exited but wrote nothing
+            return LaunchRun(0, b"", "completed")
+
+        rc, _ = self._run(driver_request(), launch_cfg(), fake_run)
+        self.assertEqual(rc, 32)
+        env = self._envelope()
+        self.assertEqual(env["decision"], "ERROR")
+        self.assertEqual(env["error"]["class"], "execution")
+        self.assertIn("exit-code contract", env["error"]["reason"])
+        # Absence must never read as PASS
+        self.assertNotEqual(env["decision"], "PASS")
+
+    def test_zero_assertion_aggregates_to_pass(self):
+        """Known aggregation hole: a zero-assertion run produces an
+        empty ledger with no findings. result.decide() with an empty
+        ledger and no error_class falls through to ("PASS", EXIT_PASS).
+        This is the coh-int-05 aggregation hole: a gate that could not
+        evaluate (zero assertions to evaluate) can aggregate to a clean
+        PASS. Reported as a carry-forward to the AIGGP package — NOT
+        redesigned here. The test asserts the current behavior so the
+        hole is visible and cannot silently disappear."""
+        from hub.coherence import result
+        decision, code = result.decide([], stage=1)
+        self.assertEqual(decision, "PASS")
+        self.assertEqual(code, result.EXIT_PASS)
+        # The hole: empty ledger = clean pass. This is NOT an ERROR.
+        # A gate with nothing to evaluate should arguably be UNRESOLVED,
+        # but current code returns PASS. Reported, not fixed.
+
 
 @unittest.skipUnless(shutil.which("podman"), "podman not available")
 class TestContainerExecReal(unittest.TestCase):
