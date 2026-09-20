@@ -141,6 +141,8 @@ class TestCapturedFactContent(unittest.TestCase):
             "api_version": "devgate.spec-coherence.context/v1",
             "context_id": "rt-fixture", "evaluation_time": "2026-09-17T00:00:00Z",
             "stage": 1, "execution_profile": "linux-amd64-v1",
+            "policy_binding": {"expected_digest": "sha256:" + "a" * 64,
+                               "min_bundle_epoch": 0, "grandfathers": []},
             "captured_facts": [], "issuance": {
                 "issued_at": "2026-09-17T00:00:00Z", "issuer": "cp"}}))
 

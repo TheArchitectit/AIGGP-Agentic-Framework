@@ -31,6 +31,19 @@ def _registry_file(td: Path) -> Path:
     return rp
 
 
+def _policy_file(pdir: Path) -> Path:
+    """A minimal current central bundle: the issuer binds the policy.json it
+    is pointed at (design.md round-15), so issuance tests place one first."""
+    pdir.mkdir(parents=True, exist_ok=True)
+    (pdir / "policy.json").write_text(json.dumps({
+        "api_version": "devgate.spec-coherence.policy/v1",
+        "policy_version": "1", "bundle_epoch": 1,
+        "required_assertions": [], "approved_evaluators": [],
+        "approved_signers": [],
+        "stages": {"max_advisory_age_days": 30}}))
+    return pdir
+
+
 class TestStageRegistry(unittest.TestCase):
     def test_registry_is_authoritative(self):
         reg = issue.load_stage_registry(str(_registry_file(Path(tempfile.mkdtemp()))))
@@ -65,6 +78,7 @@ class TestStageRegistry(unittest.TestCase):
 class TestIssuance(unittest.TestCase):
     def _issue(self, td: Path, **kw):
         rp = _registry_file(td)
+        _policy_file(td / "policy")
         return issue.issue_context(
             str(td / "ctx"), str(td / "policy"),
             repo="com.test.widget", registry_path=str(rp),
@@ -246,6 +260,7 @@ class TestReplaySemantics(unittest.TestCase):
                 "advisory_started": "2026-06-01T00:00:00Z",
                 "advisory_expiry": "2026-07-01T00:00:00Z", "next_stage": 2}}
             (base / "reg.json").write_text(json.dumps(reg))
+            _policy_file(base / "p")
             out = issue.issue_context(
                 str(base / "c"), str(base / "p"), repo="com.test.widget",
                 registry_path=str(base / "reg.json"),
@@ -269,6 +284,7 @@ class TestSigning(unittest.TestCase):
             base = Path(td)
             os.environ["HUB_COHERENCE_CP_KEY"] = "ab" * 32
             try:
+                _policy_file(base / "policy")
                 out = issue.issue_context(
                     str(base / "ctx"), str(base / "policy"),
                     repo="com.test.widget",

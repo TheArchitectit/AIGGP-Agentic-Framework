@@ -1,78 +1,219 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/TheArchitectit/DevGate-Agentic-Framework/openspec/changes/devgate-spec-coherence-service/schemas/evaluation-context.schema.json",
-  "title": "devgate.spec-coherence.context/v1 evaluation context",
-  "description": "Control-plane-issued bound input carrying everything policy-relevant that varies with time or adoption state. Digested and bound like every other input (R2 / ADR-012).",
-  "type": "object",
-  "additionalProperties": false,
-  "required": ["api_version", "context_id", "evaluation_time", "stage", "execution_profile", "issuance"],
-  "properties": {
-    "api_version": { "const": "devgate.spec-coherence.context/v1" },
-    "context_id": { "type": "string" },
-    "evaluation_time": {
-      "type": "string",
-      "format": "date-time",
-      "description": "Trusted time used for expiry and advisory-age evaluation. Never taken from host clock or request."
-    },
-    "stage": {
-      "description": "Effective adoption stage from the authoritative adoption record, not the requested mode.",
-      "enum": [0, 1, 2, 3, 4]
-    },
-    "semantics": { "enum": ["fresh-promotion", "replay"] },
-    "baseline_set_digest": { "$ref": "#/definitions/digestOrNull" },
-    "exception_set_digest": { "$ref": "#/definitions/digestOrNull" },
-    "signer_set_digest": { "$ref": "#/definitions/digestOrNull" },
-    "capability_grants": {
-      "type": "array",
-      "items": { "$ref": "#/definitions/capabilityGrant" }
-    },
-    "captured_facts": {
-      "type": "array",
-      "items": { "$ref": "#/definitions/capturedFact" }
-    },
-    "execution_profile": {
-      "type": "string",
-      "description": "Label into the execution-profile registry (coh-id-04)."
-    },
-    "supported_runners": {
-      "type": "array",
-      "items": { "type": "string" }
-    },
-    "issuance": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["issued_at", "issuer"],
-      "properties": {
-        "issued_at": { "type": "string", "format": "date-time" },
-        "issuer": { "type": "string", "description": "Control-plane issuer identity." },
-        "countersignature": { "type": ["string", "null"] }
-      }
-    }
+ "$schema": "http://json-schema.org/draft-07/schema#",
+ "$id": "https://github.com/TheArchitectit/DevGate-Agentic-Framework/openspec/changes/devgate-spec-coherence-service/schemas/evaluation-context.schema.json",
+ "title": "devgate.spec-coherence.context/v1 evaluation context",
+ "description": "Control-plane-issued bound input carrying everything policy-relevant that varies with time or adoption state. Digested and bound like every other input (R2 / ADR-012).",
+ "type": "object",
+ "additionalProperties": false,
+ "required": [
+  "api_version",
+  "context_id",
+  "evaluation_time",
+  "stage",
+  "policy_binding",
+  "execution_profile",
+  "issuance"
+ ],
+ "properties": {
+  "api_version": {
+   "const": "devgate.spec-coherence.context/v1"
   },
-  "definitions": {
-    "digestOrNull": { "type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$" },
-    "capabilityGrant": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["name", "assertion_id"],
-      "properties": {
-        "name": { "type": "string" },
-        "assertion_id": { "type": "string" },
-        "endpoint": { "type": ["string", "null"] },
-        "secret_ref": { "type": ["string", "null"] },
-        "ttl_seconds": { "type": ["integer", "null"], "minimum": 0 }
-      }
+  "context_id": {
+   "type": "string"
+  },
+  "evaluation_time": {
+   "type": "string",
+   "format": "date-time",
+   "description": "Trusted time used for expiry and advisory-age evaluation. Never taken from host clock or request."
+  },
+  "stage": {
+   "description": "Effective adoption stage from the authoritative adoption record, not the requested mode.",
+   "enum": [
+    0,
+    1,
+    2,
+    3,
+    4
+   ]
+  },
+  "semantics": {
+   "enum": [
+    "fresh-promotion",
+    "replay"
+   ]
+  },
+  "baseline_set_digest": {
+   "$ref": "#/definitions/digestOrNull"
+  },
+  "exception_set_digest": {
+   "$ref": "#/definitions/digestOrNull"
+  },
+  "signer_set_digest": {
+   "$ref": "#/definitions/digestOrNull"
+  },
+  "capability_grants": {
+   "type": "array",
+   "items": {
+    "$ref": "#/definitions/capabilityGrant"
+   }
+  },
+  "captured_facts": {
+   "type": "array",
+   "items": {
+    "$ref": "#/definitions/capturedFact"
+   }
+  },
+  "execution_profile": {
+   "type": "string",
+   "description": "Label into the execution-profile registry (coh-id-04)."
+  },
+  "supported_runners": {
+   "type": "array",
+   "items": {
+    "type": "string"
+   }
+  },
+  "issuance": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "issued_at",
+    "issuer"
+   ],
+   "properties": {
+    "issued_at": {
+     "type": "string",
+     "format": "date-time"
     },
-    "capturedFact": {
+    "issuer": {
+     "type": "string",
+     "description": "Control-plane issuer identity."
+    },
+    "countersignature": {
+     "type": [
+      "string",
+      "null"
+     ]
+    }
+   }
+  },
+  "policy_binding": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "expected_digest",
+    "min_bundle_epoch",
+    "grandfathers"
+   ],
+   "properties": {
+    "expected_digest": {
+     "$ref": "#/definitions/digest"
+    },
+    "min_bundle_epoch": {
+     "type": "integer",
+     "minimum": 0
+    },
+    "grandfathers": {
+     "type": "array",
+     "items": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["fact_id", "digest", "captured_at"],
+      "required": [
+       "bundle_digest",
+       "valid_until",
+       "reason"
+      ],
       "properties": {
-        "fact_id": { "type": "string" },
-        "digest": { "$ref": "#/definitions/digestOrNull" },
-        "source": { "type": ["string", "null"] },
-        "captured_at": { "type": "string", "format": "date-time" }
+       "bundle_digest": {
+        "$ref": "#/definitions/digest"
+       },
+       "valid_until": {
+        "type": "string",
+        "format": "date-time"
+       },
+       "reason": {
+        "type": "string"
+       }
       }
+     }
     }
+   },
+   "description": "Control-plane anti-rollback binding (design.md round-15): the current central bundle's digest, the epoch floor, and recorded grandfather windows. Enforced at policy resolution (coh-pol-01, coh-pol-02)."
   }
+ },
+ "definitions": {
+  "digestOrNull": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "pattern": "^sha256:[0-9a-f]{64}$"
+  },
+  "capabilityGrant": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "name",
+    "assertion_id"
+   ],
+   "properties": {
+    "name": {
+     "type": "string"
+    },
+    "assertion_id": {
+     "type": "string"
+    },
+    "endpoint": {
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "secret_ref": {
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "ttl_seconds": {
+     "type": [
+      "integer",
+      "null"
+     ],
+     "minimum": 0
+    }
+   }
+  },
+  "capturedFact": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": [
+    "fact_id",
+    "digest",
+    "captured_at"
+   ],
+   "properties": {
+    "fact_id": {
+     "type": "string"
+    },
+    "digest": {
+     "$ref": "#/definitions/digestOrNull"
+    },
+    "source": {
+     "type": [
+      "string",
+      "null"
+     ]
+    },
+    "captured_at": {
+     "type": "string",
+     "format": "date-time"
+    }
+   }
+  },
+  "digest": {
+   "type": "string",
+   "pattern": "^sha256:[0-9a-f]{64}$"
+  }
+ }
 }

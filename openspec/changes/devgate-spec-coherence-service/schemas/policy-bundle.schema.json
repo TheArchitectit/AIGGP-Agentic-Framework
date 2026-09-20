@@ -5,10 +5,15 @@
   "description": "Central minimum policy. Resolves from control-plane trust roots; repository overlay may strengthen only; anti-rollback applies (coh-pol-01, coh-pol-02).",
   "type": "object",
   "additionalProperties": false,
-  "required": ["api_version", "policy_version", "required_assertions", "approved_evaluators", "approved_signers", "stages"],
+  "required": ["api_version", "policy_version", "bundle_epoch", "required_assertions", "approved_evaluators", "approved_signers", "stages"],
   "properties": {
     "api_version": { "const": "devgate.spec-coherence.policy/v1" },
     "policy_version": { "type": "string" },
+    "bundle_epoch": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "This bundle's self-declared ordinal. Compared against the context-bound policy_binding.min_bundle_epoch floor at run time (design.md round-15)."
+    },
     "min_bundle_epoch": {
       "type": "integer",
       "minimum": 0,

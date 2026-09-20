@@ -79,7 +79,10 @@ def build_root(tmp: Path, *, declared_name="widget", approved_name="widget",
                assertions=None, baseline=None, exceptions=None,
                stage=1, semantics="fresh-promotion", evaluation_time=FIXED_TIME,
                policy_digest_ok=True, subject_files=None,
-               execution_profile="linux-amd64-v1", stages=None) -> tuple:
+               execution_profile="linux-amd64-v1", stages=None,
+               bundle_epoch=1, min_bundle_epoch=None,
+               binding_expected_digest=None, grandfather_self_until=None,
+               binding=True) -> tuple:
     """Build subject/package/policy/context/request under `tmp`.
 
     Returns (request_path, out_dir). Every input is real on disk so resolvers
@@ -113,11 +116,13 @@ def build_root(tmp: Path, *, declared_name="widget", approved_name="widget",
     pol.mkdir()
     bundle = {
         "api_version": "devgate.spec-coherence.policy/v1",
-        "policy_version": "1", "min_bundle_epoch": 0,
+        "policy_version": "1", "bundle_epoch": bundle_epoch,
         "required_assertions": [], "approved_evaluators": [],
         "approved_signers": [],
         "stages": stages if stages is not None else {"max_advisory_age_days": 30},
     }
+    if min_bundle_epoch is not None:
+        bundle["min_bundle_epoch"] = min_bundle_epoch
     if baseline is not None:
         (pol / "baseline.json").write_text(json.dumps(baseline))
     if exceptions is not None:
@@ -126,10 +131,22 @@ def build_root(tmp: Path, *, declared_name="widget", approved_name="widget",
     real_policy_digest = canon.digest_obj("policy/v1", bundle)
     claimed = real_policy_digest if policy_digest_ok else "sha256:" + "f" * 64
 
-    # Context
+    # Context — carries the anti-rollback binding (design.md round-15): the
+    # written bundle is "current" unless the test overrides the expected
+    # digest, optionally grandfathering the written bundle for a window.
+    grandfathers = ([{"bundle_digest": real_policy_digest,
+                      "valid_until": grandfather_self_until,
+                      "reason": "fixture grandfather window"}]
+                    if grandfather_self_until else [])
+    policy_binding = None
+    if binding:
+        policy_binding = {
+            "expected_digest": binding_expected_digest or real_policy_digest,
+            "min_bundle_epoch": min_bundle_epoch if min_bundle_epoch is not None else 0,
+            "grandfathers": grandfathers}
     ctx = root / "ctx"
     ctx.mkdir()
-    (ctx / "context.json").write_text(json.dumps({
+    ctx_dict = {
         "api_version": "devgate.spec-coherence.context/v1",
         "context_id": "fixture-ctx",
         "evaluation_time": evaluation_time, "stage": stage, "semantics": semantics,
@@ -137,15 +154,20 @@ def build_root(tmp: Path, *, declared_name="widget", approved_name="widget",
         "signer_set_digest": None, "capability_grants": [], "captured_facts": [],
         "execution_profile": execution_profile, "supported_runners": [execution_profile],
         "issuance": {"issued_at": FIXED_ISSUED, "issuer": "fixture-control-plane"},
-    }))
+    }
+    if policy_binding is not None:
+        ctx_dict["policy_binding"] = policy_binding
+    (ctx / "context.json").write_text(json.dumps(ctx_dict))
 
     # Expected digests are REAL computed content digests, not placeholders:
     # the CLI verifies them (round-2 audit finding 6a), so a wrong value must
     # fail rather than silently PASS.
-    from hub.coherence import manifest as _mf, package as _pk, context as _cx
+    from hub.coherence import manifest as _mf, package as _pk
     subject_digest = _mf.build(str(subj))["subject_digest"]
     openspec_digest = _pk.resolve(str(pkg))["package_digest"]
-    context_digest = _cx.load(str(ctx))["context_digest"]
+    # canon over the written dict — identical to context.load's digest, and
+    # valid even for a deliberately binding-less (schema-invalid) fixture.
+    context_digest = canon.digest_obj("context/v1", ctx_dict)
 
     out = root / "out"
     req = {

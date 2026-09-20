@@ -1,13 +1,15 @@
 # // spec: coh-pol-01, coh-pol-02, coh-pol-03
-"""Policy resolution (slice minimum) and adoption-ladder inputs.
+"""Policy resolution and adoption-ladder inputs.
 
-Slice scope: this verifies policy IDENTITY (content digest matches the expected
-digest) and loads the baseline/exception sets. It does NOT yet establish
-control-plane TRUST ROOTS or anti-rollback — that is S6 work (coh-pol-02,
-coh-pol-01). Until then a resolved policy is identity-verified only, and callers
-must not treat it as authoritative.
+Resolution verifies policy IDENTITY (content digest matches the expected
+digest) and AUTHORITY (the context-bound anti-rollback record, design.md
+round-15: the pinned bundle must be the control-plane-bound current central
+bundle and meet the bound epoch floor, unless a recorded grandfather window
+covers it). Baseline/exception sets load from the policy root; their digests
+are separately bound in the signed context (coh-ctx-01).
 """
 import json
+from datetime import datetime
 from pathlib import Path
 
 from . import canon
@@ -17,11 +19,97 @@ class PolicyError(ValueError):
     """Policy resolution failure (exit-31 class)."""
 
 
-def resolve(root: str, expected_digest: str) -> dict:
-    """Resolve policy content and verify its digest against the expected value.
+def _parse(ts: str) -> datetime:
+    return datetime.fromisoformat(ts.replace("Z", "+00:00"))
+
+
+def _is_int(v) -> bool:
+    return isinstance(v, int) and not isinstance(v, bool)
+
+
+def check_anti_rollback(digest: str, bundle: dict, binding: dict,
+                        evaluation_time: str) -> None:
+    """Run-path anti-rollback (design.md round-15, coh-pol-01/02).
+
+    The pinned bundle must match the context-bound `expected_digest` AND
+    declare a `bundle_epoch` at or above the bound `min_bundle_epoch` —
+    unless a grandfather record covers exactly this content within its
+    window (expiry measured against the context's evaluation_time, never
+    the host clock). A grandfathered bundle is the one exception to both
+    checks. Raises PolicyError with `anti-rollback:` / `policy-substitution:`
+    reason prefixes so fleet reporting can alert on the attempt.
+    """
+    if not isinstance(binding, dict) or not binding:
+        raise PolicyError(
+            "policy-substitution: context binds no central policy (coh-pol-02); "
+            "refusing to evaluate against repository-chosen policy")
+    expected = binding.get("expected_digest")
+    if not isinstance(expected, str) or not expected:
+        raise PolicyError(
+            "anti-rollback: bound expected_digest is missing or malformed")
+    grandfathered = False
+    if digest != expected:
+        matches = []
+        for g in binding.get("grandfathers") or []:
+            if not isinstance(g, dict) or not isinstance(g.get("valid_until"), str):
+                raise PolicyError(
+                    "anti-rollback: malformed grandfather record")
+            if g.get("bundle_digest") == digest:
+                matches.append(g)
+        if not matches:
+            raise PolicyError(
+                f"anti-rollback: pinned bundle digest {digest} is not the bound "
+                f"central bundle {expected} and no grandfather window covers it "
+                f"(coh-pol-01)")
+        if evaluation_time is None:
+            raise PolicyError(
+                "anti-rollback: grandfather window present but the context "
+                "carries no evaluation_time to judge expiry against")
+        try:
+            now = _parse(evaluation_time)
+        except ValueError:
+            raise PolicyError(
+                "anti-rollback: context evaluation_time is unparseable") from None
+        try:
+            unexpired = [_parse(g["valid_until"]) > now for g in matches]
+        except ValueError:
+            raise PolicyError(
+                "anti-rollback: grandfather window has an unparseable "
+                "valid_until") from None
+        if not any(unexpired):
+            raise PolicyError(
+                f"anti-rollback: grandfather window for {digest} expired at "
+                f"{max(g['valid_until'] for g in matches)} (coh-pol-01)")
+        grandfathered = True
+    if grandfathered:
+        return
+    epoch = bundle.get("bundle_epoch")
+    if not _is_int(epoch) or epoch < 0:
+        raise PolicyError(
+            "anti-rollback: bundle does not declare a valid bundle_epoch "
+            "(coh-pol-01)")
+    floor = binding.get("min_bundle_epoch", 0)
+    if not _is_int(floor) or floor < 0:
+        raise PolicyError(
+            "anti-rollback: bound min_bundle_epoch is malformed")
+    if epoch < floor:
+        raise PolicyError(
+            f"anti-rollback: pinned bundle epoch {epoch} is below the bound "
+            f"floor {floor} (coh-pol-01)")
+
+
+def resolve(root: str, expected_digest: str, binding: dict = None,
+            evaluation_time: str = None) -> dict:
+    """Resolve policy content and verify identity, then authority.
+
+    Identity: the computed content digest must match the caller's expected
+    digest. Authority (round-15): the context-bound anti-rollback record must
+    accept the pinned content — `binding=None` is a substitution refusal, so
+    a caller that forgets the binding fails closed rather than evaluating
+    identity-only policy.
 
     Returns the policy bundle plus its computed digest. Raises PolicyError on
-    missing content or digest mismatch.
+    missing content, digest mismatch, or an anti-rollback rejection.
     """
     root_p = Path(root).resolve()
     if not root_p.is_dir():
@@ -46,6 +134,8 @@ def resolve(root: str, expected_digest: str) -> dict:
     if computed != expected_digest:
         raise PolicyError(
             f"policy digest mismatch: expected {expected_digest}, computed {computed}")
+
+    check_anti_rollback(computed, bundle, binding, evaluation_time)
 
     bundle["policy_digest"] = computed
     return bundle

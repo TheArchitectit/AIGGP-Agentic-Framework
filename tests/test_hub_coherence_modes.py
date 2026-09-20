@@ -181,7 +181,8 @@ class TestSchemaAdmission(unittest.TestCase):
     def _validate(self, stages):
         from hub.coherence import schemacheck
         bundle = {"api_version": "devgate.spec-coherence.policy/v1",
-                  "policy_version": "1", "required_assertions": [],
+                  "policy_version": "1", "bundle_epoch": 1,
+                  "required_assertions": [],
                   "approved_evaluators": [], "approved_signers": [],
                   "stages": stages}
         return schemacheck.validate(bundle,

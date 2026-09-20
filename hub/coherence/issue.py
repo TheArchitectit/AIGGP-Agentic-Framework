@@ -113,7 +113,8 @@ def issue_context(ctx_dir: str, policy_dir: str, *, repo: str,
                   context_id: str = "pilot-context",
                   semantics: str = "fresh-promotion",
                   issuer: str = None,
-                  signer_set=None) -> dict:
+                  signer_set=None,
+                  policy_grandfathers=None) -> dict:
     """Issue a pilot evaluation context.
 
     Writes context.json into ctx_dir; baseline/exception sets into policy_dir
@@ -127,6 +128,13 @@ def issue_context(ctx_dir: str, policy_dir: str, *, repo: str,
 
     `signer_set`: optional path to a signer-set document; when provided,
     the context carries its digest (coh-ev-05).
+
+    `policy_grandfathers`: optional recorded windows (design.md round-15) —
+    [{bundle_digest, valid_until, reason}] — written into the context's
+    policy_binding so the CLI accepts those older bundles until their window
+    ends. The issuer refuses to issue against a policy directory with no
+    policy.json: the earliest fail-closed point for "no control-plane
+    binding" (coh-pol-02).
     """
     if semantics not in ("fresh-promotion", "replay"):
         raise ValueError(f"invalid semantics {semantics!r}")
@@ -137,6 +145,36 @@ def issue_context(ctx_dir: str, policy_dir: str, *, repo: str,
     ctx_root.mkdir(parents=True, exist_ok=True)
     pol_root = Path(policy_dir)
     pol_root.mkdir(parents=True, exist_ok=True)
+
+    policy_bundle_path = pol_root / "policy.json"
+    if not policy_bundle_path.exists():
+        raise ValueError(
+            f"no policy.json under {pol_root}: the issuer cannot bind a "
+            f"central policy (coh-pol-02); place the current bundle first")
+    try:
+        current = json.loads(policy_bundle_path.read_text())
+    except (OSError, json.JSONDecodeError) as e:
+        raise ValueError(f"cannot read policy bundle {policy_bundle_path}: {e}") from e
+    floor = current.get("min_bundle_epoch", 0)
+    if not isinstance(floor, int) or isinstance(floor, bool) or floor < 0:
+        raise ValueError(
+            f"policy bundle {policy_bundle_path}: min_bundle_epoch malformed")
+    grandfathers = []
+    for g in policy_grandfathers or []:
+        if not isinstance(g, dict) or not all(
+                isinstance(g.get(k), str) and g.get(k)
+                for k in ("bundle_digest", "valid_until", "reason")):
+            raise ValueError(
+                "policy_grandfathers entries need bundle_digest, valid_until "
+                "and reason strings")
+        grandfathers.append({"bundle_digest": g["bundle_digest"],
+                             "valid_until": g["valid_until"],
+                             "reason": g["reason"]})
+    policy_binding = {
+        "expected_digest": canon.digest_obj("policy/v1", current),
+        "min_bundle_epoch": floor,
+        "grandfathers": grandfathers,
+    }
 
     baseline_digest = exception_digest = None
     if baseline_set is not None:
@@ -157,6 +195,7 @@ def issue_context(ctx_dir: str, policy_dir: str, *, repo: str,
         "evaluation_time": evaluation_time,
         "stage": stage,
         "semantics": semantics,
+        "policy_binding": policy_binding,
         "baseline_set_digest": baseline_digest,
         "exception_set_digest": exception_digest,
         "signer_set_digest": signer_set_digest,

@@ -158,8 +158,13 @@ def run(request_path: str) -> int:
     # resolution error, not a crash — request schema validation at the
     # adapter is the durable fix, this is the slice guard.
     try:
+        # Anti-rollback (design.md round-15): the context's policy_binding is
+        # the authority claim; a context without one is a substitution attempt
+        # and resolve refuses (exit 31). Identity is still checked first.
         pol = policy.resolve(_require(req["policy"], "root", "policy"),
-                             _require(req["policy"], "expected_digest", "policy"))
+                             _require(req["policy"], "expected_digest", "policy"),
+                             binding=ctx.get("policy_binding"),
+                             evaluation_time=ctx["evaluation_time"])
         identities["policy_digest"] = pol["policy_digest"]
     except (policy.PolicyError, KeyError, TypeError) as e:
         return _fail(out_dir, "policy-resolution", str(e), "policy-resolution", identities)

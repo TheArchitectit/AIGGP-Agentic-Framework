@@ -73,6 +73,8 @@ def _mk_context(root: Path, stage=1, semantics="fresh-promotion") -> Path:
         "context_id": "test-ctx",
         "evaluation_time": "2026-09-17T00:00:00Z",
         "stage": stage, "semantics": semantics,
+        "policy_binding": {"expected_digest": "sha256:" + "a" * 64,
+                           "min_bundle_epoch": 0, "grandfathers": []},
         "baseline_set_digest": None, "exception_set_digest": None,
         "signer_set_digest": None,
         "capability_grants": [], "captured_facts": [],
