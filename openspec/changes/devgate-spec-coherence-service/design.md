@@ -265,6 +265,56 @@ Stages 0–4 as proposed (Inventory → Advisory baseline → Ratchet → Enforc
 
 Invariants across the whole ladder: the decision/exit matrix, ledger shape, and fingerprint semantics are identical at every stage — only the shelter surface shrinks; evaluation time and stage enter exclusively through the signed context (R2); severity floors and anti-rollback (`min_bundle_epoch`) are separate policy mechanisms, orthogonal to the mode axis, and this section does not decide them.
 
+### Advisory-age escalation (round-16, ratified)
+
+coh-pol-03 is a **policy** mechanism, not a ladder stage, so it lives beside
+the severity floor rather than inside `stages`. `stages.max_advisory_age_days`
+is only a duration; it says how long an advisory sits, never what expiring
+does. The escalation is a top-level `advisory_escalation` object in the
+bundle:
+
+```json
+"advisory_escalation": {
+  "on_expiry": "block",
+  "renewal": { "requires": "central-approval", "max_extension_days": 30 }
+}
+```
+
+- `on_expiry` is a **closed enum**, initially `block` alone. One value that
+  means what the spec says, and future values are considered on their merits
+  rather than pre-guessed into a vocabulary now — the field exists so the
+  policy is expressible, not so today's single behavior gets a synonym.
+- **It is deliberately not an optional field.** Presence of the age cap
+  requires it (schema `dependentRequired`) and the service refuses a bundle
+  that declares a cap without a policy — exit 31, `advisory-escalation:`
+  prefix. A bundle that names a dwell limit but no consequence for exceeding
+  it is incomplete configuration, and silence must not read as "cap declared,
+  nothing happens" — the same standing as a missing `policy_binding`, which
+  refuses rather than evaluating without it.
+- **Absent `advisory_escalation` is meaningful in one direction only**: a
+  bundle with no `max_advisory_age_days` at all has no cap and therefore
+  nothing to escalate. Absence never means "expire silently".
+- **Escalation is stage-invariant.** Expiry changes enforcement at every stage
+  the way an expired exception does — the shelter is removed and the
+  violation BLOCKS — because the ratchet is the thing being protected. At
+  Stage 0/1 nothing blocks anyway, so expiry is reported there and enforced
+  from Stage 2 exactly like every other ladder rule (`adoption.evaluate`'s
+  `stage < 2` arm is unchanged and comes first).
+- Expiry is judged against the context's `evaluation_time`, never the host
+  clock — the service's standing rule, and the reason the age data must reach
+  `adoption.evaluate` through the signed context rather than being recomputed
+  at the call site.
+- **An unexpired renewal is an exception**, not a second mechanism: it is the
+  existing scoped, control-plane-approved, expiring exception record, which
+  already survives the cap because exceptions never rewrite outcomes
+  (coh-eval-05). `renewal.max_extension_days` bounds what an approving
+  authority may grant; it does not create a parallel record type.
+
+An advisory that expires with no covering exception blocks as a regression
+does — `BLOCK`, on both new and existing required violations, which is what
+"new AND existing" in the spec requires and what a per-finding shelter
+removal naturally produces.
+
 ## Exception model
 
 An exception binds: repository/subject identity; assertion ID and optional subject path; finding fingerprint; owner; reason; approving authority; creation and expiry; enforcement treatment; remediation reference. Wildcards forbidden. Expired/mismatched/malformed exceptions FAIL in enforced modes. Exceptions never rewrite VIOLATED to SATISFIED — enforcement becomes `EXCEPTION-ADVISORY` with the exception identity recorded.
