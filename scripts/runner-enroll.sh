@@ -27,11 +27,13 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-TICKET_FILE="$HOME/.devgate-heartbeat.env"
-TIMER_UNIT="$HOME/.config/systemd/user/devgate-heartbeat.timer"
-SERVICE_UNIT="$HOME/.config/systemd/user/devgate-heartbeat.service"
-WATCHDOG_TIMER_UNIT="$HOME/.config/systemd/user/devgate-hub-watchdog.timer"
-WATCHDOG_SERVICE_UNIT="$HOME/.config/systemd/user/devgate-hub-watchdog.service"
+TICKET_FILE=""            # per-runner; computed by compute_unit_paths
+TIMER_UNIT=""
+SERVICE_UNIT=""
+WATCHDOG_TIMER_UNIT=""
+WATCHDOG_SERVICE_UNIT=""
+HB_TIMER_NAME=""          # systemd unit basenames (per-runner, coh-int-07)
+WD_TIMER_NAME=""
 
 log() { echo "[runner-enroll] $*"; }
 die() { log "ERROR: $*"; exit "${2:-1}"; }
@@ -96,22 +98,83 @@ done
 
 # --- validate -----------------------------------------------------------------
 
+# Per-runner unit names (coh-int-07): a host may run MULTIPLE spokes, so a
+# second enrollment must never overwrite the first's env file or units.
+# RUNNER_NAME is validated to [A-Za-z0-9._-]+ before this is called, which
+# is also the systemd-unit-safe charset.
+compute_unit_paths() {
+    local name="$1"
+    TICKET_FILE="$HOME/.devgate-heartbeat-${name}.env"
+    TIMER_UNIT="$HOME/.config/systemd/user/devgate-hb-${name}.timer"
+    SERVICE_UNIT="$HOME/.config/systemd/user/devgate-hb-${name}.service"
+    WATCHDOG_TIMER_UNIT="$HOME/.config/systemd/user/devgate-hb-watchdog-${name}.timer"
+    WATCHDOG_SERVICE_UNIT="$HOME/.config/systemd/user/devgate-hb-watchdog-${name}.service"
+    HB_TIMER_NAME="devgate-hb-${name}.timer"
+    WD_TIMER_NAME="devgate-hb-watchdog-${name}.timer"
+}
+
 if [[ "$MODE" == "enroll" ]]; then
     [[ -n "$HUB_URL" ]] || { usage; }
     [[ -n "$ENROLL_TOKEN" ]] || die "enrollment token required" 1
     [[ -n "$REPO" ]] || die "--repo OWNER/REPO is required for enrollment" 1
+    # Identity fields are validated before they are interpolated into the
+    # heartbeat unit's JSON: a quote or backslash would corrupt every
+    # heartbeat payload. Labels are free-form (they go through json.dumps).
+    [[ "$RUNNER_NAME" =~ ^[A-Za-z0-9._-]+$ ]] || \
+        die "runner name must match [A-Za-z0-9._-]+ (got: $RUNNER_NAME)" 1
+    [[ "$HOST_ALIAS" =~ ^[A-Za-z0-9._-]+$ ]] || \
+        die "host alias must match [A-Za-z0-9._-]+ (got: $HOST_ALIAS)" 1
+    compute_unit_paths "$RUNNER_NAME"
 elif [[ "$MODE" == "revoke" ]]; then
     [[ -n "$HUB_URL" ]] || { usage; }
     [[ -n "$REVOKE_HB_TOKEN" ]] || die "heartbeat token required for revoke" 1
     [[ -n "$REVOKE_RUNNER" ]] || die "runner name required for revoke" 1
+    compute_unit_paths "$REVOKE_RUNNER"
 fi
 
 # --- helpers ------------------------------------------------------------------
 
 post_json() {
     local url="$1" payload="$2"
-    curl -sf -X POST -H 'Content-Type: application/json' \
+    # --max-time bounds a hung hub: without it a stuck connection wedges the
+    # systemd oneshot unit indefinitely.
+    curl -sf --connect-timeout 5 --max-time 15 -X POST \
+        -H 'Content-Type: application/json' \
         -d "$payload" "$url" 2>&1
+}
+
+# Build the request JSON with python json.dumps — a quote, backslash, or
+# newline in a label must produce a VALID payload and can never break out of
+# the JSON string (the old inline string interpolation could do both).
+# `labels` is comma-split into an array.
+json_payload() {
+    python3 - "$@" <<'PY'
+import json, sys
+obj = {}
+for arg in sys.argv[1:]:
+    key, _, value = arg.partition("=")
+    if key == "labels":
+        obj[key] = [v.strip() for v in value.split(",") if v.strip()]
+    else:
+        obj[key] = value
+print(json.dumps(obj))
+PY
+}
+
+# Print only non-secret fields of a hub response. The enroll response carries
+# the issued heartbeat token, which must never reach stdout/CI scrollback —
+# it is extracted into a variable and written straight to the 0600 env file.
+response_summary() {
+    python3 -c '
+import json, sys
+try:
+    doc = json.loads(sys.stdin.read())
+except Exception:
+    print("(unparseable response)"); sys.exit(0)
+safe = {k: v for k, v in doc.items()
+        if k in ("ok", "runner_name", "error", "detail")}
+print(json.dumps(safe))
+'
 }
 
 install_timer() {
@@ -139,8 +202,9 @@ Type=oneshot
 EnvironmentFile=$TICKET_FILE
 ExecStart=/usr/bin/env bash -c '\
   DISK_OK=\$(df --output=pcent / | tail -1 | tr -d " %"); \
+  [[ "\$DISK_OK" =~ ^[0-9]+$ ]] || DISK_OK=100; \
   PODMAN_OK="false"; command -v podman >/dev/null && podman info --format "{{.Host.Security.Rootless}}" >/dev/null 2>&1 && PODMAN_OK="true"; \
-  curl -sf -X POST -H "Content-Type: application/json" \
+  curl -sf --connect-timeout 5 --max-time 15 -X POST -H "Content-Type: application/json" \
     -d "{\"runner_name\":\"\$RUNNER_NAME\",\"heartbeat_token\":\"\$HEARTBEAT_TOKEN\",\"disk_ok\":\$( [ "\$DISK_OK" -lt 90 ] && echo true || echo false ),\"podman_ok\":\$PODMAN_OK}" \
     "\$HUB_URL/heartbeat"'
 EOF
@@ -160,10 +224,10 @@ WantedBy=timers.target
 EOF
 
     systemctl --user daemon-reload
-    systemctl --user enable devgate-heartbeat.timer 2>/dev/null || true
-    systemctl --user start devgate-heartbeat.timer
+    systemctl --user enable "$HB_TIMER_NAME" 2>/dev/null || true
+    systemctl --user start "$HB_TIMER_NAME"
 
-    log "Timer installed and enabled: devgate-heartbeat.timer"
+    log "Timer installed and enabled: $HB_TIMER_NAME"
 
     install_watchdog
 }
@@ -213,10 +277,10 @@ WantedBy=timers.target
 EOF
 
     systemctl --user daemon-reload
-    systemctl --user enable devgate-hub-watchdog.timer 2>/dev/null || true
-    systemctl --user start devgate-hub-watchdog.timer
+    systemctl --user enable "$WD_TIMER_NAME" 2>/dev/null || true
+    systemctl --user start "$WD_TIMER_NAME"
 
-    log "Watchdog installed: devgate-hub-watchdog.timer (status: systemctl --user status devgate-hub-watchdog)"
+    log "Watchdog installed: $WD_TIMER_NAME (status: systemctl --user status $WD_TIMER_NAME)"
 }
 
 # --- enroll mode --------------------------------------------------------------
@@ -224,29 +288,24 @@ EOF
 if [[ "$MODE" == "enroll" ]]; then
     log "Enrolling '$RUNNER_NAME' with hub at $HUB_URL..."
 
-    # Build JSON payload.
-    IFS=',' read -ra LABEL_ARR <<< "$LABELS"
-    LABELS_JSON=""
-    for lbl in "${LABEL_ARR[@]}"; do
-        lbl="$(echo "$lbl" | xargs)"  # trim whitespace
-        [[ -n "$LABELS_JSON" ]] && LABELS_JSON+=","
-        LABELS_JSON+="\"$lbl\""
-    done
-
-    PAYLOAD="{\"runner_name\":\"$RUNNER_NAME\",\"repo\":\"$REPO\",\"enrollment_token\":\"$ENROLL_TOKEN\",\"labels\":[$LABELS_JSON],\"host_alias\":\"$HOST_ALIAS\"}"
+    # JSON built by json.dumps: labels/host_alias are escaped, never spliced.
+    PAYLOAD="$(json_payload "runner_name=$RUNNER_NAME" "repo=$REPO" \
+        "enrollment_token=$ENROLL_TOKEN" "labels=$LABELS" \
+        "host_alias=$HOST_ALIAS")"
 
     RESPONSE="$(post_json "$HUB_URL/enroll" "$PAYLOAD")" || {
-        die "hub enrollment failed: $RESPONSE" 2
+        # The failure body never contains a token; safe to print.
+        die "hub enrollment failed: $(printf '%s' "$RESPONSE" | response_summary)" 2
     }
 
-    log "Hub response: $RESPONSE"
+    log "Hub response: $(printf '%s' "$RESPONSE" | response_summary)"
 
     # Extract heartbeat token from JSON response.
     HB_TOKEN="$(echo "$RESPONSE" | python3 -c 'import sys,json; print(json.load(sys.stdin)["heartbeat_token"])' 2>/dev/null)" || {
         die "could not parse heartbeat_token from hub response" 2
     }
 
-    log "Enrolled successfully. Heartbeat token issued."
+    log "Enrolled successfully. Heartbeat token issued (not printed; written to $TICKET_FILE)."
     install_timer "$HB_TOKEN"
     log "Done. Runner '$RUNNER_NAME' is now heartbeating to $HUB_URL every ${INTERVAL}s."
 fi
@@ -256,19 +315,20 @@ fi
 if [[ "$MODE" == "revoke" ]]; then
     log "Revoking runner '$REVOKE_RUNNER' from hub at $HUB_URL..."
 
-    PAYLOAD="{\"runner_name\":\"$REVOKE_RUNNER\",\"heartbeat_token\":\"$REVOKE_HB_TOKEN\"}"
+    PAYLOAD="$(json_payload "runner_name=$REVOKE_RUNNER" \
+        "heartbeat_token=$REVOKE_HB_TOKEN")"
     RESPONSE="$(post_json "$HUB_URL/revoke" "$PAYLOAD")" || {
-        die "hub revoke failed: $RESPONSE" 2
+        die "hub revoke failed: $(printf '%s' "$RESPONSE" | response_summary)" 2
     }
-    log "Hub confirmed revocation: $RESPONSE"
+    log "Hub confirmed revocation: $(printf '%s' "$RESPONSE" | response_summary)"
 
     # Remove local timers + env file. The watchdog goes too: it reads
     # HUB_URL from the env file being deleted, so leaving it behind would
     # leave a unit that fails forever with a confusing config error.
-    systemctl --user stop devgate-heartbeat.timer 2>/dev/null || true
-    systemctl --user disable devgate-heartbeat.timer 2>/dev/null || true
-    systemctl --user stop devgate-hub-watchdog.timer 2>/dev/null || true
-    systemctl --user disable devgate-hub-watchdog.timer 2>/dev/null || true
+    systemctl --user stop "$HB_TIMER_NAME" 2>/dev/null || true
+    systemctl --user disable "$HB_TIMER_NAME" 2>/dev/null || true
+    systemctl --user stop "$WD_TIMER_NAME" 2>/dev/null || true
+    systemctl --user disable "$WD_TIMER_NAME" 2>/dev/null || true
     rm -f "$TIMER_UNIT" "$SERVICE_UNIT" "$TICKET_FILE" \
           "$WATCHDOG_TIMER_UNIT" "$WATCHDOG_SERVICE_UNIT"
     systemctl --user daemon-reload

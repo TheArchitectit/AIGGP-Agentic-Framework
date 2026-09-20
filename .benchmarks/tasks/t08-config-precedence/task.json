@@ -1,0 +1,8 @@
+{
+ "id": "t08-config-precedence",
+ "category": "bug_fix",
+ "description": "resolve_settings() must apply precedence: defaults < file < environment. It currently lets the FILE override the environment. Fix so environment wins over file, file wins over defaults, and an env var set to empty string still counts as set.",
+ "verify_cmd": [
+  "verify/check.py"
+ ]
+}

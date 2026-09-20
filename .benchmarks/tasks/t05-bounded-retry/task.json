@@ -1,0 +1,9 @@
+{
+ "id": "t05-bounded-retry",
+ "category": "reliability",
+ "description": "fetch_with_retry() retries forever on failure. Fix it to attempt at most max_retries+1 attempts, sleeping once between attempts, and raise ConnectionError after the final failure.",
+ "verify_cmd": [
+  "verify/check.py"
+ ],
+ "verify_timeout_sec": 10
+}
