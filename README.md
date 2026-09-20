@@ -2,17 +2,15 @@
 
 [![Sponsor](https://img.shields.io/badge/Sponsor-TheArchitectit-FF69B4?style=flat&logo=github-sponsors)](https://github.com/sponsors/TheArchitectit)
 
-A language-agnostic quality engineering framework for AI-assisted development. Drop it into any project — TypeScript, Python, Rust, Go, GDScript, or mixed stacks — and get test isolation, regression scanning, deploy gates, scheduled drift scans, CI workflows, a self-hosted runner standard, and guardrails out of the box.
+A language-agnostic quality gate for AI-assisted development. Drop it into any project — TypeScript, Python, Rust, Go, GDScript, or a mixed stack — and get test isolation, regression scanning, deploy gates, scheduled drift scans, CI workflows, a self-hosted runner standard, and agent-behavior guardrails out of the box.
 
-## What This Is
+## Why this exists
 
-DevGate is **not** a project template or a starter kit. It's a **quality gate** that sits between your AI agents and your production code. You clone it into an existing project (or add it as a submodule) and it enforces engineering standards without imposing architecture decisions.
+AI agents write code fast, and velocity without guardrails ships regressions. DevGate sits between your agents and your production code. It catches the fast failure patterns — SQL injection, unhandled promises, hardcoded credentials, unvalidated input, 25+ more across languages — and the slow ones: dependency updates that aged, runner and base-image drift, CI-config changes that never arrived as a pull request.
 
-**The problem it solves:** AI agents generate code fast, but velocity without guardrails produces regressions. DevGate catches the known failure patterns — SQL injection, unhandled promises, hardcoded credentials, unvalidated input, and 25+ more across languages — before they reach production. Scheduled drift scans catch everything else: dependency updates that aged, base-image/toolchain drift on your runners, and CI-config changes that never arrived as a PR.
+DevGate is **not** a project template or starter kit. It imposes no architecture: no required directory layout, language, package manager, database, or test framework. It detects what you have and gates it.
 
-## Quick Start
-
-### Add to an existing project
+## Quick start
 
 ```bash
 # As a submodule (recommended — stays in sync with upstream)
@@ -22,414 +20,98 @@ git submodule add https://github.com/TheArchitectit/DevGate-Agentic-Framework.gi
 git clone https://github.com/TheArchitectit/DevGate-Agentic-Framework.git .devgate
 ```
 
-### What you get
+Run the gates (every script auto-detects your project root and scans whatever source files exist, in whatever directories you keep them):
+
+```bash
+node .devgate/scripts/guardrails-scan.mjs        # pattern scan, all source types
+node .devgate/scripts/semantic-scan.mjs           # AST scan (TS/JS; skips if none)
+node .devgate/scripts/run-tests.mjs               # isolated per-file test runner
+python3 .devgate/scripts/regression_check.py --staged --pre-commit   # regression + file size
+bash .devgate/scripts/deploy.sh 1.0.0             # gated publish (auto-detects npm/cargo/pip/go)
+```
+
+Scopes worth knowing on the regression gate: `--staged` sees only uncommitted work — on a clean checkout it prints a loud `NOTHING SCANNED`, never a fake clean pass (add `--fail-if-empty` in CI to turn that into exit 2). To audit already-committed content, scan it explicitly with `--base origin/main` (diff `origin/main...HEAD`). `--all` scans every change since the last tag — that is a drift/release sweep, not a pull-request review; run it on a schedule, not per-PR.
+
+## What's in the box
 
 ```
 .devgate/
-├── .guardrails/
-│   ├── failure-registry.jsonl          # Append-only bug history
-│   ├── pre-work-check.md               # Mandatory pre-work checklist
-│   └── prevention-rules/
-│       ├── pattern-rules.json          # Regex-based rules (29 rules, 10+ languages)
-│       ├── pattern-rules.schema.json   # JSON schema for custom rules
-│       ├── semantic-rules.json         # AST-based rules
-│       └── extracted-rules.json        # Git/system/security rules
-├── scripts/
-│   ├── deploy.sh                       # Gated publish pipeline (auto-detects package manager)
-│   ├── findings_to_spec.py             # Gate findings -> openspec requirement skeletons
-│   ├── guardrails-scan.mjs             # Pattern scanner (all languages)
-│   ├── regression_check.py             # Regression + file-size + package audit
-│   ├── run-tests.mjs                   # Isolated per-file test runner (JS + Python)
-│   ├── schema-health-check.mjs         # Database schema validation (adapter-based)
-│   ├── semantic-scan.mjs               # AST-based TS/JS scanner
-│   └── detect-host-ci.py               # Host-repo CI/runner detector (secrets-redacted)
+├── .guardrails/            # pattern/semantic rules, failure registry, pre-work checklist
+├── scripts/                # the gates (scan, test, regression, deploy, schema, drift)
 ├── templates/
-│   ├── README.md                       # Template index and usage guide
-│   ├── github-workflows/               # Drop-in CI workflow templates
-│   │   ├── guardrails-compliance.yml   # Process gates (scope, forbidden files, commits, AI attribution)
-│   │   ├── secret-validation.yml       # Gitleaks + .env + credential + hardcoded-secret scan
-│   │   ├── file-size-check.yml         # CI-enforced source-file line-count limit
-│   │   ├── smoke-gate.yml              # Headless run + completion-sentinel validation
-│   │   └── drift-scan.yml              # Scheduled full-tree sweep, host-aware runner targeting
-│   ├── runner/                         # Self-hosted runner standard (ghcr.io + Podman/Docker)
-│   │   ├── README.md                   # The standard: official image, quadlet, secrets hygiene
-│   │   └── self-hosted-runner.container # Podman quadlet template (ghcr.io/actions/actions-runner)
-│   └── skills/                         # Agent-behavior skill templates
-│       ├── four-laws/                  # The Four Laws of Agent Safety (mandatory)
-│       ├── scope-validator/            # Stay-in-scope enforcement
-│       ├── halt-conditions/            # When to stop and ask the user
-│       ├── three-strikes/              # Halt after 3 failed attempts
-│       ├── commit-validator/           # Conventional commit + AI-attribution rules
-│       └── production-first/           # Production code before tests/infrastructure
-├── AGENTS.md                           # Directions for AI agents
-├── LICENSE                             # BSD 3-Clause
-└── README.md                           # This file
+│   ├── github-workflows/   # drop-in CI workflows (guardrails, secrets, file size, smoke, drift)
+│   ├── runner/             # self-hosted runner standard (ghcr.io image + Podman quadlet)
+│   └── skills/             # agent-behavior skills (four-laws, scope-validator, three-strikes, ...)
+├── AGENTS.md               # directions for AI agents working in projects that use DevGate
+└── README.md
 ```
 
-### Run the gates
+### The gates
 
-All scripts auto-detect your project root (the parent of `.devgate/`) and scan whatever source files exist there — regardless of language or directory structure.
+| Gate | What it does |
+|------|--------------|
+| **Pattern scanner** (`guardrails-scan.mjs`) | Regex rules across 10+ languages; inline `// guardrails-allow PREVENT-029: reason` annotations supported |
+| **Semantic scanner** (`semantic-scan.mjs`) | TypeScript-compiler AST checks (unhandled promises, missing useEffect deps). Fail-closed: if TS/JS files exist but the parser isn't installed, the gate FAILS with the install command — a gate that evaluated nothing must not read as "clean" |
+| **Regression scanner** (`regression_check.py`) | Cross-references changed files against the append-only failure registry, enforces file-size limits, runs package audit, promotes soft violations to blocking for changed files. No vacuous green — zero changed files is a notice, never a pass |
+| **Test runner** (`run-tests.mjs`) | Per-file process isolation, parallel pooling (up to 8 workers), serial lanes for shared-resource tests, flake adjudication (failed files re-run solo), hang-on-exit detection |
+| **Deploy pipeline** (`deploy.sh`) | Gated publish for npm, cargo, pip, or go — build, test, lint, then publish |
+| **Schema health** (`schema-health-check.mjs`) | Adapter-based schema validation (SQLite/PostgreSQL/MySQL); defaults to skip when no database is configured |
+| **Findings → specs** (`findings_to_spec.py`) | Turns failure-registry entries and live scan violations into `openspec/specs/<capability>/spec.md` requirement skeletons, closing the loop: bug → requirement → `// spec:` trace → blocking traceability gate |
 
-```bash
-# Pattern scan (checks all source file types in your project)
-node .devgate/scripts/guardrails-scan.mjs
+Two honest notes about test evidence: a suite of only presence checks ("does the string appear in the file") detects deletion, not breakage — never cite it as "tested." And round-tripping a hand-written literal proves nothing about the code that actually saves; build the fixture by calling the real function.
 
-# Semantic scan (TypeScript/JavaScript AST — skips automatically if none found)
-node .devgate/scripts/semantic-scan.mjs
+### Supported languages
 
-# Regression check (file sizes, package audit, failure registry)
-# --staged scopes to what you are about to commit. Do not use --all here: it
-# scans every change since the last tag, not the commit you are making.
-python3 .devgate/scripts/regression_check.py --staged --pre-commit
-
-# On a clean checkout --staged sees NOTHING (it only scans uncommitted work).
-# The gate says so loudly ("NOTHING SCANNED") instead of printing a clean pass.
-# To audit already-committed content — e.g. a branch that was pushed without a
-# local gate run — scan it explicitly:
-python3 .devgate/scripts/regression_check.py --base origin/main   # diff origin/main...HEAD
-# In CI, fail the job when a scope evaluated zero files:
-python3 .devgate/scripts/regression_check.py --staged --fail-if-empty
-
-# Run tests (auto-detects JS .test.js and Python test_*.py files)
-node .devgate/scripts/run-tests.mjs
-
-# Deploy (auto-detects npm/cargo/pip/go)
-bash .devgate/scripts/deploy.sh 1.0.0
-```
-
-## How It Works
-
-DevGate scripts **auto-detect** your project's:
-- **Project root** — walks up from `.devgate/` to find `package.json`, `Cargo.toml`, `pyproject.toml`, `go.mod`, `project.godot`, or `.git`
-- **Source directories** — scans whatever directories exist (`src/`, `lib/`, `app/`, `scripts/`, `pkg/`, `cmd/`, etc.)
-- **Package manager** — detects npm, cargo, pip, or go in deploy.sh
-- **Test files** — finds `.test.js`, `.spec.js`, `test_*.py`, `_test.py` files anywhere in your project
-- **Database engine** — schema-health-check.mjs defaults to `"none"` (skips) unless you configure it
-
-DevGate does **not** impose:
-- ❌ A specific directory structure (`src/` vs `lib/` vs `app/` — it scans whatever you have)
-- ❌ A specific language (mix TS, Python, Rust, Go, GDScript — all scanned)
-- ❌ A specific package manager (npm, cargo, pip, go — auto-detected)
-- ❌ A specific database (SQLite, PostgreSQL, MySQL — adapter-based, or none)
-- ❌ A specific test framework (`node --test`, `pytest`, `cargo test` — auto-detected)
-
-## Supported Languages
-
-| Language | Pattern Rules | Semantic Rules | File-Size Gates |
+| Language | Pattern rules | Semantic rules | File-size gates |
 |----------|:---:|:---:|:---:|
-| TypeScript/JavaScript | ✅ 6 rules | ✅ 2 rules | ✅ |
-| Python | ✅ 4 rules | ✅ 2 rules | ✅ |
-| Rust | ✅ 1 rule | ✅ 1 rule | ✅ |
-| Go | ✅ 2 rules | ✅ 1 rule | ✅ |
-| GDScript (Godot) | ✅ 5 rules | ✅ 2 rules | ✅ |
-| Docker | ✅ 2 rules | — | — |
-| Shell/Bash | ✅ 1 rule | — | — |
-| Kotlin/Java | ✅ 1 rule | — | ✅ |
-| Ruby | ✅ 3 rules | — | ✅ |
-| PHP | ✅ 1 rule | — | ✅ |
-| C/C++ | ✅ (file-size) | — | ✅ |
-| Swift | ✅ (file-size) | — | ✅ |
-| All languages | ✅ 3 rules | — | ✅ |
+| TypeScript/JavaScript | 6 | 2 | yes |
+| Python | 4 | 2 | yes |
+| Rust | 1 | 1 | yes |
+| Go | 2 | 1 | yes |
+| GDScript (Godot) | 5 | 2 | yes |
+| Docker / Shell | 3 | — | — |
+| Kotlin, Java, Ruby, PHP, C/C++, Swift | 7 | — | yes |
+| All languages (git/system/security) | 3 | — | yes |
 
-## Components
+## Customizing
 
-### Test Runner (`scripts/run-tests.mjs`)
+**File-size limits** live in `scripts/regression_check.py` (soft 300 / hard 500 source lines, hard 600 test lines).
 
-Isolated per-file test runner. Auto-detects test file types:
-- `.test.js` / `.spec.js` → `node --test`
-- `test_*.py` / `*_test.py` → `pytest`
-
-Features:
-- **Per-file process isolation** — each test file gets its own subprocess
-- **Parallel pooling** — up to 8 workers (configurable via `DEVGATE_TEST_POOL`)
-- **Serial lanes** — tests that share resources run one-at-a-time
-- **Flake adjudication** — failed files re-run solo
-- **Hang-on-exit detection** — open handles don't block the pool
-
-Env overrides:
-```bash
-DEVGATE_TEST_TIMEOUT=120000    # per-file hard cap in ms
-DEVGATE_TEST_POOL=8            # parallel worker count
-DEVGATE_TEST_HANG_MS=10000     # silence threshold before force-kill
-```
-
-#### Evidence quality: what a green run actually proves
-
-run-tests executes whatever test files exist; it cannot judge whether those
-tests prove anything. When you write or review a suite, grade each test:
-
-- **Behavioral (strong):** calls the real code path and asserts on the outcome
-  (a swap function rejects an invalid move; `saveGame()` output round-trips
-  through `loadSave()`).
-- **Contract (useful):** parses/validates the real artifact (the shipped HTML's
-  script blocks parse; the save schema a real save produces has the required
-  fields).
-- **Presence (weak):** substring or file-existence checks (`assert "function"
-  in source`). These detect deletion, not breakage.
-
-Rules of thumb:
-- A suite that is ONLY presence checks is weak evidence — say so in the
-  handoff; never cite it as "tested".
-- Round-tripping a hand-written literal (e.g. `JSON.parse(JSON.stringify({
-  wave: 1 }))`) proves nothing about the code that actually saves. Build the
-  fixture by CALLING the real function, or drop the test.
-- Expose seams for behavioral tests where the runtime allows it (e.g. a
-  `window.__hooks` object) instead of testing copies of the logic.
-
-### Regression Scanner (`scripts/regression_check.py`)
-
-Scans changed files against the failure registry and pattern rules.
-- **File-size enforcement** — soft/hard limits, auto-detects source directories
-- **Package audit** — auto-detects your package manager (npm audit, or skips if not npm)
-- **Soft-as-hard headroom gate** — promotes soft violations to blocking for changed files only
-- **Failure registry** — cross-references changed files against known bug history
-- **No vacuous green** — a scope with zero changed files prints a NOTHING
-  SCANNED notice (never the clean-pass line); `--fail-if-empty` turns it into
-  exit 2 for CI
-- **`--base REF`** — scans committed content as `diff REF...HEAD`, so pushed
-  branches can be audited after the fact (staged-only scanning cannot)
-- **`--all` on small repos** — with no tags and 20 or fewer commits it scans
-  from the repository root (empty-tree base) instead of crashing on `HEAD~20`;
-  an undiffable base still fails loud rather than passing vacuously
-
-### Pattern Scanner (`scripts/guardrails-scan.mjs`)
-
-Regex-based scanner. Walks your project's source files (auto-detected) and checks them against enabled rules. Scans `.ts`, `.py`, `.rs`, `.go`, `.gd`, `.java`, `.kt`, `.rb`, `.php`, `.js`, `.c`, `.cpp`, `.cs`, `.swift`.
-
-Supports inline annotations:
-```typescript
-// guardrails-allow PREVENT-029: This file is the API boundary — network calls are intentional
-fetch("https://api.example.com/data");
-```
-
-### Semantic Scanner (`scripts/semantic-scan.mjs`)
-
-AST-based scanner using the TypeScript compiler API. If your project has no TypeScript/JavaScript files, it exits 0 with "no matching files found."
-
-- `SEMANTIC-001`: Promise `.then()` chains without `.catch()`
-- `SEMANTIC-005`: React `useEffect` with missing dependencies
-
-The parser (`typescript@5`) is loaded lazily. When TS/JS files exist but the
-parser is unavailable, the gate FAILS with the install command — a gate that
-evaluated nothing must not read as "clean". Projects that knowingly cannot
-provide the parser may set `DEVGATE_SEMANTIC_REQUIRED=0`: the gate then exits
-0 with an explicit `SKIPPED` line, so the gate list says "skipped", not
-"green".
-
-### Deploy Pipeline (`scripts/deploy.sh`)
-
-Generic gated publish pipeline. Auto-detects your project's package manager:
-
-| If found | Commands used |
-|----------|---------------|
-| `package.json` | `npm run build`, `npm test`, `npm run lint`, `npm publish` |
-| `Cargo.toml` | `cargo build --release`, `cargo test`, `cargo clippy`, `cargo publish` |
-| `pyproject.toml` / `setup.py` | `pytest`, `twine upload` |
-| `go.mod` | `go build`, `go test` |
-| `project.godot` | Skips build (run Godot headless tests manually) |
-| None of the above | Skips build/test; tag pushed, publish manually |
-
-### Schema Health (`scripts/schema-health-check.mjs`)
-
-Database-agnostic schema validation. Ships with adapter templates for SQLite, PostgreSQL, and MySQL, but defaults to `"none"` (skips gracefully) so it never breaks if you don't use a database or use a different engine.
-
-To enable, edit `scripts/schema-health-check.mjs`:
-```javascript
-const DB_ADAPTER = "postgres"; // "sqlite" | "postgres" | "mysql" | "none"
-const EXPECTED_COLUMNS = [
-    ["users", "id", "TEXT NOT NULL PRIMARY KEY"],
-    ["users", "email", "TEXT NOT NULL UNIQUE"],
-];
-```
-
-Uncomment the adapter block for your database engine. The script auto-skips if `DB_ADAPTER` is `"none"` or `EXPECTED_COLUMNS` is empty.
-
-### Failure Registry (`.guardrails/failure-registry.jsonl`)
-
-Append-only JSONL log of historical bugs. Each entry records:
-- Affected files
-- Root cause
-- Prevention rule
-- Status (active/resolved)
-
-When a file is changed, the regression scanner checks it against active failures — preventing reintroduction of known bugs.
-
-### Findings → Specs (`scripts/findings_to_spec.py`)
-
-Gates produce findings; findings should produce requirements, not just
-warnings. This scaffolder converts both sources — every merged failure-registry
-entry, optionally plus live `guardrails-scan.mjs` violations piped in — into
-`openspec/specs/<capability>/spec.md` skeletons in the format
-`scripts/spec_traceability.py` gates:
-
-```bash
-python3 .devgate/scripts/findings_to_spec.py --list        # dry run
-python3 .devgate/scripts/findings_to_spec.py               # group by category
-node .devgate/scripts/guardrails-scan.mjs 2>&1 \
-  | python3 .devgate/scripts/findings_to_spec.py --stdin   # fold live findings in
-```
-
-`spec_traceability.py` discovers requirements in both standard OpenSpec
-layouts — `openspec/specs/<capability>/spec.md` and
-`openspec/changes/<change>/specs/**/*.md` (archived changes excluded) — keyed
-on `<!-- id: name -->` markers. Spec files without id markers get an explicit
-"0 requirement IDs in the supported format" diagnostic (exit 2), never a
-misleading "no specs found".
-
-The loop closes: `log_failure.py` records a bug → `findings_to_spec.py` turns
-it into a spec requirement → the fix carries `// spec: <id>` →
-`spec_traceability.py` fails (in blocking mode) when a requirement loses its
-enforcing code. Re-runs are idempotent: existing spec files are only ever
-APPENDED to, findings are recognized by their provenance line, hand edits
-survive.
-
-## Configuration
-
-### File Size Limits
-
-All source file types are checked. Edit `scripts/regression_check.py`:
-
-```python
-SRC_SOFT = 300    # soft limit (lines) — warning
-SRC_HARD = 500    # hard limit (lines) — blocks commit
-TEST_HARD = 600   # test files hard limit
-```
-
-Limits apply to all files matching source extensions (`.ts`, `.py`, `.rs`, `.go`, `.gd`, `.java`, `.kt`, `.rb`, `.php`, `.js`, `.c`, `.cpp`, `.cs`, `.swift`) in any source directory that exists in your project.
-
-### Custom Prevention Rules — the overlay contract
-
-A project using DevGate as a `.devgate/` submodule adds its **own** rules in a
-project-root `.guardrails/` overlay — it never edits or copies the bundled
-baseline. The gates MERGE the two by rule/failure id:
+**Your own rules go in an overlay, never a fork.** A project using DevGate as a submodule adds rules in a project-root `.guardrails/` overlay; the gates merge it with the bundled baseline by rule id — new ids append, same-id entries replace in place (retune severity, fix a false positive) without ever forking the baseline:
 
 ```
 <project>/
-  .devgate/.guardrails/prevention-rules/pattern-rules.json   <- shared baseline (upstream-owned)
-  .devgate/.guardrails/failure-registry.jsonl                <- shared registry (upstream-owned)
-  .guardrails/prevention-rules/pattern-rules.json            <- THIS project's delta only
-  .guardrails/failure-registry.jsonl                         <- THIS project's bugs only
-  .guardrailsignore                                          <- per-project scan scoping
+  .devgate/.guardrails/...   # shared baseline (upstream-owned, never edited)
+  .guardrails/...            # THIS project's delta only
+  .guardrailsignore          # per-project scan scoping
 ```
 
-Merge semantics (implemented once in `scripts/gate_overlay.py`, mirrored in
-`guardrails-scan.mjs`):
+`semantic-scan.mjs` is exempt (its checks are hardcoded AST logic, not data). An explicit `--rules`/`--registry` path collapses to that single source with no merge.
 
-* An overlay entry with a **new** id is appended — baseline rules keep firing.
-* An overlay entry with the **same** id as a baseline entry **replaces** it, in
-  place (retune severity, fix a false positive, override a message) — without
-  ever forking the baseline into your repo.
-* A missing overlay (or DevGate standalone) = baseline only, unchanged behaviour.
-* An explicit `--rules` / `--registry` path or `PREVENTION_RULES_PATH` /
-  `FAILURE_REGISTRY_PATH` / `GUARDRAILS_RULES` env collapses to that single
-  source, no merge.
+## CI, runners, and agent skills
 
-Overlay rule file shape — list only your delta, it does NOT need upstream's rules:
+Five drop-in workflow templates live in `templates/github-workflows/` (guardrails compliance, secret validation, file size, smoke gate, scheduled drift scan) — each has a `SETUP` header and `CUSTOMIZE` placeholders. The runner standard (`templates/runner/`) puts the official `ghcr.io/actions/actions-runner` image on your own hardware as a Podman quadlet, one container per project, registration token via a never-committed `.env`. DevGate is host-repo aware: `detect-host-ci.py` reads your repo's own `runs-on:` labels so workflow templates bind to your declared infrastructure, not a hardcoded `ubuntu-latest`.
 
-```json
-{
-  "version": "1.0.0",
-  "rules": [
-    {
-      "rule_id": "PREVENT-SI-001",
-      "name": "Non-cryptographic checksum for saves",
-      "enabled": true,
-      "pattern": "fn.*checksum.*\\(.*\\).*u64",
-      "forbidden_context": "(sha|hmac|argon)",
-      "message": "Save checksum is not cryptographic — use HMAC-SHA256",
-      "severity": "warning",
-      "file_glob": ["*.rs"],
-      "suggestion": "Use hmac::Hmac<sha2::Sha256> for save integrity"
-    }
-  ]
-}
-```
+Six agent-behavior skill templates ship in `templates/skills/` — four-laws (safety), scope-validator, halt-conditions, three-strikes, commit-validator, production-first — each a single `SKILL.md` that drops into any agent runtime supporting the convention. Full agent directions: [AGENTS.md](AGENTS.md). Template usage guide: [templates/README.md](templates/README.md).
 
-Rule IDs must match `^PREVENT(-[A-Z]+)?-\\d+$` (per-project prefixes like
-`-SI-`, `-SOH-` are the convention for scoping). Note `semantic-scan.mjs` is
-exempt: its checks are hardcoded AST logic, not data — a project
-`semantic-rules.json` is merged for `regression_check.py`'s advisory path but
-does not drive that scanner.
+## The Spec Coherence Service — DevGate gates itself
 
-## CI Integration
+This repository dogfoods its own idea: `hub/coherence/` is a Python service (stdlib-only, dual-runnable, container-isolated evaluators) that answers one question with a signed, replayable record — *did this change set actually satisfy the specs it claims to satisfy?*
 
-Add to your `.github/workflows/ci.yml`:
+The pieces that matter to a human:
 
-```yaml
-- name: Guardrails scan
-  run: node .devgate/scripts/guardrails-scan.mjs
+- **Signed evaluation contexts** — a control-plane stand-in issues a context binding the policy, stage, baseline, and evaluation time; the run path verifies digests and countersignatures before believing anything.
+- **A five-stage adoption ladder** — inventory → advisory → ratchet → enforced-core → enforced-full — monotonically narrowing which known debt stays advisory as a repository earns enforcement.
+- **Anti-rollback** — a context binds the exact central policy bundle (digest + epoch floor); an older-but-signed bundle is rejected unless the control plane recorded a grandfather window for it, and the attempt is machine-parsable in fleet reporting.
+- **A stable exit-code contract** — PASS 0, ADVISORY 10, FAIL 20, invalid input 30, policy refusal 31, execution error 32, seal failure 33 — plus deterministic replay of any historical decision.
 
-- name: Semantic scan (skips if no TS/JS)
-  run: node .devgate/scripts/semantic-scan.mjs
+Status: mid **Sprint 6 of 8** (adoption ladder and fleet integration). Sprints 0–5 delivered the decision contract, container/evaluator boundary, and the attestation/evidence stack. The full spec, task ledger, and design record live in [openspec/changes/devgate-spec-coherence-service/](openspec/changes/devgate-spec-coherence-service/).
 
-- name: Regression check (drift window)
-  # --all scans every change since the last tag (or HEAD~20). That is a
-  # drift/release sweep, NOT a review of this pull request: on a repository
-  # with legacy oversize files it reports pre-existing debt as blocking, the
-  # gate goes permanently red, and reviewers stop reading it. Schedule it
-  # (see templates/github-workflows/drift-scan.yml) and keep it off the
-  # pull-request path.
-  run: python3 .devgate/scripts/regression_check.py --all --pre-commit
+## Roadmap: the AIGGP packages (imported for evaluation — no merge commitment)
 
-# NOTE: DevGate has no flag to scope the regression scan to an arbitrary base
-# ref (for example origin/main...HEAD), which is what a pull-request gate
-# needs. --staged/--unstaged see nothing in a plain CI checkout, and --all
-# widens to the tag window, so there is currently no per-PR scope. For
-# file-size enforcement on pull requests use
-# templates/github-workflows/file-size-check.yml; for the full governance
-# sweep, run the regression gate on a schedule.
+In September 2026 we imported eleven AIGGP ("Agent Intelligence Gate Loop Guardrails Platform") spec packages under [openspec/changes/aiggp-00…10](openspec/changes/) — a proposal to give DevGate, Agent Guardrails, and Mission Control one shared truth model: one verdict algebra, one evidence envelope, one policy-bundle format, one append-only ledger.
 
-- name: Schema health (skips if no database configured)
-  run: node .devgate/scripts/schema-health-check.mjs
-```
-
-## Reusable Templates
-
-DevGate ships with a complete set of drop-in templates for every project that pulls it in. These are **separate from the framework scripts** — they are project-side assets that the consuming repo copies in. Located in `templates/`:
-
-### CI Workflow Templates (`templates/github-workflows/`)
-
-| Template | What it does |
-|----------|--------------|
-| `guardrails-compliance.yml` | Process gates: change-scope boundaries, forbidden files, conventional-commit format, AI attribution, GitHub Step Summary table |
-| `secret-validation.yml` | Gitleaks scan, .env-file check, credential-file patterns, hardcoded-secret patterns |
-| `file-size-check.yml` | CI-enforced line-count limit on source files (parameterized: SIZE_LIMIT, SOURCE_DIRS, FILE_PATTERN) |
-| `smoke-gate.yml` | Headless run + completion-sentinel validation — fails closed if the app crashes, hangs, or produces no output |
-| `drift-scan.yml` | Scheduled full-tree gate sweep; resolves the host's own runner label via `detect-host-ci.py` instead of hardcoding `ubuntu-latest` |
-
-Each template has a `SETUP` header comment and clearly-marked `CUSTOMIZE` placeholders. See [templates/README.md](templates/README.md) for usage.
-
-### Self-Hosted Runner Standard (`templates/runner/`)
-
-DevGate's standard for producing CI evidence on your own hardware: the **official
-`ghcr.io/actions/actions-runner` image** (GitHub-maintained, MIT) deployed as a
-Podman quadlet or Docker container — one container per project, distinct labels,
-registration token via a drop-in `.env` (never committed). See
-[templates/runner/README.md](templates/runner/README.md) for the standard and
-[templates/runner/self-hosted-runner.container](templates/runner/self-hosted-runner.container)
-for the copy-in quadlet.
-
-DevGate is **host-repo aware**: `scripts/detect-host-ci.py` reads the host
-repo's own `runs-on:` labels and `schedule:` crons from
-`.github/workflows/*.yml` (secrets-redacted) so workflows bind to the host's
-declared infrastructure rather than a hardcoded hosted runner.
-
-### Agent Skill Templates (`templates/skills/`)
-
-Six language-agnostic, project-agnostic skills that any AI agent can load:
-
-- **four-laws** — mandatory safety laws (read-before-edit, stay-in-scope, verify-before-commit, halt-when-uncertain)
-- **scope-validator** — enforces "only touch authorized files" with dependency analysis
-- **halt-conditions** — checklist of when to STOP and ask the user
-- **three-strikes** — halt after 3 failed attempts on a single task
-- **commit-validator** — conventional-commit format + AI attribution enforcement
-- **production-first** — production code before tests or infrastructure
-
-Each skill is a single `SKILL.md` with frontmatter, ready to drop into any agent runtime that supports the skill convention.
-
-## Agent Directions
-
-See [AGENTS.md](AGENTS.md) for comprehensive directions that AI agents should read when working in a project that uses DevGate.
+They are **imported, not adopted**. Nothing in them is implemented, and nothing has been reconciled with the coherence service that already ships (notably AIGGP-02, which overlaps the adoption ladder). **There is no commitment to merge DevGate into Agent Guardrails.** That decision is parked until the coherence service's open-spec work is further along and a feasibility pass proves the unification is worth doing — if the openspec work finishes first, the feasibility call happens after it. The source documents as received are kept for provenance in [openspec/aiggp-source/](openspec/aiggp-source/).
 
 ## License
 
