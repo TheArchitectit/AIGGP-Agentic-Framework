@@ -140,8 +140,10 @@ implemented. Each is a real dependency on work that does not exist:
   accepted-or-not on the future AIGGP lifecycle, not here.
 - **AIGGP-00, -09, -10** cannot be closed by this branch either; they depend on
   the AIGGP program. This branch's `tasks.md` tracks the *drift audit's*
-  findings, not AIGGP package acceptance. Reaching 31/31 strict green is what
-  unblocks that acceptance discussion; it does not constitute it.
+  findings, not AIGGP package acceptance. Reaching strict-green across the
+  whole tree — 0 failures, no fixed total, since `--all` counts discovered
+  items — is what unblocks that acceptance discussion; it does not constitute
+  it.
 
 ## 7. No false closure
 

@@ -107,3 +107,29 @@ means different things on different days.
   containerized coherence path not yet rebuilt and re-pinned — stays open. This
   branch does not pretend otherwise; it is a merge-gate item on the
   coherence-service package, not a spec-format defect.
+- **No fixing of the Python scanners' root resolution.** `regression_check.py`
+  and `scene_inventory.py` carry the same walk-up defect this package fixed for
+  the three Node scanners. It was found by this package's own fresh-eyes audit,
+  not by the external audit, and it is recorded as an OPEN ledger item rather
+  than quietly absorbed into a slice named for something else.
+
+## Which `spec-fmt-*` IDs are marked, and why the others are not
+
+Only `spec-fmt-04` carries a source marker. That is deliberate and not a gap
+waiting to be filled:
+
+- **`spec-fmt-01/02/03`** describe properties of the spec *tree* — Purpose and
+  umbrella sections present, requirements demoted, delta grammar respected,
+  imported drafts carrying no IDs. Their enforcing mechanism is
+  `openspec validate --all --strict` itself, which is not a file in the
+  repository and cannot host a `// spec:` comment. A marker added for them would
+  have to point at some unrelated source line purely to move a coverage number,
+  which is manufactured coverage — the exact thing `spec-fmt-03` forbids.
+  They are honestly advisory-uncovered.
+- **`spec-fmt-04`** is different: it names a check that *is* a file
+  (`scripts/specs-validate-negative-control.sh`), so a real marker belongs there.
+
+Discovering that the marker was invisible — `spec_traceability.py`'s
+`SCAN_EXTS` did not include `.sh`, so the requirement read UNCOVERED while the
+source looked marked — is recorded in the ledger. The fix widened `SCAN_EXTS`
+and is pinned by `test_shell_script_marker_counts_as_coverage`.

@@ -152,6 +152,23 @@ box means the work landed on this branch; an unchecked box is open and says why.
       **NOT RUN**, and no hardcoded item total.
 
 
+## Coverage honesty (S6)
+
+- [x] `spec-fmt-04` was marked in a `.sh` file, but `spec_traceability.py`'s
+      `SCAN_EXTS` was `{.rs,.py,.mjs,.js,.ts}` — shell scripts were never
+      scanned, so the marker was invisible and the requirement read UNCOVERED
+      while the source looked asserted. Fixed by adding `.sh`, pinned by
+      `test_shell_script_marker_counts_as_coverage` (watched RED first:
+      "router-req-01: UNCOVERED" for a `.sh`-marked requirement). Coverage
+      68 → 69.
+- [x] `spec-fmt-01/02/03` are left advisory-uncovered **on purpose**, not by
+      omission: they describe properties of the spec tree whose enforcing
+      mechanism is the validator itself, not a repository file, so a marker
+      would have to point at an unrelated line to move a number — manufactured
+      coverage, which `spec-fmt-03` forbids. Rationale recorded in `design.md`.
+- [x] Frontmatter/plan text citing "31/31" corrected where it outlived those
+      commits (the live count is 32; the ledger says not to hardcode it).
+
 ## Cross-package note (no false closure)
 
 - [x] Correct the working note that claimed AIGGP-01 targeted Jinja/3D-adapter

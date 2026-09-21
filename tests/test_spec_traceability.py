@@ -122,6 +122,19 @@ def test_comma_separated_marker_covers_every_id(tmp_path):
     assert "3/3 requirements covered" in result.stdout
 
 
+def test_shell_script_marker_counts_as_coverage(tmp_path):
+    """Shell scripts are part of the shipped gate surface (the specs
+    negative control lives at scripts/specs-validate-negative-control.sh),
+    so a `# // spec: <id>` marker in a .sh file must satisfy the requirement.
+    Without .sh in SCAN_EXTS the marker is invisible and the requirement reads
+    UNCOVERED — coverage that looks asserted in the source but isn't."""
+    write(tmp_path / "openspec/specs/router/spec.md", SPEC)
+    write(tmp_path / "scripts/check.sh", "#!/usr/bin/env bash\n# // spec: router-req-01\ntrue\n")
+    result = run(tmp_path, "--report")
+    assert result.returncode == 0
+    assert "router-req-01: covered" in result.stdout
+
+
 def test_both_layouts_merge(tmp_path):
     write(tmp_path / "openspec/specs/router/spec.md", SPEC)
     write(tmp_path / "openspec/changes/ch1/specs/net/spec.md",
