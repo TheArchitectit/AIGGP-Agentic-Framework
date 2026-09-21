@@ -83,16 +83,107 @@ box means the work landed on this branch; an unchecked box is open and says why.
 
 ## MEDIUM — same escape class in the Python scanners (found by the S1 audit, NOT the external audit)
 
-- [ ] **OPEN — new scope, not silently absorbed.** `scripts/regression_check.py:86`
-      and `scripts/scene_inventory.py:19` still resolve their root by marker
-      walk-up from cwd — the identical defect this branch fixed for the three
-      Node scanners. Verified: `regression_check.py` run from a markerless repo
-      adopts the parent's `package.json` as `PROJECT_ROOT`. Both run in the
-      consumer CI template (`drift-scan.yml:99`), and `regression_check.py` runs
-      in DevGate's own `self-gates` job. **Deliberately left open**: the
-      external audit did not raise it, it is a different language surface, and
-      the fix belongs with the same fixture pattern this branch established.
-      Recorded here so it is visible rather than discovered later.
+- [x] **CLOSED (S8).** Three Python scanners resolved their root by marker
+      walk-up from cwd — the identical defect fixed for the three Node scanners,
+      and a direct violation of `root-anchor-01` and `root-anchor-03`, the
+      requirements this branch itself authored: `regression_check.py`,
+      `scene_inventory.py`, and `failure_registry_check.py`. All three now import
+      one shared contract, `scripts/lib/project_root.py` (sibling of
+      `project-root.mjs`), satisfying `root-anchor-03`'s single-implementation
+      rule; each gained a module-level `PROJECT_ROOT` so the value is observable
+      without running a scan.
+      - **The third scanner was found by correcting a false claim in this very
+        slice.** An earlier version of this note asserted
+        `failure_registry_check.py` was "not in DevGate's own gate path" and
+        deferred it alongside `game_regression.py`. That was **wrong**:
+        `ci.yml:101` runs it on every push, so it is *more* gate-load-bearing
+        than `scene_inventory.py` (which no gate invokes). Its `_find_project_root()`
+        walked up from `Path.cwd()` for the first `.git`, and the value it
+        returned selected which `.guardrails/failure-registry.jsonl` overlay the
+        gate reads — a walk-up that lands above the checkout silently points the
+        gate at the wrong consumer's registry. The fix is not scope creep: under
+        this package's own stated rationale ("conforming them is completing this
+        package's own contract") a gate-invoked `root-anchor-01` violation is
+        squarely in scope, and the deferral existed only because the gate-path
+        claim was false.
+      - Escape reproduced first: from a markerless repo under a
+        marker-bearing parent, all three resolved `PROJECT_ROOT` to the parent.
+      - Pinned by `tests/test_python_root_anchor.py` (7 tests, each watched RED
+        against the unfixed scanners): standalone-under-marked-parent, submodule
+        → consumer, cwd-independence, mis-cased `.DevGate` is not the marker,
+        multi-ancestor walk-up, single-shared-implementation, and the pure-
+        function probe mirroring the Node check 9. All 7 now assert across
+        **three** scanners via one subprocess probe, not two.
+      - **Both walk-up spellings are pinned.** `regression_check.py`/
+        `scene_inventory.py` named the old helper `find_project_root`;
+        `failure_registry_check.py` named it `_find_project_root` (leading
+        underscore). A test that grepped only the underscoreless form would pass
+        on a `_find_project_root` that survived — the single-shared-implementation
+        check now asserts both definitions are gone and the shared import present,
+        for all three files.
+      - Mutation battery on the third scanner: 4 mutants (walk-up-from-cwd on the
+        consumed constant, always-parent, always-self/ignore-marker, case-insensitive
+        shared module), each killed. Combined with the Node battery this closes the
+        `root-anchor-01`/`-03` class for every scanner DevGate's CI actually runs.
+      - **Scope note (corrected).** `game_regression.py` also defines a
+        `find_project_root`, and it genuinely is **not** on DevGate's gate path,
+        so it stays deferred — unlike `failure_registry_check.py`, deferring it
+        rests on a checked claim. The check that actually holds: no `.github`
+        workflow, no `scripts/*`, and no consumer template invokes
+        `game_regression.py` (grep for it returns only comment prose in
+        `regression_diff.py` and QA write-ups, never a `python3 … game_regression`
+        call), and no gate script `import`s it as a module. It has its own test
+        (`test_game_regression.py`, 6 passing), so it is exercised — just not on
+        DevGate's *own* CI gate, only by consumers who opt into the game lane.
+        `log_failure.py`'s `DEVGATE_ROOT` is a *package* location for its
+        registry file, not a project root, so it is correctly not a second copy
+        of the contract and `root-anchor-03` does not apply to it.
+      - **A second self-correction, from the audit of this very delta.** The
+        first version of this scope note cited `grep game_regression .github
+        templates deploy.sh` as its proof. That recipe was itself a small false
+        verification: there is no root-level `deploy.sh` (the real one is
+        `scripts/deploy.sh`, which does not reference game_regression), so the
+        `deploy.sh` term matched nothing and the "zero hits" was partly true by
+        shell-expansion accident rather than by checking the right file. The
+        conclusion survived (game_regression is genuinely off the gate) but the
+        citation did not, so it was rewritten to name what was actually
+        searched. A deferral justified by a command that would print the expected
+        answer whether or not the file existed is the same failure class, one
+        level down.
+      - **PREVENT-024 observation (honest, not absorbed):** importing
+        `project_root` trips that rule — its pattern
+        `(import|from|...)\s+[a-z_]+_[a-z]+_[a-z]+` fires on any two-underscore
+        module name and its "triple-underscored" message is mis-worded, so it is
+        a false positive on a real local module. The three imports this slice adds
+        (`regression_check.py`, `scene_inventory.py`, `failure_registry_check.py`)
+        carry an inline `guardrails-allow PREVENT-024:` annotation naming the
+        module, which is DevGate's documented mechanism and leaves the scan at
+        zero new hits.
+        Two *pre-existing* hits on `tests/test_hub_spec_coherence.py` and
+        `tests/test_regression_check.py` are left untouched — this slice annotates
+        what it introduced, not the whole rule. The rule's over-broad pattern is a
+        separate cleanup.
+- **Result:** `run-tests.mjs` 40 files / 608 passed (was 39/601); guardrails
+  exits 0 with **zero new** warnings — all three scanner imports (and the test's
+  own probe `import failure_registry_check`, which trips the same over-broad rule)
+  carry `guardrails-allow` annotations, leaving only the two pre-existing hits;
+  `regression_check.py --base origin/main` resolves the repo and runs clean;
+  `failure_registry_check.py` (the ci.yml:101 invocation) still exits 0 on a clean
+  checkout, i.e. the fix changed *which tree it may resolve to*, not its answer
+  here — in DevGate's own checkout the layout contract and the old walk-up agree.
+- **Two ledger self-corrections recorded (see `design.md`):** this slice
+  initially shipped a false scope claim ("`failure_registry_check.py` is not in
+  DevGate's own gate path"), which its own fresh-eyes audit did *not* catch —
+  the audit's "no vacuous passes" verdict was about the *code* and was correct;
+  the defect was in the prose. The catch came from re-verifying a claim before
+  committing it. Then the *replacement* verification written for the
+  `game_regression.py` deferral ("grep … deploy.sh returns zero hits") proved to
+  be weak too — a nonexistent path that would have printed the same answer
+  regardless — and was caught by the independent audit of the delta. Both are
+  logged, not hidden, because the lesson generalizes: a deferral justified by an
+  unverified claim, *or by a check that could not have failed*, is the same false
+  closure shape this package exists to prevent, just relocated from a test
+  assertion into a sentence.
 
 ## HIGH — containerized coherence path not rebuilt and re-pinned
 

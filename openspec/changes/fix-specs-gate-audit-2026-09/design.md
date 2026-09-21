@@ -107,11 +107,19 @@ means different things on different days.
   containerized coherence path not yet rebuilt and re-pinned — stays open. This
   branch does not pretend otherwise; it is a merge-gate item on the
   coherence-service package, not a spec-format defect.
-- **No fixing of the Python scanners' root resolution.** `regression_check.py`
-  and `scene_inventory.py` carry the same walk-up defect this package fixed for
-  the three Node scanners. It was found by this package's own fresh-eyes audit,
-  not by the external audit, and it is recorded as an OPEN ledger item rather
-  than quietly absorbed into a slice named for something else.
+- **The Python scanners' root resolution was deferred, then closed (S8).**
+  `regression_check.py`, `scene_inventory.py`, and `failure_registry_check.py`
+  carried the same walk-up defect this package fixed for the three Node scanners.
+  It was found by this package's own fresh-eyes audit, not by the external audit,
+  and was first recorded as an OPEN ledger item rather than quietly absorbed into
+  a slice named for something else. It is now closed under the same reasoning that
+  made deferring it correct: the three scanners violate `root-anchor-01` and
+  `root-anchor-03`, requirements *this package authored*, so conforming them is
+  completing this package's own contract rather than expanding its scope. The fix
+  mirrors the Node side exactly — one shared module, one fixture, a mutation
+  battery — so the deferral was sequencing, not a different judgment about whether
+  it belonged here. See the next section for how the third scanner nearly escaped
+  on a false scope claim.
 
 ## Which `spec-fmt-*` IDs are marked, and why the others are not
 
@@ -175,3 +183,40 @@ The pattern worth keeping: an independent audit's *finding location* can be
 right while its *severity claim* is wrong, and vice versa. Both were checked
 against the code here rather than taken on the auditor's authority — which is
 also why the ledger records the disposition instead of a bare "fixed".
+
+## A false closure this package caught in its own ledger
+
+The S8 section first *deferred* `failure_registry_check.py` on the grounds that
+it was "not in DevGate's own gate path." That claim was simply false — `ci.yml`
+invokes it on every push — and the fix for the other two Python scanners had
+landed and been audited while the error sat in the ledger unnoticed. It surfaced
+only on re-reading the scope claim immediately before the paired commit.
+
+This matters more than a typo because of *how* it failed. The code was fine; the
+audit of the code was fine ("no vacuous passes" was correct). What was not fine
+was an unverified *assertion of fact* — "this file is not on a gate path" — used
+to justify leaving a `root-anchor-01` violation in place. That is the precise
+shape this whole package treats as dangerous: a check whose green signal does not
+depend on whether the claim behind it is true, here relocated from a test
+assertion to a prose disposition.
+
+So the disposition was reversed rather than reworded: `failure_registry_check.py`
+is now conformed alongside the other two scanners, because a scanner the CI
+actually runs cannot rest on an assumed-out-of-scope note. The contrast kept
+honest: `game_regression.py` remains deferred, but on a *checked* claim — no
+workflow, script, or template invokes it and no gate imports it — not an assumed
+one. A deferral must name how it was verified, or it is only a closure that
+hasn't been disproven yet.
+
+The lesson then recursed one level down, and it is recorded so it is not hidden:
+the *replacement* proof I wrote for the `game_regression.py` deferral — "grep …
+.github templates deploy.sh returns zero hits" — was itself a weak verification,
+caught by the independent audit of this delta. There is no root `deploy.sh`, so
+that grep argument matched nothing and the zero-hit result would have printed the
+same way whether or not the claim was true. The conclusion held under re-checking
+(`game_regression.py` is genuinely off every gate path), but a citation that is
+true partly by shell-expansion accident is not verification. Both the ledger and
+this design note now cite what was actually searched. The pattern, stated once:
+a defensible disposition names a check that could *fail* — a command whose
+expected output is independent of whether the claim is true is no check at all,
+whether it appears in a test assertion or in a sentence of prose.
