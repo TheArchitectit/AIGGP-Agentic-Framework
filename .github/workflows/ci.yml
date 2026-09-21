@@ -47,6 +47,22 @@ jobs:
         run: node tests/test_scanner_root_anchor.mjs
       - name: per-file runner (frameworks's own tests through its own runner)
         run: node scripts/run-tests.mjs
+      # The runner above exits 0 when it finds nothing, so a broken discovery
+      # path would show up as a green step that ran zero tests (the 2026-09-20
+      # audit found exactly that: "TOTAL: 0 passed", exit 0). The runner itself
+      # now fails closed on zero discovery; this step pins the *outcome* as a
+      # number, so a future change that turns discovery back into a no-op has
+      # to beat an assertion rather than just print less.
+      - name: runner discovered tests (non-vacuity — zero discovery is not a pass)
+        run: |
+          out="$(node scripts/run-tests.mjs 2>&1)" || { echo "$out"; exit 1; }
+          echo "$out" | tail -3
+          n="$(printf '%s\n' "$out" | sed -n 's/.*across \([0-9]\+\) files.*/\1/p' | tail -1)"
+          if [ -z "$n" ] || [ "$n" -lt 1 ]; then
+            echo "FAIL: the runner reported no discovered files — a green test lane that ran nothing."
+            exit 1
+          fi
+          echo "runner discovered $n test file(s)"
 
   self-gates:
     name: DevGate gates on DevGate
@@ -98,10 +114,23 @@ jobs:
       # Hard gate since migrate-specs-to-openspec-conventions: the whole tree
       # (specs + changes) validates strict, and both parsers agree on
       # requirement counts (spec-fmt-01).
-      - name: Install openspec CLI
-        run: npm install --no-save --no-audit --no-fund @fission-ai/openspec
+      #
+      # PINNED ON PURPOSE. This was `@fission-ai/openspec` unpinned, so the gate
+      # moved under the tree whenever upstream published: a new rule could turn
+      # a green branch red (or, worse, a relaxation could turn a red tree green)
+      # with no commit on our side. Bump deliberately, and re-run the negative
+      # control below when you do — the pin and the control are a pair.
+      - name: Install openspec CLI (pinned)
+        run: npm install --no-save --no-audit --no-fund @fission-ai/openspec@1.13.0
       - name: openspec validate (strict, hard gate)
         run: npx openspec validate --all --strict
+      # The hard gate above proves the tree is well-formed. It does NOT prove
+      # the validator can refuse ill-formed material — if the command were
+      # downgraded to a no-op the tree would keep validating green and the gate
+      # would be decorative. This feeds a known-broken item to the same command
+      # and requires a nonzero exit (spec-fmt-04).
+      - name: strict validation refuses malformed material (negative control)
+        run: bash scripts/specs-validate-negative-control.sh
       - name: Requirement-ID traceability
         run: |
           python3 scripts/spec_traceability.py --root . --report | tail -8

@@ -17,7 +17,7 @@
 
 import { spawn } from "node:child_process";
 import { readdirSync, statSync, mkdtempSync, rmSync, mkdirSync, existsSync } from "node:fs";
-import { join, relative, resolve, basename, extname } from "node:path";
+import { join, relative, basename, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import os from "node:os";

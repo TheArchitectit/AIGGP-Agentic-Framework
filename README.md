@@ -107,6 +107,20 @@ The pieces that matter to a human:
 
 Status: mid **Sprint 6 of 8** (adoption ladder and fleet integration). Sprints 0–5 delivered the decision contract, container/evaluator boundary, and the attestation/evidence stack. The full spec, task ledger, and design record live in [openspec/changes/devgate-spec-coherence-service/](openspec/changes/devgate-spec-coherence-service/).
 
+### What is verified, and where
+
+Every row below is checked by CI on every push — none of it is asserted by hand. An external audit (2026-09-20) found this README claiming more than the tree delivered, so the claims now name the mechanism that proves them:
+
+| Claim | Checked by | State |
+| --- | --- | --- |
+| Every spec validates under the strict delta grammar | `specs` job → `openspec validate --all --strict` | **GREEN** |
+| Strict validation actually refuses malformed material | `specs` job → `scripts/specs-validate-negative-control.sh` | **GREEN** |
+| The per-file runner discovers this repo's own tests | `tests` job → runner discovery count ≥ 1 | **GREEN** |
+| Scanner project-root anchoring (no ancestor escape) | `tests` job → `tests/test_scanner_root_anchor.mjs` | **GREEN** |
+| Evaluator image matches its pinned identity registry | `container-image` job → publish-gated; full smoke needs registry credentials | **NOT RUN** |
+
+The last row is deliberately not green. The containerized coherence path has **not** been rebuilt and re-pinned since it was written, and no full-container smoke has executed against the pinned image. That is a merge-gate condition on the coherence-service package, and this table says so rather than rounding it up. The item total is not quoted here on purpose — `--all` counts discovered items, so any fixed number in prose goes stale the moment a package is added.
+
 ## Roadmap: the AIGGP packages (imported for evaluation — no merge commitment)
 
 In September 2026 we imported eleven AIGGP ("Agent Intelligence Gate Loop Guardrails Platform") spec packages under [openspec/changes/aiggp-00…10](openspec/changes/) — a proposal to give DevGate, Agent Guardrails, and Mission Control one shared truth model: one verdict algebra, one evidence envelope, one policy-bundle format, one append-only ledger.

@@ -24,9 +24,11 @@ const devgateRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 // Project root by LAYOUT CONTRACT (see scripts/lib/project-root.mjs). The old
 // marker walk-up from .devgate's parent settled on shared directories above the
 // checkout (e.g. a "git repos" folder carrying its own package.json) and scanned
-// every sibling repo — the 2026-09-20 audit counted 16168 foreign files
-// evaluated by a gate that believed it was scanning DevGate. Same escape as
-// run-tests.mjs had; same fix, one shared source.
+// every sibling repo — thousands of foreign files evaluated by a gate that
+// believed it was scanning DevGate. The exact figure moves as sibling repos
+// grow (so it is not quoted as a constant), but the failure shape is stable:
+// a root chosen by "nearest marker above me" can silently be the wrong tree.
+// Same escape as run-tests.mjs had; same fix, one shared source.
 // tests/test_scanner_root_anchor.mjs locks the contract.
 const root = projectRootFor(devgateRoot);
 

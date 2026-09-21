@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// // spec: root-anchor-01, root-anchor-02, root-anchor-03
 // Root-anchoring fixture — locks the layout contract for the three DevGate
 // scanners that resolve a project root from their own file location:
 // guardrails-scan.mjs, semantic-scan.mjs, and run-tests.mjs.
@@ -22,15 +23,17 @@
 // marker file — the historical configuration (/mnt/data/git holds its own
 // package.json): the old walk-up stopped at that marker and evaluated the
 // decoys planted there; the layout contract never consults markers, so it
-// stays inside the repo. A markerless parent would let an inverted-precedence
-// mutant ("repo first, ancestor fallback") pass with identical assertions.
+// stays inside the repo. The parent marker matters: without it an
+// inverted-precedence mutant ("repo first, ancestor fallback") would pass with
+// identical assertions, so every decoy parent carries one.
 // The submodule case is a positive control (old and new agree) so a fix cannot
-// over-correct to "always DevGate" and strand consumers.
+// over-correct to "always DevGate" and strand consumers. Case 8 covers the
+// converse: a mis-cased `.DevGate` is NOT the marker.
 //
 // Run: node tests/test_scanner_root_anchor.mjs
 
 import { spawnSync } from "node:child_process";
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -54,7 +57,7 @@ function installStandalone(parent, repoName) {
 	mkdirSync(join(repo, "scripts", "lib"), { recursive: true });
 	mkdirSync(join(repo, "tests"), { recursive: true });
 	mkdirSync(join(repo, "src"), { recursive: true });
-	for (const f of ["run-tests.mjs", "semantic-scan.mjs"]) {
+	for (const f of ["run-tests.mjs", "semantic-scan.mjs", "guardrails-scan.mjs"]) {
 		copyFileSync(join(scriptsDir, f), join(repo, "scripts", f));
 	}
 	// Post-fix the scripts import the shared contract module; pre-fix there is
@@ -73,17 +76,23 @@ function installStandalone(parent, repoName) {
 	for (let i = 1; i <= 3; i++) {
 		writeFileSync(join(repo, "src", `mod_${i}.js`), "export const x = 1;\n");
 	}
+	// guardrails-scan.mjs loads its bundled rules from <devgateRoot>/.guardrails/.
+	// Without them the scanner has zero rules, finds nothing, and reports a
+	// clean scan — which would make the guardrails case below pass vacuously
+	// against any root at all.
+	cpSync(join(repoRoot, ".guardrails"), join(repo, ".guardrails"), { recursive: true });
 	return repo;
 }
 
 // Plant decoys in the PARENT, in the layout the runner's discovery reads:
 // <parent>/tests/*.test.mjs + <parent>/*.js. An escaped root scans these; an
-// anchored root never sees them. `markerless` keeps the parent free of
-// package.json/.git — otherwise the walk-up would stop even earlier.
-function plantDecoys(parent, markerless = true) {
-	if (!markerless) {
-		writeFileSync(join(parent, "package.json"), '{"name":"parent-decoy"}\n');
-	}
+// anchored root never sees them. The parent ALWAYS carries package.json — that
+// is the historical escape precondition (the real parent, /mnt/data/git, has
+// one), and it is what makes the ancestor-walk mutants killable at all. An
+// earlier version of this fixture left the marker optional; every caller now
+// wants it, so the parameter is gone rather than defaulted to an unused value.
+function plantDecoys(parent) {
+	writeFileSync(join(parent, "package.json"), '{"name":"parent-decoy"}\n');
 	mkdirSync(join(parent, "tests"), { recursive: true });
 	for (let i = 1; i <= 2; i++) {
 		writeFileSync(join(parent, "tests", `decoy_${i}.test.mjs`), PASSING_TEST);
@@ -112,7 +121,7 @@ function countFiles(out) {
 // --------------------------------------------------------------------------
 {
 	const parent = freshParent();
-	plantDecoys(parent, /* markerless */ false); // parent carries package.json
+	plantDecoys(parent); // parent carries package.json
 	const repo = installStandalone(parent, "gameproj");
 	const res = spawnSync(process.execPath, [join(repo, "scripts", "run-tests.mjs")],
 		{ encoding: "utf-8", cwd: repo });
@@ -134,7 +143,7 @@ function countFiles(out) {
 // --------------------------------------------------------------------------
 {
 	const parent = freshParent();
-	plantDecoys(parent, /* markerless */ false); // parent carries package.json
+	plantDecoys(parent); // parent carries package.json
 	const repo = join(parent, "emptyproj");
 	mkdirSync(join(repo, "scripts", "lib"), { recursive: true });
 	copyFileSync(join(scriptsDir, "run-tests.mjs"), join(repo, "scripts", "run-tests.mjs"));
@@ -162,7 +171,7 @@ function countFiles(out) {
 // --------------------------------------------------------------------------
 {
 	const parent = freshParent();
-	plantDecoys(parent, /* markerless */ false); // parent carries package.json
+	plantDecoys(parent); // parent carries package.json
 	const repo = installStandalone(parent, "gameproj");
 	const res = spawnSync(process.execPath, [join(repo, "scripts", "semantic-scan.mjs")],
 		{ encoding: "utf-8", cwd: repo,
@@ -219,7 +228,7 @@ function countFiles(out) {
 // --------------------------------------------------------------------------
 {
 	const parent = freshParent();
-	plantDecoys(parent, /* markerless */ false); // parent carries package.json
+	plantDecoys(parent); // parent carries package.json
 	const repo = join(parent, "emptyproj");
 	mkdirSync(join(repo, "scripts", "lib"), { recursive: true });
 	copyFileSync(join(scriptsDir, "run-tests.mjs"), join(repo, "scripts", "run-tests.mjs"));
@@ -237,6 +246,104 @@ function countFiles(out) {
 	check("run-tests: ALLOW_NO_TESTS=0 does NOT skip (only literal 1 is the hatch)",
 		zero.status !== 0 && /no test files discovered/.test((zero.stderr ?? "") + (zero.stdout ?? "")),
 		`exit ${zero.status}`);
+}
+
+// --------------------------------------------------------------------------
+// 6. cwd independence. The root is resolved from the SCRIPT'S OWN location
+//    (import.meta.url), so invoking a scanner from an unrelated working
+//    directory must not change which tree it evaluates. Without this case a
+//    `return process.cwd()` mutant passes every check above — every other case
+//    spawns with cwd inside the tree under test, where cwd and layout agree.
+//    The foreign cwd deliberately carries its OWN tests and its own package.json
+//    so a cwd-rooted scanner finds a populated, green, wrong tree rather than
+//    failing for a reason the assertion could confuse with correctness.
+// --------------------------------------------------------------------------
+{
+	const foreign = freshParent();
+	plantDecoys(foreign);
+	const parent = freshParent();
+	const repo = installStandalone(parent, "gameproj");
+
+	const res = spawnSync(process.execPath, [join(repo, "scripts", "run-tests.mjs")],
+		{ encoding: "utf-8", cwd: foreign });
+	const out = (res.stdout ?? "") + (res.stderr ?? "");
+	check("run-tests: resolves its own tree when invoked from an unrelated cwd",
+		countFiles(out) === 3 && out.includes("in_repo_1") && !out.includes("decoy_"),
+		`counts/out: ${JSON.stringify(out.slice(-260))}`);
+
+	const sem = spawnSync(process.execPath, [join(repo, "scripts", "semantic-scan.mjs")],
+		{ encoding: "utf-8", cwd: foreign,
+			env: { ...process.env, DEVGATE_SEMANTIC_REQUIRED: "0" } });
+	const semOut = (sem.stdout ?? "") + (sem.stderr ?? "");
+	const sm = semOut.match(/counted (\d+) TS\/JS file\(s\)/);
+	check("semantic-scan: resolves its own tree when invoked from an unrelated cwd",
+		sm && Number(sm[1]) === 3,
+		`expected 3 counted, got: ${sm ? sm[1] : "no match"} :: ${JSON.stringify(semOut.slice(-200))}`);
+}
+
+// --------------------------------------------------------------------------
+// 7. guardrails-scan.mjs shares the same contract. The fixture header claims to
+//    lock all three scanners; without this case nothing executes the third one.
+//    Asserted through its real output: the guardrails scan names the project
+//    root it selected and the number of files it evaluated, so a walk-up that
+//    settled on the decoy parent is visible as the wrong root, not just a
+//    different count.
+// --------------------------------------------------------------------------
+{
+	const parent = freshParent();
+	plantDecoys(parent);
+	const repo = installStandalone(parent, "gameproj");
+	// Plant an identical rule-tripping file on BOTH sides. The rule is
+	// PREVENT-001 ("JSON.parse(...) direct property access", severity error,
+	// scoped to *.js/*.ts) — chosen because it is language-scoped to plain JS
+	// (Godot/Rust-shaped rules like PREVENT-004 never fire on a .js file) and
+	// has no forbidden_context that could suppress this shape. The reported
+	// violation path then names the tree actually scanned: a walk-up that
+	// settled on the decoy parent reports the parent's copy. Asserted through
+	// real output rather than a debug flag, so it holds for any scanner that
+	// reports the paths it evaluated.
+	const trip = "export const cfg = JSON.parse(raw).timeout;\n";
+	writeFileSync(join(repo, "src", "trip.js"), trip);
+	writeFileSync(join(parent, "decoy_trip.js"), trip);
+
+	const res = spawnSync(process.execPath, [join(repo, "scripts", "guardrails-scan.mjs")],
+		{ encoding: "utf-8", cwd: repo });
+	const out = (res.stdout ?? "") + (res.stderr ?? "");
+	check("guardrails-scan: reports the repo's own file, never the decoy parent's",
+		out.includes("trip.js") && !out.includes("decoy_trip"),
+		`out: ${JSON.stringify(out.slice(-300))}`);
+}
+
+// --------------------------------------------------------------------------
+// 8. The contract name is case-exact. A directory named `.DevGate` (or any
+//    other casing) is NOT the submodule marker, so a scanner installed there
+//    treats its own tree as the project root — and on case-sensitive
+//    filesystems a case-folding mutant would silently scan the CONSUMER's
+//    tree instead. This is the only layout where the two behaviors differ,
+//    which is why the mutant survived every earlier check.
+// --------------------------------------------------------------------------
+{
+	const parent = freshParent();
+	const proj = join(parent, "consumer");
+	// Deliberately mis-cased install directory.
+	mkdirSync(join(proj, ".DevGate", "scripts", "lib"), { recursive: true });
+	copyFileSync(join(scriptsDir, "run-tests.mjs"),
+		join(proj, ".DevGate", "scripts", "run-tests.mjs"));
+	copyFileSync(join(scriptsDir, "lib", "project-root.mjs"),
+		join(proj, ".DevGate", "scripts", "lib", "project-root.mjs"));
+	// The consumer's own tests sit at the project level — findable ONLY by a
+	// scanner that case-folds the marker name.
+	mkdirSync(join(proj, "tests"), { recursive: true });
+	for (let i = 1; i <= 2; i++) {
+		writeFileSync(join(proj, "tests", `app_${i}.test.mjs`), PASSING_TEST);
+	}
+	const res = spawnSync(process.execPath,
+		[join(proj, ".DevGate", "scripts", "run-tests.mjs")],
+		{ encoding: "utf-8", cwd: proj });
+	const out = (res.stdout ?? "") + (res.stderr ?? "");
+	check("run-tests: a case-variant .DevGate directory is not the submodule marker",
+		res.status !== 0 && /no test files discovered/.test(out) && countFiles(out) !== 2,
+		`exit ${res.status}: ${JSON.stringify(out.slice(-200))}`);
 }
 
 for (const d of dirs) rmSync(d, { recursive: true, force: true });
