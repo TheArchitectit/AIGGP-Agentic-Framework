@@ -133,3 +133,45 @@ Discovering that the marker was invisible — `spec_traceability.py`'s
 `SCAN_EXTS` did not include `.sh`, so the requirement read UNCOVERED while the
 source looked marked — is recorded in the ledger. The fix widened `SCAN_EXTS`
 and is pinned by `test_shell_script_marker_counts_as_coverage`.
+
+## The second independent audit (2026-09-21), and a finding that was half right
+
+The first dispatched audit never reported (recorded as unfinished in the
+ledger). A second, `s7-audit-retry`, completed and returned a verdict with one
+BLOCKING finding, two minor ones, and five confirmed claims. Each is
+dispositioned on its merits rather than accepted wholesale:
+
+- **BLOCKING — "a marker walk-up in `projectRootFor` survives all 12 checks."**
+  Directionally correct about a *gap*, wrong about the *defect*. The mutant the
+  audit wrote probes `join(devgateRoot, ".devgate")` first, which returns
+  `devgateRoot` — identical to the contract's standalone branch, and identical
+  to `dirname()` for a real submodule scanner. It is a no-op on every layout a
+  scanner can be installed in, so its survival proved the fixture could not
+  distinguish it (trivially true — they are the same function on those inputs),
+  not that a defect existed. The genuinely dangerous shape, a walk-up starting
+  *above* the scanner, **is** killed — by 8 checks.
+  The audit was nonetheless pointing at something real: every check asserted a
+  resolved *root* through scanner output, so the contract's *pure-function*
+  property — it consults no filesystem — was unasserted. A marker-based
+  implementation that happened to give right answers on the fixture's layouts
+  would pass. Check 9 now pins it by calling the module with nonexistent paths;
+  it kills the walk-up on the one input where the two genuinely differ
+  (`/x/.devgate`: the contract strips the marker name, the walk-up returns it
+  verbatim because `existsSync` is false on a path that does not exist).
+  The battery is now 8 mutants, zero survivors.
+- **MINOR — "traceability count is stale."** Correct, and worse than reported:
+  the line said "unchanged at 65/100", but main measures 68/107 and HEAD 69/107,
+  so it was already wrong when written — while directly contradicting the next
+  sentence's rule against quoting fixed numbers. Fixed by naming the invariant
+  (exit status, advisory classification) and dropping the ratio.
+- **MINOR — "the container build row never executes on CI."** Correct. The job
+  runs on `ubuntu-latest`, which has no podman, so both steps take their
+  `SKIPPED` branch and exit 0. The README row said "GREEN (when podman is
+  present)" — literally true, but it read as a check that had passed. Both
+  container rows now say plainly that nothing evaluates them on hosted CI, and
+  the table's own preamble no longer claims every row runs.
+
+The pattern worth keeping: an independent audit's *finding location* can be
+right while its *severity claim* is wrong, and vice versa. Both were checked
+against the code here rather than taken on the auditor's authority — which is
+also why the ledger records the disposition instead of a bare "fixed".

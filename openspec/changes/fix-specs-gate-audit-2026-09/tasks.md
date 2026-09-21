@@ -21,9 +21,15 @@ box means the work landed on this branch; an unchecked box is open and says why.
 - [x] Record the import status on all 11 AIGGP proposal.md files: imported
       draft, program not started, not a commitment.
 - **Result:** `openspec validate --all --strict` → passes with 0 failures, exit 0.
-  Traceability unchanged at 65/100 (advisory, exit 0).
-  **The total is deliberately not quoted as a fixed number.** `--all` counts
-  *discovered* items, so this package's own addition moved it 31 → 32; any
+  Traceability still exits 0 (advisory, uncovered requirements are a warning not
+  a gate). **No coverage ratio is quoted here, on purpose.** An earlier revision
+  of this line said "unchanged at 65/100" — which was wrong twice over: the
+  figure was already stale when written (main measured 68/107, HEAD 69/107 after
+  the S6 `.sh` fix), and it contradicted the very next sentence's rule against
+  fixed numbers. The invariant that matters is the *exit status* and the
+  advisory-vs-blocking classification; both are unaffected by this branch.
+  **The item total is deliberately not quoted as a fixed number either.** `--all`
+  counts *discovered* items, so this package's own addition moved it 31 → 32; any
   prose figure goes stale the moment a package is added. Two landed commit
   messages on this branch cite "31/31" — that was the count at the time of
   those commits (before this package existed), not an error, but the live
@@ -192,15 +198,26 @@ box means the work landed on this branch; an unchecked box is open and says why.
       condition, since the tests job installs no typescript).
 - [x] Stability: fixture green on 3 consecutive runs; runner count stable at
       601/39 across runs.
-- [ ] **Independent fresh-eyes audit of this branch DID NOT REPORT.** An agent
-      was dispatched to audit sections A–E of the final tree; it went idle
-      without delivering findings, and three requests for its report went
-      unanswered. **This is recorded as an unfinished audit, not a clean one.**
-      The checks it was assigned were executed by the branch author instead
-      (attacks on the negative control, extra mutants, header-arithmetic review,
-      hygiene scan) and are recorded above — but a self-run check is not an
-      independent audit, and this package's earlier slices each got a real one.
-      A genuinely independent review of this branch remains outstanding.
+- [x] **First independent audit DID NOT REPORT** (2026-09-21). An agent was
+      dispatched to audit sections A–E of the final tree; it went idle without
+      delivering findings and three requests for its report went unanswered.
+      **Recorded as an unfinished audit, not a clean one.** A replacement was
+      dispatched rather than treating silence as a pass.
+- [x] **Second independent audit COMPLETED** (2026-09-21, `s7-audit-retry`) —
+      5 claims confirmed against measured output, 1 BLOCKING, 2 minor. Verdict:
+      the "no false closure" thesis substantially upheld. All three findings
+      dispositioned in `design.md`; summary:
+  - [x] BLOCKING ("walk-up mutant survives") — **half right**. The mutant was a
+        no-op on every real layout (its first probe returns `devgateRoot`, the
+        same answer as the contract), so the audit's *defect* claim is refused.
+        Its *gap* claim stands: no check pinned the contract's pure-function
+        property. Check 9 added (watched RED against a real filesystem walk-up,
+        then GREEN), battery now **8 mutants, zero survivors**.
+  - [x] MINOR (stale traceability count) — correct and understated: the line
+        said 65/100, main measured 68/107. Ratio dropped, invariant named.
+  - [x] MINOR (container build row never fires) — correct. Both container rows
+        now state that hosted CI evaluates neither; the table preamble no
+        longer claims every row is CI-checked.
 
 ## Cross-package note (no false closure)
 
