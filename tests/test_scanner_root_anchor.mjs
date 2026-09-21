@@ -346,6 +346,46 @@ function countFiles(out) {
 		`exit ${res.status}: ${JSON.stringify(out.slice(-200))}`);
 }
 
+// --------------------------------------------------------------------------
+// 9. The contract consults NO filesystem. Checks 1-8 all assert a resolved
+//    ROOT via scanner output, which leaves one implementation detail
+//    unasserted: whether the answer came from layout or from a marker test.
+//    The independent audit (2026-09-21) flagged a walk-up mutant as surviving;
+//    investigating it showed the mutant it wrote is provably equivalent to the
+//    contract on every layout the scanners can be installed in (its first probe
+//    is join(devgateRoot, ".devgate"), which returns devgateRoot — exactly the
+//    standalone branch — so it is a no-op rather than a real variant). The
+//    genuinely dangerous shape, a walk-up starting ABOVE the scanner, is killed
+//    by 8 checks. What no check covered is the property that makes the contract
+//    cheap and total: projectRootFor is a pure function of its argument.
+//
+//    Asserted by calling the module directly with paths that do NOT exist. A
+//    marker-based implementation (of any start point) answers these from the
+//    filesystem and returns null-ish/undefined or walks to a real ancestor; a
+//    layout implementation answers from the string alone. This is the one probe
+//    a filesystem-consulting implementation cannot pass by accident, and it
+//    costs no subprocess.
+// --------------------------------------------------------------------------
+{
+	const probe = `
+import { projectRootFor } from ${JSON.stringify(join(repoRoot, "scripts", "lib", "project-root.mjs"))};
+const out = [];
+out.push(projectRootFor("/nonexistent-aaa/bbb"));
+out.push(projectRootFor("/nonexistent-aaa/bbb/.devgate"));
+out.push(projectRootFor("/"));
+out.push(projectRootFor("/nonexistent-aaa"));
+console.log(JSON.stringify(out));
+`;
+	const res = spawnSync(process.execPath, ["--input-type=module", "-e", probe],
+		{ encoding: "utf-8" });
+	let got;
+	try { got = JSON.parse((res.stdout ?? "").trim()); } catch { got = null; }
+	const want = ["/nonexistent-aaa/bbb", "/nonexistent-aaa/bbb", "/", "/nonexistent-aaa"];
+	check("project-root: resolves by path alone, never by touching the filesystem",
+		Array.isArray(got) && got.length === 4 && got.every((v, i) => v === want[i]),
+		`want ${JSON.stringify(want)}, got ${JSON.stringify(got)} (stderr: ${(res.stderr ?? "").slice(0, 160)})`);
+}
+
 for (const d of dirs) rmSync(d, { recursive: true, force: true });
 
 if (failures) {
