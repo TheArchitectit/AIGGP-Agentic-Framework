@@ -33,6 +33,17 @@ import subprocess
 import sys
 from pathlib import Path
 
+# Project root by LAYOUT CONTRACT (root-anchor-01/-03) — identical reasoning to
+# regression_check.py and scene_inventory.py. The old _find_project_root() walked
+# up from Path.cwd() for the first .git it found, so this gate's overlay
+# resolution was both cwd-dependent and free to escape to a parent directory
+# above the checkout. This file is not an optional helper: ci.yml runs it on every
+# push, which is what makes the shared-contract conformance load-bearing here.
+sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
+from project_root import project_root_for  # noqa: E402  # guardrails-allow PREVENT-024: shared root-contract module defined in scripts/lib/project_root.py, not an external package
+
+PROJECT_ROOT = project_root_for(Path(__file__).resolve().parent.parent)
+
 # Sentinel SHA values that are allowed without git verification.
 DUMMY_COMMITS = frozenset({"pending", "a1b2c3d", "0000000"})
 
@@ -43,15 +54,6 @@ REQUIRED_FIELDS = frozenset({
 })
 
 VALID_STATUSES = frozenset({"active", "resolved", "deprecated"})
-
-
-def _find_project_root() -> Path:
-    """Walk up from CWD to find a project root marker."""
-    cwd = Path.cwd()
-    for d in [cwd] + list(cwd.parents):
-        if (d / ".git").exists():
-            return d
-    return cwd
 
 
 def _git_cat_file_t(repo_root: Path, sha: str) -> bool:
@@ -128,7 +130,7 @@ def check(registry_path: Path | None = None) -> tuple[int, list[str]]:
     """
     errors: list[str] = []
     warnings: list[str] = []
-    project_root = _find_project_root()
+    project_root = PROJECT_ROOT
     devgate_root = Path(__file__).resolve().parent.parent
 
     if registry_path is not None:
