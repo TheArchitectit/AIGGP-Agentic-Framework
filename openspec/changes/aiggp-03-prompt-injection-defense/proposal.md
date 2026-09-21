@@ -1,3 +1,5 @@
+> **Status: imported draft — not a commitment.** The AIGGP program has not started; this package is imported reference material held for future acceptance. It does not modify, supersede, or bind the shipped DevGate specification ladder, and no code, traceability ID, or gate configuration is wired to its requirements. (Added 2026-09-20 per the spec-coherence drift audit; see the AIGGP-02 reconciliation.)
+
 ## Summary
 
 Add direct prompt-injection defense to the Guardrails runtime module: classification of inbound instructions and content against injection patterns, mediation (block, sanitize, escalate) at command/edit/git/action boundaries, and evidence emission per decision, proven against an adversarial conformance corpus before any verified maturity claim.

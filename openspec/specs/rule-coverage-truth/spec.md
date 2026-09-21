@@ -1,10 +1,16 @@
 # Spec: Rule coverage truth
 
-## Requirement: Enabled means enforced
+## Purpose
+
+Keep the documented rule coverage honest: a rule listed as enabled must have a checker that enforces it, and docs must match what ships.
+
+## Requirements
+
+### Requirement: Enabled means enforced
 <!-- id: rule-truth-01 -->
-Every rule shipped with `enabled: true` in any prevention-rules file shall
+Every rule shipped with `enabled: true` in any prevention-rules file SHALL
 have an executing enforcement path in the corresponding gate; a hygiene check
-shall fail when an enabled rule has no implementation.
+SHALL fail when an enabled rule has no implementation.
 
 #### Scenario: semantic rule without checker
 - **WHEN** semantic-rules.json enables a rule id no registered checker
@@ -15,10 +21,10 @@ shall fail when an enabled rule has no implementation.
 - **WHEN** the README or a script header names a rule as enforced
 - **THEN** that rule is enabled and has a registered checker
 
-## Requirement: Behavior rules live in skills
+### Requirement: Behavior rules live in skills
 <!-- id: rule-behavior-01 -->
 Rules constraining agent behavior (git operations, destructive commands,
-scope discipline) shall be published as skill-template content, not as
+scope discipline) SHALL be published as skill-template content, not as
 prevention-rules JSON that no file scanner can enforce.
 
 #### Scenario: extracted-rules removal
@@ -26,10 +32,10 @@ prevention-rules JSON that no file scanner can enforce.
 - **THEN** extracted-rules.json is absent and the docs name the skill
   template covering each former rule
 
-## Requirement: Language-aware spec markers
+### Requirement: Language-aware spec markers
 <!-- id: rule-marker-01 -->
-The spec-traceability gate shall recognize requirement markers in each
-scanned language's comment syntax (`//`, `#`, `--`), and scaffolding shall
+The spec-traceability gate SHALL recognize requirement markers in each
+scanned language's comment syntax (`//`, `#`, `--`), and scaffolding SHALL
 instruct implementers in the target file's own syntax.
 
 #### Scenario: Python marker

@@ -70,3 +70,9 @@ The migration SHALL not copy generated guardrail Markdown into consuming reposit
 - ARCHIVED: predecessor repositories are read-only signposts.
 
 A state transition SHALL be recorded in the migration ledger with actor, time, source and destination commits, evidence links, and rollback checkpoint. Skipping a state is forbidden.
+
+## Point of no return
+
+Moved out of `specs/archive-and-rollback/spec.md` (2026-09-20 audit remediation): this is design prose, not a testable requirement, and level-2 sections inside a delta spec file are reserved for delta verbs.
+
+The practical point of no return is not the subtree merge; it is publication of the first unified release plus downstream adoption that cannot be safely reversed. Before that point, rollback is the default P0 response. After it, rollback requires an owner decision and may use a forward repair while keeping the release ledger append-only.

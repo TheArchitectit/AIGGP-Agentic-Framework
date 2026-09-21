@@ -1,3 +1,5 @@
+> **Status: imported draft — not a commitment.** The AIGGP program has not started; this package is imported reference material held for future acceptance. It does not modify, supersede, or bind the shipped DevGate specification ladder, and no code, traceability ID, or gate configuration is wired to its requirements. (Added 2026-09-20 per the spec-coherence drift audit; see the AIGGP-02 reconciliation.)
+
 ## Summary
 
 Add GitLab as an additive second forge: instance discovery and backup for the lab instance, a GitLab runner standard mirroring the GitHub fleet, the CI gate templates mirrored 1:1 as GitLab includes running identical scripts, a forge adapter in the hub, and a blocking parity drill proving identical findings across forges.

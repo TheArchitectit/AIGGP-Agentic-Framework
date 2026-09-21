@@ -1,3 +1,5 @@
+> **Status: imported draft — not a commitment.** The AIGGP program has not started; this package is imported reference material held for future acceptance. It does not modify, supersede, or bind the shipped DevGate specification ladder, and no code, traceability ID, or gate configuration is wired to its requirements. (Added 2026-09-20 per the spec-coherence drift audit; see the AIGGP-02 reconciliation.)
+
 ## Summary
 
 Reconcile the 2026-09-13 audit branch against current DevGate main, close every known false-green and crash path with file-evidenced fixes, add a nonzero test floor and adversarial negative controls, and bring DevGate to the point where its green is trustworthy enough to become the AIGGP repository module.

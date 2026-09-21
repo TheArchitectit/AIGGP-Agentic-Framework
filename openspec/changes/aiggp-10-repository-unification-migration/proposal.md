@@ -1,3 +1,5 @@
+> **Status: imported draft — not a commitment.** The AIGGP program has not started; this package is imported reference material held for future acceptance. It does not modify, supersede, or bind the shipped DevGate specification ladder, and no code, traceability ID, or gate configuration is wired to its requirements. (Added 2026-09-20 per the spec-coherence drift audit; see the AIGGP-02 reconciliation.)
+
 ## Summary
 
 Create one canonical AIGGP repository from the existing Agent Guardrails repository and the DevGate repository. Import DevGate by a non-squashed subtree merge, normalize both products behind explicit module boundaries, migrate CI and release automation in parallel, prove history and behavior continuity, then archive the standalone repositories with durable pointers to the unified source.
