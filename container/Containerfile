@@ -25,6 +25,16 @@ WORKDIR /app
 # Copy the service package (stdlib only).
 COPY hub/ ./hub/
 
+# Copy the frozen contract schemas. schemacheck.SCHEMA_DIR resolves to the
+# in-container location of openspec/changes/.../schemas (relative to this
+# WORKDIR), and `run()` validates its own request against it BEFORE touching
+# any field — without this COPY the image cannot load its own contract
+# (coh-rt-08, F1/D2: the image once shipped without them and died on
+# FileNotFoundError inside every containerized run). Pinned by a podman-free
+# unit in tests/test_hub_coherence_container.py, because the CI job that also
+# holds this line self-skips on runners without podman.
+COPY openspec/changes/devgate-spec-coherence-service/schemas/ ./openspec/changes/devgate-spec-coherence-service/schemas/
+
 USER coherence
 
 # One evaluation per invocation; the launcher passes --request / output

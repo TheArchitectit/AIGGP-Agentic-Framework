@@ -71,12 +71,16 @@ jobs:
     timeout-minutes: 20
 
     env:
-      # CUSTOMIZE (1/3): the pinned runtime. Same shape as drift-scan.yml —
+      # CUSTOMIZE (1/4): the pinned runtime. Same shape as drift-scan.yml —
       # clone then checkout a fixed commit, so the gate's own code is
-      # addressed by content, not by whatever HEAD happens to be.
+      # addressed by content, not by whatever HEAD happens to be. This commit
+      # MUST contain hub/coherence/invoke.py (the request builder this gate now
+      # calls) and the schema-bearing image — so the pin and the digest below
+      # move together at the publish-gated re-pin (they are stale against the
+      # pre-builder tree; see tasks.md round-18).
       DEVGATE_REPO: https://github.com/TheArchitectit/DevGate-Agentic-Framework.git
       DEVGATE_PIN: cb29c002db0fa5c04a3984300e780a0a3e84f76d
-      # CUSTOMIZE (2/3): the pinned evaluator image. What is pinned is the
+      # CUSTOMIZE (2/4): the pinned evaluator image. What is pinned is the
       # DIGEST, not the tag — the driver refuses a ref/digest disagreement, so
       # a stale copy of these two lines fails closed in the summary rather
       # than running unpinned bytes. Keep the digest equal to the one recorded
@@ -84,9 +88,20 @@ jobs:
       COHERENCE_IMAGE: localhost/devgate-coherence
       COHERENCE_PROFILE: linux-amd64-v1
       COHERENCE_IMAGE_MANIFEST_DIGEST: sha256:5e73b5bd6e47c580ac44c5bb49ef7b64a06c44f10e4bfe2ed5b99e0b8c7f2548
-      # CUSTOMIZE (3/3): what to gate. Subjects are directories in THIS repo
+      # CUSTOMIZE (3/4): what to gate. Subjects are directories in THIS repo
       # that declare a coherence package. An EMPTY list is not a pass.
       COHERENCE_SUBJECTS: ""
+      # CUSTOMIZE (4/4): the control-plane inputs. These are NOT repository
+      # content — policy and context are issued by the control plane, and the
+      # openspec package is the change-package root the subject is promoted
+      # against. Left EMPTY here on purpose: a gate that cannot build a request
+      # because its inputs were not provisioned reports SKIPPED (non-green),
+      # which is the honest state; a fabricated root would evaluate the wrong
+      # thing and look like a pass. Phase 3 (design.md) replaces these
+      # provisioned paths with an authenticated hub fetch.
+      COHERENCE_OPENSPEC_ROOT: ""
+      COHERENCE_POLICY_ROOT: ""
+      COHERENCE_CONTEXT_ROOT: ""
       # Doctor phase severity. Set to `error` in a repo where a host that
       # cannot run the pinned image must fail the gate rather than warn.
       COHERENCE_DOCTOR_LEVEL: warning
@@ -147,13 +162,23 @@ jobs:
             echo "doctor=ok" >> "$GITHUB_OUTPUT"
           fi
 
-      # The invocation is `--launch-config`, the host-side containerized
-      # driver: it validates the launch config against the PINNED registry,
-      # executes the digest-pinned image with network=none and a read-only
-      # rootfs, and relays the container's own exit code and canonical result
-      # untouched (coh-rt-01/05/07, coh-dec-04). The request names host-side
-      # roots; the driver rewrites them to container mount targets, so no
-      # repository content decides what runs.
+      # THE REQUEST AND LAUNCH CONFIG ARE BUILT BY THE SERVICE, NOT THIS SHELL.
+      # This is the round-18 lesson made structural: a heredoc here once emitted
+      # three of the seven request fields and hand-mounted only the subject, so
+      # the gate died on its own input before any assertion ran. Assembly now
+      # lives in `hub.coherence.invoke` — inside the pinned clone, and inside
+      # the image (COPY hub/), so CI and a local run execute the identical
+      # builder bytes and CI emits a schema-valid seven-field request with four
+      # read-only mounts. The shell's only jobs are: run the builder, run the
+      # driver, report the verdict. It assembles no payload and computes no
+      # digest (coh-int-01: a second implementation of the contract is free to
+      # disagree with the first).
+      #
+      # The driver invocation is `-m hub.coherence --launch-config`, the
+      # host-side containerized driver: it validates the builder's launch config
+      # against the PINNED registry, executes the digest-pinned image with
+      # network=none and a read-only rootfs, and relays the container's own exit
+      # code and canonical result untouched (coh-rt-01/05/07, coh-dec-04).
       - name: Run coherence gate
         id: gate
         run: |
@@ -204,49 +229,59 @@ jobs:
               note "(all)" "SKIPPED (host cannot run the pinned image: ${{ steps.doctor.outputs.doctor_reason }})"
               FAIL=1
             else
-              for SUBJECT in $SUBJECTS; do
-                if [ ! -d "$SUBJECT" ]; then
-                  note "$SUBJECT" "SKIPPED (subject root not found)"
-                  FAIL=1
-                  continue
-                fi
-                OUT="$RUNNER_TEMP/coherence-$(echo "$SUBJECT" | tr '/.' '--')"
-                mkdir -p "$OUT"
-                REQ="$OUT/request.json"
-                cat > "$REQ" <<EOF
-          {
-            "api_version": "devgate.spec-coherence.request/v1",
-            "subject": {"root": "${PWD}/${SUBJECT}"},
-            "outputs": "${OUT}"
-          }
-          EOF
-                cat > "$OUT/launch.json" <<EOF
-          {
-            "image": "${COHERENCE_IMAGE}@${DIGEST}",
-            "user": "1000:1000",
-            "read_only_rootfs": true,
-            "cap_drop": ["ALL"],
-            "cap_add": [],
-            "network": "none",
-            "mounts": [{"source": "${PWD}/${SUBJECT}", "target": "/input", "readonly": true}],
-            "scratch": {"size": "64m"},
-            "limits": {"memory": "256m", "cpus": "1.0", "time_s": 300,
-                       "pids": 64, "nofile": 128, "output_bytes": 1048576},
-            "profile": "${COHERENCE_PROFILE}",
-            "image_manifest_digest": "${DIGEST}"
-          }
-          EOF
-                if python3 .devgate/hub/coherence/__main__.py \
-                     --request "$REQ" \
-                     --launch-config "$OUT/launch.json" \
-                     > "$OUT/stdout.log" 2> "$OUT/stderr.log"; then
-                  note "$SUBJECT" "PASS"
-                else
-                  CODE=$?
-                  note "$SUBJECT" "FAIL (exit $CODE)"
-                  FAIL=1
-                fi
-              done
+              # policy and context are control-plane artifacts, not repository
+              # content — provisioned out of band for now (Phase 3: the hub
+              # serves them authenticated, design.md). The openspec package is
+              # the change-package root the subject is promoted against. Absent
+              # any of them the gate cannot build a request and says so; it does
+              # NOT invent roots from candidate content (that would be
+              # repository content deciding what runs).
+              if [ -z "$COHERENCE_OPENSPEC_ROOT" ] || [ -z "$COHERENCE_POLICY_ROOT" ] \
+                 || [ -z "$COHERENCE_CONTEXT_ROOT" ]; then
+                note "(all)" "SKIPPED (control-plane inputs not provisioned: set COHERENCE_OPENSPEC_ROOT / _POLICY_ROOT / _CONTEXT_ROOT)"
+                FAIL=1
+              else
+                for SUBJECT in $SUBJECTS; do
+                  if [ ! -d "$SUBJECT" ]; then
+                    note "$SUBJECT" "SKIPPED (subject root not found)"
+                    FAIL=1
+                    continue
+                  fi
+                  CAND_ROOT="$PWD"
+                  OUT="$RUNNER_TEMP/coherence-$(echo "$SUBJECT" | tr '/.' '--')"
+                  mkdir -p "$OUT"
+                  # Build the request + launch config. Running from .devgate so
+                  # the module import resolves to the PINNED clone, never to a
+                  # candidate-local `hub/` that could shadow it; every path
+                  # passed is absolute so the cd cannot corrupt a root.
+                  if ! (cd .devgate && PYTHONPATH=. python3 -m hub.coherence.invoke \
+                          --subject "$CAND_ROOT/$SUBJECT" \
+                          --openspec "$COHERENCE_OPENSPEC_ROOT" \
+                          --policy "$COHERENCE_POLICY_ROOT" \
+                          --context "$COHERENCE_CONTEXT_ROOT" \
+                          --outputs "$OUT" \
+                          --image "$COHERENCE_IMAGE" --profile "$COHERENCE_PROFILE" \
+                          --manifest-digest "$DIGEST" \
+                          --request-id "$SUBJECT" \
+                          --request-out "$OUT/request.json" \
+                          --launch-out "$OUT/launch.json") \
+                       > "$OUT/build.log" 2>&1; then
+                    note "$SUBJECT" "FAIL (inputs rejected by the builder; see build.log)"
+                    FAIL=1
+                    continue
+                  fi
+                  if (cd .devgate && PYTHONPATH=. python3 -m hub.coherence \
+                        --request "$OUT/request.json" \
+                        --launch-config "$OUT/launch.json") \
+                       > "$OUT/stdout.log" 2> "$OUT/stderr.log"; then
+                    note "$SUBJECT" "PASS"
+                  else
+                    CODE=$?
+                    note "$SUBJECT" "FAIL (exit $CODE)"
+                    FAIL=1
+                  fi
+                done
+              fi
             fi
           fi
 

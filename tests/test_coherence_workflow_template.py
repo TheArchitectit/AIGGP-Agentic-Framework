@@ -141,13 +141,20 @@ def test_gate_exits_on_the_failure_flag():
 def test_gate_invokes_the_service_from_the_pinned_clone():
     """coh-int-01: the invocation targets the PINNED clone, not a local copy.
 
-    A gate that called a repo-local `python3 hub/coherence/__main__.py` would
-    run the candidate's own idea of the service — the exact substitution the
-    pinned runtime exists to prevent.
+    A gate that ran a candidate-local `hub/` would execute the candidate's own
+    idea of the service — the exact substitution the pinned runtime exists to
+    prevent. The invocation must be `python3 -m hub.coherence` (the image's own
+    ENTRYPOINT form) launched from inside `.devgate`, so the module resolves to
+    the pinned clone. It MUST NOT be `python3 .../__main__.py`: that form is an
+    ImportError (relative imports need a package context), and this test once
+    pinned it verbatim — the suite certifying the defect it should have caught
+    (round-18 D3).
     """
     body = "\n".join(_run_blocks())
-    assert re.search(r"python3 \.devgate/hub/coherence/__main__\.py", body), \
-        "gate does not invoke the service CLI from the pinned clone"
+    assert re.search(r"python3 \.devgate/hub/coherence/__main__\.py", body) is None, \
+        "gate invokes __main__.py directly — an ImportError; use -m hub.coherence"
+    assert re.search(r"cd \.devgate\b[^\n]*python3 -m hub\.coherence\b", body), \
+        "gate does not run `python3 -m hub.coherence` from the pinned clone"
 
 
 def test_gate_uses_the_containerized_driver():
@@ -193,22 +200,29 @@ def test_pinned_digest_is_checked_against_the_registry():
         "template does not compare the registry digest with the configured pin"
 
 
-def test_container_phase_fails_closed_on_isolation_settings():
-    """coh-rt-01/05: the launch config this template ships must be the
-    restrictive one.
+def test_container_phase_delegates_launch_config_to_the_builder():
+    """coh-rt-01/05: the template must NOT hand-write the launch config.
 
-    These are the settings the launcher refuses to relax, so a template that
-    ships a permissive config is a template that never runs — and worse, one
-    whose failure a future reader might be tempted to "fix" by editing the
-    launcher rather than the config.
+    This requirement used to be tested by grepping the shell for
+    `"network": "none"` etc. — which only proved the TEMPLATE embedded the
+    right isolation values, and did nothing to stop the template's heredoc from
+    simultaneously shipping ONE mount while the contract needs four (round-18
+    D1). The isolation property belongs to `hub.coherence.invoke.build_launch`
+    and to `launcher.validate_launch`, which enforces it regardless of what
+    any config claims (the container never self-certifies, coh-rt-02); both are
+    pinned in tests/test_hub_coherence_invoke.py. What this template test can
+    honestly hold is the DELEGATION: the shell runs the builder and passes its
+    output to the driver, so no launch JSON is assembled in bash.
     """
     body = "\n".join(_run_blocks())
-    for required in ('"network": "none"', '"read_only_rootfs": true',
-                     '"cap_drop": ["ALL"]', '"cap_add": []'):
-        assert required in body, f"launch config missing {required}"
-    # A writable rootfs or host networking would each be a silent weakening.
-    assert re.search(r'"read_only_rootfs":\s*false', body) is None
-    assert re.search(r'"network":\s*"host"', body) is None
+    # The shell must not write a launch.json object itself...
+    assert 'cat >' not in body and 'EOF' not in body, \
+        "template assembles a payload in shell — a second implementation (D1)"
+    # ...but must call the builder that produces it, and feed the driver.
+    assert re.search(r"python3 -m hub\.coherence\.invoke\b", body), \
+        "template does not delegate request/launch construction to the builder"
+    # The driver invocation is what enforces isolation at launch.
+    assert "--launch-config" in body, "no containerized driver invocation"
 
 
 def test_doctor_phase_never_pulls_the_image():
