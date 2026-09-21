@@ -522,8 +522,26 @@ sprints. Findings and dispositions:
       the window, so falling through the skip branch WOULD report staleness; the test was verified RED against a
       move of the skip branch behind the recency check, killed by exactly that one test. Both `/tmp`-backup
       restores verified byte-identical.
-- [x] CI workflow following `templates/github-workflows/drift-scan.yml` pattern, `runs-on: devgate` (or repo labels like `devgate-game`), pinned runtime invocation + event wiring only; gate executes or reports explicit SKIPPED per `ci-run-01` (coh-int-01, coh-int-06).
-      SHIPPED as `templates/github-workflows/spec-coherence.yml` — a TEMPLATE, not a live workflow: copying it
+- [ ] CI workflow following `templates/github-workflows/drift-scan.yml` pattern, `runs-on: devgate` (or repo labels like `devgate-game`), pinned runtime invocation + event wiring only; gate executes or reports explicit SKIPPED per `ci-run-01` (coh-int-01, coh-int-06).
+      **REOPENED (round-18), then re-fixed.** This line was disposed `SHIPPED` at `07d1275` on the strength of a
+      mutation battery that was real but **purely structural** — every one of its 11 tests regex-matched the shell
+      text and none ever validated the emitted request against `request.schema.json` or actually invoked the entry
+      point. That let three independent, each-fatal defects ship, any one of which makes the gate fail and none
+      reachable by a mutation (each lives in the baseline payload, not in a mutated character):
+      **(D1)** the `request.json` heredoc carried three fields (`api_version`/`subject.root`/`outputs`) where the
+      frozen contract requires seven, with `expected_digest` on subject/openspec/policy/context — exit 30 at schema
+      validation, before any assertion ran. **(D2)** the pinned image ships only `COPY hub/`, but
+      `schemacheck.SCHEMA_DIR` resolves to `openspec/changes/.../schemas` (outside `hub/`), so even a correct
+      request dies in-container on `FileNotFoundError` loading its own contract — the **F1 regression** (`ci.yml`
+      "it once shipped without them"), which CI's own guard for it cannot catch because that job self-skips on
+      runners without podman. **(D3)** the invocation `python3 .devgate/hub/coherence/__main__.py` is an
+      `ImportError` (relative imports need a package context; the image's ENTRYPOINT is `python -m hub.coherence`),
+      and `test_gate_invokes_the_service_from_the_pinned_clone` **regex-pinned that exact broken string** — the
+      suite did not merely miss D3, it certified it. Re-fix: shared `hub/coherence/invoke.py` builder (see the
+      coh-int-01/05 line), Containerfile schema COPY, `-m` invocation, and a **payload-validating** test class
+      that was the missing control. Original disposition retained below — the structural properties it recorded
+      still hold; what was wrong was trusting structure to stand in for a schema check.
+      FIRST SHIPPED as `templates/github-workflows/spec-coherence.yml` — a TEMPLATE, not a live workflow: copying it
       into a subject repo's `.github/workflows/` is the enrollment step, and the hub finds it by name through
       `coherence_workflow_match`, which is why `name: Spec Coherence` is load-bearing and its conformance test
       compares the declared name against `Config().coherence_workflow_match` rather than against a literal.
@@ -532,7 +550,8 @@ sprints. Findings and dispositions:
       **no `setup-node`.** Drift-scan needs it; this gate is stdlib-only Python by contract, and a coherence
       gate that needed a language runtime installed to run the check would be reimplementing logic the service
       already owns. **The invocation is the containerized driver** —
-      `python3 .devgate/hub/coherence/__main__.py --request <req> --launch-config <launch>` — containing the
+      `python3 .devgate/hub/coherence/__main__.py --request <req> --launch-config <launch>` [SUPERSEDED — this
+      exact form is D3, an `ImportError`; the re-fix below moves it to `python3 -m hub.coherence`] — containing the
       image's `name@sha256:…`, `network: "none"`, `read_only_rootfs: true`, `cap_drop: ["ALL"]`, `cap_add: []`,
       the profile label and manifest digest. The template resolves the digest out of the PINNED
       `container/execution-profiles.json` and compares it with its own `COHERENCE_IMAGE_MANIFEST_DIGEST` in both
@@ -566,14 +585,58 @@ sprints. Findings and dispositions:
       then died correctly. All mutations ran against `/tmp` file backups, never `git checkout --`. Template
       validated beyond the suite: it parses as YAML and all four `run:` blocks pass `bash -n`. Battery 590 tests
       + 35 subtests green, `git diff --check` clean.
+      **ROUND-18 FIX APPLIED (this slice).** The three defects are closed in the shipped tree and each is now
+      guarded by a test that would have caught it:
+      **(D1)** the template no longer hand-writes a request heredoc at all — it calls `python3 -m
+      hub.coherence.invoke` (the shared builder) which emits a seven-field request validated against
+      `request.schema.json`; the payload-validating control is `test_request_is_schema_valid` (it fails on the
+      3-field heredoc — verified), and the builder CLI + real driver were run end-to-end on a synthetic tree
+      producing a `decision: PASS` result bundle.
+      **(D2)** the Containerfile `COPY`s the schema dir to the exact in-container path `schemacheck.SCHEMA_DIR`
+      resolves to, pinned by `test_containerfile_carries_the_frozen_schemas` — a **podman-free** unit (its
+      expected destination is derived from the runtime's own path expression, so it cannot silently stop
+      matching), which kills both "no COPY" and "COPY to the wrong place" mutants. The CI `container-image` job
+      still self-skips without podman, but the regression can no longer hide because this unit always runs.
+      **(D3)** the invocation is `python3 -m hub.coherence` launched from `.devgate` (the image's own ENTRYPOINT
+      form); `test_gate_invokes_the_service_from_the_pinned_clone` was re-pointed from pinning the broken
+      `__main__.py` string to pinning the `-m` form AND asserting the `__main__.py` form is ABSENT (it
+      certifies the fix and rejects the regression — a mutation reverting to `__main__.py` dies here).
+      **HONEST NOT_RUN boundary (this is why the line stays open).** The *containerized* path — running the
+      digest-pinned image with `--launch-config` — has NEVER executed here: there is no podman on this host, and
+      more fundamentally `COHERENCE_IMAGE_MANIFEST_DIGEST` / `execution-profiles.json` still point at the
+      pre-builder image, which does not yet contain `invoke.py` or the schema COPY. So the fix is proven in host
+      mode and by unit/structural tests; the real `run_containerized` execution is NOT_RUN, and the mocked
+      driver test (`test_builder_output_runs_containerized`) is a compose-check with `launcher.run` patched,
+      NOT a container run. Closing this line requires the publish-gated rebuild+re-pin below; recording it as
+      shipped without that run would repeat the exact NOT_RUN-as-pass error that let D2 survive CI.
+      **STILL OPEN:** (a) the re-pin — rebuild the schema+builder-bearing image on the fleet, refresh
+      `execution-profiles.json` + the template's `COHERENCE_IMAGE_MANIFEST_DIGEST` + `DEVGATE_PIN` together, then
+      run the real containerized gate; (b) `hub/config.py` currently has no `coherence_*_root` defaults, so the
+      three control-plane roots are env-only (Phase-3 hub fetch supersedes them); (c) the local-developer half
+      (`scripts/coherence-local`, next line).
 - [ ] Thin pinned CI invocation template + local developer command with byte-equivalent results (coh-int-01, coh-int-05).
-      PARTIAL (`templates/github-workflows/spec-coherence.yml`, above): the CI half is shipped, and its
-      "byte-equivalent" obligation is discharged the only way it can be at this layer — both paths are the SAME
-      `python3 .devgate/hub/coherence/__main__.py --request … --launch-config …` invocation against the same
-      digest-pinned image, so equivalence is identity of command and image rather than a property that has to be
-      tested for. What is still open is the local-developer half: a documented wrapper (or a documented one-liner)
-      that a developer runs to get the identical decision without hand-writing `request.json`/`launch.json`, plus
-      the test that pins the two invocations to the same command.
+      **Re-opened with round-18 D1/D3.** The earlier claim that "both paths are the SAME
+      `python3 .devgate/hub/coherence/__main__.py` invocation, so equivalence is identity of command" was doubly
+      wrong: that form is an `ImportError` (D3 — the image's own ENTRYPOINT is `python -m hub.coherence`), and
+      byte-equivalence-by-identity was never actually established because nothing checked what the two paths
+      EMIT. The correct mechanism is a **shared builder**: `hub/coherence/invoke.py` produces the request and
+      launch configs, and it lives under `hub/` precisely so `COPY hub/` puts it INSIDE the pinned image — then
+      "equivalent canonical results" is provable (CI and a local checkout execute the identical builder bytes,
+      from the identical image), not merely asserted. The builder must also fix D1 at its source: it emits a
+      schema-valid seven-field request, taking `policy.expected_digest` from the context's signed
+      `policy_binding` rather than recomputing it from the policy bytes (recomputing would make the identity
+      check a tautology — see design.md round-18 note).
+      STILL OPEN (this is the honest remainder): the **local-developer half** — a documented `scripts/coherence-local`
+      wrapper that runs the same builder + `run_containerized`, plus the test pinning both invocations to the one
+      command. Phase 2, tracked as a distinct line below rather than claimed here.
+- [ ] Local developer command `scripts/coherence-local` with a byte-equivalence test against the CI invocation (coh-int-01, coh-int-05). **NEW — carved out of the line above so the remaining work is a named item, not a buried clause.**
+- [ ] Inert image-contract guard (coh-rt-08): the CI job that holds "the evaluator image ships its frozen schemas"
+      self-skips on runners without podman (`skipUnless` / `command -v podman … exit 0`), so on hosted runners the
+      guard evaluates NOTHING and reports green — a NOT_RUN-as-pass (the exact pattern AGENTS.md forbids, and the
+      same false-green class as GD-2 for the size gate). Round-18's D2 is what an unguarded schema-in-image
+      regression costs: the gate ships unable to run. Fix: a **podman-free** unit asserting the Containerfile
+      `COPY`s the schema dir (structural, always executes), keeping the podman end-to-end as the deeper check where
+      the runner has it.
 - [ ] Adapter default-deny: timeouts/unparseable results surface ERROR, never neutral/pass (coh-int-05).
 - [ ] Account for repo-scoped runners and multi-runner hosts: stock `runner-enroll.sh` is single-runner-per-host (fixed unit names); per-runner units (`devgate-hb-<name>.{service,timer}`) where a host runs multiple spokes (coh-int-07).
 - [ ] Outage, mirror, cached-attestation, protocol-mismatch behavior; migration guide + operator runbook.

@@ -381,3 +381,37 @@ implementation history stays visible. Full ledger: `s3-delivery.md`.
 - S3 `b538c79`: gate posture decided — coherence advisory until demo review
   + S4 container close; published-spec creation deferred to S8 archive
   (measured GD-3 double-count).
+- S6 round-18 (CI gate could not execute): the Request contract above was
+  always correct — seven fields, four `inputRef` roots each with a mandatory
+  `expected_digest`. The CI template as first shipped (`07d1275`) violated it
+  (three fields) and carried two further fatal defects that are execution
+  mechanics, not contract, recorded here so the frozen design stays the single
+  reading of what a request IS while this notes what a request must be fed
+  through:
+  - **Mount topology.** A containerized run names FOUR read-only mounts —
+    subject→`/input`, openspec→`/openspec`, policy→`/policy`,
+    context→`/context` (targets are free-form but unique;
+    `launcher._validate_mounts` requires each entry's `readonly` to be the
+    literal `true` and rejects a duplicate target). `/output` is NEVER in the
+    `mounts` list — the launcher adds it itself as the one writable bind
+    (`podman_args`, `launcher.py:259`), and `run_containerized` rejects an
+    output dir that falls inside any input mount source.
+  - **Digest provenance within the request.** subject/openspec digests are
+    self-computed on the host from repo content (`manifest.build`/
+    `package.resolve`, no signing). The policy `expected_digest` MUST be read
+    from the context's signed `policy_binding`, never recomputed from the policy
+    bytes the same fetch returned — recomputing it makes the identity check a
+    tautology and discards the `check_anti_rollback`/`verify_bound_sets`
+    authority the signed binding carries.
+  - **Invocation form.** The in-container CLI is `python -m hub.coherence` (the
+    image's own ENTRYPOINT); `python hub/coherence/__main__.py` is an
+    ImportError (relative imports need a package context). Host-side, the pinned
+    clone is invoked with cwd/PYTHONPATH at the clone root.
+  - **Schemas are part of the image.** `schemacheck.SCHEMA_DIR` resolves OUTSIDE
+    `hub/` (into `openspec/changes/.../schemas`), so `COPY hub/` alone ships an
+    image whose CLI cannot load its own frozen contract — the F1 regression
+    (`ci.yml` "it once shipped without them"), which the CI guard for it could
+    not catch because that job self-skips on runners without podman. The
+    Containerfile must COPY the schema dir alongside `hub/`; this changes the
+    image bytes, so `execution-profiles.json` + the template digest are
+    re-pinned together on the next (fleet, publish-gated) rebuild.
