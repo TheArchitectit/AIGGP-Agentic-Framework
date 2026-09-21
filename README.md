@@ -117,9 +117,10 @@ Every row below is checked by CI on every push — none of it is asserted by han
 | Strict validation actually refuses malformed material | `specs` job → `scripts/specs-validate-negative-control.sh` | **GREEN** |
 | The per-file runner discovers this repo's own tests | `tests` job → runner discovery count ≥ 1 | **GREEN** |
 | Scanner project-root anchoring (no ancestor escape) | `tests` job → `tests/test_scanner_root_anchor.mjs` | **GREEN** |
-| Evaluator image matches its pinned identity registry | `container-image` job → publish-gated; full smoke needs registry credentials | **NOT RUN** |
+| Evaluator image builds and carries its frozen schemas | `container-image` job → `podman build` + in-image schema load | **GREEN** (when podman is present; the job prints SKIPPED otherwise) |
+| Evaluator image matches its pinned identity registry | `container-image` job → digest comparison | **OPEN — informational only.** The job `echo::notice`s a mismatch instead of failing, because the pin is updated by a publish-gated rebuild (S4) that has **not** happened. No full-container smoke has run. |
 
-The last row is deliberately not green. The containerized coherence path has **not** been rebuilt and re-pinned since it was written, and no full-container smoke has executed against the pinned image. That is a merge-gate condition on the coherence-service package, and this table says so rather than rounding it up. The item total is not quoted here on purpose — `--all` counts discovered items, so any fixed number in prose goes stale the moment a package is added.
+The final row is deliberately not green. The containerized coherence path has **not** been rebuilt and re-pinned since it was written, and no full-container smoke has executed against the pinned image — the digest check exists but is wired to warn, not to fail, so it currently proves nothing about the pin. That is a merge-gate condition on the coherence-service package, and this table says so rather than rounding it up. The item total is not quoted here on purpose — `--all` counts discovered items, so any fixed number in prose goes stale the moment a package is added.
 
 ## Roadmap: the AIGGP packages (imported for evaluation — no merge commitment)
 
