@@ -169,6 +169,39 @@ box means the work landed on this branch; an unchecked box is open and says why.
 - [x] Frontmatter/plan text citing "31/31" corrected where it outlived those
       commits (the live count is 32; the ledger says not to hardcode it).
 
+## S7 verification, and an audit that did not report
+
+- [x] Full gate mirror run on the final tree: `run-tests.mjs` 601 passed / 39
+      files; `test_scanner_root_anchor.mjs` 12/12 green; `openspec validate --all
+      --strict` 32/32 exit 0; negative control exit 0; `pytest tests/` 601 passed;
+      traceability exit 0 (69/107); `git diff --check` clean; `guardrails-scan`
+      clean; `regression_check --all` 0 over hard limit (6 pre-existing soft
+      warnings, none in files this branch touched).
+- [x] Mutation battery re-run on the committed tree: 7 mutants, **zero
+      survivors**. Two additional mutants beyond the original battery also died
+      (double-hop `.devgate` parent, always-self submodule branch).
+- [x] Negative control attacked three ways and fails closed each time: fixture
+      silently replaced with a *valid* spec (control FAILS — the property that
+      matters most), CLI missing (exit 127 caught as misconfiguration), fixture
+      deleted (caught as misconfiguration).
+- [x] Resolved the earlier audit's vacuity warning about the semantic lane. It
+      held only under a *parser-present* environment; the new foreign-cwd check
+      asserts on the counted-file number rather than the SKIPPED line, so
+      `cwdRoot` is still killed with `typescript` installed. Verified both
+      conditions — parser present and `node_modules` absent (the real CI
+      condition, since the tests job installs no typescript).
+- [x] Stability: fixture green on 3 consecutive runs; runner count stable at
+      601/39 across runs.
+- [ ] **Independent fresh-eyes audit of this branch DID NOT REPORT.** An agent
+      was dispatched to audit sections A–E of the final tree; it went idle
+      without delivering findings, and three requests for its report went
+      unanswered. **This is recorded as an unfinished audit, not a clean one.**
+      The checks it was assigned were executed by the branch author instead
+      (attacks on the negative control, extra mutants, header-arithmetic review,
+      hygiene scan) and are recorded above — but a self-run check is not an
+      independent audit, and this package's earlier slices each got a real one.
+      A genuinely independent review of this branch remains outstanding.
+
 ## Cross-package note (no false closure)
 
 - [x] Correct the working note that claimed AIGGP-01 targeted Jinja/3D-adapter
