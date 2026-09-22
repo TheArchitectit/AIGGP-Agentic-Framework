@@ -13,6 +13,11 @@ def collect():
     r = subprocess.run([sys.executable, "-m", "pytest", "tests/",
                         "--collect-only", "-q"], cwd=str(REPO),
                        capture_output=True, text=True)
+    if r.returncode != 0 or not r.stdout.strip():
+        print("test-floor: FAIL — pytest collection produced nothing "
+              f"(returncode {r.returncode}). Is pytest installed?",
+              file=sys.stderr)
+        sys.exit(2)
     counts = {}
     for line in r.stdout.splitlines():
         if "::" in line and ".py" in line:

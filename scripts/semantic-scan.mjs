@@ -33,11 +33,17 @@ const devgateRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const root = projectRootFor(devgateRoot);
 
 
-function findUp(rel) {
+function findScope() {
+  // Scope contract resolves for BOTH layouts: a standalone checkout
+  // (.guardrails/scope.json beside the scripts) and a consumer submodule
+  // (.devgate/.guardrails/scope.json below the project root).
   let dir = process.cwd();
   for (let i = 0; i < 12; i++) {
-    const candidate = join(dir, rel);
-    if (existsSync(candidate)) return candidate;
+    for (const rel of [".guardrails/scope.json",
+                       ".devgate/.guardrails/scope.json"]) {
+      const candidate = join(dir, rel);
+      if (existsSync(candidate)) return candidate;
+    }
     const parent = dirname(dir);
     if (parent === dir) return null;
     dir = parent;
@@ -46,7 +52,7 @@ function findUp(rel) {
 }
 // Scope contract is DATA (fw-scope-01): .guardrails/scope.json, shared by all gates.
 const SKIP_DIRS = (() => {
-  const scopePath = findUp(".guardrails/scope.json");
+  const scopePath = findScope();
   if (!scopePath) throw new Error("scope contract missing: .guardrails/scope.json");
   return JSON.parse(readFileSync(scopePath, "utf8")).skip_dirs;
 })();
