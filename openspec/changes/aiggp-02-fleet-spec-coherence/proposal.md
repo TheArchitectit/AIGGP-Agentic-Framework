@@ -1,3 +1,5 @@
+> **Status: imported draft — not a commitment.** The AIGGP program has not started; this package is imported reference material held for future acceptance. It does not modify, supersede, or bind the shipped DevGate specification ladder, and no code, traceability ID, or gate configuration is wired to its requirements. (Added 2026-09-20 per the spec-coherence drift audit; see the AIGGP-02 reconciliation.)
+
 ## Summary
 
 Deliver the spec-coherence service as an AIGGP module: deterministic evaluation of a repository against its pinned OpenSpec package, per-project coherence history, an advisory-to-enforced adoption ladder, and attested evidence emitted in the AIGGP-00 envelope format.

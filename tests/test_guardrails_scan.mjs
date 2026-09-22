@@ -30,9 +30,14 @@ function check(name, cond, detail = "") {
 }
 
 function makeProject(dir, files) {
-	mkdirSync(join(dir, ".devgate", "scripts"), { recursive: true });
+	mkdirSync(join(dir, ".devgate", "scripts", "lib"), { recursive: true });
 	mkdirSync(join(dir, ".devgate", ".guardrails", "prevention-rules"), { recursive: true });
 	copyFileSync(scanner, join(dir, ".devgate", "scripts", "guardrails-scan.mjs"));
+	// The scanner imports the shared root contract — a fixture that copies the
+	// scanner without the lib fails at import, which is exactly the coupling
+	// this line records.
+	copyFileSync(join(repoRoot, "scripts", "lib", "project-root.mjs"),
+		join(dir, ".devgate", "scripts", "lib", "project-root.mjs"));
 	copyFileSync(rules, join(dir, ".devgate", ".guardrails", "prevention-rules", "pattern-rules.json"));
 	writeFileSync(join(dir, "go.mod"), "module example.com/fixture\n\ngo 1.21\n");
 	for (const [rel, content] of Object.entries(files)) {

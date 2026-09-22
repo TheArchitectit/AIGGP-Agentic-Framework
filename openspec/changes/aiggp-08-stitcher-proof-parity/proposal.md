@@ -1,3 +1,5 @@
+> **Status: imported draft — not a commitment.** The AIGGP program has not started; this package is imported reference material held for future acceptance. It does not modify, supersede, or bind the shipped DevGate specification ladder, and no code, traceability ID, or gate configuration is wired to its requirements. (Added 2026-09-20 per the spec-coherence drift audit; see the AIGGP-02 reconciliation.)
+
 ## Summary
 
 Promote the proof-strengthening subset of Stitcher parity into the AIGGP DevGate module: OpenSpec-to-diff review, reverse drift, task traceability, SARIF output, pre-commit hooks, whole-repo mode, external-tool adapters, forge review comments, and coding-agent-loop hooks - each delivered incrementally behind the AIGGP-00 evidence contract with negative controls.

@@ -1,10 +1,16 @@
 # Spec: CI template contract
 
-## Requirement: Templates run the gates they name
+## Purpose
+
+Guarantee that the CI workflow templates DevGate ships actually run every gate they document, so a consumer adopting a template gets the coverage the docs promise.
+
+## Requirements
+
+### Requirement: Templates run the gates they name
 <!-- id: ci-run-01 -->
-Every gate a template job lists shall actually execute in that job's
+Every gate a template job lists SHALL actually execute in that job's
 environment — with the history, dependencies, and permissions it needs — or
-report an explicit SKIPPED state; no template shall ship a configuration
+report an explicit SKIPPED state; no template SHALL ship a configuration
 under which a named gate cannot pass.
 
 #### Scenario: scheduled drift run
@@ -17,11 +23,11 @@ under which a named gate cannot pass.
 - **WHEN** the consumer has TS/JS files
 - **THEN** the template installs typescript@5 before the semantic arm
 
-## Requirement: Blocking checks match what they describe
+### Requirement: Blocking checks match what they describe
 <!-- id: ci-match-01 -->
-Forbidden-file checks shall match exact file names and extensions, shall
+Forbidden-file checks SHALL match exact file names and extensions, SHALL
 allow the documented exception files (.env.example/.template/.sample), and
-shall not match unrelated paths by substring or regex metacharacters.
+SHALL NOT match unrelated paths by substring or regex metacharacters.
 
 #### Scenario: environment.yml is not .env
 - **WHEN** a PR adds `config/environment.yml`
@@ -31,10 +37,10 @@ shall not match unrelated paths by substring or regex metacharacters.
 - **WHEN** a PR adds a tracked `.env`
 - **THEN** the check fails the job
 
-## Requirement: The framework gates itself
+### Requirement: The framework gates itself
 <!-- id: ci-self-01 -->
-The DevGate repository shall run its own gates and test suite on every pull
-request and on main, with the workflow required for merge, and shall be
+The DevGate repository SHALL run its own gates and test suite on every pull
+request and on main, with the workflow required for merge, and SHALL be
 warning-clean on its own scanners.
 
 #### Scenario: PR checks

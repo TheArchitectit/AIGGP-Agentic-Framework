@@ -1,3 +1,5 @@
+> **Status: imported draft — not a commitment.** The AIGGP program has not started; this package is imported reference material held for future acceptance. It does not modify, supersede, or bind the shipped DevGate specification ladder, and no code, traceability ID, or gate configuration is wired to its requirements. (Added 2026-09-20 per the spec-coherence drift audit; see the AIGGP-02 reconciliation.)
+
 ## Summary
 
 Define the AIGGP runner protocol: authenticated short-lived enrollment, declared capabilities and trust classes, signed desired state, secret-class boundaries, continuous monitoring with verified heartbeats, and lifecycle operations (rollout, canary, drain, rollback) - all emitting kernel-verifiable evidence, with monitoring built into the protocol rather than bolted on beside it.

@@ -1,9 +1,15 @@
 # Spec: Gate configuration contract
 
-## Requirement: Configuration lives in the project overlay
+## Purpose
+
+Fix where gate configuration lives: a project customizes behavior through its own root-level overlay files rather than by editing the DevGate submodule.
+
+## Requirements
+
+### Requirement: Configuration lives in the project overlay
 <!-- id: rule-config-01 -->
 Every gate's project-specific configuration (detector families, allowlists,
-schema contracts, scan scoping) shall be resolvable from the project-root
+schema contracts, scan scoping) SHALL be resolvable from the project-root
 `.guardrails/` overlay and `.guardrailsignore`, merged over the bundled
 baseline, without editing files inside the DevGate submodule.
 
@@ -18,9 +24,9 @@ baseline, without editing files inside the DevGate submodule.
 - **THEN** schema-health-check validates against it and the shipped script is
   unmodified
 
-## Requirement: Fresh installs are green
+### Requirement: Fresh installs are green
 <!-- id: rule-fresh-01 -->
-With no overlay present, every opt-in gate shall ship in its documented
+With no overlay present, every opt-in gate SHALL ship in its documented
 disabled-by-default state and exit 0 with its skip notice.
 
 #### Scenario: silent-success on a fresh install

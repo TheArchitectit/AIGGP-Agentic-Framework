@@ -82,19 +82,16 @@ from regression_diff import (  # noqa: E402
     parse_diff,
 )
 
-# --- Auto-detect project root ------------------------------------------------
-def find_project_root():
-    """Walk up from CWD to find a project marker."""
-    cwd = Path.cwd()
-    markers = ["package.json", "Cargo.toml", "pyproject.toml", "setup.py",
-               "go.mod", "project.godot", ".git"]
-    for d in [cwd] + list(cwd.parents):
-        for m in markers:
-            if (d / m).exists():
-                return d
-    return cwd
+# --- Project root by LAYOUT CONTRACT (never a marker walk-up) ---------------
+# The old find_project_root() walked up from Path.cwd() for the first
+# package.json/.git/Cargo.toml — the escape the 2026-09-20 audit proved for the
+# Node scanners (root settled on a shared sibling directory above the checkout)
+# was present here too, and is the same defect class root-anchor-01 forbids.
+# Both Python scanners now import the one shared contract (root-anchor-03).
+sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
+from project_root import project_root_for  # noqa: E402  # guardrails-allow PREVENT-024: shared root-contract module defined in scripts/lib/project_root.py, not an external package
 
-PROJECT_ROOT = find_project_root()
+PROJECT_ROOT = project_root_for(Path(__file__).resolve().parent.parent)
 
 # --- Source directories to scan (auto-detect what exists) -------------------
 SOURCE_DIRS = []

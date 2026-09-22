@@ -17,28 +17,21 @@
 
 import { spawn } from "node:child_process";
 import { readdirSync, statSync, mkdtempSync, rmSync, mkdirSync, existsSync } from "node:fs";
-import { join, relative, resolve, basename, extname } from "node:path";
+import { join, relative, basename, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import os from "node:os";
 
+import { projectRootFor } from "./lib/project-root.mjs";
+
 const DEVGATE_ROOT = join(fileURLToPath(import.meta.url), "..", "..");
 
-// Auto-detect project root (parent of .devgate/)
-function findProjectRoot(startDir) {
-	let dir = startDir;
-	for (let i = 0; i < 10; i++) {
-		for (const marker of ["package.json", "Cargo.toml", "pyproject.toml", "setup.py", "go.mod", "project.godot", ".git"]) {
-			if (existsSync(join(dir, marker))) return dir;
-		}
-		const parent = resolve(dir, "..");
-		if (parent === dir) break;
-		dir = parent;
-	}
-	return startDir;
-}
-
-const PROJECT_ROOT = findProjectRoot(resolve(DEVGATE_ROOT, ".."));
+// Project root by LAYOUT CONTRACT (see scripts/lib/project-root.mjs), never a
+// marker walk-up from an ancestor: the old findProjectRoot(resolve(root,".."))
+// settled on any parent holding package.json/.git — scanning sibling repos in
+// the directory above the checkout, discovering zero of DevGate's own tests,
+// and still exiting 0. tests/test_scanner_root_anchor.mjs locks it.
+const PROJECT_ROOT = projectRootFor(DEVGATE_ROOT);
 
 const PER_FILE_TIMEOUT_MS = Number(process.env.DEVGATE_TEST_TIMEOUT ?? 120_000);
 const HARD_CAP_MS = PER_FILE_TIMEOUT_MS + 10_000;
@@ -197,6 +190,25 @@ async function main() {
 	// Deduplicate
 	const seen = new Set();
 	const unique = all.filter(f => { if (seen.has(f)) return false; seen.add(f); return true; });
+
+	// Zero discovery is an ERROR, never a silent green. A runner that collects
+	// no test files and exits 0 is indistinguishable from one that ran them all
+	// and passed — and the historical cause of zero discovery here was precisely
+	// a root-anchoring escape (the walk-up settled on a directory above the
+	// checkout that had no `tests/`). The 2026-09-20 audit's mutation battery
+	// survives a layout-only fix; this is the non-vacuity contract that does
+	// not. DEVGATE_ALLOW_NO_TESTS=1 is the one honest opt-out (a project with
+	// genuinely no tests) and it prints a loud skip line, never a green total.
+	if (unique.length === 0) {
+		if (process.env.DEVGATE_ALLOW_NO_TESTS === "1") {
+			console.error("run-tests: no test files discovered — SKIPPED via DEVGATE_ALLOW_NO_TESTS=1 (this is a skip, not a pass).");
+			process.exit(0);
+		}
+		console.error(`run-tests: no test files discovered under ${PROJECT_ROOT} (checked dist/, test/, tests/, src/). ` +
+			"This is a FAILURE, not a pass: a runner that evaluates nothing must not look green. " +
+			"If a project genuinely has no tests, set DEVGATE_ALLOW_NO_TESTS=1 to record an explicit skip.");
+		process.exit(1);
+	}
 
 	const serial = unique.filter((f) => SERIAL_GLOB.test(f));
 	const rest = unique.filter((f) => !SERIAL_GLOB.test(f));

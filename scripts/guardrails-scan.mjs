@@ -11,17 +11,18 @@ import { execFileSync } from "node:child_process";
 import { join, dirname, resolve, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { projectRootFor } from "./lib/project-root.mjs";
+
 // DevGate root (where this script lives — <project>/.devgate/)
 const devgateRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 
-// Project root is the directory that CONTAINS the .devgate/ submodule — by
-// layout contract, never an ancestor of it. The old implementation walked UP
-// from .devgate's parent looking for a marker file, so a clean submodule
-// checkout (whose parent has no go.mod yet) or a scanner run from inside the
-// DevGate repo itself escaped to a grandparent like /mnt/data/git — scanning
-// every sibling repo. DevGate standalone IS its own project.
-const isSubmoduleLayout = basename(devgateRoot) === ".devgate";
-const projectRoot = isSubmoduleLayout ? resolve(devgateRoot, "..") : devgateRoot;
+// Project root by layout contract — this scanner carried the first fix for the
+// ancestor-walk-up escape (a clean submodule checkout or a run inside the
+// DevGate repo landed on a grandparent like /mnt/data/git and scanned every
+// sibling repo). The contract now lives in ONE shared module all scanners
+// import, so a future scanner cannot reintroduce the walk-up by copy-pasting
+// the old two lines. tests/test_scanner_root_anchor.mjs locks the contract.
+const projectRoot = projectRootFor(devgateRoot);
 // Rule sources: DevGate's bundled baseline plus the PROJECT's .guardrails/
 // overlay merged on top — an overlay entry replaces a same-rule_id bundled
 // entry (so a game can retune severity or fix a false positive without

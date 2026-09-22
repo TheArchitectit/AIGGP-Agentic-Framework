@@ -107,6 +107,34 @@ The pieces that matter to a human:
 
 Status: mid **Sprint 6 of 8** (adoption ladder and fleet integration). Sprints 0–5 delivered the decision contract, container/evaluator boundary, and the attestation/evidence stack. The full spec, task ledger, and design record live in [openspec/changes/devgate-spec-coherence-service/](openspec/changes/devgate-spec-coherence-service/).
 
+### What is verified, and where
+
+Every row below names the mechanism that would prove it. Rows marked GREEN are
+executed by CI on every push; the container rows are **not** — the runner has no
+podman, so they are listed with what they would check and marked accordingly. An
+external audit (2026-09-20) found this README claiming more than the tree
+delivered, so the claims now name the mechanism that proves them — including
+where that mechanism does not currently run.
+
+| Claim | Checked by | State |
+| --- | --- | --- |
+| Every spec validates under the strict delta grammar | `specs` job → `openspec validate --all --strict` | **GREEN** |
+| Strict validation actually refuses malformed material | `specs` job → `scripts/specs-validate-negative-control.sh` | **GREEN** |
+| The per-file runner discovers this repo's own tests | `tests` job → runner discovery count ≥ 1 | **GREEN** |
+| Scanner project-root anchoring (no ancestor escape) | `tests` job → `tests/test_scanner_root_anchor.mjs` | **GREEN** |
+| Evaluator image builds and carries its frozen schemas | `container-image` job → `podman build` + in-image schema load | **NOT RUN on hosted CI.** The job's runner (`ubuntu-latest`) has no podman, so both steps take their `SKIPPED` branch and exit 0 without evaluating anything. The commands are real and run on a podman-capable runner; they have not run here. |
+| Evaluator image matches its pinned identity registry | `container-image` job → digest comparison | **OPEN — informational only.** The job `echo::notice`s a mismatch instead of failing, because the pin is updated by a publish-gated rebuild (S4) that has **not** happened. No full-container smoke has run. |
+
+The two container rows are deliberately not green. The containerized coherence
+path has **not** been rebuilt and re-pinned since it was written, no
+full-container smoke has executed against the pinned image, and the build job
+itself does not fire on the hosted runner — the digest check exists but is wired
+to warn, not to fail, so it currently proves nothing about the pin. That is a
+merge-gate condition on the coherence-service package, and this table says so
+rather than rounding it up. The item total is not quoted here on purpose —
+`--all` counts discovered items, so any fixed number in prose goes stale the
+moment a package is added.
+
 ## Roadmap: the AIGGP packages (imported for evaluation — no merge commitment)
 
 In September 2026 we imported eleven AIGGP ("Agent Intelligence Gate Loop Guardrails Platform") spec packages under [openspec/changes/aiggp-00…10](openspec/changes/) — a proposal to give DevGate, Agent Guardrails, and Mission Control one shared truth model: one verdict algebra, one evidence envelope, one policy-bundle format, one append-only ledger.

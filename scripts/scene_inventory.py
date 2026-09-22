@@ -13,17 +13,15 @@ Exit codes: 0 = all scenes pass, 1 = any scene/button failure.
 import json, os, re, sys, xml.etree.ElementTree as ET
 from pathlib import Path
 
-def find_project_root():
-    d = Path.cwd()
-    for i in range(10):
-        for marker in ("project.godot", "package.json", "Cargo.toml", ".git"):
-            if (d / marker).exists():
-                return d
-        parent = d.parent
-        if parent == d:
-            break
-        d = parent
-    return Path.cwd()
+# Project root by LAYOUT CONTRACT — the same shared rule as regression_check.py
+# and the Node scanners (root-anchor-01/-03). The old find_project_root() walked
+# up from Path.cwd() for a marker, so it both escaped to a sibling directory
+# above the checkout and changed answer with the invocation cwd. scripts/ lives
+# directly under the DevGate root, so parent.parent is that root.
+sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
+from project_root import project_root_for  # noqa: E402  # guardrails-allow PREVENT-024: shared root-contract module defined in scripts/lib/project_root.py, not an external package
+
+PROJECT_ROOT = project_root_for(Path(__file__).resolve().parent.parent)
 
 def discover_scenes_godot(root):
     """Find all .tscn files under src/ — mirrors SoH's _discover_scenes()."""
@@ -119,6 +117,5 @@ def scan_project(root):
     return 1 if failures > 0 else 0
 
 if __name__ == "__main__":
-    root = find_project_root()
-    print(f"[scene-inventory] project root: {root}")
-    sys.exit(scan_project(root))
+    print(f"[scene-inventory] project root: {PROJECT_ROOT}")
+    sys.exit(scan_project(PROJECT_ROOT))

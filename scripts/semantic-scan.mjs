@@ -14,26 +14,23 @@
 // Supports inline allow: // guardrails-allow SEMANTIC-001: <reason>
 
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
-import { join, dirname, resolve } from "node:path";
+import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { projectRootFor } from "./lib/project-root.mjs";
 
 const devgateRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 
-// Auto-detect project root (parent of .devgate/)
-function findProjectRoot(startDir) {
-	let dir = startDir;
-	for (let i = 0; i < 10; i++) {
-		for (const marker of ["package.json", "Cargo.toml", "pyproject.toml", "setup.py", "go.mod", "project.godot", ".git"]) {
-			if (existsSync(join(dir, marker))) return dir;
-		}
-		const parent = resolve(dir, "..");
-		if (parent === dir) break;
-		dir = parent;
-	}
-	return startDir;
-}
-
-const root = findProjectRoot(resolve(devgateRoot, ".."));
+// Project root by LAYOUT CONTRACT (see scripts/lib/project-root.mjs). The old
+// marker walk-up from .devgate's parent settled on shared directories above the
+// checkout (e.g. a "git repos" folder carrying its own package.json) and scanned
+// every sibling repo — thousands of foreign files evaluated by a gate that
+// believed it was scanning DevGate. The exact figure moves as sibling repos
+// grow (so it is not quoted as a constant), but the failure shape is stable:
+// a root chosen by "nearest marker above me" can silently be the wrong tree.
+// Same escape as run-tests.mjs had; same fix, one shared source.
+// tests/test_scanner_root_anchor.mjs locks the contract.
+const root = projectRootFor(devgateRoot);
 
 const SKIP_DIRS = ["node_modules", "dist", "target", ".git", ".claude", ".crew", "__pycache__", ".devgate", "vendor", "build", "out", ".next", ".nuxt", "venv", ".venv"];
 
@@ -183,7 +180,7 @@ async function main() {
 	// list then says "skipped", not "green".
 	if (!ts || typeof ts.createSourceFile !== "function" || !ts.ScriptTarget) {
 		if (process.env.DEVGATE_SEMANTIC_REQUIRED === "0") {
-			console.log(`GUARDRAILS: semantic scan SKIPPED — ${files.length} TS/JS file(s) found but the typescript compiler API is unavailable (DEVGATE_SEMANTIC_REQUIRED=0). Install with: npm install --no-save typescript@5 to actually run this gate.`);
+			console.log(`GUARDRAILS: semantic scan SKIPPED — counted ${files.length} TS/JS file(s), evaluated NONE: the typescript compiler API is unavailable (DEVGATE_SEMANTIC_REQUIRED=0). Install with: npm install --no-save typescript@5 to actually run this gate.`);
 			process.exit(0);
 		}
 		console.error(`GUARDRAILS: semantic scan found ${files.length} TS/JS file(s) but cannot load the typescript compiler API. The gate evaluated NOTHING — this is a tooling error, not a clean scan.`);
