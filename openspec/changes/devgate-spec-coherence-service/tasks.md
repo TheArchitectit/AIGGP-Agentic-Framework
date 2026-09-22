@@ -11,8 +11,24 @@ Dependency-ordered sprint plan for the full program. Sprint S0–S1 gate everyth
 > gate"). The items below are unchecked to reflect that. Retroactive audit is
 > required; see `s2-remediation.md`.
 
-- [ ] Independent audit of the written package by a **different agent in a different session** (fidelity to submitted text, internal consistency, repo guardrails) — a self-review was performed in-session; that does not satisfy this item.
-  ATTEMPT 1 (2026-09-22): **failed by silence** — a dispatched fresh-session auditor went idle three times without delivering findings, the exact pattern recorded for the 2026-09-21 S7 audit; stopped and recorded as an unfinished audit, not a clean one. ATTEMPT 2 (2026-09-22): replacement dispatched with an incremental file-backed deliverable (`/tmp/coherence-audit-report.md`) so a silent death still leaves the established findings on disk.
+- [x] Independent audit of the written package by a **different agent in a different session** (fidelity to submitted text, internal consistency, repo guardrails) — a self-review was performed in-session; that does not satisfy this item.
+  CLOSED 2026-09-22 after two attempts. ATTEMPT 1: **failed by silence** — a dispatched fresh-session
+  auditor went idle three times without delivering findings, the exact pattern recorded for the 2026-09-21
+  S7 audit; stopped and recorded as an unfinished audit, not a clean one. ATTEMPT 2: replacement
+  dispatched with an incremental file-backed deliverable so a silent death still leaves findings on disk
+  (`s0-independent-audit.md` in this package, 144 lines) — the protocol fixed the failure mode, not the agent.
+  **Result: no BLOCKING.** 24 `- [x]` claims spot-checked across S0–S6 with independent evidence (files
+  read, tests run, git dates, not re-reading the claim). Three findings, all dispositioned same-day:
+  (1) MAJOR — S1's "Publish versioned JSON schemas (12)" contradicted by 15 files in `schemas/`: TRUE,
+  corrected above at the S1 item — git add-dates show 12 at freeze + 3 appended post-freeze (S4/S5 work),
+  so the freeze claim was accurate at its time and the count simply went stale in prose. (2) MINOR —
+  AGENTS.md commands under `.devgate/` "fail": REFUTED on re-measurement — the auditor ran consumer-doc
+  paths at the host repo; AGENTS.md line 3 addresses projects *using* DevGate, where `.devgate/` exists by
+  construction (same consumer-facing framing as README's quick start). No defect. (3) MINOR — `__main__.py`
+  cited at 324 lines, measured 349: historical dated snapshots by design (round-14 disposition), not live
+  claims; left as written. Process note kept honest: the auditor's own LIMITATIONS record that it could
+  not fetch hosted logs or find an independent pre-package submission source — the fidelity leg of this
+  item is bounded by the absence of any submitted original in-repo, not by auditor effort.
 - [ ] Lead review of `review.md` findings R1–R9 and design v2 amendment log — not performed.
 - [ ] Accept or amend ADR-001 through ADR-010 — not reviewed clause-by-clause; ADR-011…019 likewise unaccepted.
 - [x] Record repo defaults: `coh-*` requirement namespace; no `openspec/gate-config.json` yet (advisory); stdlib slice-1 runtime with pinned container deferred — recorded in `next-phase-plan.md`.
@@ -25,6 +41,12 @@ Dependency-ordered sprint plan for the full program. Sprint S0–S1 gate everyth
 
 - [x] Freeze design.md v2 as the contract — `s1-freeze-record.md` §1. **Not lead-reviewed** (process debt, see S0).
 - [x] Publish versioned JSON schemas (12) — `schemas/`. (Result schema amended 2026-09-17 to permit explicit nulls per coh-dec-02.)
+      COUNT NOW SUPERSEDED — do not read "12" as the directory's size. The freeze shipped exactly 12
+      (`git log --diff-filter=A` shows 12 files added 2026-09-17); three more were added after the freeze
+      with their own work — `execution-profiles` (2026-09-18, S4 profile registry), `run-envelope` and
+      `signer-set` (2026-09-19, S5). Found by the S0 independent audit as an internal inconsistency;
+      corrected 2026-09-22 rather than retuned to the current number, because the item describes the
+      freeze-time deliverable. A living count belongs in tooling output, not in prose.
 - [x] Commit golden canonicalization and digest vectors — `tests/fixtures/coherence/`, reproducible.
 - [x] Write the decision/exit matrix — `decision-exit-matrix.md`.
 - [x] Define the execution-profile registry — `execution-profile-registry.md`.
