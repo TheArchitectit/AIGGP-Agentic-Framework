@@ -101,23 +101,24 @@ def resolve_all_base(run_git) -> str:
     return "HEAD~20" if count > 20 else EMPTY_TREE
 
 
-def get_added_lines(run_git, staged: bool = True, unstaged: bool = False,
-                    all_scope: bool = False,
-                    base: str | None = None) -> list[tuple[str, int, str]]:
-    """Collect ADDED diff lines with accurate line numbers for the given scope.
+def _collect_git_scope(run_git, *, staged: bool, unstaged: bool,
+                      all_scope: bool, base: str | None,
+                      git_range: str | None) -> list[str]:
+    """Shared endpoint validation for get_added_lines and get_changed_files.
 
-    `run_git` is injected (regression_check.run_git_command) so this module
-    stays free of subprocess/cwd assumptions and is trivially testable.
+    Runs each requested scope's `git diff` and returns the raw stdout blobs to
+    parse. Every scope fails loud on a non-zero git exit (gate-vacuous-01): an
+    unresolvable ref/range must never read as 'scanned, found nothing'.
     """
-    added: list[tuple[str, int, str]] = []
+    outputs: list[str] = []
     if staged:
         rc, stdout, _ = run_git(["diff", "--cached"])
         if rc == 0:
-            added += parse_diff(stdout)
+            outputs.append(stdout)
     if unstaged:
         rc, stdout, _ = run_git(["diff"])
         if rc == 0:
-            added += parse_diff(stdout)
+            outputs.append(stdout)
     if all_scope:
         all_base = resolve_all_base(run_git)
         # The empty tree is not a commit, so merge-base (...) syntax cannot
@@ -132,7 +133,7 @@ def get_added_lines(run_git, staged: bool = True, unstaged: bool = False,
                 f"{(stderr or stdout).strip()} (is the checkout shallow? "
                 f"fetch full history + tags before running the gate)"
             )
-        added += parse_diff(stdout)
+        outputs.append(stdout)
     if base:
         rng = f"{base}...HEAD"
         rc, stdout, stderr = run_git(["diff", rng])
@@ -142,8 +143,67 @@ def get_added_lines(run_git, staged: bool = True, unstaged: bool = False,
                 f"{(stderr or stdout).strip()} (does the ref exist in this "
                 f"checkout? fetch it before running the gate)"
             )
-        added += parse_diff(stdout)
-    return added
+        outputs.append(stdout)
+    if git_range:
+        # Explicit CI range (task 2.3 / audit 7bis.1): passed to git verbatim
+        # — A..B, A...B, or a bare commit — and resolved by `git diff` itself,
+        # so no separate resolve probe is needed: rc 0 (no diff) and 1 (diff
+        # exists) both mean it resolved; anything else is fatal.
+        rc, stdout, stderr = run_git(["diff", git_range])
+        if rc != 0:
+            raise RuntimeError(
+                f"--range regression scan could not diff {git_range}: "
+                f"{(stderr or stdout).strip()} (do the endpoints exist in this "
+                f"checkout? fetch them before running the gate)"
+            )
+        outputs.append(stdout)
+    return outputs
+
+
+def get_added_lines(run_git, staged: bool = True, unstaged: bool = False,
+                    all_scope: bool = False,
+                    base: str | None = None,
+                    git_range: str | None = None) -> list[tuple[str, int, str]]:
+    """Collect ADDED diff lines with accurate line numbers for the given scope.
+
+    `run_git` is injected (regression_check.run_git_command) so this module
+    stays free of subprocess/cwd assumptions and is trivially testable.
+    `git_range` is an explicit revision range scanned verbatim (CI events);
+    see _collect_git_scope for the fail-loud contract on every scope.
+    """
+    return [line for blob in _collect_git_scope(
+        run_git, staged=staged, unstaged=unstaged, all_scope=all_scope,
+        base=base, git_range=git_range) for line in parse_diff(blob)]
+
+
+def get_changed_files(run_git, staged: bool = True, unstaged: bool = False,
+                      git_range: str | None = None) -> list[str]:
+    """Names of files the requested scope's diff touches.
+
+    Same fail-loud contract as get_added_lines (shared _collect_git_scope), so
+    an unresolvable --range surfaces as an error, not as 'no changed files'.
+    """
+    names: set[str] = set()
+    for blob in _collect_git_scope(run_git, staged=staged, unstaged=unstaged,
+                                   all_scope=False, base=None,
+                                   git_range=git_range):
+        for raw in blob.split("\n"):
+            if raw.startswith("+++ "):
+                target = raw[4:].strip()
+                if target != "/dev/null":
+                    names.add(re.sub(r"^b/", "", target))
+    return sorted(names)
+
+
+def get_diff_content(run_git, file_path: str, staged: bool = True,
+                     git_range: str | None = None) -> str:
+    """One file's diff text for the selected scope ('' if it has none)."""
+    if git_range:
+        cmd = ["diff", git_range]
+    else:
+        cmd = ["diff", "--cached"] if staged else ["diff"]
+    rc, stdout, _ = run_git(cmd + ["--", file_path])
+    return stdout if rc in (0, 1) else ""
 
 
 def line_has_allow(line: str, *ids: str) -> bool:

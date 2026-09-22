@@ -779,13 +779,6 @@
       "removal": "n/a (legacy inventory - tighten opportunistically)"
     },
     {
-      "file": "internal/admin/bootstrap.go",
-      "marker": "_, _ = h.db.ExecContext(ctx, // best-effort exec",
-      "family": "go_return_nil_after_ignored_error",
-      "reason": "Idiomatic Go explicit discard (pre-existing legacy at DevGate adoption): deliberate `_ =` / `, _ =` ignore, not a swallowed production error.",
-      "removal": "n/a (legacy inventory - tighten opportunistically)"
-    },
-    {
       "file": "internal/admin/bootstrap_test.go",
       "marker": "_, _ = realDB.Exec(`CREATE TABLE IF NOT EXISTS workspaces (id TEXT PRIMARY KEY, slug TEXT)`)",
       "family": "go_return_nil_after_ignored_error",

@@ -9,6 +9,7 @@ Usage:
     python scripts/regression_check.py --unstaged     # Check unstaged changes
     python scripts/regression_check.py --all         # Check all changes (last tag, else HEAD~20, else root)
     python scripts/regression_check.py --base REF     # Check committed content as diff REF...HEAD
+    python scripts/regression_check.py --range A..B   # Check an explicit git revision range (CI)
     python scripts/regression_check.py --pre-commit   # Exit non-zero if issues found
     python scripts/regression_check.py --fail-if-empty # Exit 2 when the scope scanned zero files
 
@@ -74,6 +75,8 @@ from regression_diff import (  # noqa: E402
     check_added_against_registry,
     compile_registry_patterns,
     get_added_lines,
+    get_changed_files,
+    get_diff_content,
     glob_matches,
     load_active_failures,
     parse_diff,
@@ -117,26 +120,6 @@ def run_git_command(args: list[str]) -> tuple[int, str, str]:
         return 1, "", "git command not found"
 
 
-def get_changed_files(staged: bool = True, unstaged: bool = False) -> list[str]:
-    files = []
-    if staged:
-        rc, stdout, _ = run_git_command(["diff", "--cached", "--name-only"])
-        if rc == 0:
-            files.extend(stdout.strip().split("\n") if stdout.strip() else [])
-    if unstaged:
-        rc, stdout, _ = run_git_command(["diff", "--name-only"])
-        if rc == 0:
-            files.extend(stdout.strip().split("\n") if stdout.strip() else [])
-    return list({f for f in files if f})
-
-
-def get_diff_content(file_path: str, staged: bool = True) -> str:
-    cmd = ["diff", "--cached"] if staged else ["diff"]
-    rc, stdout, _ = run_git_command(cmd + ["--", file_path])
-    return stdout if rc in (0, 1) else ""
-
-
-
 def print_registry_regression_report(violations: list[dict]) -> None:
     """Report re-added failure-registry patterns with real file:line locations."""
     if not violations:
@@ -176,10 +159,23 @@ def validate_rule_regex(rule: dict) -> bool:
     return True
 
 
+class RuleRegistryError(RuntimeError):
+    """The prevention registry cannot yield a usable rule set.
+
+    Zero usable rules is not an empty scan, it is a broken gate: it would
+    check changes against nothing and report success — vacuous green (audit
+    H2). Callers must treat it as fatal regardless of --pre-commit.
+    """
+
+
 def load_prevention_rules(rules_path: Path | None = None) -> list[dict]:
     """Enabled, regex-valid rules. rules_path=None merges DevGate's bundled
     baseline with the current project's .guardrails/ overlay (gate_overlay.py);
     an explicit directory reads that one source only, no merge.
+
+    Raises RuleRegistryError when nothing survives (missing, unreadable,
+    corrupt, all-disabled, or all-invalid-regex) — gate_overlay swallows
+    those into [], which must not read as a clean pass.
     """
     raw = gate_overlay.resolve_rules(PROJECT_ROOT, rules_path)
     rules = []
@@ -190,6 +186,12 @@ def load_prevention_rules(rules_path: Path | None = None) -> list[dict]:
             continue
         rule["rule_type"] = rule.get("_kind", "pattern")
         rules.append(rule)
+    if not rules:
+        raise RuleRegistryError(
+            f"prevention registry yielded ZERO usable rules (loaded {len(raw)} "
+            f"raw from {'merged bundled+overlay' if rules_path is None else rules_path}) "
+            f"— the gate would report success having checked nothing"
+        )
     return rules
 
 
@@ -269,12 +271,14 @@ def is_blocking(failures: list[dict], violations: list[dict]) -> bool:
 def run_regression_check(registry_path: Path | None = None, rules_path: Path | None = None,
                          staged: bool = True,
                          unstaged: bool = False,
-                         verbose: bool = False) -> tuple[int, list[dict], int]:
+                         verbose: bool = False,
+                         git_range: str | None = None) -> tuple[int, list[dict], int]:
     issues = []
     entries, _owner = gate_overlay.resolve_registry(PROJECT_ROOT, registry_path, statuses=SCANNED_STATUSES)
     failures = load_active_failures(entries)
     rules = load_prevention_rules(rules_path)
-    changed_files = get_changed_files(staged=staged, unstaged=unstaged)
+    changed_files = get_changed_files(run_git_command, staged=staged, unstaged=unstaged,
+                                      git_range=git_range)
     if not changed_files:
         if verbose:
             print("No changed files to check")
@@ -284,7 +288,7 @@ def run_regression_check(registry_path: Path | None = None, rules_path: Path | N
         matching_failures = check_file_against_failures(file_path, failures)
         if matching_failures:
             file_issues["failures"] = matching_failures
-        diff = get_diff_content(file_path, staged=staged)
+        diff = get_diff_content(run_git_command, file_path, staged=staged, git_range=git_range)
         if diff:
             violations = check_diff_against_patterns(diff, rules_for_file(rules, file_path))
             if violations:
@@ -341,6 +345,12 @@ def main():
     group.add_argument("--staged", action="store_true", default=True)
     group.add_argument("--unstaged", "-u", action="store_true")
     group.add_argument("--all", "-a", action="store_true")
+    group.add_argument("--range", metavar="REV_RANGE", default=None,
+                       help="scan an explicit git revision range verbatim "
+                            "(A..B, A...B, or a bare commit) — CI event ranges "
+                            "like github.event.before..github.sha that --base "
+                            "cannot express. Fails closed: an unresolvable range "
+                            "raises instead of scanning nothing.")
     parser.add_argument("--base", default=None, metavar="REF",
                         help="also scan committed content as diff REF...HEAD "
                              "(answers 'the pushed branch was never audited': a clean "
@@ -370,7 +380,7 @@ def main():
             file=sys.stderr,
         )
 
-    staged = args.staged and not args.unstaged and not args.all
+    staged = args.staged and not args.unstaged and not args.all and not args.range
     unstaged = args.unstaged or args.all
     if args.all:
         staged = True
@@ -378,14 +388,17 @@ def main():
     count, issues, files_scanned = run_regression_check(
         registry_path=args.registry, rules_path=args.rules,
         staged=staged, unstaged=unstaged,
-        verbose=args.verbose and not args.quiet)
+        verbose=args.verbose and not args.quiet,
+        git_range=args.range)
 
     # Hunk-accurate ADDED lines drive the registry regression scan and tell the
     # file-size check which files this diff actually touches.
     added = get_added_lines(run_git_command, staged=staged, unstaged=unstaged,
-                            all_scope=args.all, base=args.base)
-    if args.base:
-        files_scanned += len({path for path, _, _ in added})
+                            all_scope=args.all, base=args.base,
+                            git_range=args.range)
+    if args.base or args.range:
+        files_scanned = max(files_scanned,
+                            len({path for path, _, _ in added}))
     vacuous = files_scanned == 0 and not added
     touched = {path for path, _, _ in added}
 
@@ -408,9 +421,9 @@ def main():
             changed: set[str] = set()
             if rc == 0 and stdout.strip():
                 changed.update(stdout.strip().split("\n"))
-            changed.update(get_changed_files(staged=True, unstaged=True))
+            changed.update(get_changed_files(run_git_command, staged=True, unstaged=True))
         else:
-            changed = set(get_changed_files(staged=True, unstaged=True))
+            changed = set(get_changed_files(run_git_command, staged=True, unstaged=True))
         for issue in size_issues:
             if issue["kind"] != "soft":
                 continue
@@ -444,7 +457,8 @@ def main():
                   "0 changed files.")
             print("This run evaluated no inputs; it is NOT evidence of a clean tree.")
             print("On a clean checkout, --staged/--unstaged see only uncommitted work.")
-            print("Scan committed content with --base <ref> (diff REF...HEAD) or --all.")
+            print("Scan committed content with --base <ref> (diff REF...HEAD), "
+                  "--range <A..B>, or --all.")
             print("!" * 70)
         elif not args.quiet or count > 0:
             print_report(issues, verbose=args.verbose)

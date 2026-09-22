@@ -316,6 +316,55 @@ def test_base_scope_diffs_ref_and_fails_loud_on_bad_ref():
         raise AssertionError("bad --base ref did not raise; gate can pass vacuously")
 
 
+def test_range_scope_scans_the_explicit_range_verbatim():
+    """--range passes the CI event range to git unchanged (.. and ... forms)."""
+    calls = []
+
+    def fake_git(args):
+        calls.append(args)
+        if args[:2] == ["diff", "abc123..def456"]:
+            return (0, MULTI_HUNK_DIFF, "")
+        return (0, "", "")
+
+    added = get_added_lines(fake_git, staged=False, unstaged=False,
+                            git_range="abc123..def456")
+    assert added == parse_diff(MULTI_HUNK_DIFF), f"range diff not parsed: {added}"
+    assert ["diff", "abc123..def456"] in calls
+    assert not any("--cached" in c for c in calls), f"staged leaked into range mode: {calls}"
+
+
+def test_range_scope_empty_but_resolvable_is_a_clean_pass():
+    """A range that resolves to no diff scans zero lines WITHOUT raising — the
+    force-push-with-no-changes case; --fail-if-empty is what turns this into a
+    CI-visible verdict."""
+    calls = []
+
+    def fake_git(args):
+        calls.append(args)
+        return (0, "", "")
+
+    assert get_added_lines(fake_git, staged=False, unstaged=False,
+                           git_range="v1...v2") == []
+    assert ["diff", "v1...v2"] in calls, f"three-dot form not verbatim: {calls}"
+
+
+def test_range_scope_raises_when_unresolvable():
+    """Missing endpoints (shallow checkout, force-push) must fail loud, not
+    scan nothing — same vacuous-green contract as --all/--base."""
+    def fake_git(args):
+        if args[:1] == ["diff"]:
+            return (128, "", "fatal: bad revision 'deadbeef..cafebabe'")
+        return (0, "", "")
+
+    try:
+        get_added_lines(fake_git, staged=False, unstaged=False,
+                        git_range="deadbeef..cafebabe")
+    except RuntimeError as exc:
+        assert "deadbeef..cafebabe" in str(exc), f"unhelpful message: {exc}"
+    else:
+        raise AssertionError("unresolvable --range did not raise; gate can pass vacuously")
+
+
 def test_all_scope_does_not_rescan_history_on_empty_range():
     """Tag exists + empty range => no added lines (not a HEAD~20 rescan)."""
     calls = []
@@ -377,6 +426,37 @@ def test_hard_size_blocks_touched_but_warns_untouched(tmp_path=None):
         big_b.unlink(missing_ok=True)
         src.rmdir()
         root.rmdir()
+
+
+def test_rules_registry_empty_is_fatal_not_vacuous_green(tmp_path=None):
+    """H2: zero usable rules must fail the gate, not pass it.
+
+    gate_overlay turns a missing/corrupt rules dir into [] silently; the
+    regression gate must still refuse to claim 'no regressions' when it
+    compared the diff against nothing.
+    """
+    from regression_check import RuleRegistryError, load_prevention_rules
+    empty = Path(__file__).resolve().parent / "_tmp_empty_rules"
+    (empty / "prevention-rules").mkdir(parents=True, exist_ok=True)
+    try:
+        try:
+            load_prevention_rules(empty / "prevention-rules")
+        except RuleRegistryError:
+            pass
+        else:
+            raise AssertionError("empty rule set returned; gate would pass vacuously")
+        # A corrupt rules file is the same failure mode, not a silent [].
+        bad = empty / "prevention-rules" / "pattern-rules.json"
+        bad.write_text("{not json", encoding="utf-8")
+        try:
+            load_prevention_rules(empty / "prevention-rules")
+        except RuleRegistryError:
+            pass
+        else:
+            raise AssertionError("corrupt rules file returned; gate would pass vacuously")
+    finally:
+        import shutil
+        shutil.rmtree(empty, ignore_errors=True)
 
 
 def main() -> int:
