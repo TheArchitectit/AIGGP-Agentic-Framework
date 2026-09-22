@@ -11,8 +11,21 @@
 # How it works:
 #   Detector families live in DATA, not in this script:
 #     .guardrails/prevention-rules/silent-success-rules.json
+#   The families in effect are the DevGate BASELINE merged with the consuming
+#   project's overlay of the same path — <project>/.guardrails/prevention-rules/
+#   silent-success-rules.json — so a repo can retune a family (scope it, change
+#   its severity) or add one WITHOUT forking the submodule baseline. Overlay wins
+#   on a matching "family" id (replaced in place), new families append; a project
+#   with no overlay gets byte-identical baseline behaviour. This is the same
+#   bundled-baseline + project-overlay convention as gate_overlay.py /
+#   guardrails-scan.mjs (the allowlist is NOT overlaid — it keys into one repo's
+#   tree, so it stays submodule-only by design).
 #   For each ENABLED family, every file matching its file_glob is scanned line by
-#   line. Each hit must be covered by an entry in
+#   line, EXCEPT files matching that family's optional "exclude_globs" (e.g.
+#   ["*_test.go"] to keep a Go family out of test files — where discarding an
+#   error is often idiomatic). Exclusion is per-family: a file excluded for one
+#   family is still scanned by the others whose file_glob matches.
+#   Each remaining hit must be covered by an entry in
 #     .guardrails/silent-success-allowlist.json
 #   or the scan FAILS. A hit is covered when some entry's "file" equals the hit's
 #   repo-relative path AND that entry's "marker" is a substring of the hit line.
@@ -26,8 +39,10 @@
 # Usage:
 #   bash scripts/silent-success-scan.sh
 #
-# Exit codes: 0 = no enabled families, or every hit is allowlisted.
-#             1 = a new/unlisted marker, or malformed config.
+# Exit codes: 0 = no enabled families, or every hit is allowlisted/excluded.
+#             1 = a new/unlisted marker, or malformed config (including a
+#                 malformed project overlay — the merge fails closed, it does not
+#                 fall back to the baseline and quietly drop the overlay).
 
 set -uo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
@@ -66,6 +81,32 @@ except (OSError, json.JSONDecodeError) as exc:
     print(f"silent-success-scan: cannot read {rules_path}: {exc}", file=sys.stderr)
     sys.exit(1)
 
+# Bundled baseline + project overlay (gate_overlay.py's merge contract, keyed by
+# "family"): an overlay entry replaces the same-family baseline entry in place,
+# new families append. No overlay file -> baseline only, byte-identical to the
+# pre-overlay behaviour every other consumer relies on. A present-but-malformed
+# overlay FAILS CLOSED (exit 1) — falling back to the baseline would quietly
+# drop the project's rules, which is the failure mode this whole class of gates
+# exists to refuse.
+rules = rules_doc.get("rules", [])
+overlay_path = project_root / rules_path
+if overlay_path.exists() and overlay_path.resolve() != (devgate_root / rules_path).resolve():
+    try:
+        sys.path.insert(0, str(devgate_root / "scripts"))
+        import gate_overlay
+        overlay_rules = json.loads(overlay_path.read_text(encoding="utf-8")).get("rules", [])
+    except (OSError, json.JSONDecodeError, ImportError) as exc:
+        print(f"silent-success-scan: cannot read project overlay {overlay_path}: {exc}",
+              file=sys.stderr)
+        sys.exit(1)
+    if not isinstance(overlay_rules, list):
+        print(f"silent-success-scan: project overlay {overlay_path} has a non-list "
+              f"'rules' key", file=sys.stderr)
+        sys.exit(1)
+    rules = gate_overlay.merge_by_id(rules, overlay_rules, "family")
+    print(f"silent-success-scan: {len(rules)} family(ies) in effect (bundled "
+          f"baseline + {overlay_path.relative_to(project_root)} overlay merged)")
+
 try:
     allow = json.loads((devgate_root / allowlist_path).read_text(encoding="utf-8"))
 except (OSError, json.JSONDecodeError) as exc:
@@ -78,9 +119,9 @@ entries = allow.get("entries", [])
 coverage = {(e.get("file", ""), e.get("marker", "")) for e in entries
             if isinstance(e, dict)}
 
-enabled = [r for r in rules_doc.get("rules", []) if r.get("enabled") is True]
+enabled = [r for r in rules if r.get("enabled") is True]
 if not enabled:
-    total = len(rules_doc.get("rules", []))
+    total = len(rules)
     print(f"silent-success-scan: no families enabled ({total} available, all "
           f"enabled:false) — skipping")
     print("  enable one in .guardrails/prevention-rules/silent-success-rules.json "
@@ -102,7 +143,12 @@ for rule in enabled:
         print(f"silent-success-scan: family '{family}' has an invalid regex "
               f"({exc}): {pattern}", file=sys.stderr)
         sys.exit(1)
-    compiled.append((family, rx, rule.get("file_glob") or []))
+    excludes = rule.get("exclude_globs") or []
+    if not isinstance(excludes, list):
+        print(f"silent-success-scan: family '{family}' has a non-list "
+              f"exclude_globs: {excludes!r}", file=sys.stderr)
+        sys.exit(1)
+    compiled.append((family, rx, rule.get("file_glob") or [], excludes))
 
 SKIP_DIRS = {".git", "node_modules", "target", "dist", "build", "out", "vendor",
              "__pycache__", ".venv", "venv", ".next", ".nuxt", ".devgate",
@@ -140,10 +186,14 @@ print(f"silent-success-scan: {len(compiled)} enabled family(ies); scanning "
 files = list(iter_files(project_root))
 uncovered = []
 allowlisted = 0
+excluded = 0
 
 for path in files:
     rel = path.relative_to(project_root).as_posix()
-    applicable = [(f, rx) for f, rx, globs in compiled if matches_glob(rel, globs)]
+    # Exclusion is PER-FAMILY: a file excluded for one family stays fully
+    # scanned by every other family whose file_glob matches it.
+    applicable = [(f, rx, bool(ex_globs) and matches_glob(rel, ex_globs))
+                  for f, rx, globs, ex_globs in compiled if matches_glob(rel, globs)]
     if not applicable:
         continue
     try:
@@ -151,10 +201,13 @@ for path in files:
     except OSError:
         continue
     for lineno, line in enumerate(text.splitlines(), 1):
-        for family, rx in applicable:
+        for family, rx, skip_this in applicable:
             if not rx.search(line):
                 continue
-            if any(fl == rel and mk and mk in line for fl, mk in coverage):
+            if skip_this:
+                excluded += 1
+                print(f"  [excluded] {rel}:{lineno} ({family})")
+            elif any(fl == rel and mk and mk in line for fl, mk in coverage):
                 allowlisted += 1
                 print(f"  [allowlisted] {rel}:{lineno} ({family})")
             else:
@@ -170,8 +223,9 @@ if uncovered:
     print(' "reason": "...", "removal": "<sprint/ticket>"}.')
     sys.exit(1)
 
-print(f"\nsilent-success-scan: OK — every detected marker is allowlisted "
-      f"({allowlisted} hit(s), {len(entries)} allowlist entr(ies)).")
+print(f"\nsilent-success-scan: OK — every detected marker is allowlisted or "
+      f"excluded ({allowlisted} allowlisted, {excluded} excluded by family "
+      f"exclude_globs, {len(entries)} allowlist entr(ies)).")
 sys.exit(0)
 PY
 
