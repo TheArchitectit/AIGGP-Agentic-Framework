@@ -69,8 +69,8 @@ alerts/*.jsonl
 ```
 
 That is a backstop, not a license: the token files below live outside the repo
-(`~/.config/containers/systemd/…`, `$HOME/.devgate-heartbeat.env`) precisely so
-no `git add` can reach them.
+(`~/.config/containers/devgate-heartbeat-<name>.env`, `~/.config/systemd/user/…`)
+precisely so no `git add` can reach them.
 
 ### Firewall — explicit bind, never `0.0.0.0` by default
 
@@ -215,7 +215,7 @@ once, then re-check that `last_poll_at` has moved before you trust the hub.
 
 ### 8. Enable the dead-man switch
 
-The dead-man switch is spoke-side: each spoke's `devgate-hub-watchdog.timer`
+The dead-man switch is spoke-side: each spoke's `devgate-watchdog-<name>.timer`
 is installed during enrollment and fails its unit when the hub stops
 monitoring (`mon-deadman-01`). Nothing to enable here beyond step 9 — but read
 **Dead-man switch** below, including its honest limits, before you rely on it.
@@ -231,11 +231,18 @@ The script:
 
 1. `POST /enroll` with the runner's identity and the one-time token.
 2. On `200`, captures the per-runner `heartbeat_token` from the response.
-3. Writes `$HOME/.devgate-heartbeat.env` **`chmod 600`** containing `HUB_URL`,
-   `RUNNER_NAME`, `HEARTBEAT_TOKEN`, `LAST_JOB_SEEN`.
-4. Installs `devgate-heartbeat.service` (one-shot: reads `df` and `podman info`,
-   posts to `/heartbeat`) and `devgate-heartbeat.timer` under
+3. Writes `~/.config/containers/devgate-heartbeat-<name>.env` **`chmod 600`**
+   containing `HUB_URL`, `RUNNER_NAME`, `HEARTBEAT_TOKEN`, `LAST_JOB_SEEN`, and
+   installs `~/.config/containers/devgate-heartbeat.sh` — the shared helper that
+   reads `df` and `podman info` and posts to `/heartbeat`.
+4. Installs `devgate-hb-<name>.service` and `devgate-hb-<name>.timer` under
    `~/.config/systemd/user/`, then enables and starts the timer.
+
+Every unit and env file is named for the runner (`devgate-hb-<name>`,
+`devgate-watchdog-<name>`, `devgate-heartbeat-<name>.env`), so several runners
+can share one host. If two `--runner-name` values sanitize to the same unit name
+(`ci runner` and `ci/runner`), the second enroll is **refused** rather than
+silently handed the first runner's token.
 
 Re-running enroll for an identity that is already registered is a no-op on the
 hub side; the script keeps the existing heartbeat token path and re-installs the
@@ -256,16 +263,16 @@ the local timer and the token file.
 The hub cannot report its own death, and a GitHub-scheduled workflow cannot
 report its own absence. So the check runs on the machines that are still alive
 when the hub is not: **the spokes**. Every spoke installs
-`devgate-hub-watchdog.timer` during enrollment (no extra step — see
+`devgate-watchdog-<name>.timer` during enrollment (no extra step — see
 `scripts/runner-enroll.sh`), which fetches the hub's `/health` on a timer and
 **fails its own systemd unit** when the hub has stopped monitoring.
 
-The signal is local and deliberate: `devgate-hub-watchdog.service` in `failed`
-state on each spoke.
+The signal is local and deliberate: `devgate-watchdog-<name>.service` in
+`failed` state on each spoke.
 
 ```bash
-systemctl --user status devgate-hub-watchdog   # on any spoke
-journalctl --user -u devgate-hub-watchdog -n 50
+systemctl --user status devgate-watchdog-<name>   # on any spoke
+journalctl --user -u devgate-watchdog-<name> -n 50
 ```
 
 **Why local-only.** There is no GitHub issue and no token on the spoke. A

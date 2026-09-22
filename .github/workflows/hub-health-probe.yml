@@ -7,10 +7,11 @@
 # claim is removed rather than restated.
 #
 # The real dead-man switch is spoke-side and local: each enrolled spoke runs
-# `devgate-hub-watchdog.timer` (installed by scripts/runner-enroll.sh), which
-# checks the hub's /health and FAILS ITS UNIT when the hub stops monitoring.
-# See docs/runner-monitor-monitor-hub.md ("Dead-man switch"). Spokes are the
-# machines still alive when the hub is not, so they are the right place for it.
+# `devgate-watchdog-<name>.timer` (installed by scripts/runner-enroll.sh),
+# which checks the hub's /health and FAILS ITS UNIT when the hub stops
+# monitoring. See docs/runner-monitor-monitor-hub.md ("Dead-man switch").
+# Spokes are the machines still alive when the hub is not, so they are the
+# right place for it.
 #
 # This workflow is the manual equivalent for a human: run it on demand to ask
 # a hub whether it is healthy. It requires HUB_URL to be set as a repository

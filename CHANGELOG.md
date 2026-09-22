@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Runner enrollment:** the heartbeat unit no longer uses an inline `bash -c`
+  ExecStart. systemd expands `$` in `ExecStart` against the unit's own
+  environment, so the variables the body defined for itself (`DISK_OK`,
+  `PODMAN_OK`) arrived empty, the POST went out as malformed JSON, the hub
+  rejected it, and the unit exited 22 on *every tick* while enrollment still
+  reported success. `ExecStart` now points at a copied
+  `scripts/runner-heartbeat.sh`.
+- **Runner enrollment:** units and the token env file are named per runner
+  (`devgate-hb-<name>`, `devgate-watchdog-<name>`,
+  `devgate-heartbeat-<name>.env`), so enrolling a second runner on one host no
+  longer overwrites the first runner's token. Two names that sanitize to the
+  same unit name are refused rather than merged. Legacy fixed-name units are
+  retired for the runner being re-enrolled, and left alone when they belong to
+  another.
+
+### Fixed (pre-existing)
+
 - **Gates:** tracked-artifact checks (COMMITTED-ENV/COMMITTED-GENERATED) now
   honor `.guardrailsignore` like the walk-based checks. One carve-out: a bare
   `.env` can never be ignored — that check is the framework's leak tripwire.
