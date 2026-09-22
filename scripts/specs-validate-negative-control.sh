@@ -39,7 +39,22 @@ mkdir -p "$probe_root/openspec/specs/broken-probe"
 cp "$fixture" "$probe_root/openspec/specs/broken-probe/spec.md"
 
 # Run from the probe root so the broken spec is the only item in scope.
-out="$(cd "$probe_root" && npx openspec validate broken-probe --strict 2>&1)"
+# Resolve the CLI the SAME binary the hard gate above it resolves to: the bin
+# installed into the repo workspace by ci.yml's pinned `npm install --no-save`.
+# A bare `npx openspec` is run from the probe root, where npx finds no local
+# install and cannot resolve the name — CI's exact failure was npm's "could not
+# determine executable to run". Locally that failure is masked by a globally
+# installed openspec on PATH, which is how this shipped red once: the control
+# must exercise the same binary the gate it vouches for runs, not whichever
+# openspec happens to be on the invoking machine's PATH.
+openspec_bin="$repo_root/node_modules/.bin/openspec"
+if [ ! -x "$openspec_bin" ]; then
+	echo "NEGATIVE CONTROL MISCONFIGURED: $openspec_bin not found." >&2
+	echo "Install the pinned CLI first (mirroring ci.yml): npm install --no-save '@fission-ai/openspec@<pin>'" >&2
+	exit 1
+fi
+
+out="$(cd "$probe_root" && "$openspec_bin" validate broken-probe --strict 2>&1)"
 status=$?
 
 if [ "$status" -eq 0 ]; then
