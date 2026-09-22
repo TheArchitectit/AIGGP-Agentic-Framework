@@ -1,0 +1,202 @@
+#!/usr/bin/env python3
+# // spec: coh-int-01, coh-int-05
+"""coherence-local — the local half of coh-int-01's byte-equivalence.
+
+The CI template (`templates/github-workflows/spec-coherence.yml`) runs the
+coherence gate by invoking `-m hub.coherence.invoke` to build the request and
+launch config, then `-m hub.coherence --request … --launch-config …` to run
+the containerized evaluation. This command runs THE SAME two invocations, with
+the same flags in the same order, from a local checkout — so "local == CI" is
+equality of the actual commands, not a resemblance claimed in prose. Round-18
+D1 was exactly what two hand-written shells drift into; the shared builder is
+the fix, and a second wrapper re-implementing assembly would undo it.
+
+Identity: the profile label and pinned digest are read from the CI template
+itself (what a run configured from it would execute), the digest is looked up
+by label in container/execution-profiles.json — the same registry the
+template's digest step reads — and the run fails closed when the two
+disagree. Defaulting to "the registry's first entry" would let a head-inserted
+profile silently run bytes CI never pinned.
+
+Flags mirror the template's builder command; `--build-only` stops after the
+builder (no container needed), and `--dry-run` prints the two commands without
+executing either. A builder refusal is invalid input and exits 30 per the
+frozen contract (coh-dec-04); a completed run relays the service's exit code
+unchanged (the driver already maps container outcomes onto the contract).
+
+Scope of "the same commands": command form and emitted builder bytes are
+proven equal (tests/test_coherence_local_wrapper.py); the DRIVER executes the
+local checkout's hub/ — on CI the same relative path runs the pinned clone's
+bytes. That is the point of a developer command (run the code you are
+changing, through CI's command), not a claim that the local tree is the pin.
+
+Exit: 0 pass / 30 invalid input / relayed service codes otherwise; 2 usage;
+1 identity-resolution error (registry absent, profile unresolvable).
+"""
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+def _child_env() -> dict:
+    """Children see the caller's full environment plus PYTHONPATH=. — the
+    template inherits env the same way (a control-plane key in the environment
+    must enforce signing locally exactly as it does on CI; a stripped env
+    would make "local == CI" false in precisely the signature cases that
+    matter). Computed per call, not frozen at import: an import-time snapshot
+    would serve a caller that changed the environment after import the very
+    divergence propagation is supposed to prevent."""
+    return {**os.environ, "PYTHONPATH": "."}
+
+REPO = Path(__file__).resolve().parent.parent
+REGISTRY = REPO / "container" / "execution-profiles.json"
+TEMPLATE = REPO / "templates" / "github-workflows" / "spec-coherence.yml"
+
+
+def _template_identity() -> tuple[str, str]:
+    """(profile label, pinned digest) exactly as a CI run configured from this
+    template would use. Same extraction principle as the byte-equivalence
+    tests: a hardcoded copy would be a third source of truth for identity —
+    the drift this wrapper exists to prevent. Defaults to the template's own
+    env values when a repo-local override is configured; absent those, an
+    unconfigured template is honest 'no CI identity' (None, None) rather
+    than an invented default."""
+    text = TEMPLATE.read_text() if TEMPLATE.is_file() else ""
+    m_lab = re.search(r'^\s*COHERENCE_PROFILE:\s*"?([^"\n]+)"?\s*$',
+                      text, re.M)
+    m_dig = re.search(r'^\s*COHERENCE_IMAGE_MANIFEST_DIGEST:\s*"?([^"\n]+)"?\s*$',
+                      text, re.M)
+    label = (os.environ.get("COHERENCE_PROFILE")
+             or (m_lab.group(1).strip() if m_lab else "") or None)
+    digest = (os.environ.get("COHERENCE_IMAGE_MANIFEST_DIGEST")
+              or (m_dig.group(1).strip() if m_dig else "") or None)
+    return label, digest
+
+
+def _profile(label: str | None, want_digest: str | None) -> dict:
+    """Resolve identity the way the template's digest step does (spec-coherence
+    .yml: select from the registry by label, then fail closed unless the
+    registry's digest equals the pinned one — both drift directions). Default
+    'registry first entry' is NOT that semantics: a head-inserted profile
+    would silently run different bytes than CI. When the pinned digest is
+    known, the registry entry must agree; when it is not, running registry
+    bytes is the only honest local choice — and saying so on stderr."""
+    registry_path = Path(os.environ.get("DEVGATE_EXECUTION_PROFILES",
+                                         str(REGISTRY)))
+    reg = json.loads(registry_path.read_text())
+    profiles = reg.get("profiles", [])
+    if not profiles:
+        sys.exit("coherence-local: no profiles in the identity registry")
+    entry = next((p for p in profiles if p.get("label") == label), None)
+    if entry is None:
+        sys.exit(f"coherence-local: profile {label!r} absent from {registry_path}")
+    if want_digest and entry["image_manifest_digest"] != want_digest:
+        sys.exit(f"coherence-local: profile {label!r} is "
+                 f"{entry['image_manifest_digest']} in the registry but "
+                 f"{want_digest} is pinned — refusing to run either "
+                 "(registry and pin disagree)")
+    if want_digest is None:
+        print(f"coherence-local: profile {label!r} -> "
+              f"{entry['image_manifest_digest']} per the registry (no "
+              "comparable CI pin for this label — registry bytes are all "
+              "CI could run for it)", file=sys.stderr)
+    return {**entry, "image": reg["image"]}
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(
+        prog="scripts/coherence-local",
+        description="Run the spec-coherence gate locally, through the same "
+                    "builder + driver invocations the CI template uses.")
+    ap.add_argument("--subject", required=True,
+                    help="subject root to evaluate (the gate's subject path)")
+    ap.add_argument("--openspec", required=True,
+                    help="openspec change-package root to promote against "
+                         "(control-plane input — never defaulted)")
+    ap.add_argument("--policy", required=True,
+                    help="policy bundle root (control-plane input)")
+    ap.add_argument("--context", required=True,
+                    help="evaluation-context root (control-plane input)")
+    ap.add_argument("--outputs", required=True,
+                    help="output directory (request.json/launch.json/results)")
+    ap.add_argument("--profile", default=None,
+                    help="execution-profile label (default: the template's "
+                         "COHERENCE_PROFILE — what CI would run)")
+    ap.add_argument("--request-id", default=None,
+                    help="identity recorded in the request (default: the "
+                         "subject root's basename, matching how the template "
+                         "names single-segment subjects)")
+    ap.add_argument("--build-only", action="store_true",
+                    help="emit request.json + launch.json, skip the "
+                         "containerized run (no image required)")
+    ap.add_argument("--dry-run", action="store_true",
+                    help="print the two template-shaped commands; execute "
+                         "nothing")
+    args = ap.parse_args(argv)
+
+    # Identity = what a CI run from this template would execute: its profile
+    # label, pinned digest included. --profile overrides the label; the
+    # template's pin only compares against ITS label, so an override runs on
+    # registry bytes with a warning rather than a false agreement.
+    t_label, t_digest = _template_identity()
+    if args.profile:
+        label = args.profile
+        want_digest = t_digest if t_label == label else None
+    else:
+        label, want_digest = t_label, t_digest
+    if label is None:
+        sys.exit("coherence-local: no execution profile — the template pins "
+                 "no COHERENCE_PROFILE and no --profile was given; refusing "
+                 "to invent an identity")
+    prof = _profile(label, want_digest)
+    out = Path(args.outputs)
+    out.mkdir(parents=True, exist_ok=True)
+    request_json = str(out / "request.json")
+    launch_json = str(out / "launch.json")
+    request_id = args.request_id or Path(args.subject).name
+
+    builder = ["python3", "-m", "hub.coherence.invoke",
+               "--subject", args.subject,
+               "--openspec", args.openspec,
+               "--policy", args.policy,
+               "--context", args.context,
+               "--outputs", str(out),
+               "--image", prof["image"],
+               "--profile", prof["label"],
+               "--manifest-digest", prof["image_manifest_digest"],
+               "--request-id", request_id,
+               "--request-out", request_json,
+               "--launch-out", launch_json]
+    driver = ["python3", "-m", "hub.coherence",
+              "--request", request_json,
+              "--launch-config", launch_json]
+
+    if args.dry_run:
+        print("$ " + " ".join(builder))
+        print("$ " + " ".join(driver))
+        return 0
+
+    r = subprocess.run(builder, cwd=str(REPO), env=_child_env())
+    if r.returncode != 0:
+        # The builder refuses inputs the service would refuse (unsigned or
+        # unbound context, unreadable root): that is invalid input, exit 30 —
+        # never the builder's raw 1, and never a green relay.
+        print(f"coherence-local: inputs rejected by the builder (exit "
+              f"{r.returncode}) — reported as invalid input (30)",
+              file=sys.stderr)
+        return 30
+    if args.build_only:
+        print(f"built {request_json} + {launch_json} "
+              f"(profile {prof['label']}, digest "
+              f"{prof['image_manifest_digest'][:19]}…); --build-only, no "
+              "container run", file=sys.stderr)
+        return 0
+
+    return subprocess.run(driver, cwd=str(REPO), env=_child_env()).returncode
+
+
+if __name__ == "__main__":
+    sys.exit(main())
