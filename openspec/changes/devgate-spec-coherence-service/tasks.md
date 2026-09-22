@@ -630,13 +630,27 @@ sprints. Findings and dispositions:
       wrapper that runs the same builder + `run_containerized`, plus the test pinning both invocations to the one
       command. Phase 2, tracked as a distinct line below rather than claimed here.
 - [ ] Local developer command `scripts/coherence-local` with a byte-equivalence test against the CI invocation (coh-int-01, coh-int-05). **NEW — carved out of the line above so the remaining work is a named item, not a buried clause.**
-- [ ] Inert image-contract guard (coh-rt-08): the CI job that holds "the evaluator image ships its frozen schemas"
+- [x] Inert image-contract guard (coh-rt-08): the CI job that holds "the evaluator image ships its frozen schemas"
       self-skips on runners without podman (`skipUnless` / `command -v podman … exit 0`), so on hosted runners the
       guard evaluates NOTHING and reports green — a NOT_RUN-as-pass (the exact pattern AGENTS.md forbids, and the
       same false-green class as GD-2 for the size gate). Round-18's D2 is what an unguarded schema-in-image
       regression costs: the gate ships unable to run. Fix: a **podman-free** unit asserting the Containerfile
       `COPY`s the schema dir (structural, always executes), keeping the podman end-to-end as the deeper check where
       the runner has it.
+      CLOSED 2026-09-22, disposition corrected on two points where the item's own premise had aged:
+      (1) the structural half already exists — `tests/test_hub_coherence_container.py::
+      TestContainerfile::test_containerfile_carries_the_frozen_schemas` (`3bff08d`), and it is *derived*, not
+      hardcoded (it computes the in-container destination from `schemacheck.SCHEMA_DIR` + the WORKDIR, so moving
+      either the module's resolver or the COPY breaks the pin). Mutation battery re-run at closure, **3/3 killed**:
+      delete the schema COPY (the literal D2 regression), COPY to a plausible wrong dir (`./schemas/`), COPY twice.
+      (2) the "self-skips on hosted runners" premise was written when the runner situation was assumed; hosted
+      logs since 2026-09-22 show `ubuntu-latest` **has** podman and the `container-image` job builds the image
+      and prints `schemas OK in image` inside the container on every push. Remaining skip surface, pinned as
+      honest rather than eliminated: the `tests` job's `TestImageSmoke`/`TestContainerExecReal` skip there
+      because that job builds no image (setUp skipTest, reason recorded) — pytest's summary shows them as an
+      explicit `5 skipped` count, never inside the passed column; locally (podman + image present) both classes
+      execute, 34/34 green. The SKIPPED-branch guards in `ci.yml` stay as future-proofing for podman-less
+      runners, with the header comment now saying so explicitly (`2981fff`).
 - [ ] Adapter default-deny: timeouts/unparseable results surface ERROR, never neutral/pass (coh-int-05).
 - [ ] Account for repo-scoped runners and multi-runner hosts: stock `runner-enroll.sh` is single-runner-per-host (fixed unit names); per-runner units (`devgate-hb-<name>.{service,timer}`) where a host runs multiple spokes (coh-int-07).
 - [ ] Outage, mirror, cached-attestation, protocol-mismatch behavior; migration guide + operator runbook.
