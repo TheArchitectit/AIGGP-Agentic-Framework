@@ -104,6 +104,7 @@ The pieces that matter to a human:
 - **A five-stage adoption ladder** — inventory → advisory → ratchet → enforced-core → enforced-full — monotonically narrowing which known debt stays advisory as a repository earns enforcement.
 - **Anti-rollback** — a context binds the exact central policy bundle (digest + epoch floor); an older-but-signed bundle is rejected unless the control plane recorded a grandfather window for it, and the attempt is machine-parsable in fleet reporting.
 - **A stable exit-code contract** — PASS 0, ADVISORY 10, FAIL 20, invalid input 30, policy refusal 31, execution error 32, seal failure 33 — plus deterministic replay of any historical decision.
+- **`scripts/coherence-local`** — run the gate from your checkout through the *same* builder + driver invocations the CI template runs, with identity resolved from the same registry the pin checks. `--build-only` emits the request/launch without a container; `--dry-run` prints the commands. A test replays the template's own command and byte-compares the output, so "local == CI" is enforced, not asserted.
 
 Status: mid **Sprint 6 of 8** (adoption ladder and fleet integration). Sprints 0–5 delivered the decision contract, container/evaluator boundary, and the attestation/evidence stack. The full spec, task ledger, and design record live in [openspec/changes/devgate-spec-coherence-service/](openspec/changes/devgate-spec-coherence-service/).
 
