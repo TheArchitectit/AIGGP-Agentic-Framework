@@ -10,7 +10,9 @@ name: CI
 # keep the framework's own CI runnable on any fork/PR without fleet access;
 # the fleet-labeled runner stays dedicated to consumer drift scans). The
 # container-image job degrades to an explicit SKIPPED line when podman is
-# unavailable, never a silent pass.
+# unavailable, never a silent pass — that branch is future-proofing only:
+# hosted ubuntu-latest ships podman, and the logged runs since 2026-09-22
+# execute the build on every push.
 
 on:
   pull_request:
