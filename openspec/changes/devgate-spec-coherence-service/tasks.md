@@ -667,6 +667,11 @@ sprints. Findings and dispositions:
       builder-vs-driver "equality" scope fixed in-file; the mutant-count finding accepted (claim was 10, final battery is 15);
       coh-int-05 marker narrowed to what the suite actually pins (exit fidelity; timeout scenario belongs to the service sweep).
       Mutation battery: **15 mutants, 0 survivors**, each killed by a named test, with no-op-mutation detection built in.
+      **Post-close hosted catch:** run 35733610431 went RED on all 14 tests — the tree has `core.fileMode=false`, so the wrapper's
+      exec bit never reached the commit (`git ls-files -s` showed 100644) and the runner could not execute it. Local-green,
+      hosted-red, caught by the runner exactly as the measurement discipline says it should be. Fixed by `update-index
+      --chmod=+x` (bef225b; the negative-control script got the same treatment, b87f5d0 — nothing invoked it bare, so no
+      hosted failure there). The `os.X_OK` assertion in the suite is what named the cause in one line; it was NOT a vacuous pin.
 - [x] Inert image-contract guard (coh-rt-08): the CI job that holds "the evaluator image ships its frozen schemas"
       self-skips on runners without podman (`skipUnless` / `command -v podman … exit 0`), so on hosted runners the
       guard evaluates NOTHING and reports green — a NOT_RUN-as-pass (the exact pattern AGENTS.md forbids, and the
