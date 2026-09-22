@@ -172,17 +172,35 @@ dispositioned on its merits rather than accepted wholesale:
   so it was already wrong when written — while directly contradicting the next
   sentence's rule against quoting fixed numbers. Fixed by naming the invariant
   (exit status, advisory classification) and dropping the ratio.
-- **MINOR — "the container build row never executes on CI."** Correct. The job
-  runs on `ubuntu-latest`, which has no podman, so both steps take their
-  `SKIPPED` branch and exit 0. The README row said "GREEN (when podman is
-  present)" — literally true, but it read as a check that had passed. Both
-  container rows now say plainly that nothing evaluates them on hosted CI, and
-  the table's own preamble no longer claims every row runs.
+- **MINOR — "the container build row never executes on CI."** Accepted as
+  correct on the spot — **and it was false.** The claim was that
+  `ubuntu-latest` has no podman, so both steps take their `SKIPPED` branch; the
+  auditor independently repeated the same sentence, and because two sources
+  agreed I recorded it as checked. But *neither* source had run the hosted job:
+  the remediation branch never triggered hosted CI (no PR, and the workflow only
+  runs on `push: branches: [main]`), so we were two voices reasoning from the
+  same unverified premise — agreement, not evidence. The first real push to
+  main proved it wrong in the operational direction: runs 35675783843 and
+  35684356819 show `STEP 1/7:` (the build executed), `schemas OK in image`
+  printed from inside the container, and `built: sha256:e6c47078dfbd…` from
+  three different commits — a `podman build` that is genuinely content-
+  addressed over just what the Containerfile COPYs (`hub/` + the coherence
+  schemas, none of which those commits touched). The README now states what the
+  hosted logs actually show (build runs on every push, reproducible;
+  published-pin mismatch remains warn-only). The SKIPPED guards in ci.yml stay:
+  harmless on today's runners, correct on any that lack podman.
 
-The pattern worth keeping: an independent audit's *finding location* can be
-right while its *severity claim* is wrong, and vice versa. Both were checked
-against the code here rather than taken on the auditor's authority — which is
-also why the ledger records the disposition instead of a bare "fixed".
+The pattern worth keeping — stated now that one of its own claims has been
+counterexampled: an independent audit's *finding location* can be right while
+its *severity claim* is wrong, and vice versa. Most findings here *were*
+checked against the code (the BLOCKING mutant above is the strongest example).
+But checking a claim against *code* is not the same as checking it against
+*behavior*: "this branch doesn't execute on CI" reads like a code fact
+(triggers + runner labels) and was dispositioned like one, yet its premise —
+what the runner image contains, whether a hosted run ever happened — is
+empirical, and the check was one `gh run view` away the whole time.
+Corroboration only beats authority when the corroborating sources measured
+independently; two summaries agreeing is one untested assumption in stereo.
 
 ## A false closure this package caught in its own ledger
 

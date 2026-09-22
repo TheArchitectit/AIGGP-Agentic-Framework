@@ -235,6 +235,36 @@ box means the work landed on this branch; an unchecked box is open and says why.
       and this mutant is exactly what an exit-status-only control would have
       passed, which is why the content guards exist; M4 validator-crashes-
       for-unrelated-reason → killed by the must-name-the-Purpose-defect check.
+- [x] **The control itself shipped CI-red, and the mutation battery missed it —
+      found on the first hosted run after merge (main `f6bb49b`).** The battery
+      tested the control's *logic* (does it refuse a bad spec) by running it on
+      my machine, where a global `openspec` 1.13.0 sat on PATH. The control
+      invoked the CLI as bare `npx openspec` from inside the throwaway probe
+      directory; `npx` resolves against the *cwd's* `node_modules`, and the probe
+      dir has none, so on a clean runner the command dies with npm's "could not
+      determine executable to run" — a nonzero exit that names no defect, caught
+      by the must-name-the-Purpose guard as the designed failure-closed. Local
+      green because the global install answered the name. This is the audit's
+      central defect one level up again: **a control whose green depends on the
+      machine it runs on is not a control.** Fixed by resolving the CLI to the
+      exact binary the hard gate above it resolves to —
+      `$repo_root/node_modules/.bin/openspec` — with a loud MISCONFIGURED exit
+      when it is absent, so the control can only pass by exercising the pinned
+      CLI, never a PATH accident. Verified under a faithful CI-layout mirror
+      (global openspec off PATH, repo-local install present): passes.
+      **How to run it locally** (the repo has no root `package.json`, so a plain
+      install walks up to the parent dir): `npm install --no-save
+      --no-audit --no-fund @fission-ai/openspec@1.13.0 --prefix .` — then both
+      `npx openspec validate --all --strict` and this control resolve the repo
+      copy, exactly as CI does.
+      - **Root cause of the invisibility, recorded because it is a process gap,
+        not just a bug:** ci.yml triggers on `push: branches: [main]` and
+        `pull_request`, and we open no PRs ("this is our repo"). The audit branch
+        therefore **never ran hosted CI at all** — every green on it was
+        local-only. The "32/32, negative control exit 0" ledger entries were
+        true statements about my machine, not about the gate. The lesson generalizes
+        the package's own thesis from *code* to *provenance*: a check that has
+        never run where it is claimed to run has proven nothing about that place.
 - [x] Pin `@fission-ai/openspec@1.13.0` in ci.yml (was unpinned npx — the gate
       moved under the tree whenever upstream published). Pinned to the version
       the 32/32 result was verified with, deliberately not the latest (1.13.1
@@ -245,8 +275,10 @@ box means the work landed on this branch; an unchecked box is open and says why.
       less.
 - [x] README: "What is verified, and where" — a CI-checked table naming the
       mechanism for each claim (strict validate, negative control, runner
-      discovery count, root-anchor fixture) with the container proof explicitly
-      **NOT RUN**, and no hardcoded item total.
+      discovery count, root-anchor fixture) with the container proof marked
+      **NOT RUN**, and no hardcoded item total. (The NOT RUN marking was itself
+      an unverified over-correction — the S7-audit bullet at the end of this
+      ledger records the hosted logs disproving it.)
 
 
 ## Coverage honesty (S6)
@@ -306,9 +338,16 @@ box means the work landed on this branch; an unchecked box is open and says why.
         then GREEN), battery now **8 mutants, zero survivors**.
   - [x] MINOR (stale traceability count) — correct and understated: the line
         said 65/100, main measured 68/107. Ratio dropped, invariant named.
-  - [x] MINOR (container build row never fires) — correct. Both container rows
-        now state that hosted CI evaluates neither; the table preamble no
-        longer claims every row is CI-checked.
+  - [x] MINOR (container build row never fires) — **accepted, then disproven by
+        the hosted logs.** The claim ("ubuntu-latest has no podman, the rows
+        never evaluate") came from me and was echoed by the auditor; I recorded
+        it as checked, but the branch never produced a hosted run, so nobody
+        could have checked it. Runs 35675783843 / 35684356819 after merge:
+        podman **is** present, the build executes (`STEP 1/7`), prints
+        `schemas OK in image`, and yields the same digest across commits — the
+        opposite of "never fires". Disposition reversed in README and
+        `design.md`; the SKIPPED guards stay as future-proofing. Two voices
+        repeating one untested premise is agreement, not corroboration.
 
 ## Cross-package note (no false closure)
 

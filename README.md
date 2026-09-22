@@ -109,31 +109,45 @@ Status: mid **Sprint 6 of 8** (adoption ladder and fleet integration). Sprints 0
 
 ### What is verified, and where
 
-Every row below names the mechanism that would prove it. Rows marked GREEN are
-executed by CI on every push; the container rows are **not** — the runner has no
-podman, so they are listed with what they would check and marked accordingly. An
-external audit (2026-09-20) found this README claiming more than the tree
-delivered, so the claims now name the mechanism that proves them — including
-where that mechanism does not currently run.
+Every row below names the mechanism that proves it, and every state below was
+read off an actual hosted run of `main` — not asserted. An external audit
+(2026-09-20) found this README claiming more than the tree delivered; a later
+revision then over-corrected into an *unverified* "the runner has no podman, so
+these rows do not run" — which was false the same way: assumed, not measured.
+A hosted run builds the image on every push to main. Evidence is cited under
+the table.
 
 | Claim | Checked by | State |
 | --- | --- | --- |
 | Every spec validates under the strict delta grammar | `specs` job → `openspec validate --all --strict` | **GREEN** |
-| Strict validation actually refuses malformed material | `specs` job → `scripts/specs-validate-negative-control.sh` | **GREEN** |
+| Strict validation actually refuses malformed material | `specs` job → `scripts/specs-validate-negative-control.sh` | **GREEN**, and see the note under the table — this row was red on its first hosted run and is the reason the note exists. |
 | The per-file runner discovers this repo's own tests | `tests` job → runner discovery count ≥ 1 | **GREEN** |
 | Scanner project-root anchoring (no ancestor escape) | `tests` job → `tests/test_scanner_root_anchor.mjs` | **GREEN** |
-| Evaluator image builds and carries its frozen schemas | `container-image` job → `podman build` + in-image schema load | **NOT RUN on hosted CI.** The job's runner (`ubuntu-latest`) has no podman, so both steps take their `SKIPPED` branch and exit 0 without evaluating anything. The commands are real and run on a podman-capable runner; they have not run here. |
-| Evaluator image matches its pinned identity registry | `container-image` job → digest comparison | **OPEN — informational only.** The job `echo::notice`s a mismatch instead of failing, because the pin is updated by a publish-gated rebuild (S4) that has **not** happened. No full-container smoke has run. |
+| Evaluator image builds, reproducibly, carrying its frozen schemas | `container-image` job → `podman build` + in-image schema load | **GREEN on hosted CI.** `ubuntu-latest` ships podman. Two consecutive main runs built the identical digest and printed `schemas OK in image` inside the container. The build is content-addressed over `hub/` + the coherence schemas, so identical inputs give an identical digest. |
+| Evaluator image matches its pinned identity registry | `container-image` job → digest comparison | **OPEN — runs and reports a mismatch.** The built digest and the value recorded in `container/execution-profiles.json` differ. The comparison executes on every push but `::notice`s rather than failing, because retiring the mismatch means publishing the rebuilt image (S4, registry-credential-gated). Reproducibility is no longer the open question; the **published** identity is — consumers pull by digest, and no full-container request/response smoke has run against the pinned image. |
 
-The two container rows are deliberately not green. The containerized coherence
-path has **not** been rebuilt and re-pinned since it was written, no
-full-container smoke has executed against the pinned image, and the build job
-itself does not fire on the hosted runner — the digest check exists but is wired
-to warn, not to fail, so it currently proves nothing about the pin. That is a
-merge-gate condition on the coherence-service package, and this table says so
-rather than rounding it up. The item total is not quoted here on purpose —
-`--all` counts discovered items, so any fixed number in prose goes stale the
-moment a package is added.
+The last row is deliberately not green. What the table used to get wrong, in
+both directions, is worth keeping: it first implied the container path was
+proven, then claimed it was never exercised, and *both* were guesses. It now
+says the build runs and is reproducible on hosted CI, and reserves "not
+verified" for the two things actually unverified — the published digest and the
+full-container smoke. The item total is not quoted on purpose either: `--all`
+counts discovered items, so any fixed number goes stale the moment a package is
+added.
+
+**The negative control's first hosted run failed, and that is the whole point of
+having it.** The control (`scripts/specs-validate-negative-control.sh`) invokes
+the validator and refuses to pass unless the rejection *names the fixture's
+designed defect*. On its first execution on a clean runner it exited nonzero —
+the CLI could not be resolved from inside the probe's temp directory, because
+the control used a bare `npx openspec` that a globally-installed CLI had masked
+on the author's machine. It failed closed, exactly as designed, on the author's
+own over-claim — the same defect class the audit was written to catch, caught by
+the audit's own instrument. The control now resolves the same pinned CLI
+binary the hard gate above it does. Hosted provenance in general was a blind
+spot: ci.yml triggers on `push: branches: [main]`, the remediation branch was
+never pushed to main, and no PR was opened (own repo), so every "green" on that
+branch was local-only until the merge ran it for real.
 
 ## Roadmap: the AIGGP packages (imported for evaluation — no merge commitment)
 
