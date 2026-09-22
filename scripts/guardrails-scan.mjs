@@ -33,7 +33,7 @@ const bundledRulesPath = join(devgateRoot, ".guardrails", "prevention-rules", "p
 const overlayRulesPath = join(projectRoot, ".guardrails", "prevention-rules", "pattern-rules.json");
 
 // Source file extensions to scan (language-agnostic)
-const SOURCE_EXTENSIONS = [".ts", ".js", ".py", ".rs", ".go", ".gd", ".java", ".kt", ".rb", ".php", ".jsx", ".tsx"];
+const SOURCE_EXTENSIONS = [".ts", ".js", ".py", ".rs", ".go", ".gd", ".java", ".kt", ".rb", ".php", ".jsx", ".tsx", ".svelte"];
 
 // Directories to skip (DevGate's own dir + common non-source dirs)
 const SKIP_DIRS = ["node_modules", "dist", "target", ".git", ".claude", ".crew", "__pycache__", ".devgate", "vendor", "build", "out", ".next", ".nuxt", "venv", ".venv", "egg-info"];
@@ -265,14 +265,14 @@ function isCommentLine(line, ext) {
 		if (trimmed.startsWith("#")) return true;
 	} else if (ext === ".html" || ext === ".xml" || ext === ".svg") {
 		if (trimmed.startsWith("<!--")) return true;
-	} else if ([".ts", ".tsx", ".js", ".jsx", ".rs", ".go", ".java", ".kt", ".gd", ".php"].includes(ext)) {
+	} else if ([".ts", ".tsx", ".js", ".jsx", ".svelte", ".rs", ".go", ".java", ".kt", ".gd", ".php"].includes(ext)) {
 		if (trimmed.startsWith("//") || trimmed.startsWith("/*") || trimmed.startsWith("*")) return true;
 	}
 	// Inline trailing comments (// or # after code) — detect if the pattern
 	// appears only inside a comment suffix. We check if everything after the
 	// first // or # (for Python) is the only place the pattern could match.
 	// Conservative: only strip the comment portion for single-line comment markers.
-	if ([".ts", ".tsx", ".js", ".jsx", ".rs", ".go", ".java", ".kt", ".gd", ".php"].includes(ext)) {
+	if ([".ts", ".tsx", ".js", ".jsx", ".svelte", ".rs", ".go", ".java", ".kt", ".gd", ".php"].includes(ext)) {
 		const commentIdx = line.indexOf("//");
 		if (commentIdx >= 0) {
 			// Check if the line before // is only whitespace or code that doesn't match typical patterns

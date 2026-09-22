@@ -15,7 +15,8 @@
         "*.js",
         "*.ts",
         "*.jsx",
-        "*.tsx"
+        "*.tsx",
+        "*.svelte"
       ],
       "suggestion": "Add null check: const data = JSON.parse(...); if (data) { ... }"
     },
@@ -33,7 +34,8 @@
         "*.ts",
         "*.rb",
         "*.java",
-        "*.go"
+        "*.go",
+        "*.svelte"
       ],
       "suggestion": "Use parameterized queries or prepared statements"
     },
@@ -157,7 +159,8 @@
       "severity": "error",
       "file_glob": [
         "*.ts",
-        "*.tsx"
+        "*.tsx",
+        "*.svelte"
       ],
       "suggestion": "Define a proper interface or use 'unknown' with type narrowing"
     },
@@ -173,7 +176,8 @@
         "*.ts",
         "*.tsx",
         "*.js",
-        "*.jsx"
+        "*.jsx",
+        "*.svelte"
       ],
       "suggestion": "Remove console.log or replace with proper logging library"
     },
@@ -218,7 +222,8 @@
         "*.js",
         "*.ts",
         "*.rb",
-        "*.go"
+        "*.go",
+        "*.svelte"
       ],
       "suggestion": "Use array form for subprocess or shlex.quote() for shell commands"
     },
@@ -301,7 +306,8 @@
         "*.js",
         "*.ts",
         "*.jsx",
-        "*.tsx"
+        "*.tsx",
+        "*.svelte"
       ],
       "suggestion": "Use function references instead of strings: setTimeout(() => { ... }, 0)"
     },
@@ -322,7 +328,8 @@
         "*.yaml",
         "*.yml",
         "*.json",
-        "*.env"
+        "*.env",
+        "*.svelte"
       ],
       "suggestion": "Use environment variables: DEBUG = os.environ.get(\"DEBUG\", \"false\").lower() == \"true\""
     },
@@ -342,7 +349,8 @@
         "*.rb",
         "*.java",
         "*.yaml",
-        "*.yml"
+        "*.yml",
+        "*.svelte"
       ],
       "suggestion": "Specify allowed origins explicitly instead of using wildcard"
     },
@@ -361,7 +369,8 @@
         "*.rs",
         "*.go",
         "*.rb",
-        "*.java"
+        "*.java",
+        "*.svelte"
       ],
       "suggestion": "Verify the package exists: pip search, npm view, cargo search, etc."
     },
@@ -380,7 +389,8 @@
         "*.go",
         "*.rb",
         "*.java",
-        "*.php"
+        "*.php",
+        "*.svelte"
       ],
       "suggestion": "Use bcrypt, scrypt, or argon2 for password hashing"
     },
@@ -398,7 +408,8 @@
         "*.ts",
         "*.go",
         "*.rb",
-        "*.java"
+        "*.java",
+        "*.svelte"
       ],
       "suggestion": "Validate URL against allowlist before fetching"
     },
@@ -439,7 +450,9 @@
       "severity": "critical",
       "file_glob": [
         "extensions/**/*.ts",
-        "src/**/*.ts"
+        "src/**/*.ts",
+        "extensions/**/*.svelte",
+        "src/**/*.svelte"
       ],
       "suggestion": "Keep core logic local; move network calls to a dedicated boundary layer with explicit exemption."
     },
