@@ -161,9 +161,8 @@ for rule in enabled:
         sys.exit(1)
     compiled.append((family, rx, rule.get("file_glob") or [], excludes))
 
-SKIP_DIRS = {".git", "node_modules", "target", "dist", "build", "out", "vendor",
-             "__pycache__", ".venv", "venv", ".next", ".nuxt", ".devgate",
-             ".claude", "worktrees", ".sandbox-home"}
+SKIP_DIRS = set(json.loads((devgate_root / ".guardrails/scope.json")
+                         .read_text(encoding="utf-8"))["skip_dirs"])  # fw-scope-01: single scope contract
 
 
 def matches_glob(rel: str, globs) -> bool:

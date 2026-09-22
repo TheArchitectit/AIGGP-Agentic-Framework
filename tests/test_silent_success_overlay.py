@@ -73,6 +73,13 @@ def _mk_project(tmp: Path, *, bundled_rules: dict, overlay_rules: dict | None,
     (dg / ALLOWLIST_REL).parent.mkdir(parents=True, exist_ok=True)
     (dg / ALLOWLIST_REL).write_text(
         json.dumps({"entries": list(allowlist_entries)}), encoding="utf-8")
+    # The scope contract is a load-bearing dependency of the scan script
+    # (fw-scope-01): the fixture sandbox must carry it like a real
+    # submodule does.
+    (dg / ".guardrails").mkdir(parents=True, exist_ok=True)
+    (dg / ".guardrails" / "scope.json").write_text(
+        (REPO_ROOT / ".guardrails" / "scope.json").read_text(encoding="utf-8"),
+        encoding="utf-8")
     # copy the script + its one import (gate_overlay.py) into the fixture root
     for name in ("silent-success-scan.sh", "gate_overlay.py"):
         (dg / "scripts" / name).write_text(
@@ -197,6 +204,10 @@ def test_standalone_checkout_same_path_guard():
         for name in ("silent-success-scan.sh", "gate_overlay.py"):
             (tmp / "scripts" / name).write_text(
                 (REPO_ROOT / "scripts" / name).read_text(encoding="utf-8"), encoding="utf-8")
+        (tmp / ".guardrails" / "scope.json").parent.mkdir(parents=True, exist_ok=True)
+        (tmp / ".guardrails" / "scope.json").write_text(
+            (REPO_ROOT / ".guardrails" / "scope.json").read_text(encoding="utf-8"),
+            encoding="utf-8")
         (tmp / "a.go").write_text("_ = f.Close()\n", encoding="utf-8")
         p = subprocess.run(["bash", str(tmp / "scripts" / "silent-success-scan.sh")],
                            cwd=tmp, capture_output=True, text=True, timeout=60)

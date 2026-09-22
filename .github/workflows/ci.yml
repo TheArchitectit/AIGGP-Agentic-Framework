@@ -101,6 +101,14 @@ jobs:
         run: bash scripts/silent-success-scan.sh
       - name: Failure-registry hygiene
         run: python3 scripts/failure_registry_check.py
+      # fw-prov-01 (R11): core.fileMode=false silently drops exec bits; a
+      # shebang'd script committed 100644 breaks hosted checkouts.
+      - name: Exec-bit integrity (shebang implies 100755 in the index)
+        run: python3 scripts/check_exec_bits.py
+      # fw-floor-01 (R9): a suite that silently shrinks below its recorded
+      # floor FAILS. Floors are data (tests/expected-counts.json).
+      - name: Test-count floors
+        run: python3 tests/gen_floors.py
 
   specs:
     name: Specs (openspec strict + traceability)
@@ -221,6 +229,11 @@ jobs:
         run: python3 scripts/determinism_drill.py --runs 30
       - name: Regression-corpus staleness audit (advisory)
         run: python3 scripts/regression_corpus.py --stale || true
+      # fw-noise-01 (R8): allowlist growth is visible — green-through-
+      # suppression trips an advisory, never fails silently.
+      - name: Allowlist health (advisory)
+        if: github.event_name == 'pull_request'
+        run: python3 scripts/allowlist_health.py --target "origin/${{ github.base_ref }}" || test $? -eq 10
 
   # S4 publish gate: build the pinned image reproducibly and push it to GHCR
   # under the repository's own identity. Uses the workflow's own GITHUB_TOKEN

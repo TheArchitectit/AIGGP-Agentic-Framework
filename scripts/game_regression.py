@@ -61,7 +61,10 @@ def find_project_root():
 
 # Directories that are not first-party source — mirrors SKIP_DIRS in
 # guardrails-scan.mjs. Vendored and generated code must not fail the gate.
-SKIP_DIRS = {"node_modules", ".git", "vendor", "dist", "build", "target", "out", "__pycache__", ".venv", "venv", ".devgate", ".claude"}
+# fw-scope-01: single scope contract — .guardrails/scope.json, shared by all gates.
+SKIP_DIRS = set(json.loads((Path(__file__).resolve().parent.parent
+                            / ".guardrails/scope.json")
+                           .read_text(encoding="utf-8"))["skip_dirs"])
 
 def load_ignore_patterns(root):
     """Read <root>/.guardrailsignore — per-project scoping the gate can't know.

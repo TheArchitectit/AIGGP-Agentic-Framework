@@ -32,7 +32,24 @@ const devgateRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 // tests/test_scanner_root_anchor.mjs locks the contract.
 const root = projectRootFor(devgateRoot);
 
-const SKIP_DIRS = ["node_modules", "dist", "target", ".git", ".claude", ".crew", "__pycache__", ".devgate", "vendor", "build", "out", ".next", ".nuxt", "venv", ".venv"];
+
+function findUp(rel) {
+  let dir = process.cwd();
+  for (let i = 0; i < 12; i++) {
+    const candidate = join(dir, rel);
+    if (existsSync(candidate)) return candidate;
+    const parent = dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+  return null;
+}
+// Scope contract is DATA (fw-scope-01): .guardrails/scope.json, shared by all gates.
+const SKIP_DIRS = (() => {
+  const scopePath = findUp(".guardrails/scope.json");
+  if (!scopePath) throw new Error("scope contract missing: .guardrails/scope.json");
+  return JSON.parse(readFileSync(scopePath, "utf8")).skip_dirs;
+})();
 
 // Per-project scan scoping — same .guardrailsignore contract as
 // guardrails-scan.mjs: one fnmatch glob per line ("*" crosses "/"), trailing

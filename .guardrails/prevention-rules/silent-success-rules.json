@@ -67,7 +67,10 @@
         "*.go"
       ],
       "enabled": true,
-      "note": "Error assigned to _ and then success returned: the failure is discarded and the caller is told everything worked. [gamerepo01: enabled 2026-09-07 \u2014 existing occurrences allowlisted in silent-success-allowlist.json; new ones fail CI]"
+      "note": "Error assigned to _ and then success returned: the failure is discarded and the caller is told everything worked. [gamerepo01: enabled 2026-09-07 \u2014 existing occurrences allowlisted in silent-success-allowlist.json; new ones fail CI] Test files are excluded at the family level (coh-#16: deferred conn.Close cleanup in Go tests is idiomatic; scope shared with PREVENT-009's exclude_glob).",
+      "exclude_globs": [
+        "*_test.go"
+      ]
     },
     {
       "family": "ts_hardcoded_success_object",

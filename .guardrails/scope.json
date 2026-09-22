@@ -1,0 +1,29 @@
+{
+  "api_version": "devgate.scope/v1",
+  "note": [
+    "Single source of truth for directory-exclusion scope across gates.",
+    "Consumed by guardrails-scan.mjs, semantic-scan.mjs, and the",
+    "silent-success scan. Projects EXTEND via the .guardrails overlay,",
+    "never by editing the submodule baseline (overlay-not-fork).",
+    "Note: 'pkg' is deliberately NOT excluded \u2014 it is commonly first-party Go source; the module cache lives outside the repo (and .sandbox-home covers the reported divergence case)."
+  ],
+  "skip_dirs": [
+    ".claude",
+    ".crew",
+    ".devgate",
+    ".git",
+    ".next",
+    ".nuxt",
+    ".sandbox-home",
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist",
+    "egg-info",
+    "node_modules",
+    "out",
+    "target",
+    "vendor",
+    "venv"
+  ]
+}
