@@ -635,8 +635,8 @@ sprints. Findings and dispositions:
       **STILL OPEN:** (a) the re-pin — rebuild the schema+builder-bearing image on the fleet, refresh
       `execution-profiles.json` + the template's `COHERENCE_IMAGE_MANIFEST_DIGEST` + `DEVGATE_PIN` together, then
       run the real containerized gate; (b) `hub/config.py` currently has no `coherence_*_root` defaults, so the
-      three control-plane roots are env-only (Phase-3 hub fetch supersedes them); (c) the local-developer half
-      (`scripts/coherence-local`, next line).
+      three control-plane roots are env-only (Phase-3 hub fetch supersedes them). (c) was the local-developer half:
+      CLOSED 2026-09-22, two lines below.
 - [ ] Thin pinned CI invocation template + local developer command with byte-equivalent results (coh-int-01, coh-int-05).
       **Re-opened with round-18 D1/D3.** The earlier claim that "both paths are the SAME
       `python3 .devgate/hub/coherence/__main__.py` invocation, so equivalence is identity of command" was doubly
@@ -649,10 +649,24 @@ sprints. Findings and dispositions:
       schema-valid seven-field request, taking `policy.expected_digest` from the context's signed
       `policy_binding` rather than recomputing it from the policy bytes (recomputing would make the identity
       check a tautology — see design.md round-18 note).
-      STILL OPEN (this is the honest remainder): the **local-developer half** — a documented `scripts/coherence-local`
-      wrapper that runs the same builder + `run_containerized`, plus the test pinning both invocations to the one
-      command. Phase 2, tracked as a distinct line below rather than claimed here.
-- [ ] Local developer command `scripts/coherence-local` with a byte-equivalence test against the CI invocation (coh-int-01, coh-int-05). **NEW — carved out of the line above so the remaining work is a named item, not a buried clause.**
+      STILL OPEN (this is the honest remainder): the re-pin half only — the **local-developer half** closed 2026-09-22
+      (`scripts/coherence-local` + `tests/test_coherence_local_wrapper.py`, disposition on the line below).
+- [x] Local developer command `scripts/coherence-local` with a byte-equivalence test against the CI invocation (coh-int-01, coh-int-05). **NEW — carved out of the line above so the remaining work is a named item, not a buried clause.**
+      **CLOSED 2026-09-22.** `scripts/coherence-local` (202 lines) runs the template's two invocations — builder then driver — and
+      `tests/test_coherence_local_wrapper.py` (14 tests) pins "local == CI" as equality of the emitted bytes, not prose: the test
+      **extracts both commands from `templates/github-workflows/spec-coherence.yml` at test time** (one shared extractor; a hand-copied
+      command would be the third drift surface round-18 D1 was) and byte-compares `request.json`/`launch.json` from the template replay
+      vs the wrapper. Honest compromise recorded in-file: the request embeds `outputs`, so each run's own outputs path is normalized to
+      `<OUT>` — everything else compares literally, key order included. Refusal → exit 30 and driver-exit relay per the frozen contract
+      (coh-dec-04); identity resolves like the template's digest step (registry-by-label, fail-closed on pin disagreement, no
+      fallback-to-first-entry). **NOT_RUN boundary, unchanged from the line above:** real containerized driver execution is still not
+      claimed equivalent — it waits on the S4 rebuild/re-pin; what IS pinned here is the driver's argv form (dry-run transcript vs
+      template extraction) and its exit relay (fake-`python3` service stub). TDD: every test watched RED first, including one the battery
+      itself surfaced — the first relay test passed vacuously (the stub matched the *wrapper's* shebang, so the wrapper never ran; both
+      driver mutants survived). Fresh-eyes audit: PASS-WITH-FINDINGS, 0 BLOCKING/0 MAJOR/4 MINOR — exit-1 docstring omission and the
+      builder-vs-driver "equality" scope fixed in-file; the mutant-count finding accepted (claim was 10, final battery is 15);
+      coh-int-05 marker narrowed to what the suite actually pins (exit fidelity; timeout scenario belongs to the service sweep).
+      Mutation battery: **15 mutants, 0 survivors**, each killed by a named test, with no-op-mutation detection built in.
 - [x] Inert image-contract guard (coh-rt-08): the CI job that holds "the evaluator image ships its frozen schemas"
       self-skips on runners without podman (`skipUnless` / `command -v podman … exit 0`), so on hosted runners the
       guard evaluates NOTHING and reports green — a NOT_RUN-as-pass (the exact pattern AGENTS.md forbids, and the
