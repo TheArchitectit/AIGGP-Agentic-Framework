@@ -12,6 +12,7 @@ Dependency-ordered sprint plan for the full program. Sprint S0–S1 gate everyth
 > required; see `s2-remediation.md`.
 
 - [ ] Independent audit of the written package by a **different agent in a different session** (fidelity to submitted text, internal consistency, repo guardrails) — a self-review was performed in-session; that does not satisfy this item.
+  ATTEMPT 1 (2026-09-22): **failed by silence** — a dispatched fresh-session auditor went idle three times without delivering findings, the exact pattern recorded for the 2026-09-21 S7 audit; stopped and recorded as an unfinished audit, not a clean one. ATTEMPT 2 (2026-09-22): replacement dispatched with an incremental file-backed deliverable (`/tmp/coherence-audit-report.md`) so a silent death still leaves the established findings on disk.
 - [ ] Lead review of `review.md` findings R1–R9 and design v2 amendment log — not performed.
 - [ ] Accept or amend ADR-001 through ADR-010 — not reviewed clause-by-clause; ADR-011…019 likewise unaccepted.
 - [x] Record repo defaults: `coh-*` requirement namespace; no `openspec/gate-config.json` yet (advisory); stdlib slice-1 runtime with pinned container deferred — recorded in `next-phase-plan.md`.
@@ -646,10 +647,14 @@ sprints. Findings and dispositions:
       (2) the "self-skips on hosted runners" premise was written when the runner situation was assumed; hosted
       logs since 2026-09-22 show `ubuntu-latest` **has** podman and the `container-image` job builds the image
       and prints `schemas OK in image` inside the container on every push. Remaining skip surface, pinned as
-      honest rather than eliminated: the `tests` job's `TestImageSmoke`/`TestContainerExecReal` skip there
-      because that job builds no image (setUp skipTest, reason recorded) — pytest's summary shows them as an
-      explicit `5 skipped` count, never inside the passed column; locally (podman + image present) both classes
-      execute, 34/34 green. The SKIPPED-branch guards in `ci.yml` stay as future-proofing for podman-less
+      honest rather than eliminated (enumeration corrected by fresh-eyes audit — the first draft named only 2
+      of the 5 hosted skips): the `tests` job's `TestImageSmoke` and `TestContainerExecReal`
+      (test_hub_coherence_container.py) and three `TestLauncherRun` tests
+      (`test_derived_args_actually_run`, `test_output_overflow_kills_not_truncates`,
+      `test_timeout_kills_hung_container` — test_hub_coherence_launcher.py) all skip there because that job
+      builds no image (podman present, `setUp` image-exists skipTest, reason recorded) — pytest's summary
+      shows them as an explicit `5 skipped` count, never inside the passed column; locally (podman + image
+      present) all three classes execute, container suite 34/34 green. The SKIPPED-branch guards in `ci.yml` stay as future-proofing for podman-less
       runners, with the header comment now saying so explicitly (`2981fff`).
 - [ ] Adapter default-deny: timeouts/unparseable results surface ERROR, never neutral/pass (coh-int-05).
 - [ ] Account for repo-scoped runners and multi-runner hosts: stock `runner-enroll.sh` is single-runner-per-host (fixed unit names); per-runner units (`devgate-hb-<name>.{service,timer}`) where a host runs multiple spokes (coh-int-07).
