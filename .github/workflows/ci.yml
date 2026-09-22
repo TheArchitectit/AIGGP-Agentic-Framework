@@ -45,8 +45,12 @@ jobs:
         run: python3 -m pytest tests/ -v
       - name: guardrails scanner fixture suite
         run: node tests/test_guardrails_scan.mjs
+      # The .mjs root-anchor fixture was superseded by the python root
+      # contract suite (specs-gate-audit-remediation); it is collected by
+      # the full pytest run above — this explicit step keeps the contract
+      # visible by name in the job.
       - name: scanner root-anchoring fixture suite
-        run: node tests/test_scanner_root_anchor.mjs
+        run: python3 -m pytest tests/test_python_root_anchor.py -q
       - name: per-file runner (frameworks's own tests through its own runner)
         run: node scripts/run-tests.mjs
       # The runner above exits 0 when it finds nothing, so a broken discovery
@@ -79,6 +83,8 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "20"
+      - name: Install pytest (test floors need collection)
+        run: python3 -m pip install --quiet pytest
       - name: Pattern scan (own tree must be warning-clean)
         run: node scripts/guardrails-scan.mjs
       - name: Semantic scan (installs the pinned parser)
