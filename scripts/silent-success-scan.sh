@@ -152,7 +152,7 @@ for rule in enabled:
 
 SKIP_DIRS = {".git", "node_modules", "target", "dist", "build", "out", "vendor",
              "__pycache__", ".venv", "venv", ".next", ".nuxt", ".devgate",
-             ".claude", "worktrees"}
+             ".claude", "worktrees", ".sandbox-home"}
 
 
 def matches_glob(rel: str, globs) -> bool:
