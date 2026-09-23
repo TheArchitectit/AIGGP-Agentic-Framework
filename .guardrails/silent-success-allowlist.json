@@ -324,6 +324,27 @@
       "removal": "n/a (legacy inventory - tighten opportunistically)"
     },
     {
+      "file": "cmd/admin-grant/main.go",
+      "marker": "defer func() { _ = db.Close() }()",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "Idiomatic Go explicit discard: the errcheck gate REQUIRES the explicit `_ =` here (a bare `defer db.Close()` is itself flagged), and the close/rollback error on a CLI's terminal or cleanup path has no recovery and no caller to report to.",
+      "removal": "n/a (correct as written - see comment in cmd/admin-grant/main.go)"
+    },
+    {
+      "file": "cmd/admin-grant/main.go",
+      "marker": "defer func() { _ = tx.Rollback() }()",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "Idiomatic Go explicit discard: the errcheck gate REQUIRES the explicit `_ =` here (a bare `defer db.Close()` is itself flagged), and the close/rollback error on a CLI's terminal or cleanup path has no recovery and no caller to report to.",
+      "removal": "n/a (correct as written - see comment in cmd/admin-grant/main.go)"
+    },
+    {
+      "file": "cmd/admin-grant/main.go",
+      "marker": "defer func() { _ = rows.Close() }()",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "Idiomatic Go explicit discard: the errcheck gate REQUIRES the explicit `_ =` here (a bare `defer db.Close()` is itself flagged), and the close/rollback error on a CLI's terminal or cleanup path has no recovery and no caller to report to.",
+      "removal": "n/a (correct as written - see comment in cmd/admin-grant/main.go)"
+    },
+    {
       "file": "internal/a2a/a2a_router_test.go",
       "marker": "slug, _ := WeightedRandomSelect(providers)",
       "family": "go_return_nil_after_ignored_error",
