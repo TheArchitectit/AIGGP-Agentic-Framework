@@ -87,7 +87,7 @@ jobs:
       # in .devgate/container/execution-profiles.json for the profile below.
       COHERENCE_IMAGE: localhost/devgate-coherence
       COHERENCE_PROFILE: linux-amd64-v1
-      COHERENCE_IMAGE_MANIFEST_DIGEST: sha256:5e73b5bd6e47c580ac44c5bb49ef7b64a06c44f10e4bfe2ed5b99e0b8c7f2548
+      COHERENCE_IMAGE_MANIFEST_DIGEST: sha256:2eff3fd9bde8e0905d538ffac5045010a728722854e0af7cf923572256372d8b
       # CUSTOMIZE (3/4): what to gate. Subjects are directories in THIS repo
       # that declare a coherence package. An EMPTY list is not a pass.
       COHERENCE_SUBJECTS: ""
