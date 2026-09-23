@@ -90,7 +90,7 @@ PY
 
     # Per-runner env file (coh-int-07): units and env are name-scoped so a
     # host can enroll several spokes without them clobbering each other.
-    envfile="$tmp/.devgate-heartbeat-r1.env"
+    envfile="$tmp/.config/containers/devgate-heartbeat-r1.env"
     if [ -f "$envfile" ]; then
         perms="$(stat -c '%a' "$envfile")"
         check "$label: env file is 0600" "$([ "$perms" = "600" ] && echo 0 || echo 1)" "perms=$perms"
@@ -110,15 +110,25 @@ run_case "plain-labels" "devgate,linux"
 # --- 2. hostile label: quote + backslash must be escaped, not break out ------
 run_case "hostile-labels" 'a, b"q\z'
 
-# --- 3. rejection: invalid runner name (would corrupt heartbeat JSON) --------
+# --- 3. hostile runner name is SANITIZED, not rejected (upstream design) ------
+# The slug keeps only characters systemd accepts, so a hostile name yields a
+# usable unit AND never corrupts the heartbeat JSON (payload is json.dumps'd).
 tmp="$(mktemp -d)"; stub="$tmp/bin"; mkdir -p "$stub" "$tmp/config"
-printf '#!/usr/bin/env bash\nexit 0\n' > "$stub/curl"; chmod +x "$stub/curl"
+cat > "$stub/curl" <<'STUB'
+#!/usr/bin/env bash
+if [ -n "${CURL_CAPTURE:-}" ]; then printf '%s\n' "$*" >> "$CURL_CAPTURE"; fi
+printf '{"ok": true, "runner_name": "bad-name", "heartbeat_token": "HB-TOKEN"}'
+STUB
+printf '#!/usr/bin/env bash\nexit 0\n' > "$stub/systemctl"
+chmod +x "$stub/curl" "$stub/systemctl"
 out="$(HOME="$tmp" PATH="$stub:$PATH" bash "$SCRIPT" http://h.invalid:8443 T \
     --repo o/r --runner-name 'bad"name' 2>&1)"
 rc=$?
-check "invalid runner name rejected" "$([ "$rc" -ne 0 ] && echo 0 || echo 1)" "rc=$rc"
-check "rejection names the constraint" \
-    "$(printf '%s' "$out" | grep -q 'must match' && echo 0 || echo 1)" "$out"
+check "hostile runner name sanitized (enroll proceeds)" \
+    "$([ "$rc" -eq 0 ] && echo 0 || echo 1)" "rc=$rc"
+check "sanitized slug names the env file" \
+    "$(test -f "$tmp/.config/containers/devgate-heartbeat-bad-name.env" && echo 0 || echo 1)" \
+    "$(ls "$tmp/.config/containers/" 2>/dev/null)"
 rm -rf "$tmp"
 
 echo
