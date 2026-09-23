@@ -5,7 +5,7 @@
     {
       "label": "linux-amd64-v1",
       "platform": "linux/amd64",
-      "image_manifest_digest": "sha256:5e73b5bd6e47c580ac44c5bb49ef7b64a06c44f10e4bfe2ed5b99e0b8c7f2548",
+      "image_manifest_digest": "sha256:2eff3fd9bde8e0905d538ffac5045010a728722854e0af7cf923572256372d8b",
       "base_image": "docker.io/library/python@sha256:78387bc3881b8273120a12ebe6c1ab22b018ccc2c9adf565ae1ac9b536e184ea",
       "semantic_equivalence_group": "default",
       "built": "2026-09-18"
