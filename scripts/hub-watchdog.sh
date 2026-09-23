@@ -8,15 +8,16 @@
 # anything*, and fails its systemd unit when it is not.
 #
 # Local-only by design: no GitHub issue is filed and no token is needed.
-# The signal is the failed `devgate-hub-watchdog.service` unit on each spoke
-# (`systemctl --user status devgate-hub-watchdog`), for a human or an
+# The signal is the failed `devgate-watchdog-<name>.service` unit on each
+# spoke (`systemctl --user status devgate-watchdog-<name>`), for a human or an
 # external monitor to pick up. See docs/runner-monitor-monitor-hub.md.
 #
 # Usage:
 #   scripts/hub-watchdog.sh [--grace-sec N] [--timeout SEC]
 #
 # Reads HUB_URL from the environment — the unit points EnvironmentFile at the
-# enroll script's $HOME/.devgate-heartbeat.env, so enrollment is the only setup.
+# enroll script's per-runner ~/.config/containers/devgate-heartbeat-<name>.env,
+# so enrollment is the only setup.
 #
 # Exit codes:
 #   0  hub is alive (polling disabled is warned, not failed — see below)

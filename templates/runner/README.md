@@ -99,10 +99,17 @@ Enrolling a runner is one command on its host:
 scripts/runner-enroll.sh <hub-url> <enrollment-token> --repo OWNER/REPO
 ```
 
-That also installs `devgate-hub-watchdog.timer` on the runner: the spoke watches
-the **hub** back, failing its own unit if the hub stops monitoring — so a dead
-hub is noticed by a machine that is still up. Check it with
-`systemctl --user status devgate-hub-watchdog`.
+That also installs `devgate-watchdog-<name>.timer` on the runner: the spoke
+watches the **hub** back, failing its own unit if the hub stops monitoring — so
+a dead hub is noticed by a machine that is still up. Check it with
+`systemctl --user status devgate-watchdog-<name>`.
+
+Units, env file, and heartbeat helper are all named per runner
+(`devgate-hb-<name>`, `devgate-watchdog-<name>`,
+`~/.config/containers/devgate-heartbeat-<name>.env`), so one host can enroll
+several runners without a later enroll overwriting an earlier runner's token.
+The earlier fixed-name units (`devgate-heartbeat.*`, `devgate-hub-watchdog.*`)
+predate that and are retired for the runner being re-enrolled.
 
 ---
 
