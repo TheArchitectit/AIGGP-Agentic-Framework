@@ -1,0 +1,8 @@
+{
+ "id": "t02-feature-env-bool",
+ "category": "feature",
+ "description": "Implement parse_env_bool(value) per spec: accepts true/false/1/0/yes/no (case-insensitive, whitespace-trimmed) returning bool; anything else raises ValueError.",
+ "verify_cmd": [
+  "verify/check.py"
+ ]
+}

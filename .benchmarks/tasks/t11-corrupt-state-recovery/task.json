@@ -1,0 +1,8 @@
+{
+ "id": "t11-corrupt-state-recovery",
+ "category": "reliability",
+ "description": "load_journal() crashes on a truncated last line (partial write). Fix it to skip an incomplete trailing JSON line, load all complete entries, and report the recovery via return value (entries, recovered=True/False). A corrupt line in the MIDDLE must still raise ValueError (only the trailing line may be partial).",
+ "verify_cmd": [
+  "verify/check.py"
+ ]
+}

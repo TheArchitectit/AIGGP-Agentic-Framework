@@ -62,6 +62,7 @@ fi
 python3 - "$RULES" "$ALLOWLIST" <<'PY'
 import fnmatch
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -72,8 +73,13 @@ rules_path, allowlist_path = sys.argv[1], sys.argv[2]
 # (the parent) when that is where the source lives; fall back to the DevGate root
 # for a standalone checkout.
 devgate_root = Path.cwd()
-project_root = devgate_root.parent if (devgate_root.parent / ".git").exists() \
-    or (devgate_root.name == ".devgate") else devgate_root
+# SILENT_SUCCESS_SCAN_ROOT overrides the scan target — the canary test uses
+# it to prove this gate FAILS on a planted violation (a gate that cannot
+# fail is decoration, not a gate).
+project_root = Path(os.environ["SILENT_SUCCESS_SCAN_ROOT"]) \
+    if os.environ.get("SILENT_SUCCESS_SCAN_ROOT") \
+    else (devgate_root.parent if (devgate_root.parent / ".git").exists()
+          or (devgate_root.name == ".devgate") else devgate_root)
 
 try:
     rules_doc = json.loads((devgate_root / rules_path).read_text(encoding="utf-8"))
@@ -108,7 +114,12 @@ if overlay_path.exists() and overlay_path.resolve() != (devgate_root / rules_pat
           f"baseline + {overlay_path.relative_to(project_root)} overlay merged)")
 
 try:
-    allow = json.loads((devgate_root / allowlist_path).read_text(encoding="utf-8"))
+    # SILENT_SUCCESS_SCAN_ALLOWLIST overrides the allowlist location for
+    # the canary test (same principle: exercise the real code path).
+    allow_src = Path(os.environ["SILENT_SUCCESS_SCAN_ALLOWLIST"]) \
+        if os.environ.get("SILENT_SUCCESS_SCAN_ALLOWLIST") \
+        else (devgate_root / allowlist_path)
+    allow = json.loads(allow_src.read_text(encoding="utf-8"))
 except (OSError, json.JSONDecodeError) as exc:
     print(f"silent-success-scan: cannot read {allowlist_path}: {exc}", file=sys.stderr)
     sys.exit(1)
@@ -150,9 +161,8 @@ for rule in enabled:
         sys.exit(1)
     compiled.append((family, rx, rule.get("file_glob") or [], excludes))
 
-SKIP_DIRS = {".git", "node_modules", "target", "dist", "build", "out", "vendor",
-             "__pycache__", ".venv", "venv", ".next", ".nuxt", ".devgate",
-             ".claude", "worktrees", ".sandbox-home"}
+SKIP_DIRS = set(json.loads((devgate_root / ".guardrails/scope.json")
+                         .read_text(encoding="utf-8"))["skip_dirs"])  # fw-scope-01: single scope contract
 
 
 def matches_glob(rel: str, globs) -> bool:

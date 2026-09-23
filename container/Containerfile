@@ -24,7 +24,6 @@ WORKDIR /app
 
 # Copy the service package (stdlib only).
 COPY hub/ ./hub/
-
 # Copy the frozen contract schemas. schemacheck.SCHEMA_DIR resolves to the
 # in-container location of openspec/changes/.../schemas (relative to this
 # WORKDIR), and `run()` validates its own request against it BEFORE touching

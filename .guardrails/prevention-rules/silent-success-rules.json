@@ -67,7 +67,10 @@
         "*.go"
       ],
       "enabled": true,
-      "note": "Error assigned to _ and then success returned: the failure is discarded and the caller is told everything worked. [gamerepo01: enabled 2026-09-07 \u2014 existing occurrences allowlisted in silent-success-allowlist.json; new ones fail CI]"
+      "note": "Error assigned to _ and then success returned: the failure is discarded and the caller is told everything worked. [gamerepo01: enabled 2026-09-07 \u2014 existing occurrences allowlisted in silent-success-allowlist.json; new ones fail CI] Test files are excluded at the family level (coh-#16: deferred conn.Close cleanup in Go tests is idiomatic; scope shared with PREVENT-009's exclude_glob).",
+      "exclude_globs": [
+        "*_test.go"
+      ]
     },
     {
       "family": "ts_hardcoded_success_object",
@@ -101,6 +104,27 @@
       ],
       "enabled": false,
       "note": "Signal handler declared with no body. The UI reacts as if wired up while nothing happens. (Check the following line is not the real body.)"
+    },
+    {
+      "family": "python_inline_swallowed_exception",
+      "language": "python",
+      "regex": "except\\s+[^:\\n]+:\\s*pass\\b",
+      "file_glob": [
+        "hub/**/*",
+        "scripts/**/*"
+      ],
+      "enabled": true,
+      "note": "Inline 'except ...: pass' swallows a failure and lets the caller proceed as if work happened \u2014 the canonical silent success in shipped Python."
+    },
+    {
+      "family": "python_todo_in_shipped_service",
+      "language": "python",
+      "regex": "#\\s*(TODO|FIXME|XXX)\\b",
+      "file_glob": [
+        "hub/**/*"
+      ],
+      "enabled": true,
+      "note": "A TODO/FIXME inside the shipped service package is declared incompleteness on a production path. Move it to the change package where it has an owner and a gate."
     }
   ]
 }

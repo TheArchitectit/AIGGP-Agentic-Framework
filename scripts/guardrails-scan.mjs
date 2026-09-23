@@ -36,7 +36,31 @@ const overlayRulesPath = join(projectRoot, ".guardrails", "prevention-rules", "p
 const SOURCE_EXTENSIONS = [".ts", ".js", ".py", ".rs", ".go", ".gd", ".java", ".kt", ".rb", ".php", ".jsx", ".tsx", ".svelte"];
 
 // Directories to skip (DevGate's own dir + common non-source dirs)
-const SKIP_DIRS = ["node_modules", "dist", "target", ".git", ".claude", ".crew", "__pycache__", ".devgate", "vendor", "build", "out", ".next", ".nuxt", "venv", ".venv", "egg-info"];
+
+function findScope() {
+  // Scope contract resolves for BOTH layouts: a standalone checkout
+  // (.guardrails/scope.json beside the scripts) and a consumer submodule
+  // (.devgate/.guardrails/scope.json below the project root).
+  let dir = process.cwd();
+  for (let i = 0; i < 12; i++) {
+    for (const rel of [".guardrails/scope.json",
+                       ".devgate/.guardrails/scope.json"]) {
+      const candidate = join(dir, rel);
+      if (existsSync(candidate)) return candidate;
+    }
+    const parent = dirname(dir);
+    if (parent === dir) return null;
+    dir = parent;
+  }
+  return null;
+}
+// Scope contract is DATA, single source of truth (fw-scope-01): one
+// definition in .guardrails/scope.json consumed by every gate.
+const SKIP_DIRS = (() => {
+  const scopePath = findScope();
+  if (!scopePath) throw new Error("scope contract missing: .guardrails/scope.json");
+  return JSON.parse(readFileSync(scopePath, "utf8")).skip_dirs;
+})();
 
 function readRulesFile(path) {
 	if (!existsSync(path)) return [];

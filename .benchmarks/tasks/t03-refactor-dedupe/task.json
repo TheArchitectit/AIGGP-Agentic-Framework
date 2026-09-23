@@ -1,0 +1,8 @@
+{
+ "id": "t03-refactor-dedupe",
+ "category": "refactoring",
+ "description": "format_user and format_admin duplicate normalization logic. Extract a single shared normalize_name() helper used by both; external behavior must be identical.",
+ "verify_cmd": [
+  "verify/check.py"
+ ]
+}

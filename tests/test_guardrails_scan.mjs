@@ -36,6 +36,8 @@ function makeProject(dir, files) {
 	// The scanner imports the shared root contract — a fixture that copies the
 	// scanner without the lib fails at import, which is exactly the coupling
 	// this line records.
+	copyFileSync(join(repoRoot, ".guardrails", "scope.json"),
+		join(dir, ".devgate", ".guardrails", "scope.json"));
 	copyFileSync(join(repoRoot, "scripts", "lib", "project-root.mjs"),
 		join(dir, ".devgate", "scripts", "lib", "project-root.mjs"));
 	copyFileSync(rules, join(dir, ".devgate", ".guardrails", "prevention-rules", "pattern-rules.json"));

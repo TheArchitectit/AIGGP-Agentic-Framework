@@ -175,7 +175,10 @@ fi
 
 post_json() {
     local url="$1" payload="$2"
-    curl -sf -X POST -H 'Content-Type: application/json' \
+    # --max-time bounds a hung hub: without it a stuck connection wedges
+    # the systemd oneshot unit indefinitely (audit hardening).
+    curl -sf --connect-timeout 5 --max-time 15 -X POST \
+        -H 'Content-Type: application/json' \
         -d "$payload" "$url" 2>&1
 }
 
@@ -363,14 +366,8 @@ EOF
 if [[ "$MODE" == "enroll" ]]; then
     log "Enrolling '$RUNNER_NAME' with hub at $HUB_URL..."
 
-    # Build JSON payload.
-    IFS=',' read -ra LABEL_ARR <<< "$LABELS"
-    LABELS_JSON=""
-    for lbl in "${LABEL_ARR[@]}"; do
-        lbl="$(echo "$lbl" | xargs)"  # trim whitespace
-        [[ -n "$LABELS_JSON" ]] && LABELS_JSON+=","
-        LABELS_JSON+="\"$lbl\""
-    done
+    # Labels are passed RAW to json.dumps below (audit hardening): a comma,
+    # quote, or backslash inside a label must survive as data.
 
     # Check BEFORE contacting the hub: a refused enroll must not leave behind a
     # registered runner that will never heartbeat from this host.
@@ -382,13 +379,36 @@ if [[ "$MODE" == "enroll" ]]; then
         die "slug '$SLUG' already belongs to '$SLUG_OWNER' — refusing to overwrite; pick a distinct --runner-name so the two do not share one token" 1
     fi
 
-    PAYLOAD="{\"runner_name\":\"$RUNNER_NAME\",\"repo\":\"$REPO\",\"enrollment_token\":\"$ENROLL_TOKEN\",\"labels\":[$LABELS_JSON],\"host_alias\":\"$HOST_ALIAS\"}"
+    # Built by json.dumps (audit hardening): a quote or backslash in a
+    # label produces valid JSON and can never break out of the string.
+    PAYLOAD="$(python3 - "$RUNNER_NAME" "$REPO" "$ENROLL_TOKEN" "$LABELS" "$HOST_ALIAS" <<'PY'
+import json, sys
+labels = [x.strip() for x in sys.argv[4].split(",") if x.strip()]
+print(json.dumps({
+    "runner_name": sys.argv[1],
+    "repo": sys.argv[2],
+    "enrollment_token": sys.argv[3],
+    "labels": labels,
+    "host_alias": sys.argv[5],
+}))
+PY
+)"
 
     RESPONSE="$(post_json "$HUB_URL/enroll" "$PAYLOAD")" || {
         die "hub enrollment failed: $RESPONSE" 2
     }
 
-    log "Hub response: $RESPONSE"
+    # Print only non-secret fields (audit hardening): the enroll response
+    # carries the heartbeat token, which must never hit stdout/CI scrollback.
+    log "Hub response: $(printf '%s' "$RESPONSE" | python3 -c '
+import json, sys
+try:
+    doc = json.loads(sys.stdin.read())
+except Exception:
+    print("(unparseable response)"); raise SystemExit
+print(json.dumps({k: v for k, v in doc.items()
+                  if k in ("ok", "runner_name", "error", "detail")}))
+')"
 
     # Extract heartbeat token from JSON response.
     HB_TOKEN="$(echo "$RESPONSE" | python3 -c 'import sys,json; print(json.load(sys.stdin)["heartbeat_token"])' 2>/dev/null)" || {

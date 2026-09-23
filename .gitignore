@@ -18,6 +18,8 @@ out/
 
 # Logs
 *.log
+# benchmark task fixtures need their input trees on checkout (fw-bench)
+!.benchmarks/**/*.log
 
 # FORBIDDEN — package manager is the ONLY distribution path (PREVENT-DIST-001).
 # Never produce or commit a `.tgz` tarball; tarballs bypass the package manager

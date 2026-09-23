@@ -1,0 +1,8 @@
+{
+ "id": "t07-counter-race",
+ "category": "reliability",
+ "description": "count_words() results are stored via a shared dict updated from worker threads; concurrent runs lose updates. Make the store thread-safe (use a lock) without changing the API. The verifier runs 8 threads x 50 increments and demands zero loss.",
+ "verify_cmd": [
+  "verify/check.py"
+ ]
+}

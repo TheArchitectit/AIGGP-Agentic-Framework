@@ -1,0 +1,8 @@
+{
+ "id": "t04-path-traversal",
+ "category": "security",
+ "description": "read_asset() must serve files only inside the assets root. It currently accepts relative escapes; make it reject (raise ValueError) any path that resolves outside the root, and reject absolute paths.",
+ "verify_cmd": [
+  "verify/check.py"
+ ]
+}
