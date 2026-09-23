@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-09-23
+
+### Highlights
+
+First release with **hosted CI on every push** (the framework's own gates
+execute on GitHub runners: test suite, self-gates, specs strict validation,
+evaluator-integrity attacks, container-image build + GHCR publish). The
+spec-coherence evaluator image is now **published**
+(`ghcr.io/thearchitectit/devgate-agentic-framework/devgate-coherence`),
+digest-pinned in `container/execution-profiles.json`, and consumers get a
+byte-equivalence-verified local invocation (`scripts/coherence-local`).
+
+The fw-* readiness program adds a permanent evaluator-integrity CI job:
+mutation testing with a self-check, ten negative controls through the real
+CLI, a both-direction-validated benchmark corpus, fleet and determinism
+drills, an allowlist-growth monitor, and test-count floors.
+
 ### Fixed
 
 - **Runner enrollment:** the heartbeat unit no longer uses an inline `bash -c`
