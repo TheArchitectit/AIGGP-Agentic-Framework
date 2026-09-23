@@ -265,11 +265,13 @@ jobs:
             "from hub.coherence import schemacheck; schemacheck.load('request.schema.json'); schemacheck.load('result.schema.json'); print('schemas OK in image')"
       - name: Push to ghcr.io (sha-pinned)
         run: |
+          # GHCR requires lowercase repository names; github.repository
+          # preserves the owner/repo casing, so normalize here.
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}/devgate-coherence"
           DIGEST="$(podman image inspect --format '{{.Digest}}' devgate-coherence)"
           echo "built digest: $DIGEST"
           podman login ghcr.io -u "${{ github.actor }}" -p "${{ secrets.GITHUB_TOKEN }}"
-          for TAG in "ghcr.io/${{ github.repository }}/devgate-coherence:main" \
-                     "ghcr.io/${{ github.repository }}/devgate-coherence:sha-${GITHUB_SHA::12}"; do
+          for TAG in "$IMAGE:main" "$IMAGE:sha-${GITHUB_SHA::12}"; do
             podman tag devgate-coherence "$TAG"
             podman push "$TAG"
           done
