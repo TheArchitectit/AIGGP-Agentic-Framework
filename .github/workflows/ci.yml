@@ -124,6 +124,102 @@ jobs:
       - name: Test-count floors
         run: python3 tests/gen_floors.py
 
+  # The repository shipped a secret-scanning template for consumers and did not
+  # run one on itself: every push to main passed six jobs and none of them
+  # looked for a credential. This is that job (secret-scan-01..06).
+  #
+  # The scanner is a pinned release binary verified against its published
+  # checksum, not a marketplace scanning action: no third-party action to trust,
+  # no licence question, and the same mechanism works on a self-hosted runner
+  # that already carries the pinned version (the fleet path — design D5/D6).
+  secrets:
+    name: Secret scan (pinned gitleaks over the pushed range)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          # The pushed range is resolved locally, and the no-base fall-back
+          # walks the whole history; a shallow clone would make both of them
+          # scan less than they claim to.
+          fetch-depth: 0
+      - name: Provide the pinned scanner (checksum-verified when fetched)
+        run: |
+          set -eu
+          VERSION=8.30.1
+          SHA256=551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+          if command -v gitleaks >/dev/null 2>&1; then
+            echo "using the scanner already on PATH: $(command -v gitleaks)"
+            exit 0
+          fi
+          URL="https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}"
+          curl -sSL -o gitleaks.tar.gz "${URL}/gitleaks_${VERSION}_linux_x64.tar.gz"
+          # Refuse to run an artifact that is not the bytes the pin names. This
+          # is what makes the pin a pin rather than a version string in a file.
+          echo "${SHA256}  gitleaks.tar.gz" | sha256sum -c -
+          tar xzf gitleaks.tar.gz gitleaks
+          install -m 0755 gitleaks /usr/local/bin/gitleaks
+      - name: The scanner is the pinned version (an unversioned scanner is not this contract)
+        run: |
+          set -eu
+          VERSION=8.30.1
+          got="$(gitleaks version)"
+          echo "gitleaks version: $got"
+          case "$got" in
+            *"$VERSION"*) ;;
+            *)
+              echo "FAIL: gitleaks reports '$got', not $VERSION."
+              echo "A runner that carries the pinned version passes this step"
+              echo "without fetching (fleet pre-provisioning); anything else is"
+              echo "a different scanner than the gate was specified against."
+              exit 1
+              ;;
+          esac
+      - name: Secret scan (the pushed range; the history when there is no base)
+        env:
+          EV_BEFORE: ${{ github.event.before }}
+          EV_AFTER: ${{ github.event.after }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -eu
+          if [ -n "${PR_BASE:-}" ] && [ -n "${PR_HEAD:-}" ]; then
+            ARGS=(--range "${PR_BASE}..${PR_HEAD}")
+          elif [ -n "${EV_BEFORE:-}" ] && [ -n "${EV_AFTER:-}" ]; then
+            ARGS=(--range "${EV_BEFORE}..${EV_AFTER}")
+          else
+            # workflow_dispatch and anything else with no range in the payload:
+            # say so, and sweep rather than scan nothing (secret-scan-04).
+            echo "::notice::no range in this event's payload — sweeping the full history"
+            ARGS=(--all)
+          fi
+          rc=0
+          out="$(bash scripts/secret-scan.sh --repo "$GITHUB_WORKSPACE" \
+                   --report "$RUNNER_TEMP/secret-scan.json" "${ARGS[@]}" 2>&1)" || rc=$?
+          printf '%s\n' "$out"
+          # Non-vacuity: the gate names its scope before it scans. A job that
+          # passes because the gate never ran is the exact failure this package
+          # exists to close, so assert the run happened, not just the exit code.
+          printf '%s\n' "$out" | grep -q '^\[secret-scan\] scope:' || {
+            echo "FAIL: the gate never reported a scope — it did not run."
+            exit 1
+          }
+          exit "$rc"
+      # The report is built from finding locations only — the gate never copies
+      # the scanner's Secret/Match fields — so printing it into the log keeps the
+      # evidence without introducing an artifact-upload action (this repo pins
+      # every action by SHA, and log retention covers a redacted JSON fine).
+      - name: Redacted report (locations only — no matched values)
+        if: always()
+        run: |
+          R="$RUNNER_TEMP/secret-scan.json"
+          if [ -f "$R" ]; then
+            cat "$R"
+          else
+            echo "no report at $R — the gate did not reach the point of writing one"
+          fi
+
   specs:
     name: Specs (openspec strict + traceability)
     runs-on: ubuntu-latest
