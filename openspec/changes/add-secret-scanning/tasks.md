@@ -69,8 +69,19 @@
   the pin, and the step greps the gate's own `[secret-scan] scope:` line — a job
   that passes because the gate never ran is the exact failure this workflow
   exists to prevent
-- [ ] 3.3 Ledger the first real run's result, including the audit-branch false
-  positive's disposition — **open: needs a hosted run after this push** (see 6.3)
+- [x] 3.3 First real run's result, ledgered (2026-09-24, run
+  [36048653103](https://github.com/TheArchitectit/DevGate-Agentic-Framework/actions/runs/36048653103),
+  all seven jobs green). The runner carried **no** scanner, so the fetch path
+  ran in production rather than only against a stub: `sha256sum -c` printed
+  `gitleaks.tar.gz: OK` against the pin, and `gitleaks version` printed `8.30.1`.
+  The gate then took the **range** path — `scope: commits in
+  5d59989..fba5f9e, plus the working tree` — and reported 0 findings. The
+  fall-back was not exercised, because that push had a real base; it stays
+  covered by tests, and this ledger does not claim a production run of it.
+  The allowlist entry printed `not matched in this scope (may be stale — run
+  with --all to settle it)`, which is the designed narrow-scope wording: the
+  false positive lives on `origin/audit`, outside a push range, and the reason
+  is correctly withheld there because the claim is not definite
 
 ## Sprint 4 — The consumer template
 
@@ -113,8 +124,14 @@
   output; the written report carries no value; `--redact` appears on every
   scanner invocation)
 - [ ] 6.2 Record the sweep's first run over the declared public repositories
-- [ ] 6.3 **Record the first hosted run of the `secrets` job** (`gh run view`
-  after this push), including whether it took the range path or the fall-back.
-  Until that line is here, this change can claim a tested gate but not a
-  verified one: everything above was measured locally, and a workflow that has
-  never executed is a design, not evidence
+- [x] 6.3 First hosted run of the `secrets` job recorded: run 36048653103, job
+  success in 5s, range path, fetch-and-verify path exercised for real, 0
+  findings (detail in 3.3). Two failures stand behind this green and are worth
+  keeping in the record: the first push of this change went red because the
+  template suite imported PyYAML and the hosted lane installs only pytest, so
+  collection aborted all 823 tests — a test-only dependency that takes the whole
+  suite down when it is missing. The second was caught before it left the
+  machine: the checksum assertion had been passing because the *authoring host*
+  has gitleaks installed, so the step took the already-installed branch and never
+  fetched. Both are now executed against a sandbox PATH, and the hosted run above
+  is the first evidence that the fetch path works somewhere real
