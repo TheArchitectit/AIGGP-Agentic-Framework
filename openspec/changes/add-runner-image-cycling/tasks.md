@@ -90,13 +90,87 @@
 
 ## Sprint 5 — The deliberate re-pin
 
-- [ ] 5.1 Single operation that moves the registry digest, the template's
+- [x] 5.1 Single operation that moves the registry digest, the template's
   `COHERENCE_IMAGE` / `COHERENCE_IMAGE_MANIFEST_DIGEST`, and `DEVGATE_PIN`
-  together (img-cycle-04, design D7)
-- [ ] 5.2 Re-run the chain guard as part of it; a pin whose tree does not
-  carry the moved record fails closed
-- [ ] 5.3 Tests: partial re-pin fails; pin predating the record fails;
-  successful re-pin leaves every literal in agreement
+  together (img-cycle-04, design D7) — `scripts/re-pin-evaluator-identity.sh`.
+  It resolves the digest from the REGISTRY (anonymous token,
+  `Docker-Content-Digest`), never from `podman image inspect`; verifies the
+  bytes are fetchable anonymously *before* recording them; writes the record
+  commit, then the template commit pinned at it; and refuses a dirty tree, a
+  malformed template, a ref the registry serves nothing for, and unfetchable
+  bytes. Exit codes 1–5 separate those refusals, so a caller can tell them
+  apart. `REPIN_CHECK_ONLY=1` runs the guard alone — verified against this
+  repository: it reports the pin `dadfd1d8` carries `fc7074e7…`
+- [x] 5.2 Re-run the chain guard as part of it; a pin whose tree does not
+  carry the moved record fails closed — `verify_pinned_identity` runs inside
+  the script at the end of a re-pin and standalone under `REPIN_CHECK_ONLY=1`,
+  so the guarantee the operation claims and the guarantee an operator can
+  re-check are one implementation. It is not only the digest that is compared:
+  a template naming a different IMAGE with the digest left alone is refused
+  too, which is the rename's own failure mode
+- [x] 5.3 Tests: partial re-pin fails; pin predating the record fails;
+  successful re-pin leaves every literal in agreement — 20 tests in
+  `tests/test_repin_operation.py`, each running the real script against a real
+  (temporary) git repository with stubbed `curl` and `podman` on PATH. The
+  podman stub deliberately reports a digest NO registry serves, so a run that
+  recorded it would be visible. Mutation battery: 15 mutations, 0 survivors,
+  each guard killable by a named test
+
+  AUDITED 2026-09-24, and the audit mattered more than the first draft. A
+  fresh-eyes pass found nine defects in a version that already passed its
+  tests, four of them able to ship a broken pin:
+
+  1. **A detached HEAD exited 0 with a pin no consumer can resolve.** The
+     guard proved the pin *existed* locally (`git cat-file -e`), not that it
+     was *reachable* — and reachability is the property a consumer depends on.
+     Committing on a detached HEAD makes both commits dangling: printable
+     here, fetchable by nobody. Now the operation refuses a detached HEAD
+     before writing, and the guard requires the pin to be an ancestor of HEAD.
+  2. **`REPIN_PROFILE` left a half-moved repository**, with commits and no
+     rollback: it moved the record's profile but never the template's
+     `COHERENCE_PROFILE`, so the guard refused *after* both commits landed.
+     The option is GONE — `COHERENCE_PROFILE` decides which profile the gate
+     reads, so a knob that moves a different one cannot move the pinned
+     identity at all.
+  3. **A re-run against an already-current identity crashed.** The record edit
+     produced no diff, so there was no commit to make, and `git commit` failed
+     with rc 1 — after the script had printed that it was about to move the
+     pin. Nothing-to-move is now a success, and the pin is kept rather than
+     re-pointed at HEAD.
+  4. **Any commit failure left one side applied** and exited an out-of-table
+     code (128 for a missing git identity). Commits now restore the tree and
+     exit 6.
+
+  The other five: the guard's command substitutions failed *silently* (bash
+  disables errexit inside `if func`), reporting a digest mismatch where the
+  real fault was a malformed pinned record; `REPIN_CHECK_ONLY` compared two of
+  the four literals and printed a digest it had not verified; YAML-quoted
+  literals were compared with their quotes on, refusing a correct tree with
+  two indistinguishable strings; a transient registry outage was diagnosed as
+  an absent image; and two test holes — deleting the entire post-write guard
+  left the suite green, and the image assertion was vacuous because the
+  fixture passed the same image to both files. The guard now proves four
+  pairs (pinned tree *and* working tree, against the template) and every
+  failure is an explicit exit naming what disagreed.
+
+  Verified against the real registry and the real template shape, not only the
+  fixture: on a scratch clone the operation resolved `fc7074e7…` from ghcr by
+  anonymous token, verified the anonymous pull, correctly found nothing to
+  move, and kept the pin at `dadfd1d8` — zero commits written.
+  `REPIN_CHECK_ONLY=1` on this repository reports the same pin carrying the
+  same digest.
+
+  NOT DONE, and not claimed: the operation is not wired into any pipeline. CI
+  still enforces the invariant independently (`test_the_pinned_commit_carries_
+  the_pinned_identity` in the tests job), so a wrong re-pin is still caught
+  before it ships — but the operation itself is run by hand, and nothing
+  forces a maintainer to use it instead of editing the four literals.
+
+  Also not covered: the guard proves the pin is reachable from HEAD, which is
+  the right question for an operator who then pushes that branch. It does not
+  prove the pin survives a rebase, a squash, or a force-push performed after
+  the operation returns — nothing local can, and CI's own chain guard is what
+  catches that.
 
   EVIDENCE 2026-09-24 — the operation was performed by hand, and the hand
   version is the specification 5.1 should encode. The repository rename moved
