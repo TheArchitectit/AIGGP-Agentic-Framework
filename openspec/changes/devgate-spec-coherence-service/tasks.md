@@ -241,9 +241,16 @@ Sprint work:
   the clean-context config digest `ef02f38a…`). Guards added, each mutation-killed: template↔registry agreement
   (digest drift, image drift), the pin's tree carrying the identity (a pin predating the re-pin fails), the CI pull
   line, the local-build axis being absent from CI, context hygiene, and the pull-path return.
-  **Still open, unchanged:** the arm64 entry (below), and the `:main` tag now moves ahead of the recorded digest on every
-  push (the publish job builds and pushes a fresh manifest each time) — the record stays fetchable by digest, but
-  nothing fails when the tag and the record diverge; queued as a design item.
+  **Still open, unchanged:** the arm64 entry (below).
+  MOVED OUT 2026-09-24 — the `:main` tag moves ahead of the recorded digest on every push (the publish job builds and
+  pushes a fresh manifest each time; served `61170a5c…` vs recorded `f470110c…`, stable across two runs), and nothing
+  fails when the tag and the record diverge. This is no longer a coherence-service item: it and the "nothing provisions
+  the pinned image onto any host" gap are both fleet-side, and both now live in
+  `openspec/changes/add-runner-image-cycling/` (img-cycle-01…06, sprints 2–7 open). That package's decision — recorded
+  there rather than here — is that runners *converge* on the recorded identity automatically but hold no authority to
+  *advance* it, so a push never becomes executable bytes by default. The one CI-side half that stays a defect
+  regardless of fleet policy is the publish job's comment claiming a manual-dispatch trigger its `if:` does not
+  implement (img-cycle-06).
   DISPOSED 2026-09-24 — should the driver refuse a launch ref whose *repository* is not the registry's `image` field?
   **No change, and no new requirement.** coh-id-04 fixes the identity fields a result must carry (index digest,
   executed platform manifest digest, profile label) and coh-rt-01 fixes the invocation form; neither makes the
