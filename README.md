@@ -2,13 +2,28 @@
 
 [![Sponsor](https://img.shields.io/badge/Sponsor-TheArchitectit-FF69B4?style=flat&logo=github-sponsors)](https://github.com/sponsors/TheArchitectit)
 
-A language-agnostic quality gate for AI-assisted development. Drop it into any project — TypeScript, Python, Rust, Go, GDScript, or a mixed stack — and get test isolation, regression scanning, deploy gates, scheduled drift scans, CI workflows, a self-hosted runner standard, and agent-behavior guardrails out of the box.
+A quality gate for AI-assisted development. Drop it into a project — TypeScript,
+Python, Rust, Go, GDScript, or a mix — and you get test isolation, regression
+scanning, deploy gates, scheduled drift scans, CI workflow templates, a
+self-hosted runner standard, and agent-behavior guardrails.
+
+DevGate is not a template or a starter kit, and it won't rearrange your code. It
+imposes no directory layout, language, package manager, or test framework. It
+looks at what you have and gates it.
 
 ## Why this exists
 
-AI agents write code fast, and velocity without guardrails ships regressions. DevGate sits between your agents and your production code. It catches the fast failure patterns — SQL injection, unhandled promises, hardcoded credentials, unvalidated input, 25+ more across languages — and the slow ones: dependency updates that aged, runner and base-image drift, CI-config changes that never arrived as a pull request.
+Agents write code faster than anyone reviews it, and speed without a gate ships
+regressions. DevGate sits between your agents and your production code and
+catches two kinds of problems: the fast ones (SQL injection, unhandled promises,
+committed credentials, unvalidated input, and about thirty more patterns) and the
+slow ones — dependency rot, base-image drift, CI config that changed and nobody
+noticed.
 
-DevGate is **not** a project template or starter kit. It imposes no architecture: no required directory layout, language, package manager, database, or test framework. It detects what you have and gates it.
+The part that matters more than the pattern list is that the gates refuse to lie.
+A scan that evaluated nothing does not print "clean". A test run that discovered
+zero files does not exit 0. A gate that can't run reports that it couldn't. If
+you only take one idea from this project, take that one.
 
 ## Quick start
 
@@ -20,64 +35,52 @@ git submodule add https://github.com/TheArchitectit/DevGate-Agentic-Framework.gi
 git clone https://github.com/TheArchitectit/DevGate-Agentic-Framework.git .devgate
 ```
 
-Run the gates (every script auto-detects your project root and scans whatever source files exist, in whatever directories you keep them):
+Every script finds your project root and scans whatever source files exist,
+wherever you keep them:
 
 ```bash
-node .devgate/scripts/guardrails-scan.mjs        # pattern scan, all source types
+node .devgate/scripts/guardrails-scan.mjs         # pattern scan, all source types
 node .devgate/scripts/semantic-scan.mjs           # AST scan (TS/JS; skips if none)
 node .devgate/scripts/run-tests.mjs               # isolated per-file test runner
 python3 .devgate/scripts/regression_check.py --staged --pre-commit   # regression + file size
-bash .devgate/scripts/deploy.sh 1.0.0             # gated publish (auto-detects npm/cargo/pip/go)
+bash .devgate/scripts/deploy.sh 1.0.0             # gated publish (npm/cargo/pip/go)
 ```
 
-Scopes worth knowing on the regression gate: `--staged` sees only uncommitted work — on a clean checkout it prints a loud `NOTHING SCANNED`, never a fake clean pass (add `--fail-if-empty` in CI to turn that into exit 2). To audit already-committed content, scan it explicitly with `--base origin/main` (diff `origin/main...HEAD`). `--all` scans every change since the last tag — that is a drift/release sweep, not a pull-request review; run it on a schedule, not per-PR.
+Two things about the regression gate worth knowing up front. `--staged` sees only
+uncommitted work, so on a clean checkout it prints `NOTHING SCANNED` rather than a
+fake pass (add `--fail-if-empty` in CI to make that exit 2). And `--all` scans
+everything since the last tag — that's a drift sweep for a schedule, not a
+per-pull-request review; use `--base origin/main` for that.
 
-## What's in the box
-
-```
-.devgate/
-├── .guardrails/            # pattern/semantic rules, failure registry, pre-work checklist
-├── scripts/                # the gates (scan, test, regression, deploy, schema, drift)
-├── templates/
-│   ├── github-workflows/   # drop-in CI workflows (guardrails, secrets, file size, smoke, drift)
-│   ├── runner/             # self-hosted runner standard (ghcr.io image + Podman quadlet)
-│   └── skills/             # agent-behavior skills (four-laws, scope-validator, three-strikes, ...)
-├── AGENTS.md               # directions for AI agents working in projects that use DevGate
-└── README.md
-```
-
-### The gates
+## The gates
 
 | Gate | What it does |
 |------|--------------|
-| **Pattern scanner** (`guardrails-scan.mjs`) | Regex rules across 10+ languages; inline `// guardrails-allow PREVENT-029: reason` annotations supported |
-| **Semantic scanner** (`semantic-scan.mjs`) | TypeScript-compiler AST checks (unhandled promises, missing useEffect deps). Fail-closed: if TS/JS files exist but the parser isn't installed, the gate FAILS with the install command — a gate that evaluated nothing must not read as "clean" |
-| **Regression scanner** (`regression_check.py`) | Cross-references changed files against the append-only failure registry, enforces file-size limits, runs package audit, promotes soft violations to blocking for changed files. No vacuous green — zero changed files is a notice, never a pass |
-| **Test runner** (`run-tests.mjs`) | Per-file process isolation, parallel pooling (up to 8 workers), serial lanes for shared-resource tests, flake adjudication (failed files re-run solo), hang-on-exit detection |
-| **Deploy pipeline** (`deploy.sh`) | Gated publish for npm, cargo, pip, or go — build, test, lint, then publish |
-| **Schema health** (`schema-health-check.mjs`) | Adapter-based schema validation (SQLite/PostgreSQL/MySQL); defaults to skip when no database is configured |
-| **Findings → specs** (`findings_to_spec.py`) | Turns failure-registry entries and live scan violations into `openspec/specs/<capability>/spec.md` requirement skeletons, closing the loop: bug → requirement → `// spec:` trace → blocking traceability gate |
+| `guardrails-scan.mjs` | Regex rules across ten-plus languages. Annotate a deliberate exception inline with `// guardrails-allow PREVENT-029: reason`. |
+| `semantic-scan.mjs` | TypeScript-compiler AST checks (unhandled promises, missing `useEffect` deps). Fails closed: if TS/JS files exist and the parser isn't installed, the gate fails and prints the install command instead of reporting a clean scan. |
+| `regression_check.py` | Cross-references changed files against the append-only failure registry, enforces file-size limits, runs a package audit, and promotes soft violations to blocking for files you actually changed. |
+| `run-tests.mjs` | Per-file process isolation, up to 8 parallel workers, serial lanes for shared-resource tests, flake adjudication (failing files re-run alone), and hang-on-exit detection. |
+| `deploy.sh` | Gated publish: build, test, lint, then publish — for npm, cargo, pip, or go. |
+| `schema-health-check.mjs` | Adapter-based schema validation (SQLite, PostgreSQL, MySQL), skipping cleanly when no database is configured. |
+| `findings_to_spec.py` | Turns failure-registry entries and live violations into `openspec/specs/<capability>/spec.md` requirement skeletons, so a bug becomes a requirement with a `// spec:` trace back to it. |
 
-Two honest notes about test evidence: a suite of only presence checks ("does the string appear in the file") detects deletion, not breakage — never cite it as "tested." And round-tripping a hand-written literal proves nothing about the code that actually saves; build the fixture by calling the real function.
+### Things we learned the hard way
 
-### Supported languages
+A suite of presence checks ("does this string appear in the file") detects
+deletion, not breakage — don't cite it as "tested". And building a fixture by
+hand-writing the literal proves nothing about the code that saves it; build the
+fixture by calling the real function.
 
-| Language | Pattern rules | Semantic rules | File-size gates |
-|----------|:---:|:---:|:---:|
-| TypeScript/JavaScript | 6 | 2 | yes |
-| Python | 4 | 2 | yes |
-| Rust | 1 | 1 | yes |
-| Go | 2 | 1 | yes |
-| GDScript (Godot) | 5 | 2 | yes |
-| Docker / Shell | 3 | — | — |
-| Kotlin, Java, Ruby, PHP, C/C++, Swift | 7 | — | yes |
-| All languages (git/system/security) | 3 | — | yes |
+## Rules, and how to add yours
 
-## Customizing
+The rules are data, not code: 32 pattern rules, 10 AST (semantic) checks, 9
+silent-success rules, and 10 rules extracted from past failures. Most pattern
+rules are scoped to several extensions at once, so the useful statement is
+coverage rather than a per-language count: TypeScript / JSX / TSX / Svelte,
+Python, Go, Rust, GDScript (`.gd`, `.tscn`, `.tres`), Kotlin, Java, Ruby, PHP,
+YAML and CI config, Dockerfiles, and shell.
 
-**File-size limits** live in `scripts/regression_check.py` (soft 300 / hard 500 source lines, hard 600 test lines).
-
-**Your own rules go in an overlay, never a fork.** A project using DevGate as a submodule adds rules in a project-root `.guardrails/` overlay; the gates merge it with the bundled baseline by rule id — new ids append, same-id entries replace in place (retune severity, fix a false positive) without ever forking the baseline:
+Add your own rules in an overlay, never by forking:
 
 ```
 <project>/
@@ -86,85 +89,144 @@ Two honest notes about test evidence: a suite of only presence checks ("does the
   .guardrailsignore          # per-project scan scoping
 ```
 
-`semantic-scan.mjs` is exempt (its checks are hardcoded AST logic, not data). An explicit `--rules`/`--registry` path collapses to that single source with no merge.
+The gates merge overlay and baseline by rule id: new ids append, same-id entries
+replace in place, so you can retune a severity or kill a false positive without
+touching the baseline. `semantic-scan.mjs` is the exception — its checks are
+hardcoded AST logic, not data. Passing an explicit `--rules`/`--registry` path
+collapses everything to that single source.
+
+## What's in the repository
+
+```
+.devgate/                      (this repo, when used as a submodule)
+├── scripts/                   the gates and the fleet tooling
+├── hub/                       runner-monitor hub (stdlib HTTP service + registry)
+├── container/                 the coherence evaluator image and its recorded identity
+├── templates/
+│   ├── github-workflows/      six drop-in CI workflows
+│   ├── runner/                self-hosted runner standard (Podman quadlet)
+│   ├── runner-monitor/        the hub's own container
+│   └── skills/                five agent-behavior skills
+├── openspec/                  change packages and published specs
+├── docs/                      runbooks, threat model, onboarding, QA records
+├── tests/                     the suite that gates this repository
+├── AGENTS.md                  directions for agents working in DevGate projects
+└── README.md
+```
 
 ## CI, runners, and agent skills
 
-Five drop-in workflow templates live in `templates/github-workflows/` (guardrails compliance, secret validation, file size, smoke gate, scheduled drift scan) — each has a `SETUP` header and `CUSTOMIZE` placeholders. The runner standard (`templates/runner/`) puts the official `ghcr.io/actions/actions-runner` image on your own hardware as a Podman quadlet, one container per project, registration token via a never-committed `.env`. DevGate is host-repo aware: `detect-host-ci.py` reads your repo's own `runs-on:` labels so workflow templates bind to your declared infrastructure, not a hardcoded `ubuntu-latest`.
+Six workflow templates ship in `templates/github-workflows/`: guardrails
+compliance, secret validation, file size, smoke gate, scheduled drift scan, and
+the spec-coherence gate. Each carries a `SETUP` header and `CUSTOMIZE`
+placeholders. DevGate is host-repo aware — `detect-host-ci.py` reads your repo's
+own `runs-on:` labels so the templates bind to the infrastructure you declared
+instead of assuming `ubuntu-latest`.
 
-Six agent-behavior skill templates ship in `templates/skills/` — four-laws (safety), scope-validator, halt-conditions, three-strikes, commit-validator, production-first — each a single `SKILL.md` that drops into any agent runtime supporting the convention. Full agent directions: [AGENTS.md](AGENTS.md). Template usage guide: [templates/README.md](templates/README.md).
+The runner standard (`templates/runner/`) puts the official
+`ghcr.io/actions/actions-runner` image onto your own hardware as a Podman
+quadlet, one container per project, registration token from a `.env` that is
+never committed. Three ticks keep a fleet honest: `runner-enroll.sh` installs the
+units, `runner-heartbeat.sh` reports host health to the hub, and
+`runner-image-cycle.sh` converges the pinned evaluator image into the podman
+store the job actually reads (the gate never pulls at job time, so those bytes
+have to be there beforehand).
 
-## The Spec Coherence Service — DevGate gates itself
+The hub (`hub/`, container template in `templates/runner-monitor/`) is a
+stdlib-only HTTP service on `/enroll`, `/heartbeat`, and `/health`. It combines
+GitHub API polling with the heartbeats and raises deduplicated alerts as GitHub
+issues — one open issue per `(repo, check-class, runner)`, with recurrence added
+as a comment. Its registry lives on the hub volume and is never committed; only
+the schema and a redacted example ship here.
 
-This repository dogfoods its own idea: `hub/coherence/` is a Python service (stdlib-only, dual-runnable, container-isolated evaluators) that answers one question with a signed, replayable record — *did this change set actually satisfy the specs it claims to satisfy?*
+Five skills ship in `templates/skills/` — four-laws (safety), scope-validator,
+halt-conditions, production-first, and commit-validator — each a single
+`SKILL.md` that drops into any agent runtime using that convention. Agent
+directions live in [AGENTS.md](AGENTS.md); template usage is in
+[templates/README.md](templates/README.md).
 
-The pieces that matter to a human:
+## The spec coherence service
 
-- **Signed evaluation contexts** — a control-plane stand-in issues a context binding the policy, stage, baseline, and evaluation time; the run path verifies digests and countersignatures before believing anything.
-- **A five-stage adoption ladder** — inventory → advisory → ratchet → enforced-core → enforced-full — monotonically narrowing which known debt stays advisory as a repository earns enforcement.
-- **Anti-rollback** — a context binds the exact central policy bundle (digest + epoch floor); an older-but-signed bundle is rejected unless the control plane recorded a grandfather window for it, and the attempt is machine-parsable in fleet reporting.
-- **A stable exit-code contract** — PASS 0, ADVISORY 10, FAIL 20, invalid input 30, policy refusal 31, execution error 32, seal failure 33 — plus deterministic replay of any historical decision.
-- **`scripts/coherence-local`** — run the gate from your checkout through the *same* builder + driver invocations the CI template runs, with identity resolved from the same registry the pin checks. `--build-only` emits the request/launch without a container; `--dry-run` prints the commands. A test replays the template's own command and byte-compares the output, so "local == CI" is enforced, not asserted.
+This repository dogfoods its own idea. `hub/coherence/` is a service — stdlib
+only, dual-runnable, evaluators isolated in a container — that answers one
+question with a signed, replayable record: did this change set actually satisfy
+the specs it claims to satisfy?
 
-Status: mid **Sprint 6 of 8** (adoption ladder and fleet integration). Sprints 0–5 delivered the decision contract, container/evaluator boundary, and the attestation/evidence stack. The full spec, task ledger, and design record live in [openspec/changes/devgate-spec-coherence-service/](openspec/changes/devgate-spec-coherence-service/).
+The pieces a human cares about:
 
-### What is verified, and where
+- **Signed evaluation contexts.** A control-plane stand-in issues a context
+  binding the policy, stage, baseline, and evaluation time. The run path verifies
+  digests and countersignatures before believing anything.
+- **A five-stage adoption ladder** — inventory → advisory → ratchet →
+  enforced-core → enforced-full — so a repository earns enforcement instead of
+  being handed a wall of red.
+- **Anti-rollback.** A context binds the exact policy bundle (digest plus an
+  epoch floor). An older-but-validly-signed bundle is rejected unless the control
+  plane recorded a grandfather window, and the attempt is machine-readable in
+  fleet reporting.
+- **A stable exit-code contract:** PASS 0, ADVISORY 10, FAIL 20, invalid input
+  30, policy refusal 31, execution error 32, seal failure 33 — plus deterministic
+  replay of any historical decision.
+- **`scripts/coherence-local`** runs the gate from your checkout through the same
+  builder and driver invocations the CI template uses, resolving identity from
+  the same registry the pin checks. `--build-only` emits the request and launch
+  without a container; `--dry-run` prints the commands. A test replays the
+  template's own command and byte-compares the output, so "local == CI" is
+  enforced rather than asserted.
 
-Every row below names the mechanism that proves it, and every state below was
-read off an actual hosted run of `main` — not asserted. An external audit
-(2026-09-20) found this README claiming more than the tree delivered; a later
-revision then over-corrected into an *unverified* "the runner has no podman, so
-these rows do not run" — which was false the same way: assumed, not measured.
-A hosted run builds the image on every push to main. Evidence is cited under
-the table.
+Status: Sprint 6 of 8 is in progress (adoption ladder and fleet integration);
+Sprints 0–5 delivered the decision contract, the container/evaluator boundary,
+and the attestation and evidence stack. The spec, task ledger, and design record
+are in [openspec/changes/devgate-spec-coherence-service/](openspec/changes/devgate-spec-coherence-service/).
+
+## What is verified, and where
+
+Every state below was read off a real hosted run of `main`. Nothing in this table
+is inferred from reading the configuration.
 
 | Claim | Checked by | State |
 | --- | --- | --- |
 | Every spec validates under the strict delta grammar | `specs` job → `openspec validate --all --strict` | **GREEN** |
-| Strict validation actually refuses malformed material | `specs` job → `scripts/specs-validate-negative-control.sh` | **GREEN**, and see the note under the table — this row was red on its first hosted run and is the reason the note exists. |
-| The per-file runner discovers this repo's own tests | `tests` job → runner discovery count ≥ 1 | **GREEN** |
-| Scanner project-root anchoring (no ancestor escape) | `tests` job → `tests/test_scanner_root_anchor.mjs` | **GREEN** |
-| Evaluator image builds, reproducibly, carrying its frozen schemas | `container-image` job → `podman build` + in-image schema load | **GREEN on hosted CI.** `ubuntu-latest` ships podman. Two consecutive main runs built the identical digest and printed `schemas OK in image` inside the container. The build is content-addressed over `hub/` + the coherence schemas, so identical inputs give an identical digest. |
-| The recorded identity is the bytes a consumer can fetch | `container-image` job → anonymous `podman pull image@recorded` + schema load inside the fetched bytes | **GREEN on hosted CI.** Run [36022160394](https://github.com/TheArchitectit/DevGate-Agentic-Framework/actions/runs/36022160394) (commit `960682f`): the gate pulls `ghcr.io/…/devgate-coherence@sha256:f470110c…` with `REGISTRY_AUTH_FILE=/nonexistent` — a consumer's runner carries no credentials either — compares the fetched manifest digest against `container/execution-profiles.json`, and loads the frozen schemas **inside the fetched bytes**, printing `schemas OK in the fetched image`. The pinned image is also smoke-run under the launcher's flags on a clean runner (`TestImageSmoke`, PASSED there — the path a fresh host actually takes). |
+| Strict validation actually refuses malformed material | `specs` job → `scripts/specs-validate-negative-control.sh` | **GREEN** |
+| The per-file runner discovers this repo's own tests | `tests` job → discovered count ≥ 1 | **GREEN** |
+| Scanners resolve the project root without escaping to an ancestor | `tests` job → `tests/test_scanner_root_anchor.mjs` | **GREEN** |
+| The evaluator image builds reproducibly, carrying its frozen schemas | `container-image` job → `podman build` plus an in-image schema load | **GREEN.** Two consecutive runs on `main` built the identical digest and printed `schemas OK in image`. The build is content-addressed over `hub/` and the coherence schemas. |
+| The recorded identity is bytes a consumer can actually fetch | `container-image` job → anonymous `podman pull image@recorded`, then a schema load inside the fetched bytes | **GREEN.** Run [36022160394](https://github.com/TheArchitectit/DevGate-Agentic-Framework/actions/runs/36022160394) pulls `ghcr.io/…/devgate-coherence@sha256:f470110c…` with `REGISTRY_AUTH_FILE=/nonexistent` — a consumer's runner has no credentials either — compares the fetched manifest digest against `container/execution-profiles.json`, and loads the schemas from the fetched bytes. |
 
-**The identity row was green for a whole day while the pin was unpullable**, and
-the reason is worth keeping: the comparison it used to describe pitted a locally
-built image's digest against the registry record — two values off the *same
-build-time axis*, neither of which is a digest the registry serves. On hosted
-the two printed identically (`built: 2eff3fd9…`, `recorded: 2eff3fd9…`; run
-35927130381), so the check reported success while `podman pull` of that exact
-record failed with `manifest unknown` for every consumer. Pushing re-encodes the
-manifest; the pullable identity is the registry's manifest digest, and only a
-pull can establish it. The gate now pulls.
+That identity row spent a day green while the pin was unpullable, and the reason
+is worth one sentence: it compared a locally built image's digest against the
+record — two values off the same build-time axis, neither of which is a digest
+the registry serves. They matched on hosted CI, so the check passed while
+`podman pull` of that exact record failed with `manifest unknown` for every
+consumer. Pushing re-encodes the manifest; only a pull establishes the pullable
+identity, so the gate now pulls.
 
-What the table used to get wrong, in both directions, is worth keeping: it first
-implied the container path was proven, then claimed it was never exercised, and
-*both* were guesses. It now
-says the build runs and is reproducible on hosted CI, and reserves "not
-verified" for the two things actually unverified — the published digest and the
-full-container smoke. The item total is not quoted on purpose either: `--all`
-counts discovered items, so any fixed number goes stale the moment a package is
-added.
+The item total isn't quoted on purpose: `--all` counts discovered items, so any
+fixed number goes stale the moment a package is added. And the negative control
+failed on its first clean-runner execution — the CLI couldn't be resolved from
+its temp directory, because the probe used a bare `npx openspec` that a globally
+installed CLI had been masking on the author's machine. It failed closed on a
+real defect, which is the entire point of having it.
 
-**The negative control's first hosted run failed, and that is the whole point of
-having it.** The control (`scripts/specs-validate-negative-control.sh`) invokes
-the validator and refuses to pass unless the rejection *names the fixture's
-designed defect*. On its first execution on a clean runner it exited nonzero —
-the CLI could not be resolved from inside the probe's temp directory, because
-the control used a bare `npx openspec` that a globally-installed CLI had masked
-on the author's machine. It failed closed, exactly as designed, on the author's
-own over-claim — the same defect class the audit was written to catch, caught by
-the audit's own instrument. The control now resolves the same pinned CLI
-binary the hard gate above it does. Hosted provenance in general was a blind
-spot: ci.yml triggers on `push: branches: [main]`, the remediation branch was
-never pushed to main, and no PR was opened (own repo), so every "green" on that
-branch was local-only until the merge ran it for real.
+## AIGGP — Agent Intelligence Gate Loop Guardrails Platform
 
-## Roadmap: the AIGGP packages (imported for evaluation — no merge commitment)
+DevGate is on a path to merge into the guardrail platform. The unified product is
+AIGGP: **Agent Intelligence Gate Loop Guardrails Platform**. The plan is written
+down in [openspec/changes/aiggp-10-repository-unification-migration/](openspec/changes/aiggp-10-repository-unification-migration/)
+— DevGate is imported into the Agent Guardrails repository by a non-squashed
+subtree merge, both products sit behind explicit module boundaries, existing
+history stays reachable from documented refs in the unified repository, and the
+standalone repositories are archived with durable pointers once continuity is
+proven.
 
-In September 2026 we imported eleven AIGGP ("Agent Intelligence Gate Loop Guardrails Platform") spec packages under [openspec/changes/aiggp-00…10](openspec/changes/) — a proposal to give DevGate, Agent Guardrails, and Mission Control one shared truth model: one verdict algebra, one evidence envelope, one policy-bundle format, one append-only ledger.
-
-They are **imported, not adopted**. Nothing in them is implemented, and nothing has been reconciled with the coherence service that already ships (notably AIGGP-02, which overlaps the adoption ladder). **There is no commitment to merge DevGate into Agent Guardrails.** That decision is parked until the coherence service's open-spec work is further along and a feasibility pass proves the unification is worth doing — if the openspec work finishes first, the feasibility call happens after it. The source documents as received are kept for provenance in [openspec/aiggp-source/](openspec/aiggp-source/).
+Eleven AIGGP spec packages were imported in September 2026 and live under
+[openspec/changes/aiggp-00…10](openspec/changes/), with the sources as received
+kept for provenance in [openspec/aiggp-source/](openspec/aiggp-source/). Be clear
+about what that is: a specification, not shipped code. Nothing in those packages
+is implemented, no gate or traceability ID is wired to them, and AIGGP-02's
+overlap with the adoption ladder that does ship is an open reconciliation item.
+The sequencing is deliberate — the coherence-service specs land first, and the
+feasibility pass on the unification comes after that.
 
 ## License
 
