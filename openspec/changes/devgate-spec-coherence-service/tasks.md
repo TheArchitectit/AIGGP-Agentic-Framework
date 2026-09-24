@@ -242,6 +242,13 @@ Sprint work:
   (digest drift, image drift), the pin's tree carrying the identity (a pin predating the re-pin fails), the CI pull
   line, the local-build axis being absent from CI, context hygiene, and the pull-path return.
   **Still open, unchanged:** the arm64 entry (below).
+  RE-PINNED AGAIN 2026-09-24 (round-19) — the identity above is historical. The repository was renamed
+  (`TheArchitectit/AIGGP-Agentic-Framework`), which moves the publish path, and the reference sweep changed
+  `hub/schema/runners.schema.json` — content the image COPYs — so the served identity is now
+  `ghcr.io/thearchitectit/aiggp-agentic-framework/devgate-coherence@sha256:fc7074e70752…`, moved with `DEVGATE_PIN`
+  → `dadfd1d8…` in two ordered commits. The gate's mechanism is unchanged and was re-run against the new record:
+  anonymous pull by digest, schemas loaded from the fetched bytes. Detail and the ordering constraint are in
+  `openspec/changes/add-runner-image-cycling/tasks.md` sprint 5, where the re-pin operation lives.
   MOVED OUT 2026-09-24 — the `:main` tag moves ahead of the recorded digest on every push (the publish job builds and
   pushes a fresh manifest each time; served `61170a5c…` vs recorded `f470110c…`, stable across two runs), and nothing
   fails when the tag and the record diverge. This is no longer a coherence-service item: it and the "nothing provisions
