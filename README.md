@@ -125,11 +125,21 @@ the table.
 | The per-file runner discovers this repo's own tests | `tests` job → runner discovery count ≥ 1 | **GREEN** |
 | Scanner project-root anchoring (no ancestor escape) | `tests` job → `tests/test_scanner_root_anchor.mjs` | **GREEN** |
 | Evaluator image builds, reproducibly, carrying its frozen schemas | `container-image` job → `podman build` + in-image schema load | **GREEN on hosted CI.** `ubuntu-latest` ships podman. Two consecutive main runs built the identical digest and printed `schemas OK in image` inside the container. The build is content-addressed over `hub/` + the coherence schemas, so identical inputs give an identical digest. |
-| Evaluator image matches its pinned identity registry | `container-image` job → digest comparison | **OPEN — runs and reports a mismatch.** The built digest and the value recorded in `container/execution-profiles.json` differ. The comparison executes on every push but `::notice`s rather than failing, because retiring the mismatch means publishing the rebuilt image (S4, registry-credential-gated). Reproducibility is no longer the open question; the **published** identity is — consumers pull by digest, and no full-container request/response smoke has run against the pinned image. |
+| The recorded identity is the bytes a consumer can fetch | `container-image` job → anonymous `podman pull image@recorded` + schema load inside the fetched bytes | **GREEN on hosted CI.** Run [36022160394](https://github.com/TheArchitectit/DevGate-Agentic-Framework/actions/runs/36022160394) (commit `960682f`): the gate pulls `ghcr.io/…/devgate-coherence@sha256:f470110c…` with `REGISTRY_AUTH_FILE=/nonexistent` — a consumer's runner carries no credentials either — compares the fetched manifest digest against `container/execution-profiles.json`, and loads the frozen schemas **inside the fetched bytes**, printing `schemas OK in the fetched image`. The pinned image is also smoke-run under the launcher's flags on a clean runner (`TestImageSmoke`, PASSED there — the path a fresh host actually takes). |
 
-The last row is deliberately not green. What the table used to get wrong, in
-both directions, is worth keeping: it first implied the container path was
-proven, then claimed it was never exercised, and *both* were guesses. It now
+**The identity row was green for a whole day while the pin was unpullable**, and
+the reason is worth keeping: the comparison it used to describe pitted a locally
+built image's digest against the registry record — two values off the *same
+build-time axis*, neither of which is a digest the registry serves. On hosted
+the two printed identically (`built: 2eff3fd9…`, `recorded: 2eff3fd9…`; run
+35927130381), so the check reported success while `podman pull` of that exact
+record failed with `manifest unknown` for every consumer. Pushing re-encodes the
+manifest; the pullable identity is the registry's manifest digest, and only a
+pull can establish it. The gate now pulls.
+
+What the table used to get wrong, in both directions, is worth keeping: it first
+implied the container path was proven, then claimed it was never exercised, and
+*both* were guesses. It now
 says the build runs and is reproducible on hosted CI, and reserves "not
 verified" for the two things actually unverified — the published digest and the
 full-container smoke. The item total is not quoted on purpose either: `--all`

@@ -203,7 +203,7 @@ Sprint work:
 
 ## Sprint S4 — container and evaluator boundary (submitted Phase 2)
 
-- [ ] Build multi-architecture pinned service image (Podman; runners already report `podman_ok`); record index vs platform digests per execution-profile registry (coh-id-04).
+- [x] Build the pinned service image and record the identity the registry actually serves (amd64; runners already report `podman_ok`); coh-id-04 execution-profile registry. CLOSED 2026-09-24 — see the round-18 block; the arm64 entry is split into its own item below.
   PROGRESS 2026-09-18: `container/Containerfile` builds on `python:3.12-slim` pinned by verified **index** digest
   (`sha256:78387bc3…`, resolved via registry `Docker-Content-Digest`, confirmed by pull); image built
   `--timestamp 0` → amd64 manifest `sha256:5e73b5bd…` recorded with the base index digest in
@@ -218,6 +218,37 @@ Sprint work:
   state). The REACHABLE normative half is complete and tested: coh-id-04's MUST-distinguish identity fields,
   the undeclared-profile rejection before assertions (exit 30, never PASS), strict registry schema, and the
   cross-architecture equivalence machinery — a second platform can be appended without further code.
+
+  PROGRESS 2026-09-24 (round-18) — **CLOSED, and the closure found a live defect.** Publishing to GHCR re-encodes the
+  manifest: the digest recorded on 2026-09-18 (`2eff3fd9…`) came from `podman image inspect` of a *locally built* image,
+  an axis no registry serves, so the S4 pin was **unpullable** (`podman pull ghcr.io/…@2eff3fd9…` → `manifest unknown`)
+  while the CI canary that was supposed to prove it stayed green — because it compared the local build's digest against a
+  record holding that same local value (hosted run 35927130381 printed `built: 2eff3fd9…`, `recorded: 2eff3fd9…`: equal,
+  and both on the wrong axis). The pullable identity is the registry's OCI **manifest** digest (`f470110c…`), established
+  only by resolving the pushed ref (measured: anonymous `REGISTRY_AUTH_FILE=/nonexistent podman pull IMAGE@f470110c…` →
+  rc 0; the pulled image's `.Id` is the config digest `5b86f73c…` *inside* that manifest — a third, distinct value).
+  Re-pinned in one operation: `container/execution-profiles.json` (`image` → the ghcr name, digest → `f470110c…`),
+  `templates/github-workflows/spec-coherence.yml` (`COHERENCE_IMAGE`, `COHERENCE_IMAGE_MANIFEST_DIGEST`), and
+  `DEVGATE_PIN` → `960682f` (the first commit whose tree carries that identity; the gate reads the registry *from the
+  pinned tree*, so pin and digest must move together). The wrong-axis canary was replaced by a hard gate that pulls the
+  record anonymously and loads the frozen schemas **inside the fetched bytes**; negative-controlled against `2eff3fd9…`
+  → rc 1. Hosted evidence, run 36022160394 @ `960682f`: `container-image` green (`recorded: sha256:f470110c…`, fetched
+  digest equal, `schemas OK in the fetched image`), and `TestImageSmoke` PASSED on a clean runner — the pull path a fresh
+  host takes, which the earlier local-only run never exercised (its green depended on an image already attached here).
+  Two more defects surfaced while closing this and are fixed the same round: `ensure_pinned_image` returned `None` after
+  a *successful* pull (`TypeError` on hosted, green locally), and a dirty build context shipped untracked
+  `hub/**/__pycache__` into the image (33 entries; `.containerignore` now pins the context to tracked source, restoring
+  the clean-context config digest `ef02f38a…`). Guards added, each mutation-killed: template↔registry agreement
+  (digest drift, image drift), the pin's tree carrying the identity (a pin predating the re-pin fails), the CI pull
+  line, the local-build axis being absent from CI, context hygiene, and the pull-path return.
+  **Still open, unchanged:** the arm64 entry (below), and the `:main` tag now moves ahead of the recorded digest on every
+  push (the publish job builds and pushes a fresh manifest each time) — the record stays fetchable by digest, but
+  nothing fails when the tag and the record diverge; queued as a design item.
+- [ ] arm64 execution profile + manifest entry in the registry (coh-id-04). NOT materializable on this host (2026-09-18,
+  verified: no qemu user-mode emulation, and the Containerfile's `RUN groupadd/useradd` needs target-arch execution, so a
+  cross-arch build dies 125/exec-format). Unblock paths, both needing lead action: (a) install `qemu-user-static` +
+  register binfmt, or (b) build on an arm64 runner with `--timestamp 0` and append its manifest digest. The machinery is
+  already built — a second platform appends without further code.
 - [x] Launcher-validated isolation: non-root, read-only root/inputs, dropped capabilities, no host sockets/network; launcher rejects violating configs; self-report not trusted (coh-rt-01, coh-rt-02).
   PROGRESS 2026-09-18: `hub/coherence/launcher.py` (271 lines) validates every rejection class, requires the
   platform manifest digest, and `run()` executes the derived invocation under the time/output limits.
