@@ -114,7 +114,51 @@
   (temporary) git repository with stubbed `curl` and `podman` on PATH. The
   podman stub deliberately reports a digest NO registry serves, so a run that
   recorded it would be visible. Mutation battery: 15 mutations, 0 survivors,
-  each guard killable by a named test
+  each guard killable by a named test — now 17, see the CI-found defect below
+
+  FOUND BY CI 2026-09-24 (run 36061428590, commit `43d5ead`), and it is the
+  whole argument for the hosted lane: the suite was green locally and RED
+  there. Three tests failed — `test_a_successful_re_pin_…`,
+  `test_the_operation_takes_its_digest_from_the_registry`,
+  `test_the_post_write_guard_catches_…` — every one of them with
+
+      fatal: empty ident name (for <runner@…>) not allowed
+      re-pin: the commit failed (a hook, a git identity, or an index lock)…
+
+  The suite commits: the fixtures do, and the operation under test does. The
+  identity reached fixture commits (`_git()` supplied it through the
+  environment) but not the OPERATION's commits — `_env()`, which builds the
+  environment the script runs in, supplied none, so the operation's `git
+  commit` fell back to whatever config the machine had. A developer machine
+  has a `~/.gitconfig`; the runner does not. The tests were therefore green
+  for a reason they did not assert, which is the same defect class as the two
+  vacuous assertions the first audit found, one layer further out: the suite
+  was coupled to ambient state rather than to the code.
+
+  Fixed in `bcb2d0c`. One shared identity, used by both, and deliberately the
+  ENVIRONMENT's rather than config's — the fixtures read no config
+  (`GIT_CONFIG_GLOBAL=/dev/null`), so a config-file `user.name` would not
+  reach the operation either. The battery itself now runs with HOME and
+  XDG_CONFIG_HOME pointed at empty dirs, so it cannot pass for a reason the
+  runner will not reproduce. Verified hermetically: 843 passed / 3 skipped.
+
+  The red run left one useful thing behind. It exercised the exit-6 rollback
+  — audit fix 4, above — in a real environment, and NOTHING pinned it: no
+  test in the suite named exit 6, so the rollback could have been deleted
+  unnoticed. A failing `pre-commit` hook now induces that path
+  deterministically and asserts both halves of the promise: exit 6, HEAD
+  still at `ORIG`, a clean `git status`, the record still carrying its old
+  digest, and the diagnostic that claims the rollback ("nothing was left
+  applied"). Both halves are asserted because a rollback removed while the
+  message survives is a message that lies — M17 mutates the message alone.
+  Induced by hook rather than by a missing identity on purpose: now that an
+  identity is supplied, a test depending on its ABSENCE would be the same
+  ambient coupling in reverse.
+
+  What this does NOT establish, and should not be read as: that the exit-6
+  path is covered in every way it can be reached. The hook fails the FIRST
+  commit; the second commit's failure branch is the same code with `$ORIG`
+  reached the same way, but it is not separately executed.
 
   AUDITED 2026-09-24, and the audit mattered more than the first draft. A
   fresh-eyes pass found nine defects in a version that already passed its
