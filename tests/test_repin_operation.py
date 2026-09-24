@@ -74,11 +74,31 @@ esac
 """
 
 
+def _identity() -> dict:
+    """The committer identity, supplied through the ENVIRONMENT.
+
+    Two reasons this is not optional, and the second is why it must be the
+    environment rather than config:
+
+    * Hermeticity. These tests commit — the fixtures do, and the operation
+      under test does. A suite that passes only because the operator's
+      ~/.gitconfig happens to carry a user.name is not testing the operation;
+      on a runner with no such config every one of those commits fails. That
+      is not hypothetical: run 36061428590 failed 3 tests with
+      `fatal: empty ident name (for <runner@…>) not allowed` and the
+      operation's exit 6, while the same suite was green locally.
+    * The fixtures read no config at all (`GIT_CONFIG_GLOBAL=/dev/null`), so
+      `user.name` in a config file would not be read even if it existed. Git
+      consults GIT_AUTHOR_*/GIT_COMMITTER_* before any config, which is the
+      one channel that reaches every git process here, ours and the script's.
+    """
+    return {"GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_SYSTEM": "/dev/null",
+            "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
+            "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
+
+
 def _git(repo: Path, *args, **env):
-    full = dict(os.environ, GIT_CONFIG_GLOBAL="/dev/null",
-                GIT_CONFIG_SYSTEM="/dev/null",
-                GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t",
-                GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@t")
+    full = dict(os.environ, **_identity())
     full.update(env)
     return subprocess.run(["git", "-C", str(repo), *args],
                           capture_output=True, text=True, env=full)
@@ -142,7 +162,7 @@ def _stub_bin(tmp: Path, *, served: str = SERVED, pull_rc: int = 0) -> Path:
 
 
 def _env(repo: Path, binp: Path, **extra) -> dict:
-    e = dict(os.environ)
+    e = dict(os.environ, **_identity())
     e["PATH"] = f"{binp}:{e['PATH']}"
     e["REPIN_REPO_DIR"] = str(repo)
     e["REPIN_IMAGE"] = IMAGE
@@ -530,6 +550,45 @@ class TestRePinOperation(unittest.TestCase):
             self.assertEqual(r.returncode, 4, r.stdout + r.stderr)
             self.assertEqual(_git(repo, "rev-parse", "HEAD").stdout.strip(), before,
                              "the tree was not restored after the guard failed")
+
+    def test_a_failed_commit_restores_the_tree_and_exits_six(self):
+        """A re-pin is all-or-nothing, and the message must not outrun it.
+
+        The operation edits the record, commits it, edits the template, commits
+        that — and a `git commit` can fail for reasons the operation does not
+        control (a hook, an index lock, a missing identity). Failing in the
+        middle leaves the record moved and the template not, which is exactly
+        the partial state the guard exists to refuse; the operation must undo
+        its own first commit rather than hand that state to whoever runs it
+        next. Exit 6 is that promise, and the diagnostic states it in words —
+        both are asserted here, because a rollback removed while the message
+        survives is a message that lies.
+
+        The commit failure is induced with a failing hook rather than a missing
+        identity: an identity is now supplied by the environment, and a test
+        depending on its ABSENCE would be the same ambient-config coupling in
+        reverse — green only where git has no user configured.
+        """
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            repo, head = _fixture(tmp, digest="sha256:" + "c" * 64)
+            binp = _stub_bin(tmp)
+            hooks = repo / ".git" / "hooks"
+            hooks.mkdir(exist_ok=True)
+            hook = hooks / "pre-commit"
+            hook.write_text("#!/usr/bin/env bash\nexit 1\n")
+            hook.chmod(0o755)
+
+            r = _run(repo, binp)
+            self.assertEqual(r.returncode, 6, r.stdout + r.stderr)
+            self.assertIn("nothing was left applied", r.stderr)
+            self.assertEqual(_git(repo, "rev-parse", "HEAD").stdout.strip(), head,
+                             "a commit that failed was left standing")
+            self.assertEqual(_git(repo, "status", "--porcelain").stdout.strip(), "",
+                             "the tree was left dirty after a failed commit")
+            self.assertNotEqual(
+                _rec(repo)["profiles"][0]["image_manifest_digest"], SERVED,
+                "the record kept the moved digest despite the rollback")
 
     def test_a_duplicated_literal_is_refused_before_anything_is_committed(self):
         """A second COHERENCE_IMAGE line is a template that cannot be moved.
