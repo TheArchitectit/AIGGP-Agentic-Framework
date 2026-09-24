@@ -89,11 +89,12 @@ jobs:
       # below name — the digest step reads the registry out of THIS tree, so a
       # pin that predates a re-pin fails closed with "pinned digest … is not
       # the registry's …". Moving the pin and the digest is one operation.
-      # This pin (round-18 R2) points at the first commit whose tree carries
-      # the published identity f470110c…; verified by checking that commit out
-      # and running the digest step's own resolution against its registry.
+      # This pin points at the first commit whose tree carries the published
+      # identity fc7074e7… (the re-pin that followed the repository rename);
+      # verified by checking that commit out and running the digest step's own
+      # resolution against its registry.
       DEVGATE_REPO: https://github.com/TheArchitectit/AIGGP-Agentic-Framework.git
-      DEVGATE_PIN: 960682f619873bf94afacbebe67f34d501364376
+      DEVGATE_PIN: dadfd1d870ef0eeb215b45005462eebcfc2e9267
       # CUSTOMIZE (2/4): the pinned evaluator image. What is pinned is the
       # DIGEST, not the tag — the driver refuses a ref/digest disagreement, so
       # a stale copy of these two lines fails closed in the summary rather
@@ -104,9 +105,9 @@ jobs:
       # `podman image inspect` of a locally built image — which no registry
       # can serve; the value below is the image MANIFEST digest ghcr actually
       # resolves, i.e. the one `podman pull image@digest` can fetch).
-      COHERENCE_IMAGE: ghcr.io/thearchitectit/devgate-agentic-framework/devgate-coherence
+      COHERENCE_IMAGE: ghcr.io/thearchitectit/aiggp-agentic-framework/devgate-coherence
       COHERENCE_PROFILE: linux-amd64-v1
-      COHERENCE_IMAGE_MANIFEST_DIGEST: sha256:f470110ce0caa14bb78eabc633c1bbbf63aeb9f49b15e50cd5866788964f2c6c
+      COHERENCE_IMAGE_MANIFEST_DIGEST: sha256:fc7074e70752bb7bf38473a16bc41cfd764addec61dd6030ab88235e1819b942
       # CUSTOMIZE (3/4): what to gate. Subjects are directories in THIS repo
       # that declare a coherence package. An EMPTY list is not a pass.
       COHERENCE_SUBJECTS: ""
