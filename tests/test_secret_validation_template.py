@@ -9,7 +9,7 @@ failed the build. It looked like protection and was not.
 
 Two kinds of assertion live here, and the difference matters:
 
-  * Static ones over the PARSED yaml — which actions run, and whether the
+  * Static ones over the PARSED workflow — which actions run, and whether the
     template's scanner version and checksum match this repository's own CI. A
     comment that names a removed action is documentation, not a dependency, so
     these read the parsed document rather than the file text.
@@ -23,6 +23,17 @@ Two kinds of assertion live here, and the difference matters:
     checksum that must reject wrong bytes, the gate that must be present, the
     scope line that must appear, the .env job that must fail — are run, not
     read.
+
+The parse behind the first kind is `parse_workflow` below, not a YAML library.
+This file first imported PyYAML, and the hosted test lane — which installs pytest
+and nothing else — died at collection with `ModuleNotFoundError: No module named
+'yaml'`, taking every other test with it. A test-only dependency that breaks the
+whole lane when it is absent is a worse trade than a reader for the one shape
+this repository actually writes; `scripts/detect-host-ci.py` reads workflow files
+the same way, for the same reason. A hand-rolled reader can fail quietly by
+finding nothing, so setUp asserts the parse found the jobs and steps it expects —
+otherwise a reader that returned empty would turn every assertion below into a
+vacuous pass.
 """
 from __future__ import annotations
 
@@ -34,8 +45,6 @@ import stat
 import subprocess
 import unittest
 from pathlib import Path
-
-import yaml
 
 REPO = Path(__file__).resolve().parent.parent
 TEMPLATE = REPO / "templates" / "github-workflows" / "secret-validation.yml"
@@ -63,26 +72,94 @@ exit 0
 """
 
 
-def _all_uses(doc: dict) -> list[str]:
-    """Every `uses:` the workflow would actually execute, from the parsed YAML."""
-    found = []
-    for job in (doc.get("jobs") or {}).values():
-        for step in (job.get("steps") or []):
-            if isinstance(step, dict) and "uses" in step:
-                found.append(str(step["uses"]))
-    return found
+# The workflow shape this repository writes, read by indentation. Deliberately
+# narrow: jobs -> steps -> scalar keys, plus `run: |` blocks. Indices are
+# literals because the file writes them literally; anything deeper than a step's
+# own keys (a `with:` mapping, an `env:` mapping) is skipped, which is all the
+# assertions here need and one fewer thing to get wrong.
+_JOB = re.compile(r"^ {2}([A-Za-z0-9_-]+):\s*$")
+_STEP = re.compile(r"^ {6}- ")
+_KEY = re.compile(r"^ {8}([a-z_-]+):\s*(.*)$")
+_BLOCK_INDENT = 10
 
 
-def _job_steps(doc: dict, job: str) -> list[dict]:
-    return [s for s in doc["jobs"][job]["steps"] if isinstance(s, dict)]
+def _scalar(value: str) -> str:
+    """Strip a trailing `# comment`. Values here are SHAs, versions and prose;
+    none of them contain a `#`, and a step named `uses: x@sha # v5` — which is
+    how every action in this repository is written — parses wrong without this."""
+    return re.sub(r"\s+#.*$", "", value).strip()
 
 
-def _run_text(doc: dict, job: str) -> str:
-    return "\n".join(str(s.get("run", "")) for s in _job_steps(doc, job))
+def parse_workflow(text: str) -> dict[str, list[dict]]:
+    """{job name: [step, ...]} where a step is its scalar keys, with `run: |`
+    bodies joined back from their block scalars."""
+    jobs: dict[str, list[dict]] = {}
+    in_jobs = False
+    job: str | None = None
+    step: dict | None = None
+    block: list[str] | None = None
+    block_key: str | None = None
+
+    def flush() -> None:
+        nonlocal block, block_key
+        if block is not None and step is not None and block_key is not None:
+            step[block_key] = "\n".join(block)
+        block, block_key = None, None
+
+    for raw in text.splitlines():
+        if raw.strip().startswith("#"):
+            continue
+        if re.match(r"^jobs:\s*$", raw):
+            in_jobs = True
+            continue
+        if not in_jobs:
+            continue
+        # Inside a block scalar everything belongs to it, blank lines included.
+        if block is not None:
+            if not raw.strip() or raw.startswith(" " * _BLOCK_INDENT):
+                block.append(raw[_BLOCK_INDENT:] if raw.strip() else "")
+                continue
+            flush()
+        m = _JOB.match(raw)
+        if m:
+            job, step = m.group(1), None
+            jobs.setdefault(job, [])
+            continue
+        if job is None or re.match(r"^ {4}steps:\s*$", raw):
+            continue
+        m = _STEP.match(raw)          # "      - name: X" / "      - uses: Y"
+        if m:
+            step = {}
+            jobs[job].append(step)
+            km = _KEY.match(" " * 8 + raw[8:])
+            if km:
+                step[km.group(1)] = _scalar(km.group(2))
+            continue
+        if step is None:
+            continue
+        km = _KEY.match(raw)
+        if km:
+            key, value = km.group(1), _scalar(km.group(2))
+            if raw.rstrip().endswith(("|", ">", "|-", ">-")):
+                block, block_key = [], key
+            else:
+                step[key] = value
+    flush()
+    return jobs
 
 
-def _step_run(doc: dict, job: str, name_contains: str) -> str:
-    for s in _job_steps(doc, job):
+def _all_uses(jobs: dict[str, list[dict]]) -> list[str]:
+    """Every `uses:` the workflow would actually execute."""
+    return [str(s["uses"]) for steps in jobs.values() for s in steps
+            if "uses" in s]
+
+
+def _job_steps(jobs: dict[str, list[dict]], job: str) -> list[dict]:
+    return list(jobs[job])
+
+
+def _step_run(jobs: dict[str, list[dict]], job: str, name_contains: str) -> str:
+    for s in _job_steps(jobs, job):
         if name_contains in str(s.get("name", "")):
             return str(s.get("run", ""))
     raise AssertionError(f"no step in job {job!r} whose name contains "
@@ -105,7 +182,14 @@ def _pin(text: str) -> tuple[str | None, str | None]:
 class TestSecretValidationTemplate(unittest.TestCase):
     def setUp(self):
         self.text = TEMPLATE.read_text(encoding="utf-8")
-        self.doc = yaml.safe_load(self.text)
+        self.jobs = parse_workflow(self.text)
+        # Non-vacuity for a hand-rolled reader. A reader that quietly returns
+        # nothing would make every assertion below pass by finding nothing to
+        # fail, which is the same false-green this suite was written to refuse.
+        for job in ("secret-scan", "check-env-files"):
+            self.assertIn(job, self.jobs,
+                          f"the workflow parse found no {job!r} job")
+            self.assertTrue(self.jobs[job], f"{job!r} parsed with no steps")
 
     # --- it calls the gate, rather than reimplementing it --------------------
 
@@ -113,7 +197,7 @@ class TestSecretValidationTemplate(unittest.TestCase):
         """Asserted on the step that runs, not on the file: the SETUP header
         also says `scripts/secret-scan.sh`, so a text search is satisfied by the
         prose even after the invocation itself has been broken."""
-        run = _step_run(self.doc, "secret-scan", "Secret scan (")
+        run = _step_run(self.jobs, "secret-scan", "Secret scan (")
         self.assertIn("bash scripts/secret-scan.sh", run)
         self.assertTrue(GATE.is_file(), "the gate it invokes is missing")
 
@@ -121,7 +205,7 @@ class TestSecretValidationTemplate(unittest.TestCase):
         """Executed: with no gate script, the step must fail rather than pass a
         job that scanned nothing."""
         with self._scratch() as tmp:
-            run = _step_run(self.doc, "secret-scan", "Gate present")
+            run = _step_run(self.jobs, "secret-scan", "Gate present")
             r = self._bash(run, tmp)
             self.assertNotEqual(r.returncode, 0,
                                 "a missing gate produced a passing step")
@@ -135,7 +219,7 @@ class TestSecretValidationTemplate(unittest.TestCase):
     def test_the_scan_step_fails_when_the_gate_does_not_report_a_scope(self):
         """Non-vacuity, executed. A gate that exits 0 without naming a scope did
         not run; the step must not read that as a clean repository."""
-        run = _step_run(self.doc, "secret-scan", "Secret scan (")
+        run = _step_run(self.jobs, "secret-scan", "Secret scan (")
         with self._scratch() as tmp:
             _write_exec(tmp / "scripts" / "secret-scan.sh",
                         '#!/bin/bash\necho "did nothing"\nexit 0\n')
@@ -145,7 +229,7 @@ class TestSecretValidationTemplate(unittest.TestCase):
             self.assertIn("did not run", r.stdout + r.stderr)
 
     def test_the_scan_step_reports_its_scope_and_propagates_a_finding(self):
-        run = _step_run(self.doc, "secret-scan", "Secret scan (")
+        run = _step_run(self.jobs, "secret-scan", "Secret scan (")
         with self._scratch() as tmp:
             gate = tmp / "scripts" / "secret-scan.sh"
             _write_exec(gate, '#!/bin/bash\necho "[secret-scan] scope: working tree"\nexit 0\n')
@@ -161,19 +245,19 @@ class TestSecretValidationTemplate(unittest.TestCase):
     # --- the mechanism is the pinned binary, not a marketplace action --------
 
     def test_no_marketplace_scanning_action(self):
-        for ref in _all_uses(self.doc):
+        for ref in _all_uses(self.jobs):
             self.assertNotIn("gitleaks-action", ref,
                              f"the template still runs {ref}")
 
     def test_no_floating_action_reference(self):
         """An action referenced by tag is an action referenced by whatever the
         tag points at today."""
-        floating = [r for r in _all_uses(self.doc) if re.search(r"@v\d+$", r)]
+        floating = [r for r in _all_uses(self.jobs) if re.search(r"@v\d+$", r)]
         self.assertEqual(floating, [],
                          f"floating action reference(s): {floating}")
 
     def test_every_action_is_pinned_by_commit_sha(self):
-        uses = _all_uses(self.doc)
+        uses = _all_uses(self.jobs)
         self.assertTrue(uses, "the template declares no actions")
         for ref in uses:
             _, _, sha = ref.partition("@")
@@ -187,7 +271,7 @@ class TestSecretValidationTemplate(unittest.TestCase):
         string. The sandbox exists because the first draft of this test passed
         or failed according to whether the HOST had gitleaks installed, which is
         a measurement of the machine rather than of the template."""
-        run = _step_run(self.doc, "secret-scan", "Provide the pinned scanner")
+        run = _step_run(self.jobs, "secret-scan", "Provide the pinned scanner")
         with self._scratch() as tmp:
             sb = self._sandbox(tmp, scanner=True)
             r = self._bash(run, tmp, sandbox=sb)
@@ -201,7 +285,7 @@ class TestSecretValidationTemplate(unittest.TestCase):
         installed. Measured against the real release — the vendor's checksum file
         and the artifact agree on 8.30.1 — so what is left to pin is that the
         check runs before the bytes are used."""
-        run = _step_run(self.doc, "secret-scan", "Provide the pinned scanner")
+        run = _step_run(self.jobs, "secret-scan", "Provide the pinned scanner")
         self.assertIn("sha256sum -c", run)
         with self._scratch() as tmp:
             sb = self._sandbox(tmp, scanner=False)
@@ -215,7 +299,7 @@ class TestSecretValidationTemplate(unittest.TestCase):
                              "unverified bytes reached the install step")
 
     def test_scanner_version_is_asserted_after_install(self):
-        run = _step_run(self.doc, "secret-scan", "pinned version")
+        run = _step_run(self.jobs, "secret-scan", "pinned version")
         self.assertIn("gitleaks version", run)
 
     # --- the one assertion no future author is trusted to remember -----------
@@ -247,7 +331,7 @@ class TestSecretValidationTemplate(unittest.TestCase):
         """Executed: kept because it covers what a ruleset cannot — a committed
         .env whose contents are not key-shaped. It prints filenames, never
         contents, and it must still fail."""
-        run = _step_run(self.doc, "check-env-files", "No committed .env")
+        run = _step_run(self.jobs, "check-env-files", "No committed .env")
         with self._scratch() as tmp:
             self.assertEqual(self._bash(run, tmp).returncode, 0,
                              "the .env check fails on an empty tree")
@@ -261,10 +345,13 @@ class TestSecretValidationTemplate(unittest.TestCase):
 
     # --- shape ---------------------------------------------------------------
 
-    def test_yaml_parses_and_both_jobs_are_declared(self):
-        jobs = self.doc.get("jobs") or {}
-        self.assertIn("secret-scan", jobs)
-        self.assertIn("check-env-files", jobs)
+    def test_both_jobs_are_declared_with_their_steps(self):
+        self.assertIn("secret-scan", self.jobs)
+        self.assertIn("check-env-files", self.jobs)
+        # Both jobs read; the scan job carries the four steps the assertions
+        # above index into by name, so a rename shows up as a failure to find
+        # the step rather than as a silently skipped check.
+        self.assertGreaterEqual(len(self.jobs["secret-scan"]), 4)
 
     # --- harness -------------------------------------------------------------
 
