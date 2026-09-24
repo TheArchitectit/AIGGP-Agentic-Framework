@@ -10,6 +10,7 @@ or verifies the identity, that file exercises the launcher/driver contract
 against it.
 """
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -184,6 +185,29 @@ def ensure_pinned_image(test) -> str:
     return ref
 
 
+
+
+class TestIdentityChainPreconditions(unittest.TestCase):
+    """The identity guard depends on a checkout property; assert it here.
+
+    `test_the_pinned_commit_carries_the_pinned_identity` (template suite)
+    resolves DEVGATE_PIN with `git show <pin>:container/execution-profiles.json`,
+    which a default fetch-depth-1 checkout cannot answer. The failure mode is
+    not a red guard — it is a guard that cannot run at all, which is the shape
+    this whole slice exists to remove. On 2026-09-24 that is exactly what
+    happened: the fetch-depth fix was written and forgotten, so the guard went
+    red on hosted for a reason unrelated to the pin.
+    """
+
+    def test_the_tests_job_checks_out_full_history(self):
+        text = CI.read_text(encoding="utf-8")
+        m = re.search(r"\n  tests:\n(.*?)(?=\n  [a-z][a-z0-9-]*:\n|\Z)",
+                      text, re.S)
+        self.assertTrue(m, "ci.yml declares no tests job")
+        if "fetch-depth: 0" not in m.group(1):
+            self.fail("the tests job checks out shallow — the pin guard reads "
+                      "the registry out of the pinned commit's tree, so it "
+                      "needs the object: add `with: fetch-depth: 0`")
 
 
 class TestPinnedImageHelper(unittest.TestCase):
