@@ -75,11 +75,15 @@ jobs:
       # clone then checkout a fixed commit, so the gate's own code is
       # addressed by content, not by whatever HEAD happens to be. This commit
       # MUST contain hub/coherence/invoke.py (the request builder this gate now
-      # calls) and the schema-bearing image — so the pin and the digest below
-      # move together at the publish-gated re-pin (they are stale against the
-      # pre-builder tree; see tasks.md round-18).
+      # calls) AND the container/execution-profiles.json whose digest the pins
+      # below name — the digest step reads the registry out of THIS tree, so a
+      # pin that predates a re-pin fails closed with "pinned digest … is not
+      # the registry's …". Moving the pin and the digest is one operation.
+      # This pin (round-18 R2) points at the first commit whose tree carries
+      # the published identity f470110c…; verified by checking that commit out
+      # and running the digest step's own resolution against its registry.
       DEVGATE_REPO: https://github.com/TheArchitectit/DevGate-Agentic-Framework.git
-      DEVGATE_PIN: cb29c002db0fa5c04a3984300e780a0a3e84f76d
+      DEVGATE_PIN: 960682f619873bf94afacbebe67f34d501364376
       # CUSTOMIZE (2/4): the pinned evaluator image. What is pinned is the
       # DIGEST, not the tag — the driver refuses a ref/digest disagreement, so
       # a stale copy of these two lines fails closed in the summary rather

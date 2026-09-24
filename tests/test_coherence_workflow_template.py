@@ -15,6 +15,7 @@ Dual-runnable: pytest collects test_*; `python3 <this file>` runs them too.
 """
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -88,6 +89,41 @@ def test_template_pins_a_full_commit():
     assert m, "template declares no DEVGATE_PIN"
     assert re.fullmatch(r"[0-9a-f]{40}", m.group(1)), \
         f"pin {m.group(1)!r} is not a full commit sha"
+
+
+def test_the_pinned_commit_carries_the_pinned_identity():
+    """coh-id-04 + coh-int-01: the pin names a tree that agrees with the pins.
+
+    The gate checks DEVGATE_PIN out into .devgate and reads
+    container/execution-profiles.json FROM THAT TREE, then SKIPs with FAIL=1
+    when its digest is not COHERENCE_IMAGE_MANIFEST_DIGEST. So a pin that
+    predates a re-pin is not a stale-but-harmless value: every consumer's
+    coherence gate lands at SKIPPED. That makes the pinned tree part of the
+    identity — this performs the digest step's own resolution, against the
+    registry at the pin, so a pin that does not carry the identity fails here
+    instead of in every consumer's summary.
+    """
+    m = re.search(r"^\s*DEVGATE_PIN:\s*([0-9a-f]{40})\s*$", _text(), re.M)
+    assert m, "template declares no 40-hex DEVGATE_PIN"
+    shown = subprocess.run(["git", "-C", str(REPO), "show",
+                            f"{m.group(1)}:container/execution-profiles.json"],
+                           capture_output=True, text=True)
+    assert shown.returncode == 0, (
+        f"the pinned commit {m.group(1)} does not carry "
+        f"container/execution-profiles.json — either it is not in this clone "
+        f"(the tests job checks out with fetch-depth 0 precisely so it is), or "
+        f"the pin predates the identity registry. Re-pin to a commit whose tree "
+        f"carries it: {shown.stderr.strip()[:160]}")
+    env, pinned = _template_env(), json.loads(shown.stdout)
+    assert env.get("COHERENCE_IMAGE") == pinned["image"], (
+        f"the pin's tree records image {pinned['image']!r}, the template pins "
+        f"{env.get('COHERENCE_IMAGE')!r}")
+    prof = next((p for p in pinned["profiles"]
+                 if p.get("label") == env.get("COHERENCE_PROFILE")), None)
+    assert prof, (f"the pin's tree has no profile {env.get('COHERENCE_PROFILE')!r}")
+    assert env.get("COHERENCE_IMAGE_MANIFEST_DIGEST") == prof["image_manifest_digest"], (
+        f"the pin's tree records digest {prof['image_manifest_digest']}, the "
+        f"template pins {env.get('COHERENCE_IMAGE_MANIFEST_DIGEST')}")
 
 
 def test_template_does_not_declare_floating_versions():
