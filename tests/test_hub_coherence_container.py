@@ -1,14 +1,16 @@
 # // spec: coh-rt-01, coh-rt-02, coh-rt-05, coh-rt-07, coh-id-04, coh-dec-04
 """Container increment suite: digest-pinned Containerfile (coh-rt-01),
-execution-profile registry integrity (coh-id-04), the containerized-execution
-driver's exit-code mapping (coh-rt-05, coh-rt-07, coh-dec-04), and a
-real-Podman smoke run under the launcher's enforced flag set. All fixtures
-synthetic (R9).
+base-image pinning (coh-rt-02), the containerized-execution driver's exit-code
+mapping (coh-rt-05, coh-rt-07, coh-dec-04), and the real-container run under
+the launcher's enforced flag set. All fixtures synthetic (R9).
+
+Which bytes get launched — the identity registry, the pin's fetchability, and
+the smoke run itself — lives in test_coherence_image_identity.py; this file
+covers HOW the driver launches them.
 """
 import json
 import os
 import shutil
-import subprocess
 import sys
 import tempfile
 import unittest
@@ -20,26 +22,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from hub.coherence import container_exec as ce
 from hub.coherence import schemacheck
 from hub.coherence.launcher import LaunchRun
-from hub.coherence.profiles import (ProfileRegistryError, check_launch_digest,
-                                    load_registry, resolve_profile,
-                                    validate_registry)
+from hub.coherence.profiles import load_registry, resolve_profile
+from tests.test_coherence_image_identity import ensure_pinned_image  # noqa: E402
 
 REPO = Path(__file__).resolve().parent.parent
 CONTAINERFILE = REPO / "container/Containerfile"
 REGISTRY = REPO / "container/execution-profiles.json"
-REGISTRY_SCHEMA = (REPO / "openspec/changes/devgate-spec-coherence-service"
-                          "/schemas/execution-profiles.schema.json")
-
-VALID_REGISTRY = {
-    "schema": "execution-profiles",
-    "image": "localhost/devgate-coherence",
-    "profiles": [
-        {"label": "linux-amd64-v1", "platform": "linux/amd64",
-         "image_manifest_digest": "sha256:" + "a" * 64,
-         "base_image": "docker.io/library/python@sha256:" + "b" * 64,
-         "semantic_equivalence_group": "default", "built": "2026-09-18"},
-    ],
-}
 
 
 def _lines(text, directive):
@@ -152,168 +140,6 @@ class TestContainerfile(unittest.TestCase):
                    if resolve(c.split()[-1]) == in_container_dir)
         self.assertTrue(src.rstrip("/").endswith("schemas"),
                         f"schema COPY source must be the schemas dir, got {src}")
-
-
-class TestExecutionProfilesRegistry(unittest.TestCase):
-    def setUp(self):
-        self.reg = load_registry(REGISTRY)
-
-    def test_real_registry_loads_and_validates(self):
-        self.assertEqual(self.reg["schema"], "execution-profiles")
-        labels = [p["label"] for p in self.reg["profiles"]]
-        self.assertIn("linux-amd64-v1", labels)
-
-    def test_registry_matches_its_frozen_schema(self):
-        schema = json.loads(REGISTRY_SCHEMA.read_text(encoding="utf-8"))
-        errs = schemacheck.validate(json.loads(REGISTRY.read_text()), schema)
-        self.assertEqual(errs, [], f"registry violates its schema: {errs}")
-
-    def test_frozen_schema_is_strict(self):
-        schema = json.loads(REGISTRY_SCHEMA.read_text(encoding="utf-8"))
-
-        def walk(node, path):
-            if isinstance(node, dict):
-                if node.get("type") == "object" and "properties" in node:
-                    self.assertIs(node.get("additionalProperties"), False,
-                                  f"{path}: schema objects must be strict")
-                for k, v in node.items():
-                    walk(v, f"{path}/{k}")
-            elif isinstance(node, list):
-                for i, v in enumerate(node):
-                    walk(v, f"{path}/{i}")
-
-        walk(schema, "$")
-
-    def test_resolve_profile_and_mismatch(self):
-        p = resolve_profile(self.reg, "linux-amd64-v1")
-        self.assertRegex(p["image_manifest_digest"], r"^sha256:[0-9a-f]{64}$")
-        check_launch_digest(self.reg, "linux-amd64-v1",
-                            p["image_manifest_digest"])
-        with self.assertRaises(ProfileRegistryError) as cm:
-            check_launch_digest(self.reg, "linux-amd64-v1",
-                                "sha256:" + "0" * 64)
-        self.assertEqual(str(cm.exception),
-                         "profile-digest-mismatch:linux-amd64-v1")
-
-    def test_unknown_profile_unresolvable(self):
-        with self.assertRaises(ProfileRegistryError) as cm:
-            resolve_profile(self.reg, "linux/riscv64-baseline")
-        self.assertEqual(str(cm.exception),
-                         "undeclared-profile:linux/riscv64-baseline")
-
-    def test_registry_shape_rejections(self):
-        bad = dict(VALID_REGISTRY)
-        bad["schema"] = "nope"
-        with self.assertRaises(ProfileRegistryError):
-            validate_registry(bad)
-        bad = json.loads(json.dumps(VALID_REGISTRY))
-        bad["profiles"][0]["label"] = "linux-amd64-v1"
-        bad["profiles"].append(dict(bad["profiles"][0]))
-        with self.assertRaises(ProfileRegistryError) as cm:
-            validate_registry(bad)
-        self.assertEqual(str(cm.exception),
-                         "duplicate-profile-label:linux-amd64-v1")
-        bad = json.loads(json.dumps(VALID_REGISTRY))
-        bad["profiles"][0]["image_manifest_digest"] = "sha256:short"
-        with self.assertRaises(ProfileRegistryError):
-            validate_registry(bad)
-        bad = json.loads(json.dumps(VALID_REGISTRY))
-        bad["profiles"][0]["platform"] = "linux/riscv64"
-        with self.assertRaises(ProfileRegistryError):
-            validate_registry(bad)
-
-
-CI = REPO / ".github/workflows/ci.yml"
-
-
-class TestIdentityChainInCI(unittest.TestCase):
-    """The pipeline must check the identity on the axis consumers use.
-
-    Measured 2026-09-23: `podman image inspect` of a LOCALLY BUILT image
-    reports a digest the registry never serves — the push re-encodes the
-    manifest (local 2eff3fd9…/9fd3b543…, registry manifest f470110c… for the
-    same bytes). A check comparing that local number to the registry record is
-    therefore config-against-config: it agrees with itself while shipping a
-    pin no consumer can fetch, which is exactly what the S4 pin was.
-    Fetchability is the checkable property, and it is the one the consumer
-    chain depends on.
-    """
-
-    def setUp(self):
-        self.text = CI.read_text(encoding="utf-8")
-
-    def test_ci_verifies_the_recorded_identity_is_fetchable(self):
-        self.assertIn("container/execution-profiles.json", self.text,
-                      "CI never reads the identity registry")
-        self.assertRegex(
-            self.text, r'podman pull[^\n]*"\$IMAGE@\$RECORDED"',
-            "CI does not pull the recorded image@digest: nothing in the "
-            "pipeline proves the pinned identity resolves from a registry")
-
-    def test_ci_never_compares_a_local_build_digest_to_the_record(self):
-        """The defect signature: a locally built tag's `.Digest` read as the
-        published identity.
-
-        Banned outright rather than only banned-when-compared: the value is
-        not merely unused here, it is WRONG for every purpose in this
-        pipeline (the registry does not serve it), and printing it is how the
-        unpullable pin was recorded in the first place. Diagnostics want the
-        served digest — `$IMAGE:main`, resolved after the push.
-        """
-        self.assertNotIn(
-            "image inspect --format '{{.Digest}}' devgate-coherence", self.text,
-            "CI compares a locally built image's digest to the identity "
-            "record — a different axis; the registry never serves that value")
-
-
-PROFILE_LABEL = "linux-amd64-v1"
-
-
-def pinned_ref() -> str:
-    """The image@digest the pinned registry says consumers must launch."""
-    reg = load_registry(REGISTRY)
-    prof = resolve_profile(reg, PROFILE_LABEL)
-    return f"{reg['image']}@{prof['image_manifest_digest']}"
-
-
-def ensure_pinned_image(test) -> str:
-    """Make the PINNED image available locally, or skip (never pass).
-
-    The subject of a real-container test is the pinned identity, not a local
-    rebuild: measured 2026-09-23, the same source built here and on the hosted
-    runner produced different config digests, so a local tag is a DIFFERENT
-    artifact than the bytes consumers execute — running it would certify bytes
-    nobody runs. Present already, or pull the pinned ref (what a consumer
-    does); if neither, the test cannot evaluate and says so.
-    """
-    ref = pinned_ref()
-    if subprocess.run(["podman", "image", "exists", ref],
-                      capture_output=True).returncode == 0:
-        return ref
-    r = subprocess.run(["podman", "pull", "--quiet", ref],
-                       capture_output=True, text=True, timeout=900)
-    if r.returncode != 0:
-        test.skipTest(f"pinned image {ref} is not present and could not be "
-                      f"pulled: {r.stderr.strip()[:200]}")
-
-
-@unittest.skipUnless(shutil.which("podman"), "podman not available")
-class TestImageSmoke(unittest.TestCase):
-    """Real-sandbox smoke: the PINNED image must run the service CLI under
-    the launcher's enforced flag set (isolation suite is not satisfied by
-    Dockerfile inspection alone)."""
-
-    def setUp(self):
-        self.IMAGE = ensure_pinned_image(self)
-
-    def test_service_runs_under_enforced_flags(self):
-        args = ["podman", "run", "--rm",
-                "--read-only", "--read-only-tmpfs",
-                "--cap-drop=ALL", "--security-opt=no-new-privileges",
-                "--network=none", self.IMAGE, "--help"]
-        r = subprocess.run(args, capture_output=True, text=True, timeout=120)
-        self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertIn("usage: hub.coherence", r.stdout)
 
 
 DRIVER_API = "devgate.spec-coherence/v1"

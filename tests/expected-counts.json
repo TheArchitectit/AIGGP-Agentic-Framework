@@ -1,8 +1,9 @@
 {
  "note": "fw-floor-01: per-suite test-count floors (90% of the recorded suite). Update deliberately; a suite dropping below its floor FAILS CI. Regenerate: python3 tests/gen_floors.py --update",
  "floors": {
+  "test_coherence_image_identity": 10,
   "test_coherence_local_wrapper": 12,
-  "test_coherence_workflow_template": 9,
+  "test_coherence_workflow_template": 10,
   "test_evidence_integrity": 18,
   "test_findings_to_spec": 4,
   "test_fw_guards": 6,
@@ -18,7 +19,7 @@
   "test_hub_coherence_attestation": 28,
   "test_hub_coherence_cache": 23,
   "test_hub_coherence_conformance": 27,
-  "test_hub_coherence_container": 30,
+  "test_hub_coherence_container": 25,
   "test_hub_coherence_decision": 5,
   "test_hub_coherence_evidence": 9,
   "test_hub_coherence_exitcodes": 30,
@@ -43,14 +44,16 @@
   "test_hub_watchdog": 7,
   "test_metamorphic": 21,
   "test_python_root_anchor": 6,
+  "test_quickstart_init": 3,
   "test_regression_check": 24,
   "test_regression_corpus": 12,
   "test_regression_sizes": 4,
   "test_resource_governance": 16,
+  "test_runner_enroll": 18,
   "test_scope_contract": 4,
   "test_silent_success_gate": 3,
   "test_silent_success_overlay": 5,
   "test_spec_traceability": 10
  },
- "total_floor": 665
+ "total_floor": 693
 }
