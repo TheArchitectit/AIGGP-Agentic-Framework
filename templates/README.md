@@ -9,9 +9,10 @@ templates/
 ├── README.md                        # This file
 ├── github-workflows/                # Copy-into-.github/workflows templates
 │   ├── guardrails-compliance.yml    # Process gates (scope, forbidden files, commits, AI attribution)
-│   ├── secret-validation.yml        # Gitleaks + .env + credential + hardcoded-secret scan
+│   ├── secret-validation.yml        # Pinned gitleaks via scripts/secret-scan.sh + .env check
 │   ├── file-size-check.yml          # CI-enforced source-file line-count limit
 │   ├── smoke-gate.yml               # Headless run + completion-sentinel validation
+│   ├── spec-coherence.yml           # Spec coherence-service gate (pinned image, digest-checked)
 │   └── drift-scan.yml               # Scheduled full-tree sweep, host-aware runner targeting
 ├── runner/                          # Self-hosted runner standard (ghcr.io + Podman/Docker)
 │   ├── README.md                    # The standard: official image, quadlet, secrets hygiene
@@ -37,6 +38,12 @@ Each file in `github-workflows/` is a drop-in workflow. To use one:
 4. Commit and push — the workflow runs on your next PR
 
 The templates are deliberately generic: no game-specific paths, no hard-coded binary names. They work for any project — game engine, web app, CLI tool, data pipeline.
+
+One template ships with a companion script rather than standing alone:
+`secret-validation.yml` is a thin caller for `scripts/secret-scan.sh`, which is
+copied in beside it and kept executable. That is on purpose — the scanning
+behaviour is then the behaviour this repository tests, instead of a second
+implementation that drifts. Details are in the template's `SETUP` header.
 
 ### Self-Hosted Runner Standard
 
