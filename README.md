@@ -1,11 +1,17 @@
-# DevGate Agentic Framework
+# AIGGP — Agent Intelligence Gate Loop Guardrails Platform
 
 [![Sponsor](https://img.shields.io/badge/Sponsor-TheArchitectit-FF69B4?style=flat&logo=github-sponsors)](https://github.com/sponsors/TheArchitectit)
 
-A quality gate for AI-assisted development. Drop it into a project — TypeScript,
-Python, Rust, Go, GDScript, or a mix — and you get test isolation, regression
-scanning, deploy gates, scheduled drift scans, CI workflow templates, a
-self-hosted runner standard, and agent-behavior guardrails.
+This repository is DevGate, a quality gate for AI-assisted development, on a
+settled path to merge into AIGGP — the **Agent Intelligence Gate Loop Guardrails
+Platform** (the plan is in the [AIGGP section](#aiggp--agent-intelligence-gate-loop-guardrails-platform)
+below). The heading carries the destination now, the way a rename is announced
+before the paperwork; what ships from this repository today is still DevGate.
+
+Drop it into a project — TypeScript, Python, Rust, Go, GDScript, or a mix — and
+you get test isolation, regression scanning, deploy gates, scheduled drift scans,
+CI workflow templates, a self-hosted runner standard, and agent-behavior
+guardrails.
 
 DevGate is not a template or a starter kit, and it won't rearrange your code. It
 imposes no directory layout, language, package manager, or test framework. It
