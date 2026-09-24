@@ -207,7 +207,7 @@ is inferred from reading the configuration.
 | Scanners resolve the project root without escaping to an ancestor | `tests` job → `tests/test_scanner_root_anchor.mjs` | **GREEN** |
 | A pushed commit cannot carry a credential into `main` | `secrets` job → `scripts/secret-scan.sh` over the pushed range | **GREEN.** Run [36048653103](https://github.com/TheArchitectit/AIGGP-Agentic-Framework/actions/runs/36048653103) — the runner had no scanner, so the fetch path ran for real: `sha256sum` printed `gitleaks.tar.gz: OK` against the pin, `gitleaks version` printed `8.30.1`, and the gate reported `scope: commits in 5d59989..fba5f9e, plus the working tree` with 0 findings. |
 | The evaluator image builds reproducibly, carrying its frozen schemas | `container-image` job → `podman build` plus an in-image schema load | **GREEN.** Two consecutive runs on `main` built the identical digest and printed `schemas OK in image`. The build is content-addressed over `hub/` and the coherence schemas. |
-| The recorded identity is bytes a consumer can actually fetch | `container-image` job → anonymous `podman pull image@recorded`, then a schema load inside the fetched bytes | **GREEN.** Run [36022160394](https://github.com/TheArchitectit/AIGGP-Agentic-Framework/actions/runs/36022160394) pulls `ghcr.io/…/devgate-coherence@sha256:f470110c…` with `REGISTRY_AUTH_FILE=/nonexistent` — a consumer's runner has no credentials either — compares the fetched manifest digest against `container/execution-profiles.json`, and loads the schemas from the fetched bytes. |
+| The recorded identity is bytes a consumer can actually fetch | `container-image` job → anonymous `podman pull image@recorded`, then a schema load inside the fetched bytes | **GREEN.** Run [36055148205](https://github.com/TheArchitectit/AIGGP-Agentic-Framework/actions/runs/36055148205) pulls `ghcr.io/thearchitectit/aiggp-agentic-framework/devgate-coherence@sha256:fc7074e70752…` with `REGISTRY_AUTH_FILE=/nonexistent` — a consumer's runner has no credentials either — and loads the schemas from those bytes (`schemas OK in the fetched image`). The pull is the whole check: it verifies the manifest it fetched against the requested digest, so a success means the registry holds bytes addressed by the record. |
 
 That identity row spent a day green while the pin was unpullable, and the reason
 is worth one sentence: it compared a locally built image's digest against the
@@ -216,6 +216,17 @@ the registry serves. They matched on hosted CI, so the check passed while
 `podman pull` of that exact record failed with `manifest unknown` for every
 consumer. Pushing re-encodes the manifest; only a pull establishes the pullable
 identity, so the gate now pulls.
+
+Then the pull gained a second comparison — the fetched ref's `podman image
+inspect`, against the record — and that one is local-storage too. On
+2026-09-24 it failed a *correct* pin: the pull landed, the fetched bytes were
+the pinned image's, and the check still went red because the store reported
+`6032c209…` for bytes the registry addresses as `fc7074e7…`. The same read was
+in the publish job's `served digest` line, where it printed a digest no
+consumer could fetch (`manifest unknown`, anonymously, for the value it had
+just advertised). Both now take their answer from the registry, and a test
+runs each step against a podman that refuses to echo back the digest it was
+handed — the failure is reproduced rather than described.
 
 The item total isn't quoted on purpose: `--all` counts discovered items, so any
 fixed number goes stale the moment a package is added. And the negative control
