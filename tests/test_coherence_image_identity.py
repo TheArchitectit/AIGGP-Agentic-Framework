@@ -10,9 +10,11 @@ or verifies the identity, that file exercises the launcher/driver contract
 against it.
 """
 import json
+import os
 import re
 import shutil
 import subprocess
+import tempfile
 import sys
 import unittest
 from pathlib import Path
@@ -113,6 +115,62 @@ class TestExecutionProfilesRegistry(unittest.TestCase):
 CI = REPO / ".github/workflows/ci.yml"
 
 
+def _step_body(text: str, name: str) -> str:
+    """The `run:` shell body of a named step, by indentation.
+
+    No YAML library, for the same reason `scripts/detect-host-ci.py` reads
+    `runs-on:` by hand: a workflow parsed with a dependency the lane does not
+    install takes the whole suite down with it. The body comes back without
+    its YAML indentation, because it is executed rather than read.
+    """
+    lines = text.splitlines()
+    first = next((i for i, ln in enumerate(lines)
+                  if ln.strip() == f"- name: {name}"), None)
+    assert first is not None, f"ci.yml has no step named {name!r}"
+    stop = len(lines)
+    for j in range(first + 1, len(lines)):
+        if re.match(r"^ {2,6}- ", lines[j]):
+            stop = j
+            break
+    step = lines[first:stop]
+    for k, ln in enumerate(step):
+        if re.match(r"^ {8}run:\s*[|>]", ln):
+            body = []
+            for b in step[k + 1:]:
+                if b.strip() and not b.startswith(" " * 10):
+                    break
+                body.append(b[10:] if b.strip() else "")
+            return "\n".join(body)
+    raise AssertionError(f"step {name!r} has no run block")
+
+
+# A podman behaving like the hosted runner did on 2026-09-24: the pull lands,
+# and `image inspect --format {{.Digest}}` prints a value no registry serves.
+# Whether a local store reports back the requested digest is not a property
+# this pipeline controls, so a gate whose verdict depends on it goes red on a
+# correct record - which is what run 36052355931 did.
+PODMAN_STUB = """#!/bin/bash
+case "$1" in
+  pull)  exit "${STUB_PULL_RC:-0}" ;;
+  image) echo "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"; exit 0 ;;
+  run)   exit 0 ;;
+esac
+exit 0
+"""
+
+CURL_STUB = """#!/bin/bash
+url=""
+while [ $# -gt 0 ]; do
+  case "$1" in http*) url="$1" ;; esac
+  shift
+done
+case "$url" in
+  *"/token"*)      printf '{"token":"stub"}' ;;
+  *"/manifests/"*) printf 'HTTP/2 200\\r\\ndocker-content-digest: %s\\r\\n\\r\\n' "${STUB_SERVED_DIGEST:-none}" ;;
+esac
+"""
+
+
 class TestIdentityChainInCI(unittest.TestCase):
     """The pipeline must check the identity on the axis consumers use.
 
@@ -152,6 +210,81 @@ class TestIdentityChainInCI(unittest.TestCase):
             "CI compares a locally built image's digest to the identity "
             "record — a different axis; the registry never serves that value")
 
+
+    def _run_step(self, name: str, *, podman: str, curl: str | None = None,
+                  env_extra: dict | None = None):
+        """Execute ci.yml's step for real, with stubbed registry tooling.
+
+        Running the step is the point: a text assertion cannot tell a working
+        guard from one mutated into `if false;`. `python3` is the real one —
+        the step reads the identity registry with it — and the stubs shadow
+        podman and curl at the front of PATH.
+        """
+        with tempfile.TemporaryDirectory() as d:
+            sb = Path(d) / "bin"
+            sb.mkdir()
+            for tool, body in (("podman", podman), ("curl", curl)):
+                if body is None:
+                    continue
+                path = sb / tool
+                path.write_text(body)
+                path.chmod(0o755)
+            env = {**os.environ,
+                   "PATH": f"{sb}:{os.environ['PATH']}",
+                   "GITHUB_REPOSITORY":
+                       "TheArchitectit/AIGGP-Agentic-Framework",
+                   "GITHUB_SHA": "a" * 40}
+            env.update(env_extra or {})
+            return subprocess.run(["/bin/bash", "-c", _step_body(self.text, name)],
+                                  cwd=str(REPO), env=env, capture_output=True,
+                                  text=True, timeout=120)
+
+    def test_the_identity_gate_decides_on_the_pull_alone(self):
+        """Executed against a podman that will not report the requested digest.
+
+        The pull IS the identity check: `podman pull repo@digest` fails when
+        the registry does not hold those bytes, which is the property the
+        consumer chain needs and the only one checkable from an anonymous
+        runner. Adding a comparison of podman's local-storage `.Digest`
+        against the record introduces a second, unowned axis — and on run
+        36052355931 that is exactly what happened: the pull of the correct
+        record landed (the fetched config digest was the pinned image's), the
+        comparison disagreed, and the job went red on a good pin. Both halves
+        are asserted here, because "stop checking" is not the fix either — an
+        unfetchable record must still fail.
+        """
+        step = "Recorded identity resolves to fetchable bytes (hard gate)"
+        ok = self._run_step(step, podman=PODMAN_STUB)
+        self.assertEqual(ok.returncode, 0,
+                         "a fetchable record failed the gate because the local "
+                         f"store disagreed with it: {ok.stdout}{ok.stderr}")
+        bad = self._run_step(step, podman=PODMAN_STUB,
+                             env_extra={"STUB_PULL_RC": "1"})
+        self.assertNotEqual(bad.returncode, 0,
+                            "an unfetchable record passed the identity gate")
+        self.assertIn("no registry serves", bad.stdout + bad.stderr)
+
+    def test_the_publish_job_reports_what_the_registry_serves(self):
+        """Executed: the `served digest` line must be the registry's value.
+
+        Measured 2026-09-24 (run 36050827753): the job printed
+        `served digest: sha256:6032c209…` for a tag the registry resolves to
+        `sha256:fc7074e7…`, and pulling `@6032c209…` anonymously returned
+        `manifest unknown`. It read `podman image inspect` after a pull, which
+        stays on the local-storage axis. Recording a re-pin from that line is
+        how the S4 pin was once recorded unpullable, so the assertion is that
+        the reported value is the one the registry advertises.
+        """
+        served = "sha256:" + "a" * 64
+        r = self._run_step("Push to ghcr.io (sha-pinned)", podman=PODMAN_STUB,
+                           curl=CURL_STUB,
+                           env_extra={"STUB_SERVED_DIGEST": served})
+        self.assertEqual(r.returncode, 0, f"{r.stdout}{r.stderr}")
+        self.assertIn(f"served digest: {served}", r.stdout)
+        self.assertNotIn("served digest: sha256:ffff", r.stdout,
+                         "the job reported a local-storage digest — a value no "
+                         "consumer can fetch (measured: 6032c209… vs the "
+                         "registry's fc7074e7…)")
 
 PROFILE_LABEL = "linux-amd64-v1"
 

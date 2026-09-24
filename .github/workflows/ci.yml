@@ -284,14 +284,17 @@ jobs:
             --entrypoint python3 devgate-coherence -c \
             "from hub.coherence import schemacheck; schemacheck.load('request.schema.json'); schemacheck.load('result.schema.json'); print('schemas OK in image')"
       # The identity record names THE BYTES CONSUMERS PULL, so that is what
-      # gets checked — not the local build's digest. Measured 2026-09-23: a
+      # gets checked — not a local store's digest. Measured 2026-09-23: a
       # locally built image's `podman image inspect {{.Digest}}` is a value no
       # registry ever serves (the push re-encodes the manifest: local
       # 2eff3fd9…, registry manifest f470110c… for the same bytes), so the
       # previous comparison here was config-against-config — it agreed with
       # itself and the S4 pin shipped UNPULLABLE (`manifest unknown` for every
       # consumer, while this job was green). Fetchability is the property the
-      # consumer chain depends on, and it is checkable from here.
+      # consumer chain depends on, and it is checkable from here. Measured
+      # again 2026-09-24: a PULLED image's local `.Digest` is no better an
+      # axis than a built one's (run 36052355931), so the pull is the whole
+      # check and nothing local is compared to the record.
       - name: Recorded identity resolves to fetchable bytes (hard gate)
         run: |
           if ! command -v podman >/dev/null 2>&1; then
@@ -308,11 +311,21 @@ jobs:
             echo "::error::the identity registry names bytes no registry serves ($IMAGE@$RECORDED) — every consumer gate would SKIP at launch"
             exit 1
           fi
-          FETCHED="$(podman image inspect --format '{{.Digest}}' "$IMAGE@$RECORDED")"
-          if [ "$FETCHED" != "$RECORDED" ]; then
-            echo "::error::fetched $FETCHED is not the recorded $RECORDED"
-            exit 1
-          fi
+          # The pull above IS the check, and it is a strong one: `podman pull
+          # repo@digest` verifies the manifest it fetched against the requested
+          # digest, so success means the registry holds bytes addressed by the
+          # record.
+          #
+          # Deliberately NOT compared afterwards: `podman image inspect
+          # --format '{{.Digest}}'` of the ref just pulled reads the LOCAL
+          # store, and whether that echoes the requested digest is not a
+          # property this pipeline owns. Measured 2026-09-24 on run
+          # 36052355931 — the pull of a correct record landed (the fetched
+          # config digest was the pinned image's) and the comparison still
+          # failed the job, the store reporting 6032c209… for bytes the
+          # registry addresses as fc7074e7…. Same wrong-axis comparison this
+          # job was fixed for once already, then against a built image and now
+          # against a pulled one.
           # The fetched bytes must be the evaluator, not merely resolvable: the
           # image carries its frozen contracts (coh-rt-08, F1) — prove it on
           # the digest-pinned ref, under the launcher's enforced flag set.
@@ -404,14 +417,25 @@ jobs:
             podman tag devgate-coherence "$TAG"
             podman push "$TAG"
           done
-          # Report the digest a CONSUMER resolves — NOT the local build's.
-          # Pushing re-encodes the manifest, so `podman image inspect` of the
-          # local build names bytes the registry does not have (measured:
-          # local 2eff3fd9… vs served f470110c…). Reporting the local value
-          # here is precisely how the S4 pin was recorded unpullable, so
-          # re-resolve the pushed ref and report that.
-          podman pull --quiet "$IMAGE:main"
-          SERVED="$(podman image inspect --format '{{.Digest}}' "$IMAGE:main")"
+          # Report the digest a CONSUMER resolves, read from the REGISTRY —
+          # never from podman's local store. Pushing re-encodes the manifest,
+          # and a local `.Digest` is a value no registry serves: measured
+          # 2eff3fd9… for a local build, and 6032c209… for an image pulled as
+          # fc7074e7… (run 36050827753). Recording a pin from either is how
+          # the S4 identity was once recorded unpullable, so ask ghcr what it
+          # serves for the tag — the manifest's Docker-Content-Digest.
+          REPO_PATH="${IMAGE#ghcr.io/}"
+          TOKEN="$(curl -fsS \
+            "https://ghcr.io/token?scope=repository:${REPO_PATH}:pull&service=ghcr.io" \
+            | python3 -c 'import json,sys;print(json.load(sys.stdin)["token"])')"
+          SERVED="$(curl -fsS -o /dev/null -D - -H "Authorization: Bearer $TOKEN" \
+            -H 'Accept: application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json' \
+            "https://ghcr.io/v2/${REPO_PATH}/manifests/main" \
+            | tr -d '\r' | awk 'tolower($1) == "docker-content-digest:" {print $2}')"
+          if [ -z "$SERVED" ]; then
+            echo "::error::ghcr reported no digest for $IMAGE:main — this run cannot be recorded as an identity"
+            exit 1
+          fi
           RECORDED="$(python3 -c "import json;print(json.load(open('container/execution-profiles.json'))['profiles'][0]['image_manifest_digest'])")"
           echo "served digest: $SERVED"
           if [ "$SERVED" != "$RECORDED" ]; then
