@@ -65,6 +65,16 @@
   tick for it (img-cycle-05)
 - [ ] 4.2 Replace the publish job's `::notice::`-only divergence report with
   the same advisory path
+  - FIXED 2026-09-24 (commit `413167e`), and the finding was bigger than this
+    item: the same wrong-axis read was in the HARD GATE too, which went red on
+    a correct pin (run 36052355931 — the anonymous pull landed and the
+    comparison failed it anyway). Both are fixed: the gate now decides on the
+    pull alone (which verifies the fetched manifest against the requested
+    digest) and never reads a local `.Digest`; the publish job reads
+    `Docker-Content-Digest` from the registry API. Killed by one named test
+    each, executing the step against a podman stub that refuses to echo the
+    requested digest; 2 mutations, 2 killed. What remains of 4.2 is the
+    advisory half — raising this as a fleet alert rather than a run notice.
   - MEASURED 2026-09-24, and it is worse than "notice only": the job's
     `served digest` line is **not a digest any registry serves.** After
     `podman pull --quiet "$IMAGE:main"` it prints
