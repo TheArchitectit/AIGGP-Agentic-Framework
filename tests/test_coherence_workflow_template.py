@@ -78,6 +78,28 @@ def test_template_name_matches_the_hub_matcher():
         f"workflow name {m.group(1)!r} does not match the hub's matcher"
 
 
+def test_template_runner_label_is_overridable():
+    """Runner labels are REPO-SCOPED, so one hardcoded label is wrong somewhere.
+
+    Measured 2026-09-24 (infra-info @3e156ba): the framework registers
+    `devgate`, gamerepo01 registers `devgate-game`, rad-gateway registers
+    `devgate-radgateway,fleet` — the name `devgate` is not a fleet-wide label,
+    it is a per-repo one. A gate copied into a repo whose runner carries a
+    different label does not fail: it QUEUES FOREVER and reports nothing at
+    all, which is the silent case this template exists to avoid. So the label
+    must be set by the repo, with the historical default kept as the fallback.
+    """
+    m = re.search(r"^\s*runs-on:\s*(\S.*)$", _text(), re.M)
+    assert m, "template declares no runs-on"
+    target = m.group(1).strip()
+    assert "vars.DEVGATE_RUNNER_LABEL" in target, (
+        f"runner label is hardcoded ({target!r}) — a repo whose runner carries "
+        f"a different label queues forever; read it from a repo variable")
+    assert "devgate" in target, "no default label in the fallback"
+    assert "queue" in _text().lower(), (
+        "the setup notes must name the queue-forever failure mode")
+
+
 def test_template_pins_a_full_commit():
     """coh-int-01: the runtime is addressed by content, not by a moving ref.
 

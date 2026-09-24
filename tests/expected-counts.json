@@ -3,7 +3,7 @@
  "floors": {
   "test_coherence_image_identity": 11,
   "test_coherence_local_wrapper": 12,
-  "test_coherence_workflow_template": 11,
+  "test_coherence_workflow_template": 12,
   "test_evidence_integrity": 18,
   "test_findings_to_spec": 4,
   "test_fw_guards": 6,
@@ -55,5 +55,5 @@
   "test_silent_success_overlay": 5,
   "test_spec_traceability": 10
  },
- "total_floor": 694
+ "total_floor": 695
 }

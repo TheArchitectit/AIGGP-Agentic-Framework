@@ -29,9 +29,15 @@
 #
 # SETUP
 #   - Copy to .github/workflows/spec-coherence.yml in a repo whose runner is
-#     enrolled (label `devgate` or a per-repo label such as `devgate-game`).
-#   - CUSTOMIZE the three values under `env:` below: the pin, the pinned image
-#     digest, and the subjects to gate.
+#     enrolled. RUNNER LABELS ARE REPO-SCOPED, not fleet-wide: measured
+#     2026-09-24 (infra-info @3e156ba) the framework registers `devgate`,
+#     gamerepo01 `devgate-game`, rad-gateway `devgate-radgateway`. Set the
+#     repository variable DEVGATE_RUNNER_LABEL to THIS repo's label. If it names
+#     a label no runner carries the job does not fail — it QUEUES FOREVER and
+#     reports nothing at all, so the gate looks absent rather than broken. Unset,
+#     it falls back to `devgate` (correct on this framework, wrong elsewhere).
+#   - CUSTOMIZE the values under `env:` below: the pin, the pinned image digest,
+#     and the subjects to gate — plus DEVGATE_RUNNER_LABEL as a repo variable.
 #   - The runner must have podman and the pinned image already present. The
 #     container phase is host-side: the image is NOT pulled here, because a
 #     pull would make the executed bytes depend on the network rather than on
@@ -67,7 +73,11 @@ concurrency:
 jobs:
   coherence:
     name: "Spec coherence gate"
-    runs-on: devgate
+    # Repo-scoped, so it is read from a repo variable with the historical
+    # default as fallback — see SETUP. A label no runner carries queues
+    # forever; drift-scan.yml resolves the same problem by reading the repo's
+    # own declared labels.
+    runs-on: ${{ vars.DEVGATE_RUNNER_LABEL || 'devgate' }}
     timeout-minutes: 20
 
     env:
