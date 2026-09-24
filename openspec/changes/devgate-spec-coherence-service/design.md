@@ -336,7 +336,7 @@ In enforced mode, inability to produce a trustworthy result blocks promotion. An
 
 Operational metrics: duration, resource use, cache behavior, evaluator failure rate, advisory age, exception age, findings by assertion class. Telemetry MUST NOT contain source content, secrets, evidence payloads, or unredacted excerpts. Metrics never affect deterministic classification.
 
-## Fleet integration notes (DevGate-Agentic-Framework)
+## Fleet integration notes (AIGGP-Agentic-Framework)
 
 Confirmed against fleet reconnaissance on 2026-09-17 (sources: framework repo + private `TheArchitectit/infra-info`):
 

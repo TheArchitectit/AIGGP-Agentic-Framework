@@ -92,7 +92,7 @@ jobs:
       # This pin (round-18 R2) points at the first commit whose tree carries
       # the published identity f470110c…; verified by checking that commit out
       # and running the digest step's own resolution against its registry.
-      DEVGATE_REPO: https://github.com/TheArchitectit/DevGate-Agentic-Framework.git
+      DEVGATE_REPO: https://github.com/TheArchitectit/AIGGP-Agentic-Framework.git
       DEVGATE_PIN: 960682f619873bf94afacbebe67f34d501364376
       # CUSTOMIZE (2/4): the pinned evaluator image. What is pinned is the
       # DIGEST, not the tag — the driver refuses a ref/digest disagreement, so

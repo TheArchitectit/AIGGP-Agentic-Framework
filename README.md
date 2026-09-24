@@ -35,10 +35,10 @@ you only take one idea from this project, take that one.
 
 ```bash
 # As a submodule (recommended — stays in sync with upstream)
-git submodule add https://github.com/TheArchitectit/DevGate-Agentic-Framework.git .devgate
+git submodule add https://github.com/TheArchitectit/AIGGP-Agentic-Framework.git .devgate
 
 # Or clone directly
-git clone https://github.com/TheArchitectit/DevGate-Agentic-Framework.git .devgate
+git clone https://github.com/TheArchitectit/AIGGP-Agentic-Framework.git .devgate
 ```
 
 Every script finds your project root and scans whatever source files exist,
@@ -205,9 +205,9 @@ is inferred from reading the configuration.
 | Strict validation actually refuses malformed material | `specs` job → `scripts/specs-validate-negative-control.sh` | **GREEN** |
 | The per-file runner discovers this repo's own tests | `tests` job → discovered count ≥ 1 | **GREEN** |
 | Scanners resolve the project root without escaping to an ancestor | `tests` job → `tests/test_scanner_root_anchor.mjs` | **GREEN** |
-| A pushed commit cannot carry a credential into `main` | `secrets` job → `scripts/secret-scan.sh` over the pushed range | **GREEN.** Run [36048653103](https://github.com/TheArchitectit/DevGate-Agentic-Framework/actions/runs/36048653103) — the runner had no scanner, so the fetch path ran for real: `sha256sum` printed `gitleaks.tar.gz: OK` against the pin, `gitleaks version` printed `8.30.1`, and the gate reported `scope: commits in 5d59989..fba5f9e, plus the working tree` with 0 findings. |
+| A pushed commit cannot carry a credential into `main` | `secrets` job → `scripts/secret-scan.sh` over the pushed range | **GREEN.** Run [36048653103](https://github.com/TheArchitectit/AIGGP-Agentic-Framework/actions/runs/36048653103) — the runner had no scanner, so the fetch path ran for real: `sha256sum` printed `gitleaks.tar.gz: OK` against the pin, `gitleaks version` printed `8.30.1`, and the gate reported `scope: commits in 5d59989..fba5f9e, plus the working tree` with 0 findings. |
 | The evaluator image builds reproducibly, carrying its frozen schemas | `container-image` job → `podman build` plus an in-image schema load | **GREEN.** Two consecutive runs on `main` built the identical digest and printed `schemas OK in image`. The build is content-addressed over `hub/` and the coherence schemas. |
-| The recorded identity is bytes a consumer can actually fetch | `container-image` job → anonymous `podman pull image@recorded`, then a schema load inside the fetched bytes | **GREEN.** Run [36022160394](https://github.com/TheArchitectit/DevGate-Agentic-Framework/actions/runs/36022160394) pulls `ghcr.io/…/devgate-coherence@sha256:f470110c…` with `REGISTRY_AUTH_FILE=/nonexistent` — a consumer's runner has no credentials either — compares the fetched manifest digest against `container/execution-profiles.json`, and loads the schemas from the fetched bytes. |
+| The recorded identity is bytes a consumer can actually fetch | `container-image` job → anonymous `podman pull image@recorded`, then a schema load inside the fetched bytes | **GREEN.** Run [36022160394](https://github.com/TheArchitectit/AIGGP-Agentic-Framework/actions/runs/36022160394) pulls `ghcr.io/…/devgate-coherence@sha256:f470110c…` with `REGISTRY_AUTH_FILE=/nonexistent` — a consumer's runner has no credentials either — compares the fetched manifest digest against `container/execution-profiles.json`, and loads the schemas from the fetched bytes. |
 
 That identity row spent a day green while the pin was unpullable, and the reason
 is worth one sentence: it compared a locally built image's digest against the

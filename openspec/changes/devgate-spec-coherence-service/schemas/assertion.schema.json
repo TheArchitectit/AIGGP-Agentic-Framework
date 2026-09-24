@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/TheArchitectit/DevGate-Agentic-Framework/openspec/changes/devgate-spec-coherence-service/schemas/assertion.schema.json",
+  "$id": "https://github.com/TheArchitectit/AIGGP-Agentic-Framework/openspec/changes/devgate-spec-coherence-service/schemas/assertion.schema.json",
   "title": "devgate.spec-coherence.assertion/v1",
   "description": "Operational assertion model (coh-assert-01..06). Every required property is machine-readable; identity assertions compare against approved package values; release manifests bind an inner payload digest.",
   "type": "object",

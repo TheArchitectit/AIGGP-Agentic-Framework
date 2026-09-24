@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/TheArchitectit/DevGate-Agentic-Framework/openspec/changes/devgate-spec-coherence-service/schemas/run-envelope.schema.json",
+  "$id": "https://github.com/TheArchitectit/AIGGP-Agentic-Framework/openspec/changes/devgate-spec-coherence-service/schemas/run-envelope.schema.json",
   "title": "devgate.spec-coherence.run-envelope/v1",
   "description": "Noncanonical transport envelope. Written LAST in the acyclic sealing order; references the detached attestation location.",
   "type": "object",

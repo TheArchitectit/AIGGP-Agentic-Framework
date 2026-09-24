@@ -39,7 +39,7 @@ jobs:
         run: |
           set -euo pipefail
           rm -rf .devgate
-          git clone https://github.com/TheArchitectit/DevGate-Agentic-Framework.git .devgate
+          git clone https://github.com/TheArchitectit/AIGGP-Agentic-Framework.git .devgate
           git -C .devgate checkout cb29c002db0fa5c04a3984300e780a0a3e84f76d
 
       - name: Drift gate suite (full tree)
@@ -86,6 +86,6 @@ jobs:
             echo "| silent-success | ${RES[silent-success]:-NOT_RUN} |"
             echo "| semantic | ${RES[semantic]:-NOT_RUN} |"
             echo ""
-            echo "Scanners: DevGate-Agentic-Framework@cb29c002 (in-tree clone, pinned)"
+            echo "Scanners: AIGGP-Agentic-Framework@cb29c002 (in-tree clone, pinned)"
           } >> "$GITHUB_STEP_SUMMARY"
           exit $FAIL

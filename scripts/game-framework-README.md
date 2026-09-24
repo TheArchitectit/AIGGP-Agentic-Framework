@@ -1,6 +1,6 @@
 # devgate-game-framework
 
-Game-development quality gates for AI-assisted game builds, pulled into DevGate-Agentic-Framework as a git submodule.
+Game-development quality gates for AI-assisted game builds, pulled into AIGGP-Agentic-Framework as a git submodule.
 
 ## Modules
 - **Game-Type Phase Matrix** — minimum required features/screens/verification per game type × phase (Prototype→Alpha→Beta→Release→Post-release)

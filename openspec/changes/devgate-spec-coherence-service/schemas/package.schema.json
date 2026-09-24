@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/TheArchitectit/DevGate-Agentic-Framework/openspec/changes/devgate-spec-coherence-service/schemas/package.schema.json",
+  "$id": "https://github.com/TheArchitectit/AIGGP-Agentic-Framework/openspec/changes/devgate-spec-coherence-service/schemas/package.schema.json",
   "title": "devgate.openspec.package/v1 package manifest",
   "description": "Package manifest. Normative inventory is authenticated; reclassification changes the digest and invalidates approval. Approval itself is a detached control-plane record — no self-referential approved_revision field (coh-pkg-03, coh-pkg-05, coh-ev-07).",
   "type": "object",

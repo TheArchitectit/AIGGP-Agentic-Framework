@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/TheArchitectit/DevGate-Agentic-Framework/openspec/changes/devgate-spec-coherence-service/schemas/signer-set.schema.json",
+  "$id": "https://github.com/TheArchitectit/AIGGP-Agentic-Framework/openspec/changes/devgate-spec-coherence-service/schemas/signer-set.schema.json",
   "title": "devgate.spec-coherence.signer-set/v1",
   "description": "HMAC pilot stand-in per ADR-018: symmetric verification keys travel in the control-plane-issued set; production splits signing/verification keys.",
   "type": "object",

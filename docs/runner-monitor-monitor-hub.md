@@ -124,7 +124,7 @@ is why the hub is monitor-only (see Q3 below).
 ### 1. Build the image and pin the base digest
 
 ```bash
-cd /path/to/DevGate-Agentic-Framework
+cd /path/to/AIGGP-Agentic-Framework
 podman build -t devgate-hub:local -f templates/runner-monitor/Containerfile .
 ```
 

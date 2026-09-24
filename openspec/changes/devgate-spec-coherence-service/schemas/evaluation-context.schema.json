@@ -1,6 +1,6 @@
 {
  "$schema": "http://json-schema.org/draft-07/schema#",
- "$id": "https://github.com/TheArchitectit/DevGate-Agentic-Framework/openspec/changes/devgate-spec-coherence-service/schemas/evaluation-context.schema.json",
+ "$id": "https://github.com/TheArchitectit/AIGGP-Agentic-Framework/openspec/changes/devgate-spec-coherence-service/schemas/evaluation-context.schema.json",
  "title": "devgate.spec-coherence.context/v1 evaluation context",
  "description": "Control-plane-issued bound input carrying everything policy-relevant that varies with time or adoption state. Digested and bound like every other input (R2 / ADR-012).",
  "type": "object",

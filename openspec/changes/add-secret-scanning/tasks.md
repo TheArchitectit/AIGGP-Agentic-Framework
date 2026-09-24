@@ -70,7 +70,7 @@
   that passes because the gate never ran is the exact failure this workflow
   exists to prevent
 - [x] 3.3 First real run's result, ledgered (2026-09-24, run
-  [36048653103](https://github.com/TheArchitectit/DevGate-Agentic-Framework/actions/runs/36048653103),
+  [36048653103](https://github.com/TheArchitectit/AIGGP-Agentic-Framework/actions/runs/36048653103),
   all seven jobs green). The runner carried **no** scanner, so the fetch path
   ran in production rather than only against a stub: `sha256sum -c` printed
   `gitleaks.tar.gz: OK` against the pin, and `gitleaks version` printed `8.30.1`.

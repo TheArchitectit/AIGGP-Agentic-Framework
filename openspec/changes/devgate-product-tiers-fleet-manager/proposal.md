@@ -41,7 +41,7 @@ Full OpenSpec package
 Date: 2026-09-18
 Working change ID: devgate-product-tiers-fleet-manager
 Status: PROPOSED - BLOCKED
-Repository: TheArchitectit/DevGate-Agentic-Framework
+Repository: TheArchitectit/AIGGP-Agentic-Framework
 Repository snapshot audited for structure: e9ea400c5bf6a6fcacf55264b82c16ebf5f1c7b0
 Predecessor package: devgate-spec-coherence-service
 Predecessor document: https://docs.google.com/document/d/1uQKm0Wurg-BTsFHKeSLyBT6FGsEaG172V1K2ErnxM4k/edit
@@ -201,7 +201,7 @@ bound to loopback and dell-u2's tailnet address rather than 0.0.0.0.
 Current runner topology recorded in the infrastructure source:
 
 - dell-u2: devgate-runner / runner name dell-u2, repo-scoped to
-  DevGate-Agentic-Framework, label devgate, durable work volume
+  AIGGP-Agentic-Framework, label devgate, durable work volume
   devgate-runner-work.
 - dell-u2: devgate-runner-mc / runner name dell-u2-mc, repo-scoped to
   missioncontrol, labels devgate-mc2 and devgate-mc, durable work volume
@@ -364,7 +364,7 @@ rad-gateway:
 Requirement REPO-001: single repository
 
 All work in this package SHALL land in
-TheArchitectit/DevGate-Agentic-Framework. No fleet-manager, compliance,
+TheArchitectit/AIGGP-Agentic-Framework. No fleet-manager, compliance,
 evidence, or enterprise repository SHALL be created by this package.
 
 Reason: one repository keeps contract changes atomic, avoids duplicate CI and
@@ -1579,7 +1579,7 @@ Do not implement this package yet.
 First, finish and accept devgate-spec-coherence-service. Then:
 
 1. Pin the accepted predecessor package identity and read its full package.
-2. Audit every file in TheArchitectit/DevGate-Agentic-Framework at the new
+2. Audit every file in TheArchitectit/AIGGP-Agentic-Framework at the new
    current head.
 3. Run all repository tests and gates from a clean clone. Treat zero-input
    gates as no evidence.
@@ -1608,7 +1608,7 @@ First, finish and accept devgate-spec-coherence-service. Then:
 
 Repository and current paths:
 
-https://github.com/TheArchitectit/DevGate-Agentic-Framework
+https://github.com/TheArchitectit/AIGGP-Agentic-Framework
 
 Predecessor OpenSpec:
 

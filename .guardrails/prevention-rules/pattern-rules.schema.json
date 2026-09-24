@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/TheArchitectit/DevGate-Agentic-Framework/.guardrails/prevention-rules/pattern-rules.schema.json",
+  "$id": "https://github.com/TheArchitectit/AIGGP-Agentic-Framework/.guardrails/prevention-rules/pattern-rules.schema.json",
   "description": "JSON Schema for validating pattern-rules.json — language-agnostic prevention rules for regression detection",
   "type": "object",
   "required": ["$schema", "description", "version", "rules"],
