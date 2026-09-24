@@ -160,6 +160,29 @@
   commit; the second commit's failure branch is the same code with `$ORIG`
   reached the same way, but it is not separately executed.
 
+  SECOND CI FINDING 2026-09-24 (run 36062353190, commit `098387b`), and this
+  one was self-inflicted: the tests job went GREEN and the gates job went RED,
+  because the re-pin suite had grown to 648 lines against a 600-line hard
+  limit. Adding the exit-6 test is what pushed it over. The local mirror had
+  been run for pytest, guardrails, exec bits, floors, openspec and
+  `git diff --check` — the regression check was the one step skipped, and it
+  was the step that would have caught this. Fixed in `08554a4` by moving the
+  HARNESS — the throwaway git repository and the bin/ of stubs — out to
+  `tests/fixtures/repin.py`, where ten other suites already keep theirs. The
+  suite is 504 lines; no test logic changed. The file-size report is the thing
+  to read here, not the exit code (a separate lesson this repository already
+  paid for once).
+
+  That move then reproduced the repository's own root-anchor defect class in
+  miniature, which is worth recording because it is the second time this
+  month a root resolved one directory off silently: `REPO =
+  Path(__file__).resolve().parent.parent` was the checkout root from
+  `tests/` and `tests/` itself from `tests/fixtures/`, so all 21 tests failed
+  with `bash: …: No such file or directory`. The anchor now refuses to import
+  when the path it resolved does not carry the script, and that refusal was
+  verified by re-creating the move — the same rule `scripts/lib/project_root.py`
+  states for the scanners (root-anchor-01).
+
   AUDITED 2026-09-24, and the audit mattered more than the first draft. A
   fresh-eyes pass found nine defects in a version that already passed its
   tests, four of them able to ship a broken pin:
