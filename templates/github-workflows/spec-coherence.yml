@@ -83,11 +83,16 @@ jobs:
       # CUSTOMIZE (2/4): the pinned evaluator image. What is pinned is the
       # DIGEST, not the tag — the driver refuses a ref/digest disagreement, so
       # a stale copy of these two lines fails closed in the summary rather
-      # than running unpinned bytes. Keep the digest equal to the one recorded
-      # in .devgate/container/execution-profiles.json for the profile below.
-      COHERENCE_IMAGE: localhost/devgate-coherence
+      # than running unpinned bytes. Keep BOTH lines equal to what the pinned
+      # clone records in .devgate/container/execution-profiles.json for the
+      # profile below (a test enforces the agreement, and the QA on
+      # 2026-09-23 found the field was carrying a build-time config digest —
+      # `podman image inspect` of a locally built image — which no registry
+      # can serve; the value below is the image MANIFEST digest ghcr actually
+      # resolves, i.e. the one `podman pull image@digest` can fetch).
+      COHERENCE_IMAGE: ghcr.io/thearchitectit/devgate-agentic-framework/devgate-coherence
       COHERENCE_PROFILE: linux-amd64-v1
-      COHERENCE_IMAGE_MANIFEST_DIGEST: sha256:2eff3fd9bde8e0905d538ffac5045010a728722854e0af7cf923572256372d8b
+      COHERENCE_IMAGE_MANIFEST_DIGEST: sha256:f470110ce0caa14bb78eabc633c1bbbf63aeb9f49b15e50cd5866788964f2c6c
       # CUSTOMIZE (3/4): what to gate. Subjects are directories in THIS repo
       # that declare a coherence package. An EMPTY list is not a pass.
       COHERENCE_SUBJECTS: ""
@@ -151,8 +156,18 @@ jobs:
           REASON=""
           if ! command -v podman >/dev/null 2>&1; then
             REASON="podman not on PATH"
-          elif ! podman image exists "$COHERENCE_IMAGE" 2>/dev/null; then
-            REASON="pinned image $COHERENCE_IMAGE not present locally (not pulled by design)"
+          elif ! podman image exists "$COHERENCE_IMAGE@$COHERENCE_IMAGE_MANIFEST_DIGEST" 2>/dev/null; then
+            # Digest-qualified on purpose. Measured 2026-09-23: a BARE name
+            # resolves to `:latest`, so the previous `podman image exists
+            # "$COHERENCE_IMAGE"` reported "not present" on a host that
+            # plainly had the image (rc=1 with the pinned ref present,
+            # rc=0 for the qualified one) — the doctor was inert in the
+            # direction that matters. And present-by-name is not
+            # present-by-identity: another build of the same tag must not
+            # pass, since the driver executes the DIGEST. No pull here by
+            # design (coh-rt-01): the executed bytes come from provisioning,
+            # not from the network at gate time.
+            REASON="pinned image $COHERENCE_IMAGE@$COHERENCE_IMAGE_MANIFEST_DIGEST not present locally (not pulled by design)"
           fi
           if [ -n "$REASON" ]; then
             echo "::${COHERENCE_DOCTOR_LEVEL}::container phase unavailable: $REASON"

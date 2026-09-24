@@ -11,9 +11,22 @@
 #
 # Build (reproducible-ish; fixed timestamps):
 #   podman build --timestamp 0 -t devgate-coherence -f container/Containerfile .
-#   podman image inspect --format '{{.Digest}}' devgate-coherence
-# Record the resulting manifest digest + platform in
-# container/execution-profiles.json (coh-id-04 identity registry).
+#   podman image inspect --format '{{.Digest}}' devgate-coherence   # local build
+#
+# Record the platform + the digest THE REGISTRY SERVES in
+# container/execution-profiles.json (coh-id-04 identity registry) — which is
+# NOT the local build's digest. Measured 2026-09-23: pushing re-encodes the
+# manifest, so `podman image inspect` of a locally built image names bytes the
+# registry does not have (local 2eff3fd9…, served f470110c… for the same
+# bytes) and `podman pull image@2eff3fd9…` fails with "manifest unknown".
+# Recording the local value is how the S4 pin shipped unpullable. Re-resolve
+# the pushed ref instead:
+#   podman pull --quiet "$IMAGE:main"
+#   podman image inspect --format '{{.Digest}}' "$IMAGE:main"
+# `.containerignore` keeps the context to tracked source: untracked
+# __pycache__ in a working tree otherwise rides into the image (measured: 33
+# entries, config digest 8ca8ac95… — vs ef02f38a… for the same source built
+# from a clean checkout), making the recorded identity unreproducible.
 
 FROM docker.io/library/python@sha256:78387bc3881b8273120a12ebe6c1ab22b018ccc2c9adf565ae1ac9b536e184ea
 

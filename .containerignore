@@ -1,0 +1,14 @@
+# Build-context exclusions for the pinned evaluator image.
+#
+# Measured 2026-09-23: `COPY hub/` picks up untracked `hub/**/__pycache__`
+# from a working tree (33 entries, gitignored, invisible in `git status`).
+# The image then differs from the one a CLEAN checkout builds — different
+# config digest for the same source (8ca8ac95… with bytecode, ef02f38a…
+# without) — so the recorded identity is unreproducible and a local rebuild
+# can never be compared to it. Excluding it makes the context match what CI
+# builds: tracked source only.
+**/__pycache__
+**/*.pyc
+**/*.pyo
+.pytest_cache
+.mypy_cache

@@ -80,6 +80,27 @@ class TestContainerfile(unittest.TestCase):
                                  f"build-time {banned} would break the "
                                  "no-network/no-installer profile")
 
+    def test_build_context_excludes_untracked_bytecode(self):
+        """The build context must be tracked source only.
+
+        Measured 2026-09-23: `COPY hub/` from a working tree carried 33
+        untracked, gitignored `__pycache__` entries into the image, so
+        rebuilding the SAME source locally and from a clean checkout produced
+        different bytes (config digests 8ca8ac95… vs ef02f38a…). The recorded
+        identity was then unreproducible by anyone — and `.gitignore` does not
+        cover a build context. `.containerignore` is what keeps the two in
+        step; with it the dirty-tree build reproduces ef02f38a… exactly.
+        """
+        ignore = REPO / ".containerignore"
+        self.assertTrue(
+            ignore.exists(),
+            "no .containerignore: untracked bytecode rides into the image, "
+            "so the pinned identity is unreproducible")
+        patterns = {ln.strip() for ln in
+                    ignore.read_text(encoding="utf-8").splitlines()}
+        self.assertIn("**/__pycache__", patterns,
+                      "bytecode must be excluded from the build context")
+
     def test_containerfile_carries_the_frozen_schemas(self):
         """coh-rt-08, and the podman-free control for the F1/D2 regression.
 
@@ -202,19 +223,88 @@ class TestExecutionProfilesRegistry(unittest.TestCase):
             validate_registry(bad)
 
 
+CI = REPO / ".github/workflows/ci.yml"
+
+
+class TestIdentityChainInCI(unittest.TestCase):
+    """The pipeline must check the identity on the axis consumers use.
+
+    Measured 2026-09-23: `podman image inspect` of a LOCALLY BUILT image
+    reports a digest the registry never serves — the push re-encodes the
+    manifest (local 2eff3fd9…/9fd3b543…, registry manifest f470110c… for the
+    same bytes). A check comparing that local number to the registry record is
+    therefore config-against-config: it agrees with itself while shipping a
+    pin no consumer can fetch, which is exactly what the S4 pin was.
+    Fetchability is the checkable property, and it is the one the consumer
+    chain depends on.
+    """
+
+    def setUp(self):
+        self.text = CI.read_text(encoding="utf-8")
+
+    def test_ci_verifies_the_recorded_identity_is_fetchable(self):
+        self.assertIn("container/execution-profiles.json", self.text,
+                      "CI never reads the identity registry")
+        self.assertRegex(
+            self.text, r'podman pull[^\n]*"\$IMAGE@\$RECORDED"',
+            "CI does not pull the recorded image@digest: nothing in the "
+            "pipeline proves the pinned identity resolves from a registry")
+
+    def test_ci_never_compares_a_local_build_digest_to_the_record(self):
+        """The defect signature: a locally built tag's `.Digest` read as the
+        published identity.
+
+        Banned outright rather than only banned-when-compared: the value is
+        not merely unused here, it is WRONG for every purpose in this
+        pipeline (the registry does not serve it), and printing it is how the
+        unpullable pin was recorded in the first place. Diagnostics want the
+        served digest — `$IMAGE:main`, resolved after the push.
+        """
+        self.assertNotIn(
+            "image inspect --format '{{.Digest}}' devgate-coherence", self.text,
+            "CI compares a locally built image's digest to the identity "
+            "record — a different axis; the registry never serves that value")
+
+
+PROFILE_LABEL = "linux-amd64-v1"
+
+
+def pinned_ref() -> str:
+    """The image@digest the pinned registry says consumers must launch."""
+    reg = load_registry(REGISTRY)
+    prof = resolve_profile(reg, PROFILE_LABEL)
+    return f"{reg['image']}@{prof['image_manifest_digest']}"
+
+
+def ensure_pinned_image(test) -> str:
+    """Make the PINNED image available locally, or skip (never pass).
+
+    The subject of a real-container test is the pinned identity, not a local
+    rebuild: measured 2026-09-23, the same source built here and on the hosted
+    runner produced different config digests, so a local tag is a DIFFERENT
+    artifact than the bytes consumers execute — running it would certify bytes
+    nobody runs. Present already, or pull the pinned ref (what a consumer
+    does); if neither, the test cannot evaluate and says so.
+    """
+    ref = pinned_ref()
+    if subprocess.run(["podman", "image", "exists", ref],
+                      capture_output=True).returncode == 0:
+        return ref
+    r = subprocess.run(["podman", "pull", "--quiet", ref],
+                       capture_output=True, text=True, timeout=900)
+    if r.returncode != 0:
+        test.skipTest(f"pinned image {ref} is not present and could not be "
+                      f"pulled: {r.stderr.strip()[:200]}")
+
+
 @unittest.skipUnless(shutil.which("podman"), "podman not available")
 class TestImageSmoke(unittest.TestCase):
-    """Real-sandbox smoke: the built image must run the service CLI under
+    """Real-sandbox smoke: the PINNED image must run the service CLI under
     the launcher's enforced flag set (isolation suite is not satisfied by
     Dockerfile inspection alone)."""
 
-    IMAGE = "localhost/devgate-coherence"
-
     def setUp(self):
-        r = subprocess.run(["podman", "image", "exists", self.IMAGE],
-                           capture_output=True)
-        if r.returncode != 0:
-            self.skipTest("devgate-coherence image not built locally")
+        self.IMAGE = ensure_pinned_image(self)
 
     def test_service_runs_under_enforced_flags(self):
         args = ["podman", "run", "--rm",
@@ -230,11 +320,17 @@ DRIVER_API = "devgate.spec-coherence/v1"
 
 
 def launch_cfg(manifest=None):
-    """Launch config whose profile/digest resolve against the real registry."""
-    dig = load_registry(REGISTRY)["profiles"][0]["image_manifest_digest"]
+    """Launch config whose profile/digest resolve against the real registry.
+
+    The image comes FROM the registry too: a launch is only coherent when the
+    ref addresses the recorded bytes, and a hardcoded localhost tag let this
+    fixture drift from the pin the whole contract is about.
+    """
+    reg = load_registry(REGISTRY)
+    dig = resolve_profile(reg, "linux-amd64-v1")["image_manifest_digest"]
     mdig = manifest or dig
     return {
-        "image": "localhost/devgate-coherence@" + mdig,
+        "image": f"{reg['image']}@{mdig}",
         "user": "1000:1000",
         "read_only_rootfs": True,
         "cap_drop": ["ALL"],
@@ -552,11 +648,7 @@ class TestContainerExecReal(unittest.TestCase):
     rejection must relay through the exit-code agreement check as exit 30."""
 
     def setUp(self):
-        r = subprocess.run(
-            ["podman", "image", "exists", "localhost/devgate-coherence"],
-            capture_output=True)
-        if r.returncode != 0:
-            self.skipTest("devgate-coherence image not built locally")
+        ensure_pinned_image(self)
         self.tmp = Path(tempfile.mkdtemp(prefix="dg-cer-"))
         self.out = self.tmp / "out"
         self.out.mkdir()

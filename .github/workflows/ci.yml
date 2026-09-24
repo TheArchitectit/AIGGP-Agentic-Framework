@@ -9,10 +9,12 @@ name: CI
 # Runner targeting: hosted ubuntu-latest (mirrors drift-scan.yml's choice to
 # keep the framework's own CI runnable on any fork/PR without fleet access;
 # the fleet-labeled runner stays dedicated to consumer drift scans). The
-# container-image job degrades to an explicit SKIPPED line when podman is
-# unavailable, never a silent pass — that branch is future-proofing only:
-# hosted ubuntu-latest ships podman, and the logged runs since 2026-09-22
-# execute the build on every push.
+# container-image job never passes silently when podman is missing: the build
+# and schema steps say SKIPPED in the log, and the identity gate — the one
+# that decides whether consumers can fetch the pinned evaluator — fails
+# closed, because "we could not evaluate the pin" is not a pass. That branch
+# is future-proofing only: hosted ubuntu-latest ships podman, and the logged
+# runs since 2026-09-22 execute the build on every push.
 
 on:
   pull_request:
@@ -179,16 +181,43 @@ jobs:
             --security-opt=no-new-privileges --network=none \
             --entrypoint python3 devgate-coherence -c \
             "from hub.coherence import schemacheck; schemacheck.load('request.schema.json'); schemacheck.load('result.schema.json'); print('schemas OK in image')"
-      - name: Built digest vs identity registry (informational)
+      # The identity record names THE BYTES CONSUMERS PULL, so that is what
+      # gets checked — not the local build's digest. Measured 2026-09-23: a
+      # locally built image's `podman image inspect {{.Digest}}` is a value no
+      # registry ever serves (the push re-encodes the manifest: local
+      # 2eff3fd9…, registry manifest f470110c… for the same bytes), so the
+      # previous comparison here was config-against-config — it agreed with
+      # itself and the S4 pin shipped UNPULLABLE (`manifest unknown` for every
+      # consumer, while this job was green). Fetchability is the property the
+      # consumer chain depends on, and it is checkable from here.
+      - name: Recorded identity resolves to fetchable bytes (hard gate)
         run: |
-          if ! command -v podman >/dev/null 2>&1; then exit 0; fi
-          BUILT="$(podman image inspect --format '{{.Digest}}' devgate-coherence)"
-          RECORDED="$(python3 -c "import json;print(json.load(open('container/execution-profiles.json'))['profiles'][0]['image_manifest_digest'])")"
-          echo "built:    $BUILT"
-          echo "recorded: $RECORDED"
-          if [ "$BUILT" != "$RECORDED" ]; then
-            echo "::notice::built image digest differs from the identity record — expected until the publish-gated rebuild (S4) updates execution-profiles.json"
+          if ! command -v podman >/dev/null 2>&1; then
+            echo "::error::podman unavailable — the identity registry could not be evaluated"
+            exit 1
           fi
+          IMAGE="$(python3 -c "import json;print(json.load(open('container/execution-profiles.json'))['image'])")"
+          RECORDED="$(python3 -c "import json;print(json.load(open('container/execution-profiles.json'))['profiles'][0]['image_manifest_digest'])")"
+          echo "image:    $IMAGE"
+          echo "recorded: $RECORDED"
+          # Anonymous on purpose: a consumer's runner has no registry
+          # credentials either, so an authenticated-only pull must fail here.
+          if ! REGISTRY_AUTH_FILE=/nonexistent podman pull --quiet "$IMAGE@$RECORDED"; then
+            echo "::error::the identity registry names bytes no registry serves ($IMAGE@$RECORDED) — every consumer gate would SKIP at launch"
+            exit 1
+          fi
+          FETCHED="$(podman image inspect --format '{{.Digest}}' "$IMAGE@$RECORDED")"
+          if [ "$FETCHED" != "$RECORDED" ]; then
+            echo "::error::fetched $FETCHED is not the recorded $RECORDED"
+            exit 1
+          fi
+          # The fetched bytes must be the evaluator, not merely resolvable: the
+          # image carries its frozen contracts (coh-rt-08, F1) — prove it on
+          # the digest-pinned ref, under the launcher's enforced flag set.
+          podman run --rm --read-only --read-only-tmpfs --cap-drop=ALL \
+            --security-opt=no-new-privileges --network=none \
+            --entrypoint python3 "$IMAGE@$RECORDED" -c \
+            "from hub.coherence import schemacheck; schemacheck.load('request.schema.json'); schemacheck.load('result.schema.json'); print('schemas OK in the fetched image')"
 
   # fw-* evaluator-integrity: the evaluator itself is attacked on every run.
   # A green suite means nothing if deliberately broken production behavior
@@ -268,11 +297,23 @@ jobs:
           # GHCR requires lowercase repository names; github.repository
           # preserves the owner/repo casing, so normalize here.
           IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}/devgate-coherence"
-          DIGEST="$(podman image inspect --format '{{.Digest}}' devgate-coherence)"
-          echo "built digest: $DIGEST"
           podman login ghcr.io -u "${{ github.actor }}" -p "${{ secrets.GITHUB_TOKEN }}"
           for TAG in "$IMAGE:main" "$IMAGE:sha-${GITHUB_SHA::12}"; do
             podman tag devgate-coherence "$TAG"
             podman push "$TAG"
           done
-          echo "::notice::published devgate-coherence $DIGEST — update container/execution-profiles.json (S4 acceptance) if this is the release build"
+          # Report the digest a CONSUMER resolves — NOT the local build's.
+          # Pushing re-encodes the manifest, so `podman image inspect` of the
+          # local build names bytes the registry does not have (measured:
+          # local 2eff3fd9… vs served f470110c…). Reporting the local value
+          # here is precisely how the S4 pin was recorded unpullable, so
+          # re-resolve the pushed ref and report that.
+          podman pull --quiet "$IMAGE:main"
+          SERVED="$(podman image inspect --format '{{.Digest}}' "$IMAGE:main")"
+          RECORDED="$(python3 -c "import json;print(json.load(open('container/execution-profiles.json'))['profiles'][0]['image_manifest_digest'])")"
+          echo "served digest: $SERVED"
+          if [ "$SERVED" != "$RECORDED" ]; then
+            echo "::notice::published $SERVED — execution-profiles.json records $RECORDED; re-pin (S4 acceptance) if this is the release build"
+          else
+            echo "::notice::published $SERVED — matches the identity registry"
+          fi

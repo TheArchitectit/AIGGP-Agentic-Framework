@@ -13,6 +13,7 @@ correct template must have, not the prose of this particular one.
 
 Dual-runnable: pytest collects test_*; `python3 <this file>` runs them too.
 """
+import json
 import re
 import sys
 from pathlib import Path
@@ -21,12 +22,20 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from hub.config import Config  # noqa: E402
 
-TEMPLATE = (Path(__file__).resolve().parent.parent
-            / "templates" / "github-workflows" / "spec-coherence.yml")
+REPO = Path(__file__).resolve().parent.parent
+TEMPLATE = REPO / "templates" / "github-workflows" / "spec-coherence.yml"
+REGISTRY = REPO / "container" / "execution-profiles.json"
 
 
 def _text() -> str:
     return TEMPLATE.read_text()
+
+
+def _template_env() -> dict:
+    """The template's UPPERCASE env values, by name (no YAML parser needed)."""
+    return {m.group(1): m.group(2)
+            for m in re.finditer(r"^\s*([A-Z][A-Z0-9_]*):\s*(\S*)\s*$",
+                                 _text(), re.M)}
 
 
 def _run_blocks() -> list[str]:
@@ -223,6 +232,36 @@ def test_container_phase_delegates_launch_config_to_the_builder():
         "template does not delegate request/launch construction to the builder"
     # The driver invocation is what enforces isolation at launch.
     assert "--launch-config" in body, "no containerized driver invocation"
+
+
+def test_template_identity_agrees_with_the_repo_registry():
+    """coh-id-04: the template's literals ARE this repo's registry record.
+
+    The byte-equivalence suite cannot see this drift: its `_run_template_command`
+    substitutes the registry's values FOR these literals (`$COHERENCE_IMAGE` ->
+    reg["image"], `$DIGEST` -> the profile digest), so it proves the command's
+    SHAPE and is blind to the identity the command addresses — measured
+    2026-09-23, when both sides agreed on a build-time config digest no
+    registry could serve. This is the missing comparison: what a consumer's
+    gate launches is what this repo's registry records, and what the driver
+    checks the launch against.
+    """
+    env = _template_env()
+    reg = json.loads(REGISTRY.read_text(encoding="utf-8"))
+    label = env.get("COHERENCE_PROFILE")
+    assert label, "template declares no COHERENCE_PROFILE"
+    prof = next((p for p in reg["profiles"] if p.get("label") == label), None)
+    assert prof, f"template profile {label!r} is not in the pinned registry"
+    assert env.get("COHERENCE_IMAGE") == reg["image"], (
+        f"template COHERENCE_IMAGE {env.get('COHERENCE_IMAGE')!r} != registry "
+        f"image {reg['image']!r}")
+    assert re.fullmatch(r"sha256:[0-9a-f]{64}",
+                        env.get("COHERENCE_IMAGE_MANIFEST_DIGEST") or ""), \
+        "template pins no manifest digest"
+    assert env.get("COHERENCE_IMAGE_MANIFEST_DIGEST") == \
+        prof["image_manifest_digest"], (
+        f"template digest {env.get('COHERENCE_IMAGE_MANIFEST_DIGEST')!r} != "
+        f"registry digest {prof['image_manifest_digest']!r} for {label}")
 
 
 def test_doctor_phase_never_pulls_the_image():
