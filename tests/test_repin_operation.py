@@ -19,171 +19,27 @@ Every test here runs the real script against a real (temporary) git repository
 with stubbed `curl` and `podman` on PATH. A text assertion cannot tell a guard
 from one mutated to `if false;`, so these execute.
 
+The repository-building half of that harness lives in `tests/fixtures/repin.py`
+(it is a fixture, and this file is at the size gate's ceiling). Its helpers are
+imported here under the short private spellings the call sites below were
+written with, so the extraction did not become a 60-site rename.
+
 Dual-runnable: pytest collects test_*; `python3 <this file>` runs them too.
 """
 import json
-import os
 import re
-import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parent.parent
-SCRIPT = REPO / "scripts" / "re-pin-evaluator-identity.sh"
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-IMAGE = "ghcr.io/thearchitectit/aiggp-agentic-framework/devgate-coherence"
-SERVED = "sha256:" + "a" * 64
-LOCAL = "sha256:" + "f" * 64
-
-TEMPLATE_BODY = """\
-name: spec coherence
-env:
-      DEVGATE_REPO: https://github.com/TheArchitectit/AIGGP-Agentic-Framework.git
-      DEVGATE_PIN: {pin}
-      COHERENCE_IMAGE: {image}
-      COHERENCE_PROFILE: {profile}
-      COHERENCE_IMAGE_MANIFEST_DIGEST: {digest}
-"""
-
-CURL_STUB = """\
-#!/usr/bin/env bash
-args="$*"
-case "$args" in
-  *"/token"*)
-    echo '{"token":"stub-token"}'
-    exit 0 ;;
-esac
-if [[ "$args" == *"/manifests/"* ]]; then
-  printf 'HTTP/2 200\\r\\ndocker-content-digest: __SERVED__\\r\\n\\r\\n'
-  exit 0
-fi
-exit 1
-"""
-
-# Deliberately hostile: `image inspect` answers with a digest no registry
-# serves. If the operation ever resolves the identity through podman instead of
-# the registry API, the recorded value becomes this — and the test sees it.
-PODMAN_STUB = """\
-#!/usr/bin/env bash
-case "$1" in
-  pull) exit "${STUB_PULL_RC:-0}" ;;
-  *) echo "__LOCAL__" ;;
-esac
-"""
-
-
-def _identity() -> dict:
-    """The committer identity, supplied through the ENVIRONMENT.
-
-    Two reasons this is not optional, and the second is why it must be the
-    environment rather than config:
-
-    * Hermeticity. These tests commit — the fixtures do, and the operation
-      under test does. A suite that passes only because the operator's
-      ~/.gitconfig happens to carry a user.name is not testing the operation;
-      on a runner with no such config every one of those commits fails. That
-      is not hypothetical: run 36061428590 failed 3 tests with
-      `fatal: empty ident name (for <runner@…>) not allowed` and the
-      operation's exit 6, while the same suite was green locally.
-    * The fixtures read no config at all (`GIT_CONFIG_GLOBAL=/dev/null`), so
-      `user.name` in a config file would not be read even if it existed. Git
-      consults GIT_AUTHOR_*/GIT_COMMITTER_* before any config, which is the
-      one channel that reaches every git process here, ours and the script's.
-    """
-    return {"GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_SYSTEM": "/dev/null",
-            "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
-            "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
-
-
-def _git(repo: Path, *args, **env):
-    full = dict(os.environ, **_identity())
-    full.update(env)
-    return subprocess.run(["git", "-C", str(repo), *args],
-                          capture_output=True, text=True, env=full)
-
-
-def _record(digest: str, image: str = IMAGE, profile: str = "linux-amd64-v1",
-            built: str = "2026-01-01") -> str:
-    return json.dumps({
-        "schema": "execution-profiles",
-        "image": image,
-        "profiles": [{
-            "label": profile,
-            "platform": "linux/amd64",
-            "image_manifest_digest": digest,
-            "base_image": "docker.io/library/python@sha256:" + "b" * 64,
-            "semantic_equivalence_group": "default",
-            "built": built,
-        }],
-    }, indent=2) + "\n"
-
-
-def _fixture(tmp: Path, *, digest: str = "sha256:" + "c" * 64,
-             image: str = IMAGE, pin: str = None, profile: str = "linux-amd64-v1",
-             built: str = "2026-01-01") -> tuple:
-    """A minimal git repository carrying the two files the operation edits.
-
-    `pin` is written verbatim when given; otherwise the template's pin is set
-    to the initial commit, which is what a correct tree looks like.
-    """
-    repo = tmp / "repo"
-    (repo / "container").mkdir(parents=True)
-    (repo / "templates" / "github-workflows").mkdir(parents=True)
-    (repo / "container" / "execution-profiles.json").write_text(
-        _record(digest, image, profile, built))
-    (repo / "templates" / "github-workflows" / "spec-coherence.yml").write_text(
-        TEMPLATE_BODY.format(pin=pin or "0" * 40, image=image,
-                             profile=profile, digest=digest))
-    if _git(repo, "init", "-q", "-b", "main").returncode != 0:
-        raise AssertionError("git init failed in fixture")
-    _git(repo, "add", "-A")
-    _git(repo, "commit", "-q", "-m", "fixture")
-    head = _git(repo, "rev-parse", "HEAD").stdout.strip()
-    if pin is None:
-        text = (repo / "templates" / "github-workflows" / "spec-coherence.yml").read_text()
-        text = re.sub(r"DEVGATE_PIN: \S+", f"DEVGATE_PIN: {head}", text)
-        (repo / "templates" / "github-workflows" / "spec-coherence.yml").write_text(text)
-        _git(repo, "add", "-A")
-        _git(repo, "commit", "-q", "-m", "pin to first commit")
-        head = _git(repo, "rev-parse", "HEAD").stdout.strip()
-    return repo, head
-
-
-def _stub_bin(tmp: Path, *, served: str = SERVED, pull_rc: int = 0) -> Path:
-    b = tmp / "bin"
-    b.mkdir()
-    (b / "curl").write_text(CURL_STUB.replace("__SERVED__", served))
-    (b / "podman").write_text(PODMAN_STUB.replace("__LOCAL__", LOCAL))
-    for p in (b / "curl", b / "podman"):
-        p.chmod(0o755)
-    return b
-
-
-def _env(repo: Path, binp: Path, **extra) -> dict:
-    e = dict(os.environ, **_identity())
-    e["PATH"] = f"{binp}:{e['PATH']}"
-    e["REPIN_REPO_DIR"] = str(repo)
-    e["REPIN_IMAGE"] = IMAGE
-    e["REPIN_BUILT"] = "2026-09-24"
-    e.update(extra)
-    return e
-
-
-def _run(repo: Path, binp: Path, **extra):
-    return subprocess.run(["bash", str(SCRIPT)], capture_output=True, text=True,
-                          cwd=str(REPO), env=_env(repo, binp, **extra))
-
-
-def _tmpl(repo: Path) -> dict:
-    text = (repo / "templates" / "github-workflows" / "spec-coherence.yml").read_text()
-    return {m.group(1): m.group(2)
-            for m in re.finditer(r"^\s*([A-Z][A-Z0-9_]*):\s*(\S*)\s*$", text, re.M)}
-
-
-def _rec(repo: Path) -> dict:
-    return json.loads((repo / "container" / "execution-profiles.json").read_text())
+from tests.fixtures.repin import (IMAGE, LOCAL, SERVED, SCRIPT,  # noqa: E402
+                                 TEMPLATE_BODY, fixture as _fixture,
+                                 git as _git, rec as _rec, record as _record,
+                                 run as _run, stub_bin as _stub_bin,
+                                 tmpl as _tmpl)
 
 
 class TestRePinOperation(unittest.TestCase):
