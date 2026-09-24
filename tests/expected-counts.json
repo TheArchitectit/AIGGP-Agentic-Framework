@@ -52,9 +52,10 @@
   "test_runner_enroll": 18,
   "test_runner_image_cycle": 15,
   "test_scope_contract": 4,
+  "test_secret_scan": 16,
   "test_silent_success_gate": 3,
   "test_silent_success_overlay": 5,
   "test_spec_traceability": 10
  },
- "total_floor": 711
+ "total_floor": 727
 }
