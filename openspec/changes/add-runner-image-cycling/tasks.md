@@ -14,17 +14,33 @@
 
 ## Sprint 2 — The convergent cycle
 
-- [ ] 2.1 `scripts/runner-image-cycle.sh`: resolve the pinned digest, pull the
+- [x] 2.1 `scripts/runner-image-cycle.sh`: resolve the pinned digest, pull the
   digest-qualified ref only when absent, prune the superseded build, verify
   through the job-side path, exit non-zero on store mismatch (img-cycle-01,
-  img-cycle-02)
+  img-cycle-02). The store is a required input (`COHERENCE_PODMAN_STORE`,
+  design D3.1) — every call carries `--root`, and the tick asks podman which
+  graph root that resolves to before it pulls anything; exit 5 names both paths
 - [ ] 2.2 Unit the tick beside the heartbeat in `runner-enroll.sh` (same
   install path, same per-runner EnvironmentFile, same "never inline into
   ExecStart" constraint), and document the store-namespace choice in
-  `templates/runner/README.md` + `add-a-runner.md`
-- [ ] 2.3 Tests: absent → pull; present → no pull; wrong-store verification →
+  `templates/runner/README.md` + `add-a-runner.md` — including that
+  `COHERENCE_PODMAN_STORE` must name the store the runner container's job
+  reaches (design D3.1's residual limitation)
+- [x] 2.3 Tests: absent → pull; present → no pull; wrong-store verification →
   non-zero naming the mismatch; tag ahead of record → tag not followed.
-  Mutation-kill each guard by exactly one named test
+  Mutation-kill each guard by exactly one named test — 17 tests, 18-mutation
+  battery, no survivors. Two guards were strengthened after the audit pass:
+  a required-env guard must name the variable (a `set -u` crash looks
+  identical to a refusal to any caller checking only rc), and the stub honours
+  `--format` field order (a format/parse drift would have silently stopped
+  pruning with every behavioral test still green)
+- [x] 2.4 Prune scope, measured not assumed (2026-09-24, real podman): the
+  `reference=` filter matches image NAME and crosses registries; `rmi <id>`
+  takes every name an ID carries; a digest-pulled image lists `Tag <none>`
+  while a local build lists a tag. So an ID is reaped only when every row it
+  appears in is this repository *and* tag-less *and* not the pinned digest —
+  a host's local `devgate-coherence:<tag>` (the very tag the CI build job
+  makes) survives
 
 ## Sprint 3 — Reporting
 

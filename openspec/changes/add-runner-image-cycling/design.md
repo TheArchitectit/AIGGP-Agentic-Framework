@@ -50,6 +50,32 @@ ref the way the job resolves it — inside the same namespace, digest-qualified
 — and MUST fail (non-zero, with the mismatch named) when it cannot. "The
 cycler is green and the doctor is SKIPPED" is a defect, not a state.
 
+### D3.1 — The store is a required input, verified by asking podman
+
+An implementation cannot discover which store the job will read: from inside a
+tick, shape (a) and shape (b) are indistinguishable, and a script that assumes
+the ambient store is right produces exactly the green-and-SKIPPED state above.
+So `scripts/runner-image-cycle.sh` requires `COHERENCE_PODMAN_STORE`, addresses
+every podman call with `podman --root "$COHERENCE_PODMAN_STORE"`, and then
+verifies the assumption instead of trusting it: `podman --root <path> info
+--format '{{.Store.GraphRoot}}'` is asked to confirm the graph root it actually
+resolved (measured 2026-09-24: it answers with the path given, so a different
+answer means the configuration does not address the store it names). A mismatch
+exits 5 and names both paths; nothing is pulled until that check passes.
+
+What the tick can then claim is narrow and true: *the recorded bytes are in the
+store named by this unit's EnvironmentFile*. Which store the runner container
+actually mounts stays a property of the unit file and Sprint 2.2's
+documentation — the honest division, because that is the only place the mount
+is declared and the only place a mismatch is fixable.
+
+Residual limitation, stated rather than hidden: if an operator configures
+`COHERENCE_PODMAN_STORE` to a store the job cannot read, both the tick and the
+gate are internally consistent and still disagree with each other. The store
+value is therefore a documented, single-source setting in the unit's
+EnvironmentFile (2.2), and the heartbeat's image fields (Sprint 3) are what
+make the disagreement visible from the fleet view rather than from a hunch.
+
 ## D4 — Why authority stays out of the runner
 
 Auto-advancing the pin from a host requires: repo write credentials on every
