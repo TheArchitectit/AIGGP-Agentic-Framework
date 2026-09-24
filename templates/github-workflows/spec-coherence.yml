@@ -89,10 +89,13 @@ jobs:
       # below name — the digest step reads the registry out of THIS tree, so a
       # pin that predates a re-pin fails closed with "pinned digest … is not
       # the registry's …". Moving the pin and the digest is one operation.
-      # This pin points at the first commit whose tree carries the published
-      # identity fc7074e7… (the re-pin that followed the repository rename);
-      # verified by checking that commit out and running the digest step's own
-      # resolution against its registry.
+      # The pin names the FIRST of the two commits a re-pin writes — the one
+      # carrying the moved registry record. Deliberately not the digest value
+      # in prose: that literal goes stale on every re-pin and would have to be
+      # hand-edited alongside it. Move all four literals with
+      # `scripts/re-pin-evaluator-identity.sh`, which writes both commits in
+      # the forced order and refuses to finish unless this file and the pin's
+      # tree agree (`REPIN_CHECK_ONLY=1` re-checks it alone).
       DEVGATE_REPO: https://github.com/TheArchitectit/AIGGP-Agentic-Framework.git
       DEVGATE_PIN: dadfd1d870ef0eeb215b45005462eebcfc2e9267
       # CUSTOMIZE (2/4): the pinned evaluator image. What is pinned is the
