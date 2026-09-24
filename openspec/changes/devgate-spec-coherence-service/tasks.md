@@ -244,6 +244,16 @@ Sprint work:
   **Still open, unchanged:** the arm64 entry (below), and the `:main` tag now moves ahead of the recorded digest on every
   push (the publish job builds and pushes a fresh manifest each time) — the record stays fetchable by digest, but
   nothing fails when the tag and the record diverge; queued as a design item.
+  DISPOSED 2026-09-24 — should the driver refuse a launch ref whose *repository* is not the registry's `image` field?
+  **No change, and no new requirement.** coh-id-04 fixes the identity fields a result must carry (index digest,
+  executed platform manifest digest, profile label) and coh-rt-01 fixes the invocation form; neither makes the
+  repository part of the identity, so a driver-side MUST would be a requirement invented to fit the code. Measured:
+  `example.invalid/mirror@<recorded digest>` and `ghcr.io/attacker/x@<recorded digest>` both pass
+  `validate_launch` + `check_launch_digest` today — and that is sound, because a digest is content-addressed: a ref
+  carrying the recorded digest addresses the recorded bytes whatever repo serves them. The registry's `image` field is
+  not inert either: the CI template pins it (`COHERENCE_IMAGE`) and `scripts/coherence-local` follows it. The
+  unrelated hazard nearby was checked and does not exist: `_validate_image` rejects a ref with no `@`, so the
+  `rsplit("@", 1)[1]` in `container_exec` cannot raise an uncaught `IndexError` past the exit-30 mapping.
 - [ ] arm64 execution profile + manifest entry in the registry (coh-id-04). NOT materializable on this host (2026-09-18,
   verified: no qemu user-mode emulation, and the Containerfile's `RUN groupadd/useradd` needs target-arch execution, so a
   cross-arch build dies 125/exec-format). Unblock paths, both needing lead action: (a) install `qemu-user-static` +
