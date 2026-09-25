@@ -634,6 +634,41 @@ a literal staying correct in two places.
     from the prose assertion it replaces. Wired into the CI step, which
     `test_every_battery_runs_in_the_suite` failed over until it was (the guard
     doing its job the first time it was needed)
+  - **The first push of this guard went red on three jobs, and the cause was one
+    import.** `tests/test_publish_trigger.py` began with `import yaml`; the
+    hosted lane installs only pytest, so collection aborted with
+    `ModuleNotFoundError` and took all 906 tests with it — `DevGate gates on
+    DevGate` then failed too, because its test-count floor runs pytest
+    collection, and the `fw-*` job failed because the publish battery's negative
+    control died in the same environment (the harness correctly refusing to call
+    a control that cannot survive "behaved"). This is the identical failure
+    `add-secret-scanning` 6.3 already records, met again from a new direction,
+    and it is worth keeping in the record that the control — not the suite —
+    is what put the evaluator-integrity job red
+  - Fixed by removing the dependency rather than installing it: this repository
+    owns no PyYAML anywhere (grep), and `parse_workflow` in
+    `test_secret_validation_template.py` already reads `.github/workflows/`
+    structurally for the same reason. The idiom is now one module,
+    `tests/workflow_read.py`, used by the guard AND by
+    `mutation_harness.well_formed`'s YAML branch — which had the same latent
+    defect, and would have reported every workflow mutation as INVALID (hence a
+    survivor) in any lane without PyYAML. `workflow_read` is pinned by
+    `tests/test_workflow_read.py` (17 tests) and is deliberately narrow: it
+    refuses tabs, odd indentation, non-key lines, flow brackets left open, and a
+    block-scalar `if:`, because the harness asks it "did this mutation break the
+    file" and a reader that accepts anything answers yes to that and no to the
+    question that matters. What `well_formed` claims for YAML is therefore
+    stated exactly — "the guards can still read it" — rather than a YAML parse
+  - Verified against the failure, not around it: the whole suite was run with
+    PyYAML BLOCKED (`PYTHONPATH` pointed at a stub that raises on import, which
+    is the hosted lane's condition) — **923 passed**, and all four mutation
+    batteries green under the same environment (51 mutations killed, 4 controls
+    behaved). A green local run on a host that has PyYAML would have proven
+    nothing here; that is how this got past the first time
+  - Residual, recorded rather than implied away: `tests/workflow_read.py` is 329
+    lines against a 300-line soft limit, warning only — the excess is the
+    explanation of what the reader refuses and why, and hard-limit compliance
+    (500) is what the gate enforces
 
 ## Sprint 7 — Fleet evidence
 
