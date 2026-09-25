@@ -1,9 +1,9 @@
 """The publish job's stated trigger must be the trigger it has (img-cycle-06).
 
-`container-publish` carries a comment promising it "Publishes ONLY on main
-pushes and manual dispatch with publish=true" and an `if:` of
+`container-publish` carried a comment promising it "Publishes ONLY on main
+pushes and manual dispatch with publish=true" over an `if:` of
 `github.event_name == 'push' && github.ref == 'refs/heads/main'`. Manual
-dispatch never publishes. `workflow_dispatch:` IS a declared trigger of the
+dispatch never published. `workflow_dispatch:` IS a declared trigger of the
 workflow, so the operator's reading of that comment is not a typo they will
 notice — they dispatch, the job is skipped, and the run is green.
 
@@ -26,6 +26,13 @@ still where it was. An evaluator is only worth having if it is itself
 exercised, so `test_the_evaluator_agrees_with_a_condition_whose_meaning_is_known`
 pins it against the old condition, whose truth table is not in question.
 
+The file is read by `tests/workflow_read.py`, not PyYAML — and that is a
+finding, not a preference. The first push of this guard imported yaml, and the
+hosted lane installs only pytest, so collection aborted and all 906 tests died
+with it: one module-level import took the whole suite down, exactly the failure
+`add-secret-scanning` tasks 6.3 already records. Nothing in this repository
+depends on PyYAML. The reader is guarded by `test_workflow_read.py`.
+
 Deliberately carries no `// spec:` marker: img-cycle-06 lives in the
 `add-runner-image-cycling` package and is not published yet, and marking this
 file against it would manufacture the coverage the marker is meant to measure.
@@ -35,7 +42,10 @@ import sys
 from pathlib import Path
 
 import pytest
-import yaml
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import workflow_read as wr  # noqa: E402
 
 REPO = Path(__file__).resolve().parent.parent
 CI = REPO / ".github" / "workflows" / "ci.yml"
@@ -96,33 +106,22 @@ def evaluate(expr, event):
     return bool(eval(_translate(expr), {"g": g, "__builtins__": {}}))  # noqa: S307
 
 
-def _triggers(workflow):
-    """The `on:` mapping.
-
-    YAML 1.1 reads a bare `on` as the boolean True, so `workflow["on"]` is a
-    KeyError and `workflow.get("on")` is None — a fixture that got this wrong
-    would report "workflow_dispatch is not a trigger" for a workflow that
-    declares it, which is a false alarm about the safety of the publish path.
-    Both spellings are accepted so the guard reads the file rather than the
-    parser's opinion of it.
-    """
-    for key in ("on", True):
-        if key in workflow:
-            return workflow[key] or {}
-    return {}
-
-
 @pytest.fixture(scope="module")
 def workflow():
-    return yaml.safe_load(CI.read_text(encoding="utf-8"))
+    return wr.read_workflow(CI.read_text(encoding="utf-8"))
 
 
 @pytest.fixture(scope="module")
-def publish(workflow):
-    job = workflow["jobs"].get("container-publish")
-    assert job is not None, "the publish job is gone — this guard would be vacuous"
-    assert "if" in job, "the publish job has no condition to check"
-    return job
+def condition(workflow):
+    """The publish job's `if:`, or a failure naming what is missing.
+
+    `job_if` raises for an absent job, an absent condition, and a block scalar
+    rather than returning "" — a guard handed an empty condition would evaluate
+    it as false and report the publish job as deliberately quiet.
+    """
+    assert "container-publish" in workflow.jobs, \
+        "the publish job is gone — this guard would be vacuous"
+    return workflow.job_if("container-publish")
 
 
 @pytest.fixture(scope="module")
@@ -170,25 +169,23 @@ def test_the_evaluator_refuses_a_condition_it_cannot_read():
 
 # --- the condition ----------------------------------------------------------
 
-def test_publishing_is_deliberate(publish):
+def test_publishing_is_deliberate(condition):
     """The requirement's own word: publish ONLY on a deliberate trigger. A push
     to main is not one — every merge is a publish, which is how the `:main` tag
     advanced past the recorded identity on consecutive runs with nothing to
     notice it (add-runner-image-cycling, proposal)."""
-    cond = publish["if"]
-    assert evaluate(cond, MAIN_PUSH) is False, \
+    assert evaluate(condition, MAIN_PUSH) is False, \
         "a push to main still publishes — the tag advances past the record on every merge"
-    assert evaluate(cond, DISPATCH_YES) is True, \
+    assert evaluate(condition, DISPATCH_YES) is True, \
         "manual dispatch with publish=true does not publish — the comment promises it does"
 
 
-def test_nothing_else_publishes(publish):
-    cond = publish["if"]
+def test_nothing_else_publishes(condition):
     for name, event in (("a dispatch without the input", DISPATCH_NO),
                         ("a branch push", BRANCH_PUSH),
                         ("a tag push", TAG_PUSH),
                         ("a pull request", PULL_REQUEST)):
-        assert evaluate(cond, event) is False, f"{name} publishes"
+        assert evaluate(condition, event) is False, f"{name} publishes"
 
 
 def test_a_string_typed_input_would_publish_on_every_dispatch():
@@ -199,24 +196,28 @@ def test_a_string_typed_input_would_publish_on_every_dispatch():
     assert evaluate("inputs.publish", STRINGINPUT_NO) is True
 
 
-def test_the_publish_input_is_declared(workflow, publish):
+def test_the_publish_input_is_declared(workflow):
     """An `if:` reading an input nobody declared never fires again, and GitHub
     reports no error — the job is silently a no-op. This is the guard for the
     silence, not for the condition."""
-    dispatch = _triggers(workflow).get("workflow_dispatch")
-    assert dispatch is not None, "workflow_dispatch is not a trigger of this workflow"
-    inputs = (dispatch or {}).get("inputs", {})
-    assert "publish" in inputs, \
-        "the condition reads inputs.publish but the workflow declares no such input"
-    spec = inputs["publish"]
-    assert spec.get("type") == "boolean", f"publish input is {spec.get('type')}, not boolean"
-    assert spec.get("default") in (False, "false"), \
-        "an input defaulting to true publishes on every dispatch"
+    assert "workflow_dispatch" in workflow.triggers, \
+        "workflow_dispatch is not a trigger of this workflow"
+    spec = workflow.dispatch_input("publish")
+    assert spec.get("type") == "boolean", \
+        f"publish input is typed {spec.get('type')!r}, not boolean — a string " \
+        f"input defaulting to \"false\" is truthy and publishes every dispatch"
+    # The reader returns the scalar as written (unquoted), so this pins the
+    # literal. `true`, `yes`, `1` and any other spelling of a true default all
+    # fail here, which is the property that matters: a default of true
+    # publishes on every dispatch, ticked or not.
+    assert spec.get("default", "").strip().lower() == "false", \
+        f"the publish input defaults to {spec.get('default')!r}, not false — " \
+        f"an unticked dispatch would publish"
 
 
 # --- the documentation ------------------------------------------------------
 
-def test_the_comment_and_the_condition_agree(comment, publish):
+def test_the_comment_and_the_condition_agree(comment, condition):
     """The requirement's scenario: a comment claiming manual dispatch while the
     condition fires only on push. Each trigger the comment NAMES must actually
     behave the way the comment says, so the claim is checked behaviourally
@@ -230,13 +231,13 @@ def test_the_comment_and_the_condition_agree(comment, publish):
     for label, (pattern, event) in named.items():
         if re.search(pattern, lowered):
             checked += 1
-            assert evaluate(publish["if"], event) is True, (
+            assert evaluate(condition, event) is True, (
                 f"the comment names a {label} as a trigger and the condition "
-                f"does not fire for one: {publish['if']}")
+                f"does not fire for one: {condition}")
     assert checked, f"the comment names no trigger at all: {comment!r}"
 
 
-def test_the_comment_names_the_deliberate_trigger(comment, publish):
+def test_the_comment_names_the_deliberate_trigger(comment, condition):
     """img-cycle-06's second half: the documentation SHALL name the trigger
     exactly. Silence about the trigger is how the previous comment came to
     describe one that did not exist."""

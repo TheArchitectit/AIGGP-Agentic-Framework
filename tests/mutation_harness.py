@@ -29,6 +29,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import workflow_read
+
 REPO = Path(__file__).resolve().parent.parent
 
 # Hermetic: an ambient git identity or config could change how a test that
@@ -40,12 +42,20 @@ ENV = dict(os.environ,
 
 
 def well_formed(path):
-    """True when the mutated artifact still parses. False means INVALID.
+    """True when the mutated artifact is still readable. False means INVALID.
 
-    All three artifact languages are here rather than only the one this file's
-    original copy happened to need: a mutation that leaves a syntax error makes
-    the test command exit non-zero for a reason that has nothing to do with a
-    test catching anything, so it must be rejected before any verdict is read.
+    All the artifact languages the batteries touch are here rather than only the
+    one this file's original copy happened to need: a mutation that leaves a
+    syntax error makes the test command exit non-zero for a reason that has
+    nothing to do with a test catching anything, so it must be rejected before
+    any verdict is read.
+
+    "Readable" is per language and deliberately not overstated. Python is
+    compiled, shell is checked by `bash -n`, JSON by `json.loads` — all real
+    parsers. YAML is checked by the reader the workflow guards themselves use
+    (`tests/workflow_read.py`), so what this returns for a workflow is exactly
+    "the guards can still read it", which is the property that decides whether a
+    mutation is evaluable at all.
     """
     text = path.read_text(encoding="utf-8")
     if path.suffix == ".json":
@@ -55,11 +65,15 @@ def well_formed(path):
         except Exception:
             return False
     if path.suffix in (".yml", ".yaml"):
+        # The same reader the workflow guards use, not PyYAML: the hosted lane
+        # installs only pytest, so `import yaml` here would raise on every
+        # mutation and report each one as INVALID. "Well formed" is therefore
+        # stated precisely — the construct set the guards depend on is still
+        # readable — rather than claimed to be a YAML parse.
         try:
-            import yaml
-            yaml.safe_load(text)
+            workflow_read.read_workflow(text)
             return True
-        except Exception:
+        except workflow_read.WorkflowReadError:
             return False
     if path.suffix == ".sh":
         return subprocess.run(["bash", "-n", str(path)],
