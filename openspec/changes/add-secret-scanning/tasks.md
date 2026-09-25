@@ -156,8 +156,69 @@
   any of them and an exit code is not a value a test can read out of the text.
   The battery is registered in ci.yml's batteries step, which
   `test_every_battery_runs_in_the_suite` reads back.
-- [ ] 5.2 Install it beside the heartbeat in `runner-enroll.sh`, same
-  EnvironmentFile discipline as the image cycle
+- [x] 5.2 Installed beside the heartbeat in `runner-enroll.sh`, same
+  EnvironmentFile discipline as the image cycle (2026-09-24). What it does:
+  copies BOTH scripts into `~/.config/containers` — `secret-scan-fleet.sh` and
+  the `secret-scan.sh` it resolves as `$(dirname $0)/secret-scan.sh`, because a
+  sweep copied without the gate beside it dies at that precondition on every
+  tick, which is a host that looks enrolled and sweeps nothing — then emits
+  `devgate-secretscan-$SLUG.{service,timer}` reading the runner's existing
+  EnvironmentFile (D3.1, no new file), and enables the timer only when
+  provisioned, exactly as `enable_image_cycle` does. **The ExecStart's
+  declaration is `"\$SECRET_SCAN_DECLARED"` — escaped so the unquoted heredoc
+  leaves it for systemd rather than expanding it in enroll's shell (where it is
+  unset, so the unit would go out as `--declared` with no argument and exit 3
+  on every tick while enrollment reported success — incident #1's shape, one
+  heredoc over), and quoted so systemd passes its expansion through as one
+  word.** Enabled by `SECRET_SCAN_DECLARED` naming an existing, NON-EMPTY file:
+  the sweep exits 3 on an empty declaration by design, so enabling early buys a
+  unit that fails every tick, which on a dashboard is indistinguishable from a
+  sweep that ran and found nothing. Interval is its own (86400s) for the
+  cycle's reason taken further — a tick clones every declared repository in
+  full. Revoke removes both new units and stops/disables the timer, since the
+  `--declared` path lives in the env file it deletes. `--help` and the header
+  now name the sweep, its unit and its provisioning key, and the header's
+  account of which file emits which unit body was corrected — the watchdog and
+  the sweep are emitted in `scripts/lib/runner-units.sh`, where their
+  enablement rule lives. **Two findings from the battery, both real:** (a) the
+  first draft had an `-z` branch and a `-s` branch, and the battery's F3
+  mutated the first with the suite staying green — `[ -s "" ]` is already
+  false, so the second branch caught every case and the first was a message
+  selector, not a guard. The branches are now one condition, mutated two ways
+  and killed by two different named tests. (b) The negative control's anchor
+  went stale when that message was rewritten; the control was re-pointed at the
+  operator-guidance line, deliberately NOT at the `NOT enabled` substring,
+  because a test does read that one — it is an operator's only signal that the
+  sweep they think is running is not. **The bug this slice actually shipped,
+  and how it was caught:** the gate was first installed as
+  `devgate-secret-scan.sh`, matching every other helper's name, while the sweep
+  resolves it as `$(dirname $0)/secret-scan.sh`. The test written for it
+  compared the two installed files' presence, parent directory and *bytes* —
+  all three held — so it was green while the installed sweep died with "the
+  gate script is not beside this one" on every tick. It was caught by running
+  the installed helper end to end (helper → gate → scanner, over a real
+  `file://` repository with a stubbed scanner) rather than by reading the
+  generated files, which is now
+  `test_the_installed_sweep_can_actually_run` and battery mutation F9. 14 tests
+  in `tests/test_runner_enroll_sweep.py`; `tests/mutation_battery_runner_sweep.py`
+  is 9 mutations killed (including F9, which renames the gate back) + 1 control
+  survived, and is registered in ci.yml's batteries step. Size note for whoever
+  adds the next unit: `runner-enroll.sh` is at 496/500 after this, which is why
+  the sweep's units were emitted in the library rather than in it.
+  **Anomaly, reported rather than tidied away:** one battery run left three
+  mutations applied to disk (F5 and the N1 control in the library, F9 in
+  enroll) and reported verdicts that were therefore derived from an
+  already-mutated tree — two of them naming the wrong killer test, which is the
+  tell. The harness restores in a `finally` and a targeted probe of three
+  entries restored correctly in isolation, so the mechanism is not understood;
+  the cause was not found and is NOT explained here. The two files were
+  restored by hand, and the battery was re-run wrapped in before/after sha256
+  hashes of both artifacts: 9/9 killed, 1/1 control survived, both files
+  byte-identical afterwards. The verdicts above are from that hashed run. A
+  battery that can leave a mutant on disk is an evaluator-integrity hazard of
+  the kind this repository keeps meeting — the next run's anchors would go
+  stale and its verdicts would be read off a tree that is not the one under
+  test — so it is recorded here as a task rather than as a footnote
 - [ ] 5.3 Hub: accept and render per-repo scan state, unknown when absent
   (secret-scan-07), reusing the heartbeat path — NOT YET. Note for whoever
   builds it: the sweep's report is a file, and the heartbeat is a POST body, so
