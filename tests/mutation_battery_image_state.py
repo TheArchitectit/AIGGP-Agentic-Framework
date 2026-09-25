@@ -42,6 +42,14 @@ MON = "hub/monitor.py"
 SCH = "hub/schema/runners.schema.json"
 FIX = "tests/fixtures/runner_spoke.py"
 ENR = "scripts/runner-enroll.sh"
+# The install half of the cycle is now TWO files. The size gate learned to size
+# .sh (FAIL-8f9249ca) and found runner-enroll.sh 89 lines over its hard limit,
+# so every operation that touches the host's unit/env namespace moved to a
+# library sourced by it — enable_image_cycle, install_helper and
+# remove_legacy_units with them. Mutations whose anchor is one of those name
+# LIB; mutations targeting the unit BODIES (E3, E4, E7) and the revoke sequence
+# (E5) still name ENR, because those stayed in the script.
+LIB = "scripts/lib/runner-units.sh"
 
 T_REG = "tests/test_hub_registry.py"
 T_MON = "tests/test_hub_monitor.py"
@@ -210,13 +218,13 @@ MUTATIONS = [
     ("E1: the cycle's state is never reported (an operator is told nothing)",
      [(ENR, "    enable_image_cycle\n", "")], [T_ENROLL], {}),
     ("E1b: a provisioned host gets units and no running timer",
-     [(ENR, '    systemctl --user start "devgate-imgcycle-$SLUG.timer"\n', "")],
+     [(LIB, '    systemctl --user start "devgate-imgcycle-$SLUG.timer"\n', "")],
      [T_ENROLL], {}),
     ("E1c: the cycle timer is enabled but does not survive a reboot",
-     [(ENR, '    systemctl --user enable "devgate-imgcycle-$SLUG.timer" 2>/dev/null || true\n',
+     [(LIB, '    systemctl --user enable "devgate-imgcycle-$SLUG.timer" 2>/dev/null || true\n',
             "")], [T_ENROLL], {}),
     ("E2: the provisioning check accepts an unprovisioned host (a timer that "
-     "fails every cycle)", [(ENR, "    if (( ${#missing[@]} )); then",
+     "fails every cycle)", [(LIB, "    if (( ${#missing[@]} )); then",
                             "    if false; then")], [T_ENROLL], {}),
     ("E3: the cycle unit loses its EnvironmentFile (the store has two sources)",
      [(ENR, "EnvironmentFile=$TICKET_FILE\nExecStart=$CYC_HELPER",
@@ -228,7 +236,7 @@ MUTATIONS = [
      [(ENR, '          "$CYC_TIMER_UNIT" "$CYC_SERVICE_UNIT"\n', "")],
      [T_ENROLL], {}),
     ("E6: an existing helper is overwritten (a host's diverged copy vanishes "
-     "without a word)", [(ENR, '    if [[ -x "$dest" ]]; then',
+     "without a word)", [(LIB, '    if [[ -x "$dest" ]]; then',
                          "    if false; then")], [T_ENROLL], {}),
     ("E7: the cycle runs at the heartbeat's cadence (a fleet-wide registry hammer)",
      [(ENR, "OnUnitActiveSec=${CYCLE_INTERVAL}", "OnUnitActiveSec=${INTERVAL}")],

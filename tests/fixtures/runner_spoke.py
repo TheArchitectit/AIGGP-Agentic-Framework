@@ -34,7 +34,12 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = REPO_ROOT / "scripts" / "runner-enroll.sh"
 HEARTBEAT = REPO_ROOT / "scripts" / "runner-heartbeat.sh"
-for _required in (SCRIPT, HEARTBEAT):
+# The unit-installer library SCRIPT sources. Checked here too, because it is a
+# file the script cannot run without: `source` on a missing path is an error
+# runner-enroll.sh dies on, and a checkout that lost it should fail at import
+# with the file named, not at enroll time on a host.
+UNIT_LIB = REPO_ROOT / "scripts" / "lib" / "runner-units.sh"
+for _required in (SCRIPT, HEARTBEAT, UNIT_LIB):
     if not _required.is_file():
         raise RuntimeError(
             f"the runner harness resolved the DevGate checkout as {REPO_ROOT}, "
