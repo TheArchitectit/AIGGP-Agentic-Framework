@@ -41,7 +41,7 @@ SOURCE_EXTENSIONS = (".ts", ".tsx", ".py", ".rs", ".go", ".gd", ".java", ".kt",
 
 # Test-file extensions for the PREFIX convention ("test_*.py" / "test_*.sh").
 # A tuple because the convention is about naming, not about Python.
-TEST_PREFIX_EXTENSIONS = (".py", ".sh")
+TEST_PREFIX_EXTENSIONS = (".py", ".sh", ".zig")
 
 
 def format_severity(severity: str) -> str:
@@ -65,7 +65,13 @@ def _classify_file(rel_path: str) -> tuple[int | None, int | None]:
             return (None, None)
     is_test = rel_path.endswith((".test.ts", ".test.tsx", ".test.js", ".spec.ts",
                                  ".spec.js", "_test.py", "_test.go",
-                                 ".test.rs", ".test.gd"))
+                                 ".test.rs", ".test.gd",
+                                 # Zig: the `_test` infix is the same shape as
+                                 # _test.go / _test.py, so it sits in the same
+                                 # tuple. Without it a Zig test file is judged at
+                                 # SRC_HARD -- the FAIL-8f9249ca inconsistency,
+                                 # one language later.
+                                 "_test.zig"))
     # The test naming convention is a PREFIX ("test_*.py", "test_*.sh") —
     # endswith() can never express it, and a glob passed to endswith() is a
     # dead literal that silently classified every pytest file as source

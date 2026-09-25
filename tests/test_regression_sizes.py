@@ -50,6 +50,17 @@ def _write_sh_fixture(root: Path, rel_path: str, line_count: int) -> Path:
     return path
 
 
+def _write_zig_fixture(root: Path, rel_path: str, line_count: int) -> Path:
+    """A Zig fixture. The gate counts lines and never reads the language, but a
+    fixture that claims to be Zig should be Zig — a reader checking "does this
+    really exercise .zig?" should get a yes."""
+    path = root / rel_path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    body = "\n".join(f"const value_{i}: u32 = {i};" for i in range(line_count - 1))
+    path.write_text(f'const std = @import("std");\n{body}\n', encoding="utf-8")
+    return path
+
+
 def test_oversize_test_file_is_flagged_at_test_hard():
     """MUST-flag: a TEST_HARD+1-line pytest file is a blocking violation."""
     with tempfile.TemporaryDirectory() as td:
@@ -144,6 +155,56 @@ def test_a_shell_test_file_is_judged_at_the_test_limit():
         assert [i["file"] for i in issues] == ["tests/test_giant.sh"], (
             f"the shell-test fixtures produced other findings: {issues}")
         assert issues[0]["hard"] == TEST_HARD, issues[0]
+
+
+def test_oversize_zig_file_is_flagged_at_src_hard():
+    """MUST-flag. `.zig` was absent from SOURCE_EXTENSIONS entirely, so a Zig
+    project's whole source tree went unsized while this gate reported a clean
+    "0 over hard limit" — green that inspected nothing, the gate-vacuous-01
+    shape. This is the MUST-flag arm of that fix: a file the gate is now
+    responsible for, asserted at the limit it must be judged against."""
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        _write_zig_fixture(root, "src/giant.zig", SRC_HARD + 1)
+        issues = check_file_sizes(root, ["src"])
+        hard = [i for i in issues if i["kind"] == "hard"]
+        assert len(hard) == 1, f"oversize zig file not flagged: {issues}"
+        v = hard[0]
+        assert v["file"] == "src/giant.zig", v
+        assert v["lines"] == SRC_HARD + 1, v
+        assert v["hard"] == SRC_HARD, (
+            f"evaluated at hard={v['hard']}, not SRC_HARD: {v}")
+        assert v["severity"] == "error", v
+
+
+def test_a_zig_test_file_is_judged_at_the_test_limit():
+    """Adding `.zig` to the scope WITHOUT the naming convention would judge a Zig
+    test file at SRC_HARD while a Go test file at the same size got TEST_HARD --
+    the FAIL-8f9249ca inconsistency, one language later.
+
+    Two conventions, both already established for other languages: the `_test`
+    infix (as in `_test.go`, `_test.py`) and the `test_` prefix (as in
+    `test_*.py`, `test_*.sh`). Both are asserted, because a convention that is
+    not asserted is a convention that silently stops holding."""
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        # 550 lines: over SRC_HARD, under TEST_HARD. Must be SILENT.
+        _write_zig_fixture(root, "src/big_test.zig", 550)
+        issues = check_file_sizes(root, ["src"])
+        assert issues == [], (
+            f"550-line zig test flagged at {issues} -- misclassified against SRC_HARD"
+        )
+        # Over TEST_HARD: flagged, and flagged AT TEST_HARD.
+        _write_zig_fixture(root, "src/giant_test.zig", TEST_HARD + 1)
+        issues = check_file_sizes(root, ["src"])
+        assert [i["file"] for i in issues] == ["src/giant_test.zig"], (
+            f"the zig-test fixtures produced other findings: {issues}")
+        assert issues[0]["hard"] == TEST_HARD, issues[0]
+        # The prefix convention must agree with the infix one.
+        _write_zig_fixture(root, "src/test_prefix.zig", 550)
+        issues = check_file_sizes(root, ["src"])
+        assert [i["file"] for i in issues] == ["src/giant_test.zig"], (
+            f"test_*.zig judged as source, not as a test: {issues}")
 
 
 def test_source_dirs_include_test_directories():

@@ -23,6 +23,26 @@ const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const scanner = join(repoRoot, "scripts", "guardrails-scan.mjs");
 const rules = join(repoRoot, ".guardrails", "prevention-rules", "pattern-rules.json");
 
+// Fixture cleanup, and it must not throw.
+//
+// Two separate bugs live in a bare `rmSync(dir, { recursive: true, force: true })`
+// here. On Windows a spawned node process can still hold a handle when the test
+// reaches its cleanup, so the call raises EPERM -- hence maxRetries/retryDelay.
+// And when it does throw, it aborts the WHOLE suite part-way: every later section
+// silently never executes, and the suite reports failures without having reached
+// them. That is how this file was losing 6 checks on Windows -- the run truncated
+// at section 10b and sections 11-14, including the Zig coverage, were never
+// evaluated at all.
+//
+// A leftover temp directory is not a test failure. Warn and carry on.
+function cleanup(dir) {
+	try {
+		rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
+	} catch (e) {
+		console.warn(`warn - could not remove fixture ${dir}: ${e.code || e.message}`);
+	}
+}
+
 let failures = 0;
 function check(name, cond, detail = "") {
 	if (cond) console.log(`ok - ${name}`);
@@ -70,7 +90,7 @@ makeProject(dir1, {
 let r = runScan(dir1);
 check("nested *.go violation blocks the scan", r.code === 1);
 check("finding names the nested file and rule", r.err.includes("PREVENT-030") && r.err.includes("internal/spawners/spawners.go"));
-rmSync(dir1, { recursive: true, force: true });
+cleanup(dir1);
 
 // --- 2. exclude_glob keeps the rule quiet on matching files -----------------
 // Same violating line in a test file and a production file: the *_test.go
@@ -83,7 +103,7 @@ makeProject(dir2, {
 r = runScan(dir2);
 check("PREVENT-009 fires on production discard", r.err.includes("internal/store/store.go"));
 check("PREVENT-009 excludes *_test.go", !r.err.includes("internal/store/store_test.go"));
-rmSync(dir2, { recursive: true, force: true });
+cleanup(dir2);
 
 // --- 3. guardrails-allow annotation (same line) suppresses ------------------
 const dir3 = mkdtempSync(join(tmpdir(), "devgate-scan-"));
@@ -92,7 +112,7 @@ makeProject(dir3, {
 });
 r = runScan(dir3);
 check("allow annotation suppresses", r.code === 0);
-rmSync(dir3, { recursive: true, force: true });
+cleanup(dir3);
 
 // --- 4. forbidden_context suppresses the hit --------------------------------
 const dir4 = mkdtempSync(join(tmpdir(), "devgate-scan-"));
@@ -101,7 +121,7 @@ makeProject(dir4, {
 });
 r = runScan(dir4);
 check("forbidden_context (Exception) suppresses PREVENT-007", !r.err.includes("PREVENT-007"));
-rmSync(dir4, { recursive: true, force: true });
+cleanup(dir4);
 
 // --- 5. .guardrailsignore scopes the walk -----------------------------------
 const dir5 = mkdtempSync(join(tmpdir(), "devgate-scan-"));
@@ -112,7 +132,7 @@ makeProject(dir5, {
 writeFileSync(join(dir5, ".guardrailsignore"), "# frozen legacy\narchive/\n");
 r = runScan(dir5);
 check(".guardrailsignore excludes archive/, keeps pkg/", r.code === 1 && !r.err.includes("archive/python/bare.py") && r.err.includes("pkg/keep.py"));
-rmSync(dir5, { recursive: true, force: true });
+cleanup(dir5);
 
 // --- 6. project overlay MERGES over the bundled baseline --------------------
 // A game repo carries its own .guardrails/prevention-rules/pattern-rules.json
@@ -142,7 +162,7 @@ check("overlay: merge banner shown", r.out.includes("overlay merged"));
 check("overlay: same-id entry REPLACED severity (error→warning)", r.err.includes("1 warning(s)") && r.err.includes("1 violation(s)"));
 check("overlay: replaced entry uses overlay message", r.err.includes("retuned by project overlay"));
 check("overlay: scan blocks on the appended rule", r.code === 1);
-rmSync(dir6, { recursive: true, force: true });
+cleanup(dir6);
 
 // --- 7. explicit GUARDRAILS_RULES env collapses to a single file ------------
 const dir7 = mkdtempSync(join(tmpdir(), "devgate-scan-"));
@@ -166,7 +186,7 @@ writeFileSync(join(dir7, ".guardrails", "prevention-rules", "pattern-rules.json"
 	check("env override: overlay-only rule fires", res.code === 1 && res.err.includes("PREVENT-XI-001"));
 	check("env override: bundled baseline NOT merged (030 silent)", !res.err.includes("PREVENT-030"));
 }
-rmSync(dir7, { recursive: true, force: true });
+cleanup(dir7);
 
 // --- 8. Rust #[cfg(test)] blanking: blocking rules see production only ------
 // MC2 incident (2026-09-09): an unwrap() inside a test module was indistinguishable
@@ -200,7 +220,7 @@ r = runScan(dir8, { rulesEnv: rules8Path });
 check("cfg(test): production unwrap blocks (2 hits)", r.code === 1 && r.err.includes("api/handlers.rs:2") && r.err.includes("api/handlers.rs:3"));
 check("cfg(test): unwrap inside test module is NOT reported", !r.err.includes("api/handlers.rs:11"));
 check("cfg(test): exactly 2 violation(s), not 3", r.err.includes("2 violation(s)"));
-rmSync(dir8, { recursive: true, force: true });
+cleanup(dir8);
 
 // --- 8b. cfg(test) + #[allow(…)] before `mod tests {` — zero-brace attribute
 // lines must not close the blanked region prematurely (radical-code REM-172:
@@ -233,7 +253,7 @@ r = runScan(dir8b, { rulesEnv: rules8bPath });
 check("8b: attribute between cfg(test) and mod does not reopen production", r.code === 0);
 check("8b: no unwrap finding from the test module", !r.err.includes("model_resolve.rs:9"));
 check("8b: no Mock finding from the test module", !r.err.includes("model_resolve.rs:7"));
-rmSync(dir8b, { recursive: true, force: true });
+cleanup(dir8b);
 
 // --- 9. whole test FILES: blocking rules skip, warnings still apply ----------
 const dir9 = mkdtempSync(join(tmpdir(), "devgate-scan-"));
@@ -252,7 +272,7 @@ r = runScan(dir9, { rulesEnv: rules9Path });
 check("test file: error rule silent", !r.err.includes("PREVENT-RS-UNWRAP"));
 check("test file: warning rule still fires", r.err.includes("PREVENT-RS-TODO") && r.err.includes("1 warning(s)"));
 check("test file: non-strict exit 0 (warning non-blocking)", r.code === 0);
-rmSync(dir9, { recursive: true, force: true });
+cleanup(dir9);
 
 // --- 9c. Rust sibling test-module FILES: crates use tests.rs / *_tests.rs ----
 // (memory/cortex style: unit tests per module in <name>_tests.rs included via
@@ -273,7 +293,7 @@ writeFileSync(rules9cPath, JSON.stringify({
 r = runScan(dir9c, { rulesEnv: rules9cPath });
 check("sibling tests.rs: error rule silent", !r.err.includes("PREVENT-RS-UNWRAP"));
 check("sibling tests.rs: warnings still fire (2)", r.err.includes("2 warning(s)"));
-rmSync(dir9c, { recursive: true, force: true });
+cleanup(dir9c);
 
 // --- 10. COMMITTED-ENV / COMMITTED-GENERATED via git index -------------------
 // The walk misses files present in the index but deleted from the working
@@ -297,7 +317,7 @@ makeProject(dir10, {});
 	// trackedFiles returns null; a crash or false COMMITTED-* there would have
 	// failed those fixtures, which pass above.
 }
-rmSync(dir10, { recursive: true, force: true });
+cleanup(dir10);
 
 // --- 10b. COMMITTED-ENV honors .guardrailsignore, EXCEPT bare .env -----------
 const dir10b = mkdtempSync(join(tmpdir(), "devgate-scan-"));
@@ -313,7 +333,7 @@ makeProject(dir10b, {});
 	check("ignore: .env.testing not reported", !r.err.includes(".env.testing"));
 	check("carve-out: bare .env still fires despite ignore entry", r.err.includes("COMMITTED-ENV .env"));
 }
-rmSync(dir10b, { recursive: true, force: true });
+cleanup(dir10b);
 
 // --- 11. --strict blocks on warnings -----------------------------------------
 const dir11 = mkdtempSync(join(tmpdir(), "devgate-scan-"));
@@ -331,7 +351,7 @@ r = runScan(dir11, { rulesEnv: rules11Path });
 const strict = runScan(dir11, { rulesEnv: rules11Path, strict: true });
 check("warning alone: non-strict exit 0", r.code === 0 && r.err.includes("1 warning(s) (non-blocking)"));
 check("warning alone: --strict exits 1", strict.code === 1 && strict.err.includes("blocking under --strict"));
-rmSync(dir11, { recursive: true, force: true });
+cleanup(dir11);
 
 // --- 12. guardrails-allow-file exempts a whole file; reason mandatory -------
 // radcode shipped PREVENT-RAD-001..004 with FILE-scope annotations, but the
@@ -360,7 +380,7 @@ check("allow-file: empty reason is NOT an exemption", r.err.includes("no_reason.
 check("allow-file: unrelated rule id does not exempt", r.err.includes("other_rule.ts"));
 check("allow-file: declaration past the header does not exempt", r.err.includes("late.ts"));
 check("allow-file: exactly 3 violations (reason/rule/position)", r.err.includes("3 violation(s)"));
-rmSync(dir12, { recursive: true, force: true });
+cleanup(dir12);
 
 // --- 14. Zig source is scanned, AND Zig rules fire --------------------------
 // A Zig project's entire source tree was invisible to this gate: .zig was absent
@@ -378,7 +398,7 @@ check("zig: a catch unreachable violation blocks the scan", r.code === 1);
 check("zig: finding names the rule and the file",
 	r.err.includes("PREVENT-Z-001") && r.err.includes("crashy.zig"));
 check("zig: a clean zig file is not reported", !r.err.includes("clean.zig"));
-rmSync(dir13, { recursive: true, force: true });
+cleanup(dir13);
 
 // --- 13. Python-side semantics agree: file_glob + allow + ignore -------------
 // (game_regression.py is exercised by tests/test_game_regression.py,
