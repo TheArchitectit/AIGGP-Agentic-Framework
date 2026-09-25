@@ -25,12 +25,13 @@
   img-cycle-02). The store is a required input (`COHERENCE_PODMAN_STORE`,
   design D3.1) — every call carries `--root`, and the tick asks podman which
   graph root that resolves to before it pulls anything; exit 5 names both paths
-- [ ] 2.2 Unit the tick beside the heartbeat in `runner-enroll.sh` (same
+- [x] 2.2 Unit the tick beside the heartbeat in `runner-enroll.sh` (same
   install path, same per-runner EnvironmentFile, same "never inline into
   ExecStart" constraint), and document the store-namespace choice in
   `templates/runner/README.md` + `add-a-runner.md` — including that
   `COHERENCE_PODMAN_STORE` must name the store the runner container's job
-  reaches (design D3.1's residual limitation)
+  reaches (design D3.1's residual limitation). Installed by enrollment,
+  ENABLED by provisioning; six tests watched RED, battery at 34/34
 - [x] 2.3 Tests: absent → pull; present → no pull; wrong-store verification →
   non-zero naming the mismatch; tag ahead of record → tag not followed.
   Mutation-kill each guard by exactly one named test — 17 tests, 18-mutation
