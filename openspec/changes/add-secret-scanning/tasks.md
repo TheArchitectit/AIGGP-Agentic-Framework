@@ -533,6 +533,14 @@
   the honest response is a push that carries content**, which is what this
   commit is.
 
+  **Hosted green, and this is the closure evidence:** run 36113714716 for
+  4bf4721 — test suite, secret scan, the attack suite, specs, the evaluator
+  image build and the DevGate gates job all success, publish skipped as it is on
+  every push. Three pushes, two reds, and the last one red for the right reason
+  before this one went green: 36109634621 (the 5.3a content, red on the exec
+  bit), 36111059327 (the exec-bit fix, red because a mode-only push has nothing
+  for the gate to evaluate), 4bf4721 (this record).
+
   Residual, queued rather than fixed: the gate's message is accurate but does
   not say WHICH empty case it is, so an operator who has just set an exec bit
   reads "the selected scope contains 0 changed files" and has to rediscover the
