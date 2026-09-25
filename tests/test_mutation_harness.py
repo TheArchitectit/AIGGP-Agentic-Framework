@@ -131,19 +131,27 @@ def test_a_clean_battery_exits_zero(repo):
 
 
 def test_well_formed_reads_each_artifact_language(repo):
-    """The batteries mutate shell scripts and the size gate's own Python, so a
-    parse check that only compiles Python would call a broken unit file valid."""
+    """The batteries mutate shell scripts, the size gate's own Python, and the
+    CI workflow, so a parse check that compiles only Python would call both a
+    broken unit file and a broken workflow valid — and a YAML mutation that
+    breaks parsing makes every test fail at collection, which a harness reading
+    only the exit code reports as a kill."""
     py = repo / "w.py"
     py.write_text("def f(:\n", encoding="utf-8")
     sh = repo / "s.sh"
     sh.write_text("if true; then\n", encoding="utf-8")
     js = repo / "j.json"
     js.write_text(json.dumps({"a": 1}), encoding="utf-8")
+    yml = repo / "c.yml"
+    yml.write_text("jobs:\n  a: [\n", encoding="utf-8")
     assert h.well_formed(py) is False
     assert h.well_formed(sh) is False
+    assert h.well_formed(yml) is False
     assert h.well_formed(js) is True
     sh.write_text("if true; then\n  echo hi\nfi\n", encoding="utf-8")
+    yml.write_text("jobs:\n  a:\n    if: true\n", encoding="utf-8")
     assert h.well_formed(sh) is True
+    assert h.well_formed(yml) is True
 
 
 def test_clear_bytecode_removes_a_planted_cache(repo):

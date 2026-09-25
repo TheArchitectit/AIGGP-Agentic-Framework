@@ -20,7 +20,16 @@ on:
   pull_request:
   push:
     branches: [main]
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      # Read by container-publish's `if:`. Declared here because an `if:` that
+      # references an undeclared input evaluates to null, the condition is false
+      # on every event, and the job silently never runs again — GitHub reports
+      # no error for that. test_the_publish_input_is_declared guards it.
+      publish:
+        description: "Build and push the evaluator image to GHCR"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -367,7 +376,8 @@ jobs:
         run: |
           for b in tests/mutation_battery_size_scope.py \
                    tests/mutation_battery_image_cycle.py \
-                   tests/mutation_battery_image_state.py; do
+                   tests/mutation_battery_image_state.py \
+                   tests/mutation_battery_publish_trigger.py; do
             echo "::group::$b"
             python3 "$b" || exit 1
             echo "::endgroup::"
@@ -407,15 +417,31 @@ jobs:
 
   # S4 publish gate: build the pinned image reproducibly and push it to GHCR
   # under the repository's own identity. Uses the workflow's own GITHUB_TOKEN
-  # (packages: write) — no personal credentials anywhere. Publishes ONLY on
-  # main pushes and manual dispatch with publish=true.
+  # (packages: write) — no personal credentials anywhere.
+  #
+  # Publishes ONLY on manual dispatch with inputs.publish=true — Actions → CI →
+  # Run workflow → tick "publish". It does NOT publish on a merge to main.
+  #
+  # That inversion is the fix, not a side effect (img-cycle-06). The comment
+  # here used to promise manual dispatch on a condition that fired only for a
+  # push to main, so the documented trigger did not exist and every merge
+  # published instead: the :main tag advanced past the recorded identity on
+  # consecutive hosted runs with nothing to notice it, because a tag that moves
+  # on its own is not a divergence anybody can act on. What the record in
+  # container/execution-profiles.json describes is a release, so what moves it
+  # has to be a deliberate act. Hosts converge on the RECORDED digest, never on
+  # :main, so nothing in the fleet depends on the tag moving by itself.
+  #
+  # tests/test_publish_trigger.py evaluates this condition against event
+  # payloads rather than reading it, so this comment and that `if:` disagreeing
+  # is a failing test rather than a sentence nobody re-reads.
   container-publish:
     name: Publish evaluator image to GHCR (S4)
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && inputs.publish
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - name: Build pinned image

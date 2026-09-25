@@ -54,6 +54,13 @@ def well_formed(path):
             return True
         except Exception:
             return False
+    if path.suffix in (".yml", ".yaml"):
+        try:
+            import yaml
+            yaml.safe_load(text)
+            return True
+        except Exception:
+            return False
     if path.suffix == ".sh":
         return subprocess.run(["bash", "-n", str(path)],
                               capture_output=True, text=True).returncode == 0
