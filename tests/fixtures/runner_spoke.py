@@ -150,9 +150,13 @@ class Spoke:
         # from the other side: the environment would silently choose the
         # branch under test. Scrubbed here rather than per test so no later
         # test can reintroduce the coupling by forgetting to unset them.
+        # SECRET_SCAN_* is scrubbed for the same measured reason, one
+        # provisioned key later: SECRET_SCAN_DECLARED is the variable the sweep
+        # timer is enabled by, so a host (or a CI environment) that already
+        # exports it decides which branch the not-provisioned tests exercise.
         self.env = {
             **{k: v for k, v in os.environ.items()
-               if not k.startswith("COHERENCE_")},
+               if not k.startswith(("COHERENCE_", "SECRET_SCAN_"))},
             "HOME": str(self.home),
             "PATH": f"{bindir}:{os.environ['PATH']}",
             "STUB_CURL_LOG": str(self.curl_log),
@@ -180,6 +184,22 @@ class Spoke:
         return (self.units / f"devgate-imgcycle-{s}.service",
                 self.units / f"devgate-imgcycle-{s}.timer")
 
+    def fleet_helper(self):
+        """The fleet secret sweep's installed copy."""
+        return self.home / ".config" / "containers" / "devgate-secret-scan-fleet.sh"
+
+    def gate_helper(self):
+        """The gate's installed copy — the sweep resolves it as a sibling of
+        itself ($(dirname $0)/secret-scan.sh), so the two must land together,
+        AND under that literal name."""
+        return self.home / ".config" / "containers" / "secret-scan.sh"
+
+    def fleet_units(self, runner):
+        """(service, timer) for the fleet sweep, named per runner."""
+        s = slug(runner)
+        return (self.units / f"devgate-secretscan-{s}.service",
+                self.units / f"devgate-secretscan-{s}.timer")
+
     def token_of(self, runner):
         env = self.env_file(runner)
         assert env.exists(), f"per-runner env file was never written: {env}"
@@ -195,6 +215,15 @@ class Spoke:
              "--repo", "owner/repo", "--runner-name", runner],
             env=self.env, capture_output=True, text=True, timeout=60)
 
+    def revoke(self, runner):
+        """Revoke the way the CLI spells it: the token and the runner name are
+        POSITIONAL after --revoke — `--runner-name` is the enroll-mode flag and
+        sets a different variable, so a revoke test written with it would silently
+        revoke the hostname-derived default."""
+        return subprocess.run(
+            ["bash", str(SCRIPT), "--revoke", HUB, f"tok-{runner}", runner],
+            env=self.env, capture_output=True, text=True, timeout=60)
+
     def requests(self, path=None):
         rows = [json.loads(l) for l in self.curl_log.read_text().splitlines() if l]
         return [r for r in rows if path is None or r["path"] == path]
@@ -202,20 +231,73 @@ class Spoke:
     def systemctl_calls(self):
         return [l for l in self.systemctl_log.read_text().splitlines() if l]
 
-    def run_helper(self, runner, **extra_env):
-        """Run the installed helper the way systemd would: env from the file."""
+    def _env_from_file(self, runner, extra=None):
+        """The environment systemd would give a unit: the runner's own env file
+        layered over the host's, with any test-supplied knobs on top."""
         envf = self.env_file(runner)
         assert envf.exists(), f"per-runner env file was never written: {envf}"
-        helper = self.helper()
-        assert helper.exists(), f"heartbeat helper was never installed: {helper}"
         env = dict(self.env)
         for line in envf.read_text().splitlines():
             if "=" in line:
                 k, v = line.split("=", 1)
                 env[k] = v
-        env.update(extra_env)
-        return subprocess.run(["bash", str(self.helper())], env=env,
+        env.update(extra or {})
+        return env
+
+    def run_helper(self, runner, **extra_env):
+        """Run the installed helper the way systemd would: env from the file."""
+        helper = self.helper()
+        assert helper.exists(), f"heartbeat helper was never installed: {helper}"
+        return subprocess.run(["bash", str(helper)],
+                              env=self._env_from_file(runner, extra_env),
                               capture_output=True, text=True, timeout=60)
+
+    def run_fleet_helper(self, runner, declared, *args):
+        """Run the INSTALLED sweep the way its unit does — which is the only way
+        to catch a helper that is present, executable and useless.
+
+        The declaration path is normally expanded by systemd out of the env
+        file; the tests pass it explicitly so they can vary it, then hand the
+        rest of the environment over exactly as the unit would.
+        """
+        helper = self.fleet_helper()
+        assert helper.exists(), f"the sweep helper was never installed: {helper}"
+        return subprocess.run(
+            ["bash", str(helper), "--declared", str(declared), *args],
+            env=self._env_from_file(runner), capture_output=True, text=True,
+            timeout=120)
+
+    # --- the sweep's collaborator ---------------------------------------------
+    def stub_gitleaks(self, findings=None, rc=None):
+        """Put a gitleaks stub on this Spoke's PATH.
+
+        Opt-in like stub_podman, and for the same reason: what the gate does
+        with a FINDING is `tests/test_secret_scan.py`'s subject, and a stub that
+        appeared unconditionally would change what every test here observes
+        about a host with no scanner at all.
+
+        This stub exists to let the installed chain run end to end — helper →
+        the gate it resolves as its own sibling → scanner — because the failure
+        this fixture was extended to catch was a helper that ran and then died
+        looking for a gate under a name it does not have.
+        """
+        p = Path(self.env["PATH"].split(":")[0]) / "gitleaks"
+        p.write_text(
+            "#!/usr/bin/env python3\n"
+            "import json, sys\n"
+            "args = sys.argv[1:]\n"
+            "if '--version' in args or args[:1] == ['version']:\n"
+            "    print('8.30.1'); sys.exit(0)\n"
+            "def opt(n):\n"
+            "    for i, a in enumerate(args):\n"
+            "        if a == n and i + 1 < len(args): return args[i + 1]\n"
+            "    return None\n"
+            "if opt('--report-format') == 'json' and opt('--report-path'):\n"
+            "    with open(opt('--report-path'), 'w') as fh:\n"
+            f"        json.dump({findings or []!r}, fh)\n"
+            f"sys.exit({rc if rc is not None else (1 if findings else 0)})\n")
+        p.chmod(0o755)
+        return p
 
     # --- the image probe's collaborator ---------------------------------------
     def stub_podman(self):

@@ -15,6 +15,10 @@
 #   ~/.config/containers/devgate-heartbeat.sh           heartbeat helper (shared)
 #   devgate-hb-<name>.{service,timer}                   the heartbeat
 #   devgate-watchdog-<name>.{service,timer}             the hub watchdog
+#   devgate-imgcycle-<name>.{service,timer}             the evaluator-image cycle
+#   devgate-secretscan-<name>.{service,timer}           the fleet secret sweep
+# The last two are installed but enabled only once the host is provisioned;
+# `--help` names the variables that do it.
 # Legacy fixed-name units (devgate-heartbeat.*, devgate-hub-watchdog.*) predate
 # multi-runner hosts; those belonging to this runner are removed for it.
 #
@@ -25,9 +29,11 @@
 # Those installed units are not written here alone: scripts/lib/runner-units.sh
 # holds every operation that writes into, or removes from, the host's unit/env
 # namespace. This script decides WHAT a host runs (which runner, which hub,
-# which token, which host may own a slug) and emits the unit bodies; the
-# library copies helpers and enables, disables and removes units. Enrollment
-# already runs from a checkout (REPO_ROOT below), so the library sits beside it.
+# which token, which host may own a slug) and emits the heartbeat's and the
+# image cycle's unit bodies; a unit that arrives whole with its own enablement
+# rule (the watchdog, the fleet secret sweep) is emitted in the library, beside
+# the rule that governs it. Enrollment already runs from a checkout
+# (REPO_ROOT below), so the library sits beside it.
 #
 # Options:
 #   --runner-name NAME    Runner name (default: hostname)
@@ -51,6 +57,14 @@ STATE_DIR="$HOME/.config/systemd/user"
 ENV_DIR="$HOME/.config/containers"
 HB_HELPER="$ENV_DIR/devgate-heartbeat.sh"
 CYC_HELPER="$ENV_DIR/devgate-image-cycle.sh"
+# The sweep and the gate it resolves as its own sibling. The gate's install
+# name is `secret-scan.sh`, NOT `devgate-secret-scan.sh`, and that is
+# load-bearing: the sweep resolves it by that literal name in its own
+# directory, so any other name here is a helper that dies with "the gate script
+# is not beside this one" on every tick. (Caught by running the installed copy;
+# a test comparing the two files' presence, parent and bytes had passed.)
+FLEET_HELPER="$ENV_DIR/devgate-secret-scan-fleet.sh"
+GATE_HELPER="$ENV_DIR/secret-scan.sh"
 
 # Unit and env paths depend on the runner's name, which is not final until the
 # arguments are parsed — set_unit_paths() derives SLUG and every path from it.
@@ -64,11 +78,20 @@ WATCHDOG_SERVICE_UNIT=""
 WATCHDOG_TIMER_UNIT=""
 CYC_SERVICE_UNIT=""
 CYC_TIMER_UNIT=""
+FLEET_SERVICE_UNIT=""
+FLEET_TIMER_UNIT=""
 
 # The cycle's interval is deliberately NOT the heartbeat's. A heartbeat is a
 # cheap local POST that wants to be current; the cycle may pull an image over
 # the network, so it converges on a slower beat and publishes nothing itself.
 CYCLE_INTERVAL=3600
+
+# And the sweep's is not the cycle's either, by the same logic taken further:
+# one tick CLONES every declared repository, in full, to read its history. Daily
+# is the cadence the question wants — "is there a credential sitting in a repo
+# nobody has pushed to in months" does not change minute to minute — while a
+# faster beat would spend a fleet's bandwidth to re-derive the same answer.
+SWEEP_INTERVAL=86400
 
 set_unit_paths() {
     local name="$1"
@@ -83,6 +106,8 @@ set_unit_paths() {
     WATCHDOG_TIMER_UNIT="$STATE_DIR/devgate-watchdog-$SLUG.timer"
     CYC_SERVICE_UNIT="$STATE_DIR/devgate-imgcycle-$SLUG.service"
     CYC_TIMER_UNIT="$STATE_DIR/devgate-imgcycle-$SLUG.timer"
+    FLEET_SERVICE_UNIT="$STATE_DIR/devgate-secretscan-$SLUG.service"
+    FLEET_TIMER_UNIT="$STATE_DIR/devgate-secretscan-$SLUG.timer"
 }
 
 # Sets SLUG_OWNER to the RUNNER_NAME recorded at $TICKET_FILE ("" when no file
@@ -137,13 +162,19 @@ Options:
   --revoke              Revoke this runner's heartbeat token
 
   Units and env are named per runner (devgate-hb-<name>, devgate-watchdog-<name>,
-  devgate-imgcycle-<name>, devgate-heartbeat-<name>.env), so one host can enroll
-  several runners.
+  devgate-imgcycle-<name>, devgate-secretscan-<name>,
+  devgate-heartbeat-<name>.env), so one host can enroll several runners.
 
   The evaluator-image cycle is INSTALLED here but enabled only once the host is
   provisioned: add COHERENCE_IMAGE, COHERENCE_IMAGE_MANIFEST_DIGEST and
   COHERENCE_PODMAN_STORE to the runner's environment file and run enroll again.
   The store is a per-fleet choice (templates/runner/README.md, design D3).
+
+  The fleet secret sweep is installed the same way and for the same reason:
+  add SECRET_SCAN_DECLARED=/path/to/declared-repos.txt (one repository URL per
+  line) to the runner's environment file and run enroll again. Until then its
+  units are on disk with no running timer — the sweep refuses to run on an
+  empty declaration, so enabling it early would fail on every tick.
 
 Examples:
   # Enroll a new runner:
@@ -239,6 +270,14 @@ install_timer() {
         "$REPO_ROOT/scripts/runner-heartbeat.sh" "$HB_HELPER"
     install_helper "Image-cycle" \
         "$REPO_ROOT/scripts/runner-image-cycle.sh" "$CYC_HELPER"
+    # The gate first, then the sweep: the sweep resolves the gate as a sibling
+    # at run time, so if only one of the two is ever missing it must not be the
+    # gate. install_helper copies both in the same breath, and a missing source
+    # is a die, so a checkout that lost either fails enrollment loudly here.
+    install_helper "Secret-scan gate" \
+        "$REPO_ROOT/scripts/secret-scan.sh" "$GATE_HELPER"
+    install_helper "Fleet secret sweep" \
+        "$REPO_ROOT/scripts/secret-scan-fleet.sh" "$FLEET_HELPER"
 
     # Write the heartbeat env file (mode 600 — it holds the token).
     #
@@ -341,6 +380,7 @@ EOF
     log "Heartbeat timer enabled: devgate-hb-$SLUG.timer (helper: $HB_HELPER)"
 
     enable_image_cycle
+    install_fleet_sweep
 
     install_watchdog
 }
@@ -431,8 +471,9 @@ if [[ "$MODE" == "revoke" ]]; then
         exit 0
     fi
 
-    # Remove this runner's units + env file. The watchdog and the image cycle
-    # go too: both read the env file being deleted, so leaving either behind
+    # Remove this runner's units + env file. The watchdog, the image cycle and
+    # the fleet sweep go too: all three read the env file being deleted (the
+    # sweep takes its --declared path from it), so leaving any of them behind
     # would leave a unit that fails forever with a confusing config error.
     systemctl --user stop "devgate-hb-$SLUG.timer" 2>/dev/null || true
     systemctl --user disable "devgate-hb-$SLUG.timer" 2>/dev/null || true
@@ -440,13 +481,16 @@ if [[ "$MODE" == "revoke" ]]; then
     systemctl --user disable "devgate-watchdog-$SLUG.timer" 2>/dev/null || true
     systemctl --user stop "devgate-imgcycle-$SLUG.timer" 2>/dev/null || true
     systemctl --user disable "devgate-imgcycle-$SLUG.timer" 2>/dev/null || true
+    systemctl --user stop "devgate-secretscan-$SLUG.timer" 2>/dev/null || true
+    systemctl --user disable "devgate-secretscan-$SLUG.timer" 2>/dev/null || true
     rm -f "$TIMER_UNIT" "$SERVICE_UNIT" "$TICKET_FILE" \
           "$WATCHDOG_TIMER_UNIT" "$WATCHDOG_SERVICE_UNIT" \
-          "$CYC_TIMER_UNIT" "$CYC_SERVICE_UNIT"
+          "$CYC_TIMER_UNIT" "$CYC_SERVICE_UNIT" \
+          "$FLEET_TIMER_UNIT" "$FLEET_SERVICE_UNIT"
     remove_legacy_units "$REVOKE_RUNNER"
     systemctl --user daemon-reload
 
-    log "Runner '$REVOKE_RUNNER' revoked. Units removed (devgate-hb-$SLUG.*, devgate-imgcycle-$SLUG.*)."
+    log "Runner '$REVOKE_RUNNER' revoked. Units removed (devgate-hb-$SLUG.*, devgate-imgcycle-$SLUG.*, devgate-secretscan-$SLUG.*)."
 fi
 
 exit 0
