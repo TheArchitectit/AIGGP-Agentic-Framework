@@ -689,6 +689,24 @@
   match on it — and the alert body is written once and never rewritten
   (`hub/alerts.py` dedupes on the title and only comments afterwards).
 
+  **Hosted green, and this is the closure evidence:** run 36122034628 for 2688f0d
+  — test suite, the mutation-battery attack job, secret scan, specs, the evaluator
+  image build and the DevGate gates job all success, publish skipped as it is on
+  every push. Two of those six are the jobs this slice could have failed and
+  could not have failed locally: `Exec-bit integrity` in the DevGate gates job
+  runs over the CHECKOUT, so it is the step that would have caught the 100644
+  commit the index was hiding (and it did not have to, because `git ls-tree HEAD`
+  caught it first); and the mutation batteries run in the attack job, so the
+  16/16 figure is measured on the hosted tree and not only here.
+
+  One push, no reds — unlike 5.3a, which took three pushes and two reds. The
+  comparison is checked against the run list rather than remembered: 9dbebed
+  (5.3a's own closure commit) also went green with no red between, so this is
+  the second clean closure in a row and not a first. The exec-bit mechanism
+  above is what makes it worth stating at all: this is the slice where that trap
+  was caught before the push — by `git ls-tree HEAD` — rather than by the hosted
+  gate that had caught it in the slices before.
+
 ## Sprint 6 — Evidence
 
 - [x] 6.1 A planted canary in a scratch clone: the gate must fail, redact, and
