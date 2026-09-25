@@ -59,9 +59,25 @@ So `scripts/runner-image-cycle.sh` requires `COHERENCE_PODMAN_STORE`, addresses
 every podman call with `podman --root "$COHERENCE_PODMAN_STORE"`, and then
 verifies the assumption instead of trusting it: `podman --root <path> info
 --format '{{.Store.GraphRoot}}'` is asked to confirm the graph root it actually
-resolved (measured 2026-09-24: it answers with the path given, so a different
-answer means the configuration does not address the store it names). A mismatch
-exits 5 and names both paths; nothing is pulled until that check passes.
+resolved. A mismatch exits 5 and names both paths; nothing is pulled until that
+check passes.
+
+**Corrected 2026-09-24 (audit, measured on podman 6.1.1).** This section first
+claimed podman "answers with the path given, so a different answer means the
+configuration does not address the store it names". The measurement was right
+and the inference was wrong: podman answers with the path NORMALISED, not
+verbatim — `--root /tmp/ps1/` answers `/tmp/ps1`, and `--root /tmp//ps1`
+answers `/tmp/ps1` too. A byte comparison of the two strings therefore does not
+compare two stores: a trailing slash, an ordinary EnvironmentFile typo, makes a
+correctly configured host report a mismatch. The check is on the DIRECTORY each
+name denotes (`cd` + `pwd -P`, builtins) rather than on the spelling. The
+heartbeat probe carries that correction here — where the defect was worse than
+a refusal, because its mismatch branch skips the presence check and so hid a
+converged host from the fleet view entirely. The cycler carries the same
+comparison and the same `|| true` (which turns a podman that failed into a
+"mismatch" that no EnvironmentFile edit can fix); it fails closed rather than
+hiding a host, and its correction is owed with its own tests rather than
+smuggled into this change.
 
 What the tick can then claim is narrow and true: *the recorded bytes are in the
 store named by this unit's EnvironmentFile*. Which store the runner container

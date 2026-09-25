@@ -49,14 +49,142 @@
 
 ## Sprint 3 — Reporting
 
-- [ ] 3.1 Extend the heartbeat payload with `image_digest` / `image_reason`
+- [x] 3.1 Extend the heartbeat payload with `image_digest` / `image_reason`
   (`scripts/runner-heartbeat.sh`), accepting the fields in the hub
   (`hub/registry.py`, `hub/schema/runners.schema.json`) with nullable
-  defaults, rendered as unknown rather than healthy
-- [ ] 3.2 Fleet view: a host with no pinned image shows the deficiency and
-  reason (mon-registry-01, mon-online-01)
-- [ ] 3.3 Tests for the null-vs-true distinction and for the schema's
-  acceptance of the new fields
+  defaults, rendered as unknown rather than healthy. The probe is REPORTING
+  ONLY: every fault becomes an absence with a reason and the tick still exits
+  0, because a heartbeat that dies blinds the whole fleet — strictly worse
+  than an image field that reads unknown. Reasons are the cycle's own
+  vocabulary (not provisioned, podman not on PATH, store mismatch, absent)
+  because each names a different fix. Two design notes worth keeping:
+  - **The store is verified before the image is.** The probe asks
+    `podman --root "$STORE" info --format '{{.Store.GraphRoot}}'` and compares
+    it to `COHERENCE_PODMAN_STORE` before asking whether the ref is present;
+    a host pointed at the wrong store would otherwise answer "present" about
+    a store its own gate never reads. This is D3.1's failure mode, from the
+    fleet view rather than from the tick.
+  - **`registry.UNREPORTED` exists so that `null` can mean something.** Every
+    other field in the registry treats `None` as "no news": omitting `disk_ok`
+    leaves the last reading. Correct for a health boolean, wrong for the
+    image, which needs three states — a host that converged yesterday and lost
+    its image today reports an explicit JSON null, and if null were also "no
+    news" the hub would keep the superseded ref and the fleet view would show
+    that host as ready to gate. JSON has one null, so the distinction has to
+    be made from the PRESENCE of the key on the way in; without the sentinel
+    the two cases are indistinguishable and the safe-looking default is the
+    harmful one. Both directions are pinned by named tests (a null clears; an
+    omission leaves alone), which is what keeps the sentinel from being
+    decoration.
+- [x] 3.2 Fleet view: a host with no pinned image shows the deficiency and
+  reason (mon-registry-01, mon-online-01) — `MonitorLoop._check_image_readiness`,
+  check-class `runner_image_missing`, detail carrying the host's own reason.
+  There is no dashboard renderer in this repository, so the fleet view IS the
+  alert path; the check is deliberately separate from `_check_runner_status`
+  rather than folded into it, because that function returns early when the
+  runners API call fails and a rate limit would then silence an image
+  deficiency exactly when an operator is looking. `registry.image_missing()`
+  keys readiness on the digest alone and never on a reason being present: a
+  host whose image state was never reported is as unable to gate as one that
+  reported a fault, and requiring a reason would quietly count the entire
+  already-enrolled fleet as ready.
+- [x] 3.3 Tests for the null-vs-true distinction and for the schema's
+  acceptance of the new fields. The schema test is a DRIFT invariant, not
+  validation, because nothing in this repository validates a registry against
+  `hub/schema/runners.schema.json` — `jsonschema` is not installed and CI
+  installs only pytest, so a field the registry writes and the schema does not
+  declare is invisible until a human reads both files side by side (which is
+  how the two new fields would have shipped undeclared). The invariant also
+  checks the redacted example, and that check found a pre-existing defect
+  immediately: the example carried a top-level `_comment` while the schema set
+  `additionalProperties: false` and declared no such key, so **the example
+  violated its own schema**. An example that does that teaches the wrong shape
+  to whoever copies it, so `_comment` is now declared in both the root and the
+  runner shape.
+  Also pinned: a registry file written BEFORE this change (no image keys at
+  all) loads without raising and reads as NOT ready — the state monitor-hub's
+  volume is actually in.
+
+### Sprint 3, audited 2026-09-24 — and the audit was worth more than the first draft
+
+A fresh-eyes pass over the diff found twelve things, three of them real defects
+in this change and one of them a defect in how I had reported the work. Fixed
+here; the rest are recorded with a disposition rather than absorbed.
+
+1. **The store check compared spellings, not stores (fixed).** `podman --root
+   /tmp/ps1/ info` answers `/tmp/ps1` — podman NORMALISES the path it reports
+   (measured on podman 6.1.1, both trailing and doubled slashes). Comparing the
+   two strings byte-for-byte therefore made an ordinary EnvironmentFile typo
+   read as a store mismatch — and the mismatch branch SKIPS the presence check,
+   so a correctly provisioned host was reported as unable to gate for as long
+   as nobody edited a path that was already right. The comparison is now on the
+   directory each name denotes (`cd` + `pwd -P` — builtins, so a bare runner
+   host gains no new dependency). The old test could not catch this: the podman
+   stub echoed its argument verbatim, encoding the same false premise. The stub
+   now normalises the way podman does, which is what turns the audit's
+   measurement into a reproducible test.
+2. **A failing podman was reported as a mismatch (fixed).** `graph_root="$( …
+   || true)"` collapsed "podman could not answer" into an empty string, which
+   never equals the configured store — so a broken store, a permission problem,
+   or a podman that will not start all sent the operator to edit a path. It has
+   its own reason now.
+3. **The probe CREATED the store (fixed).** `podman --root X info` materialises
+   X when it is missing (measured: one run left `X/{db.sql,libpod}`). On a host
+   whose store mount has not come up that is worse than a wrong answer: an
+   empty store is left on the underlying filesystem, outliving the mount. The
+   store is now checked for existence before podman is asked anything, and the
+   test asserts the directory is still absent — an assertion the stub's own
+   side effect keeps honest (both are mutated in the battery).
+4. **The suite was coupled to the ambient environment (fixed).** `Spoke` built
+   its env from `os.environ`, so a host that IS provisioned decided which probe
+   branch the not-provisioned test exercised — red on a provisioned host, and in
+   CI a silent choice of the branch under test. This is this repository's
+   recurring defect class (third instance: the podman-absence test's symlink
+   farm, the stale bytecode, now this). The three `COHERENCE_*` variables are
+   scrubbed at the fixture, not per test, so no later test can reintroduce the
+   coupling by forgetting.
+5. **Prose that contradicted the code (fixed).** The `UNREPORTED` note said
+   "`None` still means no-news for a caller that passes it directly" — false for
+   the image fields, where passing `None` IS the report that there is no image
+   and therefore CLEARS a stored ref. An implementer trusting that sentence
+   wipes a converged host's digest. `image_missing`'s docstring likewise claimed
+   more than it computes: it does not check the digest is still the PINNED one,
+   so a host that has not ticked since a re-pin reads as ready. The claim is
+   corrected and the residual named; catching it needs the current pin in hand
+   and belongs to Sprint 4's served-vs-recorded advisory, not to this predicate.
+6. **My mutation report was wrong (corrected).** I reported "19/19 killed" from
+   a battery in /tmp — reproducible by nobody, and never run against the
+   repository's own tool, which refuses a dirty tree. Run against a clean copy
+   of this tree, `scripts/mutation_check.py` reports survivors on all three
+   touched Python files, and five of the registry's were caused by MY code: the
+   `UNREPORTED` note was a bare string literal, not a docstring, so the tool
+   mutated prose as if it were logic (`bool:and->or`) and reported blind spots
+   that can never be killed — exactly the noise that trains an operator to
+   ignore the report. The note is now `#` comments. The battery itself is
+   committed (`tests/mutation_battery_image_state.py`) so "no survivors" is
+   re-checkable: **25/25 killed, each by one named test**, plus one negative
+   control that must and does survive (see below).
+
+Dispositions for what was NOT changed here, so nothing is silently absorbed:
+
+- **The provisioning path does not exist yet.** Nothing writes `COHERENCE_*`
+  into a host's EnvironmentFile, `runner-enroll.sh` truncates that file on
+  re-enroll (destroying an operator's hand-added lines), and it leaves an
+  already-installed helper unchanged — so today every enrolled host reports
+  "not provisioned" and the hub files one alert per host. That is Sprint 2.2's
+  job and the order is not cosmetic: 2.2 is what makes those alerts clearable.
+- **No timeout on the podman calls.** The tick blocks until podman answers; a
+  contended store lock (the cycle pulling while a tick fires — which 2.2 makes
+  routine) delays it, and the unit's 90s start timeout would kill the POST.
+  Queued: bounding the calls needs a PATH dependency handled explicitly, and
+  the pre-existing `podman info` above has the same exposure.
+- **The cycler retains the same byte comparison and the same `|| true`**
+  (`runner-image-cycle.sh`): it fails closed rather than hiding a host, and its
+  correction is owed with its own tests (see design.md D3.1).
+- **A reported digest that is stale after a re-pin** reads as ready; documented
+  as a residual in `image_missing`, owned by Sprint 4.
+- **`/health` renders no image state at all**, so "fleet view" is realised only
+  through the alert path; noted rather than papered over.
 
 ## Sprint 4 — Divergence reporting
 
