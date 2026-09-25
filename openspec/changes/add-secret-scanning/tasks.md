@@ -315,14 +315,14 @@
   with a test that would assert the number back at itself; (13) closed — the
   check it named was already correct; (14) fixed, and its fix is the quote
   strip in (4).
-- [ ] 5.3 Hub: accept and render per-repo scan state, unknown when absent
-  (secret-scan-07), reusing the heartbeat path — **5.3a DONE, 5.3b NOT YET.**
+- [x] 5.3 Hub: accept and render per-repo scan state, unknown when absent
+  (secret-scan-07), reusing the heartbeat path — **5.3a AND 5.3b BOTH DONE.**
   5.3a is the producer and the transport: the sweep's report reaches the
-  heartbeat, the heartbeat ships it, the hub stores it presence-aware. 5.3b is
-  the rendering (the monitor and the docs) and is the only part left. That the
-  split is worth recording rather than hiding: after 5.3a the state is stored
-  and NOTHING RENDERS IT, which is a real intermediate state and exactly the
-  kind of half-built thing that gets mistaken for done.
+  heartbeat, the heartbeat ships it, the hub stores it presence-aware. 5.3b
+  (below, at the end of this sprint) is the rendering. That the split was worth
+  recording rather than hiding: between the two, the state was stored and
+  NOTHING RENDERED IT — a real intermediate state, and exactly the kind of
+  half-built thing that gets mistaken for done.
 
   **The path, which is where the work actually was.** The distinguishing
   decision: TWO processes now read one file on two different timers, and they
@@ -548,6 +548,146 @@
   mode/rename records would be safe — it explains the red without dissolving it
   — and it is deliberately not bundled here, because a message change made in
   the same breath as a withdrawal is not the moment to touch that file again.
+
+- [x] 5.3b **The rendering half — 5.3 is now complete.** `hub/scan_view.py`
+  (`scan_alerts(runner) -> [(check_class, detail)]`, a pure function of one
+  registry dict) plus ten lines of dispatch in `hub/monitor.py` (`_check_scan_state`,
+  section 3.6, one alert per runner). 12 tests in `tests/test_hub_scan_view.py`,
+  one seam test in `tests/test_hub_monitor.py`, and 16 mutations + 2 controls in
+  `tests/mutation_battery_scan_view.py` — **16/16 killed, 2/2 controls behaved.**
+
+  **Why a module and not the monitor.** `hub/monitor.py` was at 433 of the 500-line
+  hard limit and the sentences are ~90; more to the point, deciding what a verdict
+  should SAY needs none of a timer, a GitHub client or a registry, and keeping it a
+  pure function of one dict is the only reason each non-clean case can be pinned
+  without a fixture. The monitor's own share is deliberately small — a loop and a
+  `_raise_alert` — because `_check_scan_state` must not form a second opinion about
+  whether a state is usable. It calls `registry.scan_state_unknown`, the same
+  predicate the heartbeat contract and every future dashboard key on: a renderer
+  with its own "is this usable" judgement would be the two-readers-one-fact
+  divergence this repository has now been bitten by three times, in the slice
+  written to avoid it.
+
+  **Silence is a whitelist on `clean`, never a blacklist on the states this file
+  knows.** `state` is host-supplied and stored unvalidated (the predicate's
+  docstring spells out what a spoke can post), so a sweep that grows a fifth state
+  — or a compromised spoke reporting nonsense — arrives as a word the renderer has
+  never seen. A blacklist reads the first unrecognised word as a pass: the
+  requirement's exact failure wearing a new spelling, which is what V3 pins.
+
+  **The two buckets the predicate collapses are told apart here without disagreeing
+  with it.** "could not be read" (the state's own `unreadable`, or a `repos` that is
+  not a list) and "has not reported" are both unknown, both alert, and they name
+  different fixes — provision the host, or fix what it reported. Same split as the
+  image check's unknown-vs-cannot-serve, and the same requirement that the SENTENCE
+  differ rather than a trailing parenthetical.
+
+  **What the mutations found on their first run, which is why they exist.** V7
+  ("a broken-shape report is rendered as a host that has not reported") SURVIVED:
+  the test asserted `"repos" in detail`, and the fallback sentence's own word
+  "re**pos**itories" satisfies it. The assertion was checking a substring instead
+  of the fact, and the mutant rendered a report-nobody-can-read as a host that had
+  said nothing at all — the exact confusion this slice is about, in the test written
+  to prevent it. Fixed by asserting the quoted field and the explicit ABSENCE of the
+  never-reported clause; V7 is now killed by
+  `test_an_unreadable_report_with_no_reason_still_says_what_is_wrong`, and the
+  shape of that miss is recorded in the test itself so the next reader does not
+  re-weaken it.
+
+  **Two guards were added only because the battery asked for them.** `_name_of`'s
+  fallback and the non-dict-entry branch had no test — an inert guard by this
+  repository's standard — so
+  `test_a_report_whose_entries_are_not_records_renders_unknown_without_dying` was
+  written (V10 kills it by removing the `isinstance`): `repos` is a list of
+  ANYTHING a spoke posted, and the predicate guarantees the list, not its contents.
+  A renderer that reached in with `.get()` would take the dashboard down on hostile
+  input, which is worse than the unknown it was trying to report; one that skipped
+  the entry would shorten the list, which is how a fleet reads clean while blind.
+
+  **The exec bit, caught before the push this time.** The three new files were
+  staged 100644 with shebangs and `check_exec_bits.py` failed — but against the
+  INDEX, before any commit, and the fix was the tree's own convention rather than a
+  special case: `hub/*.py` and `tests/test_*.py` carry no shebang at 100644, only
+  `tests/mutation_battery_*.py` are 100755. Two shebangs removed, one
+  `git update-index --chmod=+x`, re-verified with `git ls-files -s`. This is the
+  5.3a failure caught a step earlier — see the memory note on the third occurrence;
+  the gate that fired is the one built for it, and it fired where it should.
+
+  **…and the same exec bit was wrong again in the commit, by a NEW mechanism.**
+  The gate passed, the index said 100755 — and `git ls-tree HEAD` said 100644,
+  because `git commit -- <pathspec>` (the partial commit this ritual uses to
+  split code from docs) rebuilds its commit from the WORKING TREE for the named
+  paths and re-derives the mode there, discarding the staged bit. The worktree
+  file was still 0644: `core.fileMode=false` means `git update-index --chmod=+x`
+  fixes the index and nothing else, so the two were free to disagree and did.
+  The gate reads the INDEX and the hosted gate reads the COMMIT, so this would
+  have shipped red for a reason no local run could show — the third distinct
+  spelling of one trap in three slices (`git reset` before, the pathspec
+  partial commit now). Fixed by `chmod +x` in the worktree TOO — so the worktree
+  agrees with the index and a partial commit cannot lie — then `git commit
+  --amend --no-edit` with NO pathspec, which commits the index as it stands, and
+  re-verified with `git ls-tree HEAD` rather than with the index that had just
+  been declared correct.
+
+  **A fresh-eyes audit found three real defects in this diff, all now fixed and
+  mutation-pinned — the round that earned its keep.** (F1, the severe one) The
+  scan check was dispatched at the END of `_poll_repo`, so it was silenced by a
+  failure that is not an HTTP status: `hub/github_client.py` catches `HTTPError`
+  but not `URLError`, so a refused connection or a DNS failure raises out of
+  `_check_runner_status`, is caught by `poll_cycle`'s per-repo handler, and aborts
+  every check after it. Measured with a closed port and nothing monkeypatched:
+  `URLError: [Errno 111] Connection refused`, then `sink.alerts == []` — no leak
+  alert, for every cycle of the outage. The docstring claimed a rate limit cannot
+  silence this check, which was true and beside the point. Fixed by moving both
+  registry-only checks (3.5 and 3.6, which share the claim) ahead of every call
+  that can raise; the seam test was rebuilt around a closed port rather than a
+  403, which is the strictly harder case and would have passed either way.
+  (F3) The findings test asserted `"3" in detail or "2" in detail`, so the
+  `uncovered` count the docstring insists on could be dropped without the test
+  noticing — an assertion that cannot fail for the fact it claims to pin; now one
+  substring carrying both counts, and V11 kills it. (F4) `why = reason or "no
+  reason recorded"` was reached by no test at all — the reason-dropping mutation
+  V5 replaces the whole expression, so the right operand was unprotected and
+  deletable in silence; the null-reason case is now pinned and V12 kills it.
+  Three findings were dispositions rather than defects: (F2) a report carrying
+  BOTH a leak and a truthy `unreadable` renders the leak as unknown, because the
+  predicate short-circuits — kept deliberately, since re-deriving a leak from a
+  report the shared predicate has just declared unusable is the second opinion
+  this module refuses to hold; the shipped heartbeat cannot emit both. (F5, F6)
+  one `check_class` covers three different causes and names the evidence rather
+  than the fault; that is inherited alert design plus residual (iii) below, and no
+  change is made here.
+
+  **Residual, recorded rather than implied (i):** staleness. Nothing here checks
+  that a usable report is RECENT — a sweep that ran a month ago renders clean
+  forever. The predicate's docstring records it as a residual and this rendering
+  inherits it; bounded staleness needs the sweep's cadence, which is the same
+  question `img-cycle-03` left open and is not answered here.
+  **(ii)** `scanned_at` is shipped and not rendered. The alert says a repository is
+  unknown; it does not say since when. That is the input a staleness check would
+  need and it is deliberately carried unread rather than dropped.
+  **(iii)** `check_class` is free-form (`hub/alerts.py` dedupes on
+  `(repo, check_class, runner)` and validates nothing), so `runner_scan_unknown` and
+  `runner_scan_findings` are a convention rather than a contract; a typo in either
+  would silently split a dedupe key. Pinned by the tests, not by the type system.
+  **(iv)** "The fleet view" here means the alerts the monitor raises, which is how
+  `img-cycle-03`'s equivalent requirement is already satisfied; there is no
+  dashboard endpoint that renders scan state. `secret-scan-07` shows `covered`
+  under `spec_traceability.py --report` (the advisory run is 70/123, and
+  `secret-scan-01..06` remain uncovered because their markers are shell-side).
+  **(v)** The harness still does not check the unmutated baseline (task 23), so this
+  battery's verdicts rest on its two negative controls the way its siblings' do.
+  **(vi)** One check raising still aborts the remaining checks for that repo —
+  fixed for the registry-only pair by ordering (F1 above), not by isolating each
+  check. After the reorder the checks that can still be aborted all need the
+  network and would fail anyway, so this is recorded rather than re-shaped: a
+  poll-loop-wide per-check guard is a change to every check's failure semantics,
+  not to this slice's. **(vii)** The unreadable branch interpolates the
+  host-supplied `reason` into a GitHub issue body, so a spoke with a valid
+  heartbeat token can inject markdown or mentions. Inherited deliberately, on the
+  same stated policy as `image_reason` — render what the host reported, never
+  match on it — and the alert body is written once and never rewritten
+  (`hub/alerts.py` dedupes on the title and only comments afterwards).
 
 ## Sprint 6 — Evidence
 
