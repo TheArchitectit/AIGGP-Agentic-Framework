@@ -74,12 +74,17 @@ Closes FAIL-8f9249ca (scope: the size gate did not size shell scripts) against
 
 ## Sprint 5 — close the record
 
-- [ ] 5.1 FAIL-8f9249ca entry appended to `.guardrails/failure-registry.jsonl`
-      with the fix_commit filled in
-- [ ] 5.2 `python3 scripts/failure_registry_check.py` clean;
+- [x] 5.1 FAIL-8f9249ca entry appended to `.guardrails/failure-registry.jsonl`
+      with the fix_commit filled in — `92162de`, the gate's scope fix. The
+      split below is the consequence of what the fix revealed, not the fix, so
+      the registry points at the commit that closes the failure
+- [x] 5.2 `python3 scripts/failure_registry_check.py` exit 0 (path warnings for
+      other repos' entries are pre-existing and do not fail the check);
       `npx openspec validate fix-size-gate-shell-scope --strict` valid;
-      `--all --strict` unregressed
-- [ ] 5.3 Local mirror: pytest, node suite, exec-bit guard, regression gate
+      `--all --strict` 35/35 at the time, 36/36 after the next package
+- [x] 5.3 Local mirror: pytest 882/35 subtests, node 882 across 58 files,
+      exec-bit guard OK (67 shebang'd files), `--staged --pre-commit` exit 0
+      with 0 over hard limit
 
 ## Record — why the split, and where
 
