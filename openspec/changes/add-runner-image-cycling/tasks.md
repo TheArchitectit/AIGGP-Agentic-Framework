@@ -341,6 +341,56 @@ four owned keys, carries everything else over as found, and writes through
 it passed before the fix too and is recorded as a regression guard rather than
 as a watched RED.
 
+### Sprint 2.2, the install: the cycle gets a timer, and the store gets a home
+
+Six tests, all watched RED first (`-k cycle`: 6 failed, 6 passed after).
+**34/34 mutations killed, 1/1 negative control behaved** in
+`tests/mutation_battery_image_state.py`, which grew an `ENR` section
+(E1–E7) — the slice's own instrument is shared rather than duplicated.
+
+What enroll now does: installs `devgate-image-cycle.sh` as a COPIED helper
+beside the heartbeat's (same policy — an existing copy is left unchanged and
+the divergence is a WARNING, because enrollment still succeeds), writes
+`devgate-imgcycle-<slug>.service` + `.timer` with `EnvironmentFile=$TICKET_FILE`
+and a bare-path `ExecStart`, and removes all of it on revoke.
+
+Two decisions in there are not packaging:
+
+1. **Installed by enrollment, enabled by provisioning.** The three
+   `COHERENCE_*` variables are a per-fleet choice the script does not own
+   (D3), so a host without them gets the units on disk and **no running
+   timer** — and the output names the missing keys so the operator knows what
+   to add. Starting a timer anyway would exit 1 on an unprovisioned host and
+   6/7 forever on a shape-(a) fleet that never sets them host-side at all. A
+   unit that fails every cycle is noise, and noise is how the alert that
+   matters gets ignored. `E1b`/`E1c` pin the other half (a provisioned host
+   really does get a running, reboot-surviving timer); `E1` alone would have
+   been killed by the naming assertion rather than by the timer one, so
+   "a provisioned host converges" does not rest on a message.
+2. **The cycle's cadence is its own (3600s, `E7`).** A pull on every host
+   every 300s is a fleet-wide hammering of the registry that a local POST does
+   not resemble, and it buys nothing: the desired state is a pinned digest
+   that changes only when someone re-pins it (D1).
+
+### The store namespace, documented — and the path I got wrong first
+
+`templates/runner/README.md` gains "The evaluator image on a runner host":
+both admissible shapes (podman inside the runner container vs the host's
+socket bound into it), the invariant that the cycle's store must be the job's
+store, the install/enable split, and the exit-code table translated into fixes.
+`add-a-runner.md` gets the two-line version, with the shape decision named as
+the thing to settle *before* choosing a store value.
+
+First draft of the example path was `/run/user/1000/containers`, and it was
+wrong: that is the RUN root. Measured on rootless podman 6.1.1,
+`podman info --format '{{.Store.GraphRoot}}'` answers
+`/home/user001/.local/share/containers/storage`. Handed to `--root`, the run
+root would make podman create a **second, empty store** — this section's own
+failure mode, reached by following a path that looks right. The doc now tells
+the operator to ASK podman for the value, which is the same question the
+cycler asks the same binary, so the two agree by construction rather than by
+a literal staying correct in two places.
+
 ## Sprint 4 — Divergence reporting
 
 - [ ] 4.1 Compare served `:main` digest against the record on the tick and

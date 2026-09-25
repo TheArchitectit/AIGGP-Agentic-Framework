@@ -108,16 +108,38 @@ excluded twice over.
 
 What the tick can then claim is narrow and true: *the recorded bytes are in the
 store named by this unit's EnvironmentFile*. Which store the runner container
-actually mounts stays a property of the unit file and Sprint 2.2's
-documentation — the honest division, because that is the only place the mount
-is declared and the only place a mismatch is fixable.
+actually mounts stays a property of the unit file and its documentation — the
+honest division, because that is the only place the mount is declared and the
+only place a mismatch is fixable.
+
+**Paid 2026-09-25 (Sprint 2.2).** Enrollment now installs the cycle
+(`scripts/runner-enroll.sh`), and `templates/runner/README.md` documents the
+namespace question in the one place it can be answered: both admissible shapes
+in full, and the invariant that the cycle's store must be the job's store. Two
+things about how it installs are design decisions rather than packaging, and
+each is mutation-pinned (E1–E2, E7 in `tests/mutation_battery_image_state.py`):
+
+- **It is installed by enrollment and ENABLED by provisioning.** The three
+  `COHERENCE_*` variables are a per-fleet choice the script does not own, so an
+  unprovisioned host gets the units on disk and no running timer. Starting one
+  anyway would exit 1 here and 5/6/7 on a shape-(a) fleet that never sets them
+  on the host at all; a unit failing every cycle is noise, and noise is how the
+  alert that matters gets ignored.
+- **The documented store value is obtained, not guessed.** The doc gives
+  `podman info --format '{{.Store.GraphRoot}}'` — the same question the cycler
+  asks the same binary — and records the measurement that makes the distinction
+  matter: on rootless podman 6.1.1 the graph root is
+  `~/.local/share/containers/storage`, and `/run/user/<uid>/containers` is the
+  RUN root. Handing the run root to `--root` would make podman create a second,
+  empty store — the exact failure this section exists to prevent, arrived at by
+  following a plausible-looking path.
 
 Residual limitation, stated rather than hidden: if an operator configures
 `COHERENCE_PODMAN_STORE` to a store the job cannot read, both the tick and the
 gate are internally consistent and still disagree with each other. The store
 value is therefore a documented, single-source setting in the unit's
-EnvironmentFile (2.2), and the heartbeat's image fields (Sprint 3) are what
-make the disagreement visible from the fleet view rather than from a hunch.
+EnvironmentFile, and the heartbeat's image fields (Sprint 3) are what make the
+disagreement visible from the fleet view rather than from a hunch.
 
 ## D4 — Why authority stays out of the runner
 
