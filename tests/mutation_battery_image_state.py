@@ -45,7 +45,11 @@ FIX = "tests/fixtures/runner_spoke.py"
 T_REG = "tests/test_hub_registry.py"
 T_MON = "tests/test_hub_monitor.py"
 T_HTTP = "tests/test_hub_enroll_heartbeat.py"
-T_ENROLL = "tests/test_runner_enroll.py"
+# The probe's tests, split out of test_runner_enroll.py when that file
+# passed the 600-line hard limit. Every mutation here targets
+# scripts/runner-heartbeat.sh or the fixture and must be killed by the
+# image-probe tests, which is where they now live.
+T_IMG = "tests/test_runner_heartbeat_image.py"
 
 MISSING_BLOCK = '''    missing=""
     [ -n "${COHERENCE_IMAGE:-}" ] || missing="${missing:+$missing, }COHERENCE_IMAGE"
@@ -83,41 +87,41 @@ MUTATIONS = [
     # --- scripts/runner-heartbeat.sh ---------------------------------------
     ("S1: the heartbeat stops reporting the image at all", [(HB,
         '    "image_digest": sys.argv[3] or None,\n    "image_reason": sys.argv[4] or None,\n',
-        "")], [T_ENROLL], {}),
+        "")], [T_IMG], {}),
     ("S2: the mismatch branch is dropped (a wrong store reads as converged)",
-     [(HB, CANON_GUARD, "    elif false; then")], [T_ENROLL], {}),
+     [(HB, CANON_GUARD, "    elif false; then")], [T_IMG], {}),
     # NB: the whole two-line condition, not just the first line. Replacing only
     # the first leaves `>/dev/null 2>&1; then` orphaned, and the resulting
     # syntax error "kills" the mutation without any behaviour differing — which
     # is what the well-formedness pre-check below exists to refuse.
     ("S3: presence is assumed, never checked (absent reads as converged)",
      [(HB, '    elif ! podman --root "$COHERENCE_PODMAN_STORE" image exists "$pinned_ref" \\\n'
-           '        >/dev/null 2>&1; then', "    elif false; then")], [T_ENROLL], {}),
+           '        >/dev/null 2>&1; then', "    elif false; then")], [T_IMG], {}),
     ("S4: the reason names every variable, set or not", [(HB, MISSING_BLOCK,
         '    missing="COHERENCE_IMAGE, COHERENCE_IMAGE_MANIFEST_DIGEST, COHERENCE_PODMAN_STORE"\n')],
-     [T_ENROLL], {}),
+     [T_IMG], {}),
     ("S5: the probe enforces (a dead heartbeat instead of an unknown image)",
      [(HB, "# The empty strings become JSON null",
            '[ -n "$image_digest" ] || exit 3\n\n# The empty strings become JSON null')],
-     [T_ENROLL], {}),
+     [T_IMG], {}),
     ("S6: podman-missing is reported with the absence reason", [(HB,
         '    image_reason="podman not on PATH"',
         '    image_reason="pinned image absent from the store (not pulled)"')],
-     [T_ENROLL], {}),
+     [T_IMG], {}),
     ("S7: the reported ref is not digest-qualified", [(HB,
         '        image_digest="$pinned_ref"', '        image_digest="$COHERENCE_IMAGE"')],
-     [T_ENROLL], {}),
+     [T_IMG], {}),
     # The store is checked for existence BEFORE podman is asked. Removing the
     # guard is not a cosmetic reordering: podman materialises the store it is
     # pointed at (the fixture's stub does too, exactly as measured), so the
     # tick would leave one behind on a host whose mount has not come up.
     ("S8: the store's existence is assumed (podman creates it as a side effect)",
      [(HB, '    if [ ! -d "$COHERENCE_PODMAN_STORE" ]; then',
-           "    if false; then")], [T_ENROLL], {}),
+           "    if false; then")], [T_IMG], {}),
     ("S9: a failing podman is reported as a path mismatch again", [(HB, INFO_FAIL, "")],
-     [T_ENROLL], {}),
+     [T_IMG], {}),
     ("S10: the two store paths are compared as raw strings", [(HB, CANON_GUARD, RAW_GUARD)],
-     [T_ENROLL], {}),
+     [T_IMG], {}),
 
     # --- hub/registry.py ----------------------------------------------------
     ("R1: null is treated as no-news (a stale ref outlives its own report)",
@@ -182,11 +186,11 @@ MUTATIONS = [
     # is an assertion about the probe only while something WOULD have created
     # it — so the stub keeps podman's side effect, and this pins that.
     ("F2: the podman stub stops materialising the store (an inert assertion)",
-     [(FIX, '    [ -z "${store:-}" ] || mkdir -p "$store"\\n', "")], [T_ENROLL], {}),
+     [(FIX, '    [ -z "${store:-}" ] || mkdir -p "$store"\\n', "")], [T_IMG], {}),
     ("F1: the Spoke inherits ambient COHERENCE_* (the branch is chosen by the host)",
      [(FIX, '            **{k: v for k, v in os.environ.items()\n'
             '               if not k.startswith("COHERENCE_")},', "            **os.environ,")],
-     [T_ENROLL], {"COHERENCE_IMAGE": "ambient", "COHERENCE_IMAGE_MANIFEST_DIGEST": "sha256:a",
+     [T_IMG], {"COHERENCE_IMAGE": "ambient", "COHERENCE_IMAGE_MANIFEST_DIGEST": "sha256:a",
                   "COHERENCE_PODMAN_STORE": "/tmp/ambient-store"}),
 
 ]
@@ -204,7 +208,7 @@ NEGATIVE_CONTROLS = [
      [(HB, CANON_GUARD, RAW_GUARD),
       (FIX, '    realpath -m -- "${STUB_GRAPH_ROOT:-${store:-}}"\\n',
             '    echo "${STUB_GRAPH_ROOT:-${store:-}}"\\n')],
-     [T_ENROLL], {}),
+     [T_IMG], {}),
 ]
 
 # (A second control was tried here — the store guard removed alongside the

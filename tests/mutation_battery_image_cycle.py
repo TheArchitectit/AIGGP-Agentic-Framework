@@ -39,6 +39,11 @@ ENV = dict(os.environ,
 
 CYC = "scripts/runner-image-cycle.sh"
 T_CYC = "tests/test_runner_image_cycle.py"
+# The stubbed podman and the host fixture are the instrument, and they live
+# in a shared module rather than in the test file: two mutations below edit
+# the stub itself (its rmi side effect, its info normalisation), so the
+# fixture mutations and the behavioural ones name different files.
+T_HARNESS = "tests/image_cycle_harness.py"
 
 CANON_GUARD = ('if [ "$(canonical_dir "$GRAPH_ROOT")" != '
                '"$(canonical_dir "$COHERENCE_PODMAN_STORE")" ]; then')
@@ -111,7 +116,7 @@ MUTATIONS = [
     # express, so "the reap removed the pinned image" stops being an
     # observation and the scenario goes inert.
     ("K6: the podman stub's rmi stops removing what it reaped",
-     [(T_CYC, RMI_MUTATES, "    pass")], [T_CYC], {}),
+     [(T_HARNESS, RMI_MUTATES, "    pass")], [T_CYC], {}),
 ]
 
 # Negative controls: edits that must NOT kill anything, because each shows that
@@ -126,7 +131,7 @@ NEGATIVE_CONTROLS = [
     # first suite.
     ("N1: raw compare + a verbatim stub — they mask each other",
      [(CYC, CANON_GUARD, RAW_GUARD),
-      (T_CYC, 'or (os.path.realpath(root) if root else "")', 'or (root or "")')],
+      (T_HARNESS, 'or (os.path.realpath(root) if root else "")', 'or (root or "")')],
      [T_CYC], {}),
 ]
 

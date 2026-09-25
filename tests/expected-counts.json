@@ -50,6 +50,7 @@
   "test_regression_sizes": 4,
   "test_resource_governance": 16,
   "test_runner_enroll": 18,
+  "test_runner_heartbeat_image": 9,
   "test_runner_image_cycle": 15,
   "test_scope_contract": 4,
   "test_secret_scan": 16,

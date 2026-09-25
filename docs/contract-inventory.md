@@ -4,7 +4,7 @@ Every contract the project enforces maps to the test path that locks it.
 Unmapped claims belong in the README's verification table discipline
 (GREEN requires a hosted run; anything else is OPEN with a reason).
 
-Current floor state: 52 suites, 763 tests; floors in
+Current floor state: 58 suites, 873 tests; floors in
 `tests/expected-counts.json` (CI 'Test-count floors' step fails on shrinkage).
 
 ## Suite inventory (count at inventory time)
@@ -56,7 +56,8 @@ Current floor state: 52 suites, 763 tests; floors in
 - `tests/test_regression_corpus.py` — 14 tests
 - `tests/test_regression_sizes.py` — 5 tests
 - `tests/test_resource_governance.py` — 18 tests
-- `tests/test_runner_enroll.py` — 20 tests
+- `tests/test_runner_enroll.py` — 22 tests
+- `tests/test_runner_heartbeat_image.py` — 10 tests
 - `tests/test_scope_contract.py` — 5 tests
 - `tests/test_silent_success_gate.py` — 4 tests
 - `tests/test_silent_success_overlay.py` — 6 tests

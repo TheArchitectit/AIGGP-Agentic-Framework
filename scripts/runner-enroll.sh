@@ -263,14 +263,40 @@ install_timer() {
         log "Heartbeat helper installed: $HB_HELPER"
     fi
 
-    # Write the heartbeat env file (chmod 600 — contains the token).
-    cat > "$TICKET_FILE" <<EOF
-HUB_URL=$HUB_URL
-RUNNER_NAME=$RUNNER_NAME
-HEARTBEAT_TOKEN=$hb_token
-LAST_JOB_SEEN=""
-EOF
-    chmod 600 "$TICKET_FILE"
+    # Write the heartbeat env file (mode 600 — it holds the token).
+    #
+    # This file is SHARED: the image cycle's three variables live in it too
+    # (design D3.1 — one EnvironmentFile per runner), and nothing here enrolls
+    # them, so an operator provisions a host by adding them by hand. A plain
+    # `cat >` truncated that provisioning on every re-enroll, silently, and the
+    # host then reported "not provisioned" for a mount that was mounted and a
+    # store that was full. So the four keys this script OWNS are rewritten and
+    # everything else in the file is carried over untouched.
+    #
+    # The rewrite goes to a temp file inside a subshell that sets umask 077, so
+    # the token is never on disk with looser permissions than it ends with —
+    # `cat > f` then `chmod 600 f` leaves it readable for the length of a
+    # write. The `mv` is a rename within one directory, so it is atomic.
+    local preserved=""
+    if [[ -e "$TICKET_FILE" && ! -L "$TICKET_FILE" ]]; then
+        preserved="$(grep -vE '^(HUB_URL|RUNNER_NAME|HEARTBEAT_TOKEN|LAST_JOB_SEEN)=' \
+            "$TICKET_FILE" 2>/dev/null || true)"
+    fi
+    (
+        umask 077
+        {
+            printf 'HUB_URL=%s\n' "$HUB_URL"
+            printf 'RUNNER_NAME=%s\n' "$RUNNER_NAME"
+            printf 'HEARTBEAT_TOKEN=%s\n' "$hb_token"
+            printf 'LAST_JOB_SEEN=%s\n' ""
+            if [[ -n "$preserved" ]]; then
+                printf '# --- not managed by runner-enroll.sh; carried over as found ---\n'
+                printf '%s\n' "$preserved"
+            fi
+        } > "$TICKET_FILE.new"
+    )
+    chmod 600 "$TICKET_FILE.new"
+    mv -f "$TICKET_FILE.new" "$TICKET_FILE"
 
     # ExecStart is a bare path on purpose. systemd expands $ in ExecStart
     # against the unit's own environment, so an inline `bash -c` body loses
