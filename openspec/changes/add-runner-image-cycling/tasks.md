@@ -603,9 +603,37 @@ a literal staying correct in two places.
 
 ## Sprint 6 — Make CI honest
 
-- [ ] 6.1 Publish only on a deliberate trigger; the comment names that exact
-  trigger (img-cycle-06)
-- [ ] 6.2 A test that fails when the comment and the `if:` disagree
+- [x] 6.1 Publish only on a deliberate trigger; the comment names that exact
+  trigger (img-cycle-06). The condition is now
+  `github.event_name == 'workflow_dispatch' && inputs.publish`, with a `publish`
+  boolean input declared on `workflow_dispatch` (default false). A merge to main
+  no longer publishes: hosts converge on the RECORDED digest and never on
+  `:main`, and the only thing the auto-publish achieved was moving the tag past
+  the record on every merge. `sha-<sha>` tags are written by the same job and
+  are likewise now deliberate — and nothing consumes them: they are pulled
+  nowhere, and the only references to the tag at all are ci.yml's own push loop
+  and two tests that exercise that step by name. So no consumer loses a tag it
+  was using
+- [x] 6.2 `tests/test_publish_trigger.py` — 9 tests. The condition is
+  EVALUATED against event payloads (`push` to main, a branch push, a tag push,
+  a pull request, dispatch with and without the input), not matched as text:
+  the sibling battery's lesson was four mutants surviving a suite whose
+  assertions were string comparisons. The evaluator has its own guard, pinned
+  against the OLD condition, so a broken evaluator cannot make every claim
+  vacuous
+  - The undeclared-input trap, which is why this is not only a documentation
+    fix: an `if:` reading an input nobody declared evaluates to null, is false
+    on every event, and the job never runs again — GitHub reports no error. The
+    input's declaration, type and default are each asserted, and
+    `test_a_string_typed_input_would_publish_on_every_dispatch` pins why the
+    type matters: a `string` input defaulting to "false" is a NON-EMPTY STRING,
+    which is truthy, so it would publish on every dispatch including the default
+  - `tests/mutation_battery_publish_trigger.py`: **7/7 killed, each by one named
+    test**, plus a negative control that rewords the comment while keeping its
+    claim and MUST survive — it does, which is what distinguishes this guard
+    from the prose assertion it replaces. Wired into the CI step, which
+    `test_every_battery_runs_in_the_suite` failed over until it was (the guard
+    doing its job the first time it was needed)
 
 ## Sprint 7 — Fleet evidence
 
