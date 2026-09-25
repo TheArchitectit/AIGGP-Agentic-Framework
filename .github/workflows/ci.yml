@@ -352,6 +352,26 @@ jobs:
         run: python3 -m pip install --quiet pytest
       - name: Mutation tool self-check
         run: python3 scripts/mutation_check.py --self-check
+      # The batteries assert the thing the whole ritual rests on: that each
+      # guard is killable by exactly one named test, and that a negative control
+      # survives. They are not `test_*.py`, so pytest does not collect them, and
+      # until self-check-the-mutation-harness no step ran them at all — a
+      # survivor was visible only to whoever remembered to run one by hand.
+      # They rewrite tracked files in place and restore them in a `finally`,
+      # which is why they sit here rather than in the suite job.
+      #
+      # Named individually, not globbed: `test_every_battery_runs_in_the_suite`
+      # reads this list back and fails when a battery exists that is not on it,
+      # which is how a fourth one is stopped from being silently unrun.
+      - name: mutation batteries (every guard killable by exactly one named test)
+        run: |
+          for b in tests/mutation_battery_size_scope.py \
+                   tests/mutation_battery_image_cycle.py \
+                   tests/mutation_battery_image_state.py; do
+            echo "::group::$b"
+            python3 "$b" || exit 1
+            echo "::endgroup::"
+          done
       - name: Mutation strength on evidence module
         run: |
           python3 scripts/mutation_check.py --target hub/coherence/evidence.py \

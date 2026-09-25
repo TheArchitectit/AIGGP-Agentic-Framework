@@ -106,7 +106,8 @@ def test_non_test_file_at_same_size_is_flagged_at_src_hard():
 
 
 def test_oversize_shell_script_is_flagged_at_src_hard():
-    """MUST-flag, and the reason task #13 exists: SOURCE_EXTENSIONS named
+    """MUST-flag, and the reason this gate's shell scope exists (FAIL-8f9249ca):
+    SOURCE_EXTENSIONS named
     sixteen languages and none of them was the one this repository's
     fleet-side scripts are written in. `scripts/` was walked, the `.sh` files
     inside it were not sized, and `scripts/runner-enroll.sh` reached 589 lines

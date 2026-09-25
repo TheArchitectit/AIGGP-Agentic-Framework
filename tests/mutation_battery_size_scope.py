@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Mutation battery for the file-size gate's SCOPE (task #13, FAIL-8f9249ca).
+"""Mutation battery for the file-size gate's SCOPE (FAIL-8f9249ca).
 
 The gate sized sixteen languages and not the one this repository's fleet-side
 scripts are written in, so `scripts/runner-enroll.sh` reached 589 lines against
@@ -26,11 +26,11 @@ Run it from the repository root: it rewrites files in place and restores them.
 It lives in the repository (rather than in /tmp) so that "no survivors" can be
 re-checked by whoever reads the ledger next.
 
-Third copy of this harness. `mutation_battery_image_cycle.py` and
-`mutation_battery_image_state.py` carry their own; consolidating all three into
-one tests/mutation_harness.py is task #14, and is deliberately NOT done here —
-this battery exists so that the scope guard is reproducible, and folding two
-other batteries in at the same time would put that reproduction at risk.
+The two properties above were this file's own text when it carried its own copy
+of the harness. They are now `tests/mutation_harness.py`'s to enforce and
+`tests/test_mutation_harness.py`'s to pin — kept here as what this battery
+relies on, because a reader checking whether INVALID is really handled should
+not have to go find out.
 
 Negative controls: this battery has ONE, and it is a different kind from the
 image batteries'. Those mutate shipped code together with the fixture that
@@ -42,20 +42,10 @@ co-mutate. What this battery CAN be wrong about is its own kill detection — a
 harness that reported every mutation as killed would make the whole file
 decoration, and no mutation below would notice. The control pins exactly that.
 """
-import os
-import shutil
-import subprocess
 import sys
-from pathlib import Path
 
-REPO = Path(__file__).resolve().parent.parent
+import mutation_harness  # noqa: E402  (sibling module, tests/ is sys.path[0])
 
-# Hermetic: an ambient git identity or config could change how a test that
-# shells out to git behaves (this bit the re-pin suite once).
-ENV = dict(os.environ,
-           HOME="/nonexistent-devgate-mutation",
-           XDG_CONFIG_HOME="/nonexistent-devgate-mutation",
-           GIT_CONFIG_GLOBAL="/dev/null", GIT_CONFIG_SYSTEM="/dev/null")
 
 SIZES = "scripts/regression_sizes.py"
 CHECK = "scripts/regression_check.py"
@@ -103,92 +93,7 @@ NEGATIVE_CONTROLS = [
 ]
 
 
-def _clear_bytecode():
-    """Drop __pycache__ before each run.
-
-    Restoring a mutated .py can leave the same size and an mtime inside the
-    filesystem's resolution, so CPython keeps the MUTATED bytecode cached and
-    the next run imports it. Observed once in a sibling battery: a
-    restore-then-verify step reported the mutation's error against a file that
-    was already correct.
-    """
-    for d in REPO.rglob("__pycache__"):
-        shutil.rmtree(d, ignore_errors=True)
-
-
-def _well_formed(path):
-    """True when the mutated artifact still parses. False means INVALID."""
-    try:
-        compile(path.read_text(), str(path), "exec")
-        return True
-    except SyntaxError:
-        return False
-
-
-def run_tests(files, extra_env=None):
-    _clear_bytecode()
-    env = dict(ENV)
-    env.update(extra_env or {})
-    return subprocess.run([sys.executable, "-m", "pytest", *files, "-q",
-                           "-p", "no:cacheprovider"],
-                          capture_output=True, text=True, cwd=str(REPO), env=env)
-
-
-def _run_entry(name, edits, tests, extra_env, expect_kill):
-    """Apply edits, run the named tests, restore. Returns True when the
-    outcome matched the expectation (killed, or survived)."""
-    originals = {}
-    for rel, old, new in edits:
-        path = REPO / rel
-        originals.setdefault(rel, path.read_text())
-        count = originals[rel].count(old)
-        if count != 1:
-            print(f"  ANCHOR  {name}: {rel} anchor appears {count} times, not 1")
-            return None
-    for rel, old, new in edits:
-        (REPO / rel).write_text(originals[rel].replace(old, new))
-    well_formed = all(_well_formed(REPO / rel) for rel, _, _ in edits)
-    try:
-        res = run_tests(tests, extra_env)
-        killed = res.returncode != 0
-    finally:
-        for rel, text in originals.items():
-            (REPO / rel).write_text(text)
-
-    if not well_formed:
-        print(f"  INVALID {name}: the mutation does not parse — not a kill")
-        return False
-    if killed:
-        tail = [l for l in res.stdout.splitlines() if l.startswith("FAILED")]
-        print(f"  killed  {name}\n            by {tail[0][7:] if tail else '(?)'}")
-    else:
-        print(f"  SURVIVED {name}")
-    return killed == expect_kill
-
-
-def main():
-    survivors = []
-    for name, edits, tests, extra_env in MUTATIONS:
-        if _run_entry(name, edits, tests, extra_env, expect_kill=True) is not True:
-            survivors.append(name)
-
-    controls_bad = []
-    for name, edits, tests, extra_env in NEGATIVE_CONTROLS:
-        if _run_entry(name, edits, tests, extra_env, expect_kill=False) is not True:
-            controls_bad.append(name)
-
-    print(f"\n{len(MUTATIONS) - len(survivors)}/{len(MUTATIONS)} mutations killed")
-    if survivors:
-        print("survivors (a guard no named test depends on):")
-        for s in survivors:
-            print(f"  - {s}")
-    print(f"{len(NEGATIVE_CONTROLS) - len(controls_bad)}/{len(NEGATIVE_CONTROLS)} "
-          "negative controls behaved (this one MUST survive — it pins the "
-          "battery's own kill detection)")
-    for c in controls_bad:
-        print(f"  - {c} (expected to survive and did not, or a bad anchor)")
-    return 1 if (survivors or controls_bad) else 0
-
-
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(mutation_harness.main(
+        MUTATIONS, NEGATIVE_CONTROLS,
+        "this one MUST survive — it pins the battery's own kill detection"))
