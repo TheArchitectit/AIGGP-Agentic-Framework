@@ -491,6 +491,56 @@
   `.devgate-secretscan-*.json.tmp` in the runtime directory; the `BaseException`
   path covers signals a handler can see, not the one that cannot be caught.
 
+  **Hosted evidence, and a red that was the gate being right.** Pushed as
+  6bbe79f + fc821eb (run 36109634621). The regression step — the one that sizes
+  every changed file and scans their added lines — **passed**: the 5.3a content
+  was evaluated on the runner, not only locally. Specs, the secret scan, the
+  image build and the attack suite were green. Two jobs were red and there was
+  one cause: `tests/mutation_battery_scan_report.py` was committed at 100644
+  with a shebang, so `check_exec_bits` failed, which surfaced as a green suite
+  with one red test (`test_fw_guards.py::TestExecBitCheck::test_real_tree_passes`)
+  in the pytest job and a red step 11 in the gates job. Fixed in 090e948.
+
+  It passed locally, and how it stopped passing is the part worth keeping:
+  `core.fileMode` is false in this clone, so an exec bit travels through `git
+  update-index --chmod=+x` and not through the working tree — and splitting the
+  paired commits began with `git reset -q`, after which `git add` re-derived the
+  mode from the bit git has been told to ignore. Every local gate had run over
+  the staged tree BEFORE that reset. Both gates were honest about the tree they
+  were shown; only one of them was shown the tree that shipped.
+
+  090e948 was then red for a second reason (run 36111059327) and **the second
+  red was correct**: the regression step reported "NOTHING SCANNED — the selected
+  scope contains 0 changed files", because a commit that changes only a file
+  mode adds no line to any diff, and that step's scope is built from added lines
+  and `+++` headers. Measured, not assumed: `git diff --name-status fc821eb
+  090e948` lists one modified file and the diff body is a `diff --git` header
+  plus `old mode`/`new mode` — no `+++`, no hunk, nothing to size and nothing to
+  pattern-match.
+
+  A fix was written and then **withdrawn**, which is the part worth recording.
+  It taught `get_changed_files` to collect a file from its `diff --git` header
+  when the record has no `+++` line, so a mode-only push would count as a
+  changed file and the step would go green. The change is literally correct for
+  that function's contract — a mode change does touch the file — and it would
+  have been a false green: the size check reads `touched`, which is built from
+  added lines, and the pattern scan reads `get_diff_content`, so the file would
+  have been counted while nothing about it was evaluated. It converts "this run
+  evaluated no inputs, and is not evidence of a clean tree" into "1 file
+  changed, ✓ no potential regressions" — a green certifying nothing, which is
+  the exact class of failure this repository has spent four slices learning to
+  refuse. Reverted with the tests. **A mode-only push has no content to gate, and
+  the honest response is a push that carries content**, which is what this
+  commit is.
+
+  Residual, queued rather than fixed: the gate's message is accurate but does
+  not say WHICH empty case it is, so an operator who has just set an exec bit
+  reads "the selected scope contains 0 changed files" and has to rediscover the
+  reasoning above. A diagnosis line for a scope whose diff exists but holds only
+  mode/rename records would be safe — it explains the red without dissolving it
+  — and it is deliberately not bundled here, because a message change made in
+  the same breath as a withdrawal is not the moment to touch that file again.
+
 ## Sprint 6 — Evidence
 
 - [x] 6.1 A planted canary in a scratch clone: the gate must fail, redact, and
