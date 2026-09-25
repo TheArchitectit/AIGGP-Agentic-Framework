@@ -13,7 +13,8 @@ templates/
 │   ├── file-size-check.yml          # CI-enforced source-file line-count limit
 │   ├── smoke-gate.yml               # Headless run + completion-sentinel validation
 │   ├── spec-coherence.yml           # Spec coherence-service gate (pinned image, digest-checked)
-│   └── drift-scan.yml               # Scheduled full-tree sweep, host-aware runner targeting
+│   ├── drift-scan.yml               # Scheduled full-tree sweep, host-aware runner targeting
+│   └── specs.yml                    # OpenSpec strict validation + negative control + traceability
 ├── runner/                          # Self-hosted runner standard (ghcr.io + Podman/Docker)
 │   ├── README.md                    # The standard: official image, quadlet, secrets hygiene
 │   └── self-hosted-runner.container # Podman quadlet template (ghcr.io/actions/actions-runner)

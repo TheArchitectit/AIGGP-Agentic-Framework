@@ -1,0 +1,101 @@
+# Specs Validation — Reusable CI Template
+#
+# Hard gate for a repository's OpenSpec tree (`openspec/`): strict format
+# validation, a negative control that proves the validator can REFUSE malformed
+# material, and requirement-ID traceability. This is the consumer-facing
+# counterpart to DevGate's own `specs` job; the tooling lives in `.devgate/`,
+# the tree being validated is the consumer's.
+#
+# WHAT IT DOES
+#   1. `openspec validate --all --strict` over the whole tree — hard gate. The
+#      non-vacuity guard fails the step if it validates zero items, because a
+#      gate that evaluated nothing must not read as green.
+#   2. The negative control (`spec-fmt-04`): stages a known-malformed spec and
+#      requires strict validation to reject it, naming the designed defect. A
+#      passing tree only proves the tree is well-formed, not that the validator
+#      would refuse anything; this proves the gate can fail.
+#   3. Requirement-ID traceability (`spec_traceability.py`), advisory by default
+#      — a requirement with no `// spec: <id>` marker in source is reported,
+#      not failed, until `openspec/gate-config.json` marks a capability
+#      `"blocking"`.
+#
+# SETUP:
+#   - DevGate must be present as `.devgate/` (submodule or clone); the control
+#     and traceability scripts are resolved from there and from the project
+#     root by layout, so a submodule install works unchanged.
+#   - Copy this file into your repo at `.github/workflows/specs.yml`.
+#   - CUSTOMIZE (1/2): the `runs-on` label. The template defaults to
+#     `ubuntu-latest`; use your self-hosted label where there are no hosted
+#     minutes.
+#   - CUSTOMIZE (2/2): the pinned CLI version under `env:`. Keep the pin and
+#     the negative control a pair — bump deliberately and re-run the control
+#     when you do.
+
+name: Specs
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  specs:
+    name: Specs (openspec strict + traceability)
+    # CUSTOMIZE (1/2): runner. Replace with your self-hosted label if needed.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      # CUSTOMIZE (2/2): pinned CLI. The gate's rules must not float.
+      OPENSPEC_PACKAGE: "@fission-ai/openspec@1.13.0"
+
+    steps:
+      - name: Checkout code (with DevGate submodule)
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install openspec CLI (pinned)
+        run: npm install --no-save --no-audit --no-fund "$OPENSPEC_PACKAGE"
+
+      # Hard gate. PINNED ON PURPOSE: an unpinned CLI moves the gate under the
+      # tree whenever upstream publishes — a relaxation could turn a red tree
+      # green with no commit on our side.
+      - name: openspec validate (strict, hard gate)
+        run: |
+          set -uo pipefail
+          out="$(npx openspec validate --all --strict 2>&1)"; status=$?
+          printf '%s\n' "$out"
+          passed="$(printf '%s\n' "$out" | grep -cE '^✓ ' || true)"
+          if [ "$status" -ne 0 ]; then
+            echo "::error::openspec strict validation failed (exit $status)"
+            exit 1
+          fi
+          if [ "${passed:-0}" -lt 1 ]; then
+            echo "::error::strict validation passed 0 items — a gate that evaluates nothing is not green"
+            exit 1
+          fi
+          echo "openspec strict validation passed ${passed} item(s)"
+
+      # The control must exercise the SAME pinned CLI the gate above resolves.
+      # It finds it under the project root by layout, so this works whether
+      # DevGate is standalone or vendored at .devgate/.
+      - name: strict validation refuses malformed material (negative control)
+        run: bash .devgate/scripts/specs-validate-negative-control.sh
+
+      - name: Requirement-ID traceability
+        run: |
+          python3 .devgate/scripts/spec_traceability.py --root . --report | tail -8
+          python3 .devgate/scripts/spec_traceability.py --root . | tail -2

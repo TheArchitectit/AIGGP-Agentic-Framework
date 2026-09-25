@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# // spec: spec-fmt-04
+# // spec: spec-fmt-04, root-anchor-01
 # Specs-gate negative control (2026-09-20 drift audit).
 #
 # `openspec validate --all --strict` passing proves the tree is currently
@@ -18,14 +18,38 @@
 # so a mis-staged probe would pass vacuously. The control therefore requires
 # the validator's own words for the fixture's designed defect.
 #
+# ROOT BY LAYOUT, NOT ANCESTOR SEARCH (root-anchor-01). The control resolves
+# TWO roots on purpose, because the two things it needs do not live together
+# in a consumer:
+#   - the malformed FIXTURE (and the framework this control vouches for) lives
+#     in DevGate — `$devgate_root`;
+#   - the pinned CLI is installed by the CONSUMER's CI into the PROJECT root —
+#     `$project_root/node_modules`.
+# When DevGate is vendored as a submodule (`<project>/.devgate`), the project
+# root is the parent of `.devgate`; standalone, it is the DevGate checkout
+# itself. A hardcoded `dirname($0)/..` points at `.devgate` in a consumer,
+# finds no `node_modules` there, and fails as misconfigured — the same
+# wrong-tree class this control exists to catch, one level up.
+#
 # Exit: 0 = validator correctly refused and named the defect; 1 = anything
 # else, including accepting the malformed spec or failing for the wrong
 # reason.
 
 set -uo pipefail
 
-repo_root="$(cd "$(dirname "$0")/.." && pwd)"
-fixture="$repo_root/tests/fixtures/malformed-spec/spec.md"
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+devgate_root="$(cd "$script_dir/.." && pwd)"
+
+# Layout contract (root-anchor-01): a directory named `.devgate` is a vendored
+# framework, so the project root is its parent. Any other name is a standalone
+# DevGate checkout where framework and project are the same tree.
+if [ "$(basename "$devgate_root")" = ".devgate" ]; then
+	project_root="$(dirname "$devgate_root")"
+else
+	project_root="$devgate_root"
+fi
+
+fixture="$devgate_root/tests/fixtures/malformed-spec/spec.md"
 
 if [ ! -f "$fixture" ]; then
 	echo "NEGATIVE CONTROL MISCONFIGURED: fixture not found at $fixture" >&2
@@ -39,15 +63,15 @@ mkdir -p "$probe_root/openspec/specs/broken-probe"
 cp "$fixture" "$probe_root/openspec/specs/broken-probe/spec.md"
 
 # Run from the probe root so the broken spec is the only item in scope.
-# Resolve the CLI the SAME binary the hard gate above it resolves to: the bin
-# installed into the repo workspace by ci.yml's pinned `npm install --no-save`.
-# A bare `npx openspec` is run from the probe root, where npx finds no local
-# install and cannot resolve the name — CI's exact failure was npm's "could not
-# determine executable to run". Locally that failure is masked by a globally
-# installed openspec on PATH, which is how this shipped red once: the control
-# must exercise the same binary the gate it vouches for runs, not whichever
-# openspec happens to be on the invoking machine's PATH.
-openspec_bin="$repo_root/node_modules/.bin/openspec"
+# Resolve the CLI from the PROJECT root — the bin installed by the consumer's
+# CI (or standalone DevGate's own CI). A bare `npx openspec` is run from the
+# probe root, where npx finds no local install and cannot resolve the name —
+# CI's exact failure was npm's "could not determine executable to run".
+# Locally that failure is masked by a globally installed openspec on PATH,
+# which is how this shipped red once: the control must exercise the same
+# binary the gate it vouches for runs, not whichever openspec happens to be on
+# the invoking machine's PATH.
+openspec_bin="$project_root/node_modules/.bin/openspec"
 if [ ! -x "$openspec_bin" ]; then
 	echo "NEGATIVE CONTROL MISCONFIGURED: $openspec_bin not found." >&2
 	echo "Install the pinned CLI first (mirroring ci.yml): npm install --no-save '@fission-ai/openspec@<pin>'" >&2
