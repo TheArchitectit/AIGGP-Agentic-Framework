@@ -107,14 +107,64 @@
 
 ## Sprint 5 — The fleet sweep
 
-- [ ] 5.1 `scripts/secret-scan-fleet.sh`: for each declared public repository,
-  fetch, scan tree and history, report per-repo state
+- [x] 5.1 `scripts/secret-scan-fleet.sh`: for each declared public repository,
+  fetch, scan tree and history, report per-repo state. The declaration is a
+  file of URLs (blank lines and `#` comments skipped), which is what makes the
+  fetch path real in tests: they declare `file://` remotes and the sweep clones
+  them, rather than a stubbed git agreeing with the script about what fetching
+  means. Per-repo state is one of clean / findings / unfetchable / unscannable,
+  each with the reason when it is not a verdict; the sweep asks the gate for
+  `--all` (every ref plus the working tree), so the credential that was
+  committed and then deleted is in scope — that case is why the sweep exists
+  separately from the push gate. Exit codes: 0 all clean, 1 an uncovered
+  finding, 2 the scanner is unusable, 3 bad invocation, 4 at least one
+  repository could not be scanned. Precedence is 3 > 2 > 1 > 4 because a bad
+  invocation means nothing ran, a scanner fault means no verdict is
+  trustworthy, and a live leak outranks an unknown. Two refusals are load
+  bearing and each is pinned by a test: an empty or absent declaration exits 3
+  (zero repositories scanned is not a clean fleet — the run-tests.mjs rule), and
+  a scanner that crashed aborts with 2 rather than letting the repositories
+  already scanned stand as verdicts. **Recorded reason**: the line is taken from
+  the *end* of the gate's log and the *start* of git's, and both are measured.
+  The gate echoes its scope before it runs the scanner, so a run that dies on
+  the scanner has the scope line first and the fault last; git puts its
+  diagnosis first and follows it with advice ("Please make sure you have the
+  correct access rights / and the repository exists"). Reading the first line
+  for both recorded "scope: full history (all refs), plus the working tree" as
+  the reason a repository could not be scanned — a line that reads like a
+  successful scan. A test pins each direction and a mutation (F8) pins the
+  branch where the choice is observable; an rc=3 refusal happens before the gate
+  prints anything, so head and tail agree there and neither is pinned.
+  **Audit fixes before shipping**: `cleanup()` used a bare `[ ... ] && rm` — as
+  an AND-list a false test returns non-zero, and `set -e` is still in force
+  inside an EXIT trap, so the cleanup for a caller-supplied `--work` aborted the
+  trap; it is an `if` now. And `record()` echoed its state argument, which
+  nothing read once the caller started printing its own lines — the function
+  writes the record and nothing else.
+- [x] 5.4 Tests for unknown-vs-clean rendering and for an unfetchable repository
+  being reported rather than omitted: 15 tests in `tests/test_secret_scan_fleet.py`
+  against real `file://` git origins and a stubbed gitleaks on PATH.
+  `test_an_unfetchable_repository_is_reported_not_omitted` is the requirement's
+  own scenario (`secret-scan-07`), and `test_every_declared_repository_appears_
+  exactly_once` is the invariant underneath it — the failure mode being a
+  shorter, greener list. The stub reports a finding when the *fetched* repository
+  contains a committed marker file, so "this repository has a credential" is a
+  property of the repository rather than of the order the sweep ran in.
+  `tests/mutation_battery_secret_scan_fleet.py`: 8 mutations killed, 1 negative
+  control survived (a summary line reworded, saying the same thing). Each
+  mutation leaves the script valid, which is the point — `bash -n` cannot see
+  any of them and an exit code is not a value a test can read out of the text.
+  The battery is registered in ci.yml's batteries step, which
+  `test_every_battery_runs_in_the_suite` reads back.
 - [ ] 5.2 Install it beside the heartbeat in `runner-enroll.sh`, same
   EnvironmentFile discipline as the image cycle
 - [ ] 5.3 Hub: accept and render per-repo scan state, unknown when absent
-  (secret-scan-07), reusing the heartbeat path
-- [ ] 5.4 Tests for unknown-vs-clean rendering and for an unfetchable repository
-  being reported rather than omitted
+  (secret-scan-07), reusing the heartbeat path — NOT YET. Note for whoever
+  builds it: the sweep's report is a file, and the heartbeat is a POST body, so
+  the state has to travel the way the image state does — a field on the
+  heartbeat, one per declared repository, with absence rendered as unknown
+  rather than as clean (the `UNREPORTED` sentinel in `hub/registry.py` is the
+  precedent, and `null` is a positive report there, not an absence).
 
 ## Sprint 6 — Evidence
 
