@@ -43,6 +43,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 STATE_DIR="$HOME/.config/systemd/user"
 ENV_DIR="$HOME/.config/containers"
 HB_HELPER="$ENV_DIR/devgate-heartbeat.sh"
+CYC_HELPER="$ENV_DIR/devgate-image-cycle.sh"
 
 # Unit and env paths depend on the runner's name, which is not final until the
 # arguments are parsed — set_unit_paths() derives SLUG and every path from it.
@@ -54,6 +55,13 @@ SERVICE_UNIT=""
 TIMER_UNIT=""
 WATCHDOG_SERVICE_UNIT=""
 WATCHDOG_TIMER_UNIT=""
+CYC_SERVICE_UNIT=""
+CYC_TIMER_UNIT=""
+
+# The cycle's interval is deliberately NOT the heartbeat's. A heartbeat is a
+# cheap local POST that wants to be current; the cycle may pull an image over
+# the network, so it converges on a slower beat and publishes nothing itself.
+CYCLE_INTERVAL=3600
 
 set_unit_paths() {
     local name="$1"
@@ -66,6 +74,8 @@ set_unit_paths() {
     TIMER_UNIT="$STATE_DIR/devgate-hb-$SLUG.timer"
     WATCHDOG_SERVICE_UNIT="$STATE_DIR/devgate-watchdog-$SLUG.service"
     WATCHDOG_TIMER_UNIT="$STATE_DIR/devgate-watchdog-$SLUG.timer"
+    CYC_SERVICE_UNIT="$STATE_DIR/devgate-imgcycle-$SLUG.service"
+    CYC_TIMER_UNIT="$STATE_DIR/devgate-imgcycle-$SLUG.timer"
 }
 
 # Sets SLUG_OWNER to the RUNNER_NAME recorded at $TICKET_FILE ("" when no file
@@ -96,6 +106,28 @@ slug_owner() {
 log() { echo "[runner-enroll] $*"; }
 die() { log "ERROR: $1"; exit "${2:-1}"; }
 
+# Install a helper a unit will ExecStart. It is COPIED rather than referenced
+# in place, because an inline `bash -c` body in ExecStart loses every variable
+# it defines itself before bash runs (incident #1: the JSON went out malformed
+# and the unit exited 22 on every tick while enrollment reported success).
+#
+# An existing copy is never overwritten in silence. A helper that has diverged
+# is a fix that will not reach this host, and the operator has to be told —
+# enrollment still succeeds, so a WARNING is the only signal there is.
+install_helper() {
+    local label="$1" src="$2" dest="$3"
+    [[ -f "$src" ]] || die "missing $src — cannot install the $label helper" 3
+    if [[ -x "$dest" ]]; then
+        if ! cmp -s "$src" "$dest"; then
+            log "WARNING: $dest differs from $src — future $label helper fixes will not reach this host until it is removed"
+        fi
+        log "$label helper present, left unchanged: $dest"
+    else
+        install -m 755 "$src" "$dest"
+        log "$label helper installed: $dest"
+    fi
+}
+
 usage() {
     cat <<'EOF'
 Usage:
@@ -111,7 +143,13 @@ Options:
   --revoke              Revoke this runner's heartbeat token
 
   Units and env are named per runner (devgate-hb-<name>, devgate-watchdog-<name>,
-  devgate-heartbeat-<name>.env), so one host can enroll several runners.
+  devgate-imgcycle-<name>, devgate-heartbeat-<name>.env), so one host can enroll
+  several runners.
+
+  The evaluator-image cycle is INSTALLED here but enabled only once the host is
+  provisioned: add COHERENCE_IMAGE, COHERENCE_IMAGE_MANIFEST_DIGEST and
+  COHERENCE_PODMAN_STORE to the runner's environment file and run enroll again.
+  The store is a per-fleet choice (templates/runner/README.md, design D3).
 
 Examples:
   # Enroll a new runner:
@@ -232,8 +270,6 @@ remove_legacy_units() {
 
 install_timer() {
     local hb_token="$1"
-    local helper_src="$REPO_ROOT/scripts/runner-heartbeat.sh"
-    [[ -f "$helper_src" ]] || die "missing $helper_src — cannot install the heartbeat helper" 3
 
     log "Installing systemd user units for '$RUNNER_NAME' (interval=${INTERVAL}s)..."
 
@@ -250,18 +286,13 @@ install_timer() {
         die "slug '$SLUG' already belongs to '$SLUG_OWNER' — refusing to overwrite; pick a distinct --runner-name so the two do not share one token" 1
     fi
 
-    # The helper must exist BEFORE the timer starts: OnBootSec lies in the past
-    # once uptime exceeds INTERVAL, so `systemctl start` fires the first tick
-    # immediately, and an ExecStart with no target takes that run down with it.
-    if [[ -x "$HB_HELPER" ]]; then
-        if ! cmp -s "$helper_src" "$HB_HELPER"; then
-            log "WARNING: $HB_HELPER differs from scripts/runner-heartbeat.sh — future helper fixes will not reach this host until it is removed"
-        fi
-        log "Heartbeat helper present, left unchanged: $HB_HELPER"
-    else
-        install -m 755 "$helper_src" "$HB_HELPER"
-        log "Heartbeat helper installed: $HB_HELPER"
-    fi
+    # Both helpers must exist BEFORE their timers start: OnBootSec lies in the
+    # past once uptime exceeds INTERVAL, so `systemctl start` fires the first
+    # tick immediately, and an ExecStart with no target takes that run down.
+    install_helper "Heartbeat" \
+        "$REPO_ROOT/scripts/runner-heartbeat.sh" "$HB_HELPER"
+    install_helper "Image-cycle" \
+        "$REPO_ROOT/scripts/runner-image-cycle.sh" "$CYC_HELPER"
 
     # Write the heartbeat env file (mode 600 — it holds the token).
     #
@@ -327,13 +358,77 @@ AccuracySec=10
 WantedBy=timers.target
 EOF
 
+    # The image cycle (img-cycle-02, design D3). The gate never pulls
+    # (coh-rt-01), so the pinned bytes have to be on the host before the job
+    # starts; this is the out-of-band half, on the same one-EnvironmentFile-per-
+    # runner contract the heartbeat uses (D3.1), which is why it reads the
+    # file just written above.
+    #
+    # Its ExecStart is a bare path for the same reason the heartbeat's is.
+    cat > "$CYC_SERVICE_UNIT" <<EOF
+[Unit]
+Description=DevGate runner evaluator-image cycle ($SLUG)
+
+[Service]
+Type=oneshot
+EnvironmentFile=$TICKET_FILE
+ExecStart=$CYC_HELPER
+EOF
+
+    cat > "$CYC_TIMER_UNIT" <<EOF
+[Unit]
+Description=DevGate runner evaluator-image cycle timer ($SLUG)
+
+[Timer]
+OnBootSec=${CYCLE_INTERVAL}
+OnUnitActiveSec=${CYCLE_INTERVAL}
+AccuracySec=60
+
+[Install]
+WantedBy=timers.target
+EOF
+
     systemctl --user daemon-reload
     systemctl --user enable "devgate-hb-$SLUG.timer" 2>/dev/null || true
     systemctl --user start "devgate-hb-$SLUG.timer"
 
     log "Heartbeat timer enabled: devgate-hb-$SLUG.timer (helper: $HB_HELPER)"
 
+    enable_image_cycle
+
     install_watchdog
+}
+
+# The cycle is enabled by PROVISIONING, not by enrollment.
+#
+# Its three variables are a per-fleet choice the script does not own (D3: the
+# store is either inside the runner container or socket-shared from the host),
+# so an unprovisioned host gets the units on disk and no running timer. Starting
+# one anyway would exit 1 here, and 6/7 on a shape-(a) fleet that never sets
+# COHERENCE_* on the host at all — a unit failing every cycle is noise, and
+# noise is how the alert that matters gets ignored.
+#
+# Enabling is therefore an operator's second step: add the three keys to the
+# per-runner EnvironmentFile (they survive re-enrollment — that is what the
+# preservation fix above buys) and run enroll again.
+enable_image_cycle() {
+    local missing=() key
+    for key in COHERENCE_IMAGE COHERENCE_IMAGE_MANIFEST_DIGEST COHERENCE_PODMAN_STORE; do
+        if ! grep -qE "^${key}=.+" "$TICKET_FILE" 2>/dev/null; then
+            missing+=("$key")
+        fi
+    done
+
+    if (( ${#missing[@]} )); then
+        log "Image cycle installed but NOT enabled: the environment file does not set ${missing[*]}"
+        log "  Add them to $TICKET_FILE (store per design D3), then re-run enroll to enable it."
+        log "  Units are in place: devgate-imgcycle-$SLUG.service / .timer"
+        return 0
+    fi
+
+    systemctl --user enable "devgate-imgcycle-$SLUG.timer" 2>/dev/null || true
+    systemctl --user start "devgate-imgcycle-$SLUG.timer"
+    log "Image cycle timer enabled: devgate-imgcycle-$SLUG.timer (helper: $CYC_HELPER)"
 }
 
 # The inverted dead-man switch: this spoke checks the HUB, so a dead hub is
@@ -473,19 +568,22 @@ if [[ "$MODE" == "revoke" ]]; then
         exit 0
     fi
 
-    # Remove this runner's units + env file. The watchdog goes too: it reads
-    # HUB_URL from the env file being deleted, so leaving it behind would
-    # leave a unit that fails forever with a confusing config error.
+    # Remove this runner's units + env file. The watchdog and the image cycle
+    # go too: both read the env file being deleted, so leaving either behind
+    # would leave a unit that fails forever with a confusing config error.
     systemctl --user stop "devgate-hb-$SLUG.timer" 2>/dev/null || true
     systemctl --user disable "devgate-hb-$SLUG.timer" 2>/dev/null || true
     systemctl --user stop "devgate-watchdog-$SLUG.timer" 2>/dev/null || true
     systemctl --user disable "devgate-watchdog-$SLUG.timer" 2>/dev/null || true
+    systemctl --user stop "devgate-imgcycle-$SLUG.timer" 2>/dev/null || true
+    systemctl --user disable "devgate-imgcycle-$SLUG.timer" 2>/dev/null || true
     rm -f "$TIMER_UNIT" "$SERVICE_UNIT" "$TICKET_FILE" \
-          "$WATCHDOG_TIMER_UNIT" "$WATCHDOG_SERVICE_UNIT"
+          "$WATCHDOG_TIMER_UNIT" "$WATCHDOG_SERVICE_UNIT" \
+          "$CYC_TIMER_UNIT" "$CYC_SERVICE_UNIT"
     remove_legacy_units "$REVOKE_RUNNER"
     systemctl --user daemon-reload
 
-    log "Runner '$REVOKE_RUNNER' revoked. Units removed (devgate-hb-$SLUG.*)."
+    log "Runner '$REVOKE_RUNNER' revoked. Units removed (devgate-hb-$SLUG.*, devgate-imgcycle-$SLUG.*)."
 fi
 
 exit 0

@@ -41,6 +41,7 @@ SRV = "hub/server.py"
 MON = "hub/monitor.py"
 SCH = "hub/schema/runners.schema.json"
 FIX = "tests/fixtures/runner_spoke.py"
+ENR = "scripts/runner-enroll.sh"
 
 T_REG = "tests/test_hub_registry.py"
 T_MON = "tests/test_hub_monitor.py"
@@ -50,6 +51,10 @@ T_HTTP = "tests/test_hub_enroll_heartbeat.py"
 # scripts/runner-heartbeat.sh or the fixture and must be killed by the
 # image-probe tests, which is where they now live.
 T_IMG = "tests/test_runner_heartbeat_image.py"
+# The install half of the cycle lives in runner-enroll.sh, whose tests are
+# still in the enroll suite (the split moved out the heartbeat probe, not
+# enrollment).
+T_ENROLL = "tests/test_runner_enroll.py"
 
 MISSING_BLOCK = '''    missing=""
     [ -n "${COHERENCE_IMAGE:-}" ] || missing="${missing:+$missing, }COHERENCE_IMAGE"
@@ -193,12 +198,54 @@ MUTATIONS = [
      [T_IMG], {"COHERENCE_IMAGE": "ambient", "COHERENCE_IMAGE_MANIFEST_DIGEST": "sha256:a",
                   "COHERENCE_PODMAN_STORE": "/tmp/ambient-store"}),
 
+    # --- scripts/runner-enroll.sh: installing the cycle (img-cycle-02, D3) ---
+    # The cycle is installed the way the heartbeat is — a copied helper, the
+    # same per-runner EnvironmentFile, a per-runner timer — and enabled by
+    # PROVISIONING rather than by enrollment. Both halves of that are guards,
+    # so both are mutated.
+    # E1 is killed by the NAMING assertion, not by the timer one: with the
+    # whole call gone, a host that is not provisioned is simply never told,
+    # which is its own defect. E1b/E1c below are what pin the behaviour, so
+    # "a provisioned host actually runs the cycle" is not resting on a message.
+    ("E1: the cycle's state is never reported (an operator is told nothing)",
+     [(ENR, "    enable_image_cycle\n", "")], [T_ENROLL], {}),
+    ("E1b: a provisioned host gets units and no running timer",
+     [(ENR, '    systemctl --user start "devgate-imgcycle-$SLUG.timer"\n', "")],
+     [T_ENROLL], {}),
+    ("E1c: the cycle timer is enabled but does not survive a reboot",
+     [(ENR, '    systemctl --user enable "devgate-imgcycle-$SLUG.timer" 2>/dev/null || true\n',
+            "")], [T_ENROLL], {}),
+    ("E2: the provisioning check accepts an unprovisioned host (a timer that "
+     "fails every cycle)", [(ENR, "    if (( ${#missing[@]} )); then",
+                            "    if false; then")], [T_ENROLL], {}),
+    ("E3: the cycle unit loses its EnvironmentFile (the store has two sources)",
+     [(ENR, "EnvironmentFile=$TICKET_FILE\nExecStart=$CYC_HELPER",
+            "ExecStart=$CYC_HELPER")], [T_ENROLL], {}),
+    ("E4: the cycle's ExecStart becomes an inline shell body (incident #1)",
+     [(ENR, "ExecStart=$CYC_HELPER", "ExecStart=bash -c '$CYC_HELPER'")],
+     [T_ENROLL], {}),
+    ("E5: revoke leaves the cycle timer behind (a unit failing forever)",
+     [(ENR, '          "$CYC_TIMER_UNIT" "$CYC_SERVICE_UNIT"\n', "")],
+     [T_ENROLL], {}),
+    ("E6: an existing helper is overwritten (a host's diverged copy vanishes "
+     "without a word)", [(ENR, '    if [[ -x "$dest" ]]; then',
+                         "    if false; then")], [T_ENROLL], {}),
+    ("E7: the cycle runs at the heartbeat's cadence (a fleet-wide registry hammer)",
+     [(ENR, "OnUnitActiveSec=${CYCLE_INTERVAL}", "OnUnitActiveSec=${INTERVAL}")],
+     [T_ENROLL], {}),
 ]
 
 # Negative controls: pairs of edits that must NOT kill anything, because each
 # demonstrates that a FIXTURE property is load-bearing. They are reported
 # separately from the kill count — a battery entry whose expected outcome is
 # "survives" would make the headline number meaningless.
+#
+# The cycle-install section above has no pair of its own. A candidate was tried
+# and does not exist: every masking pair needs BOTH halves of an assertion to
+# go vacuous, and here one test asserts the call IS made (provisioned) while
+# another asserts it is NOT (unprovisioned), so a stub that stopped recording
+# systemctl calls would make the first fail rather than hide it. Stated rather
+# than faked — a control invented to fill the list is worse than an absent one.
 NEGATIVE_CONTROLS = [
     # The audit's measurement only becomes a TEST because the stub normalises
     # the way podman does. Break both halves and they agree with each other:

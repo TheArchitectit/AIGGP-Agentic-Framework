@@ -3,12 +3,15 @@
 The gate never pulls (coh-rt-01), so the pinned evaluator bytes have to be
 present on the host before the job starts. Nothing used to put them there:
 the image appeared in no runner template, not in runner-enroll.sh, not in
-hub/, and the runner container mounts exactly one volume (/_work), so the
-job's podman is not automatically the host's. The failure mode this suite
-exists to prevent is the quiet one — a cycler that reports success into a
-store the gate cannot see, next to a doctor that SKIPs for a missing image.
-That is why the store is an input here and why every assertion about it is
-about the store, not about "did a pull happen".
+hub/ — and the runner container mounts exactly one volume (/_work), so the
+job's podman is not automatically the host's. Enrollment now installs this
+timer (templates/runner/README.md, "The evaluator image on a runner host"),
+which makes the mounted-volume fact a DOCUMENTED per-fleet choice rather than
+something the script can discover. The failure mode this suite exists to
+prevent is the quiet one — a cycler that reports success into a store the gate
+cannot see, next to a doctor that SKIPs for a missing image. That is why the
+store is an input here and why every assertion about it is about the store,
+not about "did a pull happen".
 
 The stubbed podman and the host fixture live in `image_cycle_harness.py`
 beside this file, because they are the instrument rather than the subject:

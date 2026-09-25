@@ -166,6 +166,15 @@ class Spoke:
     def helper(self):
         return self.home / ".config" / "containers" / "devgate-heartbeat.sh"
 
+    def cycle_helper(self):
+        return self.home / ".config" / "containers" / "devgate-image-cycle.sh"
+
+    def cycle_units(self, runner):
+        """(service, timer) for the image cycle, named per runner like the rest."""
+        s = slug(runner)
+        return (self.units / f"devgate-imgcycle-{s}.service",
+                self.units / f"devgate-imgcycle-{s}.timer")
+
     def token_of(self, runner):
         env = self.env_file(runner)
         assert env.exists(), f"per-runner env file was never written: {env}"

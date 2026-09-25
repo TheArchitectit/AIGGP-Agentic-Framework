@@ -105,11 +105,101 @@ a dead hub is noticed by a machine that is still up. Check it with
 `systemctl --user status devgate-watchdog-<name>`.
 
 Units, env file, and heartbeat helper are all named per runner
-(`devgate-hb-<name>`, `devgate-watchdog-<name>`,
+(`devgate-hb-<name>`, `devgate-watchdog-<name>`, `devgate-imgcycle-<name>`,
 `~/.config/containers/devgate-heartbeat-<name>.env`), so one host can enroll
 several runners without a later enroll overwriting an earlier runner's token.
 The earlier fixed-name units (`devgate-heartbeat.*`, `devgate-hub-watchdog.*`)
 predate that and are retired for the runner being re-enrolled.
+
+## The evaluator image on a runner host
+
+The coherence gate **never pulls** (coh-rt-01): the bytes it executes must be
+the ones the registry pins, not whatever the network serves at gate time. The
+pinned image therefore has to be on the host *before* the job starts — a host
+without it does not fail, it SKIPs the container phase and looks healthy.
+
+`runner-enroll.sh` installs `devgate-imgcycle-<name>.timer` beside the
+heartbeat, and that timer converges the local store on the **recorded**
+identity (`image@digest` — never `:main`; a host holding a *newer* `:main`
+build is not converged either). It is **installed by enroll and enabled by
+provisioning**: an unprovisioned host gets the units on disk and no running
+timer, because a timer that failed every cycle is noise that teaches operators
+to ignore the one that matters.
+
+### The store is a per-fleet decision, and it must be the job's store
+
+A runner deployed from this standard is itself a container whose only volume is
+`/_work` (see `self-hosted-runner.container`) — no podman socket, no container
+storage mount. So podman on the host is **not** automatically the podman a job
+sees, and converging into a store the gate cannot read is the failure this
+whole mechanism exists to prevent. It is worth being blunt about it: the
+cycler would report success and the gate would SKIP, on the same host, at the
+same time. Pick one shape per fleet and make it true everywhere:
+
+- **(a) podman inside the runner container.** Give the runner image podman and
+  back `~/.local/share/containers` with a named volume. The job, the cycle and
+  the image all live in that store; the cycle runs *in the container*, so do
+  not enable the host-side timer for these hosts.
+- **(b) socket-shared host storage.** Bind the host's rootless podman socket
+  (and its storage) into the runner container. The host-side timer installed
+  here is the right one: the job reaches the same store through the socket.
+
+Either way the cycle is told which store to fill and **verifies it by asking
+podman** (`--root <store> info`, compared as the directory the name denotes, so
+a trailing slash is not a mismatch). A store it cannot confirm exits non-zero
+rather than pulling into a guess.
+
+### Provisioning a host
+
+Add the three variables to the runner's environment file — the same
+per-runner file the heartbeat reads (design D3.1: one file per runner) — then
+run enroll again:
+
+```bash
+# ~/.config/containers/devgate-heartbeat-<name>.env  (mode 600)
+COHERENCE_IMAGE=ghcr.io/thearchitectit/aiggp-agentic-framework/devgate-coherence
+COHERENCE_IMAGE_MANIFEST_DIGEST=sha256:…     # container/execution-profiles.json
+COHERENCE_PODMAN_STORE=/home/runner/.local/share/containers/storage
+```
+
+The store must be the **graph root**, and the way to get it right is to ask
+podman for it rather than to guess a path — the cycler asks the same question
+of the same binary, so the two agree by construction:
+
+```bash
+podman info --format '{{.Store.GraphRoot}}'    # as the runner user
+```
+
+Measured on rootless podman 6.1.1, that is
+`~/.local/share/containers/storage`. It is deliberately **not**
+`/run/user/<uid>/containers`, which is the *run* root — a different directory
+that podman would happily turn into a second, empty store.
+
+`image` and `image_manifest_digest` are the registry's, and the two must be
+copied **together**: a digest that does not match the recorded one is the
+S4 defect that once shipped an unpullable pin while CI was green. Enrollment
+leaves these lines alone — they survive re-enrollment, which is what lets an
+operator own them.
+
+Verify with `systemctl --user status devgate-imgcycle-<name>`; the timer's exit
+codes are specific on purpose, because each one has a different fix:
+
+| Exit | Meaning | Fix |
+| --- | --- | --- |
+| 0 | converged — the recorded bytes are in this store | — |
+| 1 | configuration error (unset, or a tag where a digest belongs) | the env file above |
+| 2 | podman is not available | install/start podman on this host |
+| 3 | the pinned ref could not be fetched | registry/network/auth |
+| 4 | verification failed — the store does not hold the recorded bytes | re-pull; check for a stale local build |
+| 5 | store mismatch — podman's graph root is not `COHERENCE_PODMAN_STORE` | edit the path |
+| 6 | the configured store does not exist (refused to create a mount) | fix the mount |
+| 7 | podman could not answer for the store | find out why podman is down |
+
+A host's image state is also reported to the hub on every heartbeat
+(`image_digest` / `image_reason`), so the fleet view shows which of these a host
+is in — or `unknown` if it has never reported. **Null is unknown, never
+healthy**: a host that cannot serve the pinned evaluator is not counted ready
+to gate.
 
 ---
 

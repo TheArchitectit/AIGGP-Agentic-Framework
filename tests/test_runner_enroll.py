@@ -365,6 +365,157 @@ def test_a_directory_at_the_env_path_fails_before_the_hub(tmp_path):
     assert "Enrolled successfully" not in res.stdout
 
 
+# --- the image cycle is installed beside the heartbeat (img-cycle-02, D3) ----
+#
+# The cycle is the out-of-band half: the gate never pulls (coh-rt-01), so the
+# pinned bytes have to be on the host before the job starts. Enroll therefore
+# installs it the way it installs the heartbeat — a COPIED helper, an
+# EnvironmentFile, a per-runner timer — because the two share one file and one
+# naming scheme (design D3.1).
+#
+# What enroll must NOT do is pretend the cycle can run on a host nobody has
+# provisioned. The three COHERENCE_* variables are a per-fleet choice (D3: the
+# store is either inside the runner container or socket-shared from the host)
+# and enroll does not own them, so a host without them gets the units on disk
+# and NO running timer — rather than a unit that exits 5/6/7 every cycle and
+# trains an operator to ignore it.
+
+CYC_KEYS = ("COHERENCE_IMAGE", "COHERENCE_IMAGE_MANIFEST_DIGEST",
+            "COHERENCE_PODMAN_STORE")
+
+
+def _provision(s, runner, store=None):
+    """Add the cycle's three variables to the shared env file, by hand.
+
+    By hand is the point: enroll owns four keys of that file and carries the
+    rest over as found, so this is exactly what an operator does — which is
+    also why the truncation bug destroyed it silently.
+    """
+    envf = s.env_file(runner)
+    assert envf.exists(), f"enroll did not write {envf}"
+    store = store or (tmp_store(s))
+    with envf.open("a") as fh:
+        fh.write("# provisioning added by hand — enroll must not own these\n")
+        fh.write("COHERENCE_IMAGE=ghcr.io/thearchitectit/devgate-coherence\n")
+        fh.write('COHERENCE_IMAGE_MANIFEST_DIGEST=sha256:%s\n' % ("a" * 64))
+        fh.write("COHERENCE_PODMAN_STORE=%s\n" % store)
+
+
+def tmp_store(s):
+    store = s.home / "podman-store"
+    store.mkdir(exist_ok=True)
+    return store
+
+
+def test_enroll_installs_the_image_cycle_helper_beside_the_heartbeat(tmp_path):
+    """A copied helper, byte-identical to the shipped script and executable.
+
+    Copied for the reason the heartbeat's is: it is installed as a FILE the
+    unit points at, so the unit can never grow an inline shell body — which is
+    what made every heartbeat tick exit 22 (incident #1).
+    """
+    s = Spoke(tmp_path)
+    assert s.enroll("alpha").returncode == 0
+    helper = s.cycle_helper()
+    assert helper.is_file(), f"the cycle helper was not installed: {helper}"
+    assert helper.stat().st_mode & 0o777 == 0o755, oct(helper.stat().st_mode)
+    src = (Path(__file__).resolve().parent.parent
+           / "scripts" / "runner-image-cycle.sh")
+    assert helper.read_bytes() == src.read_bytes(), "helper differs from its source"
+
+
+def test_an_existing_cycle_helper_is_left_unchanged_and_flagged(tmp_path):
+    """Same policy as the heartbeat helper: never clobber a host's copy in
+    silence. A helper that has diverged is a stale fix, and the operator has to
+    be told, because the enrollment still succeeds."""
+    s = Spoke(tmp_path)
+    assert s.enroll("alpha").returncode == 0
+    helper = s.cycle_helper()
+    helper.write_text("#!/usr/bin/env bash\n# locally patched\n")
+
+    res = s.enroll("alpha")
+    assert res.returncode == 0, res.stderr
+    assert "locally patched" in helper.read_text(), "the host's helper was overwritten"
+    assert "WARNING" in res.stdout and str(helper) in res.stdout, res.stdout
+
+
+def test_the_cycle_unit_points_at_the_helper_and_the_shared_env_file(tmp_path):
+    """One EnvironmentFile per runner (D3.1): the cycle reads the SAME file the
+    heartbeat does, which is why its store setting has a single source."""
+    s = Spoke(tmp_path)
+    assert s.enroll("alpha").returncode == 0
+    service, timer = s.cycle_units("alpha")
+    assert service.is_file() and timer.is_file(), "cycle units were not written"
+
+    body = service.read_text()
+    assert f"EnvironmentFile={s.env_file('alpha')}" in body, body
+    assert f"ExecStart={s.cycle_helper()}" in body, body
+    assert "Type=oneshot" in body, body
+    assert "bash -c" not in body, "inline ExecStart gets mangled by systemd"
+
+    # Its own cadence, deliberately not the heartbeat's. A pull every 300s,
+    # on every host in the fleet, is a hammering of the registry that a local
+    # POST does not resemble — and it buys nothing, because the desired state
+    # is a pinned digest that changes only when someone re-pins it (D1).
+    tbody = timer.read_text()
+    assert "OnUnitActiveSec=3600" in tbody, tbody
+    assert "OnUnitActiveSec=300" not in tbody, tbody
+
+
+def test_the_cycle_timer_does_not_start_unprovisioned(tmp_path):
+    """The units land, the timer does not run, and the missing keys are named.
+
+    A timer that fired here would exit 1 (config) on every tick for a host
+    that was never provisioned — and on a shape-(a) fleet, which never sets
+    these on the host at all, it would exit 6/7 forever. Either way the unit
+    is noise that teaches operators to ignore the one that matters.
+    """
+    s = Spoke(tmp_path)
+    res = s.enroll("alpha")
+    assert res.returncode == 0, res.stderr
+    _, timer = s.cycle_units("alpha")
+    assert timer.is_file(), "the timer file should still be installed"
+    assert not any("devgate-imgcycle" in c for c in s.systemctl_calls()), \
+        s.systemctl_calls()
+    for key in CYC_KEYS:
+        assert key in res.stdout, f"{key} not named in the output: {res.stdout}"
+
+
+def test_the_cycle_timer_starts_once_the_host_is_provisioned(tmp_path):
+    """Provisioning is the switch. An operator adds the three keys by hand; the
+    next enroll enables the timer, and does not touch what they added."""
+    s = Spoke(tmp_path)
+    assert s.enroll("alpha").returncode == 0
+    _provision(s, "alpha")
+
+    res = s.enroll("alpha")
+    assert res.returncode == 0, res.stderr
+    calls = s.systemctl_calls()
+    assert any("enable devgate-imgcycle-alpha.timer" in c for c in calls), calls
+    assert any("start devgate-imgcycle-alpha.timer" in c for c in calls), calls
+    # …and the provisioning itself is untouched (the truncation bug's cousin).
+    env = s.env_file("alpha").read_text()
+    for key in CYC_KEYS:
+        assert f"{key}=" in env, env
+
+
+def test_revoke_removes_the_image_cycle_units(tmp_path):
+    """The cycle reads its store from the env file revoke deletes, so leaving
+    the timer behind would leave a unit failing forever on a config error."""
+    s = Spoke(tmp_path)
+    assert s.enroll("alpha").returncode == 0
+    token = s.token_of("alpha")
+    service, timer = s.cycle_units("alpha")
+    assert service.is_file() and timer.is_file()
+
+    res = subprocess.run(
+        ["bash", str(SCRIPT), "--revoke", HUB, token, "alpha"],
+        env=s.env, capture_output=True, text=True, timeout=60)
+    assert res.returncode == 0, res.stderr
+    assert not service.exists() and not timer.exists(), \
+        f"cycle units survived revoke: {service.exists()} {timer.exists()}"
+
+
 def _main():
     import tempfile
     failed = 0

@@ -115,6 +115,18 @@ scripts/runner-enroll.sh <hub-url> <enrollment-token> --repo OWNER/REPO
 See `docs/runner-monitor-monitor-hub.md` for hub setup; the enrollment script
 installs a heartbeat timer and a hub watchdog.
 
+Enrollment also installs `devgate-imgcycle-<name>.timer`, the tick that keeps
+the pinned evaluator image in the local store — but it does **not** start it
+until the host is provisioned with `COHERENCE_IMAGE`,
+`COHERENCE_IMAGE_MANIFEST_DIGEST` and `COHERENCE_PODMAN_STORE`. Add those three
+lines to the runner's environment file and run enroll again to enable it.
+**Before you choose the store value, decide which shape this fleet is** —
+podman inside the runner container, or the host's socket bound into it — because
+a cycle that fills a store the job cannot read reports success next to a gate
+that SKIPs. `templates/runner/README.md` ("The evaluator image on a runner
+host") gives both shapes, the `podman info` command that yields the right path,
+and what each non-zero exit of the cycle means.
+
 ## 7. Private infra record
 
 Machine-specific details — hostname, IP, volume layout, incident log — belong
