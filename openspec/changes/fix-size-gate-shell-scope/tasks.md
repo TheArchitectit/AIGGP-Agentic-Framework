@@ -36,11 +36,20 @@ Closes FAIL-8f9249ca (scope: the size gate did not size shell scripts) against
       error): one hard breach, `scripts/runner-enroll.sh` (589 lines, limit
       500); two new soft warnings, `scripts/re-pin-evaluator-identity.sh`
       (407) and `scripts/deploy.sh` (377)
-- [ ] 3.2 Split `runner-enroll.sh` at the unit-emission seam — see the record
-      below
-- [ ] 3.3 Re-measured after the split: 0 over hard limit, and the two new soft
-      warnings stand (soft limits warn, they do not block; 11 pre-existing
-      soft warnings were already there)
+- [x] 3.2 Split `runner-enroll.sh` at the unit-emission seam — see the record
+      below. 589 → 452 lines; the extracted `scripts/lib/runner-units.sh` is
+      175. The split is a verbatim line-range move, not a retype, so the unit
+      bodies are byte-identical
+- [x] 3.3 Re-measured after the split: 0 over hard limit, 13 over soft limit —
+      11 pre-existing plus the two the extension newly exposed
+      (`scripts/re-pin-evaluator-identity.sh` 407, `scripts/deploy.sh` 377).
+      Soft limits warn, they do not block, and neither is touched by the
+      previous slice's diff
+- [x] 3.4 The library is in `tests/fixtures/runner_spoke.py`'s required-file
+      check alongside `runner-enroll.sh` and `runner-heartbeat.sh` — a checkout
+      that lost it fails at import naming the file, rather than at enroll time
+      on a host. `source` on a missing path is a die, so the check is a
+      duplicate of a real failure mode, not decoration
 
 ## Sprint 4 — the battery, and the gap it found
 
@@ -85,3 +94,11 @@ decides (which runner, which hub, which token, which host may own a slug) is
 not what a systemd user unit looks like. The emitted units are also the part
 that grew: Sprint 2.2 added the cycle's service and timer to a file the checker
 had never sized.
+
+`tests/mutation_battery_image_state.py` anchors four mutations (E1b, E1c, E2,
+E6) inside the moved functions, so the move moved their anchors with it: they
+now name `LIB` instead of `ENR`, and the file carries the reason. The battery
+itself is how that was found rather than how it was assumed — before the
+repoint it reported **30/34 killed**, with `anchor appears 0 times, not 1` on
+exactly those four. A moved file that no mutation noticed would have meant the
+anchors were not load-bearing; four that noticed is the anchors working.
