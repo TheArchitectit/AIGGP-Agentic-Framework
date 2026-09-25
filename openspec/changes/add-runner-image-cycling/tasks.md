@@ -270,6 +270,77 @@ Not changed, and why:
 - **No timeout on the podman calls**, as recorded above; it is the same
   exposure as the probe's and belongs with it.
 
+### The size gate blocked the hosted build, 2026-09-25
+
+`941b3c5` was pushed and came back RED: run `36077679086`, job "DevGate gates
+on DevGate", step "Regression check". The failing line is not a regression —
+it is the FILE-SIZE report body:
+
+```
+  ERROR  tests/test_runner_image_cycle.py  (617 lines, limit 600)  OVER HARD LIMIT
+  1 over hard limit (blocks commit), …
+##[error]Process completed with exit code 1
+```
+
+Two things are worth recording, because each is a failure mode rather than a
+typo.
+
+**The local mirror could not have caught it, and that is the point.** The
+suite that ran here was green at 873 tests; the size gate is not part of
+`pytest` and was not run before the push. Worse, the same step printed
+`✓ No potential regressions detected` a few lines ABOVE the error: the
+reassuring line is emitted before the file-size section, so the one line an
+operator greps for announces the opposite of the exit code. That is the same
+defect class as the cycler's success echo — a summary that does not come last
+cannot be trusted to summarise. (It is the second time this exact shape has
+cost a hosted run; the size gate stays a separate step from the regression
+scan, so the fix is to run it locally, not to merge the steps.)
+
+**A test file over the hard limit is a structural finding, not a licence to
+trim.** Both files were fixed by splitting at a real seam rather than by
+deleting assertions:
+
+- `tests/test_runner_image_cycle.py` (617 → 355) — the stubbed `podman` and
+  the `Host` fixture moved to `tests/image_cycle_harness.py` (294). They are
+  the INSTRUMENT, not the subject, and the mutation battery edits the stub, so
+  the instrument now has one home and its own battery anchors
+  (`tests/mutation_battery_image_cycle.py` gained `T_HARNESS`; **re-run after
+  the move: 7/7 killed, 1/1 negative control behaved** — N1 still survives,
+  which is what proves the edits reached the real stub).
+- `tests/test_runner_enroll.py` (630 → 385) — the ten heartbeat image-probe
+  tests moved to `tests/test_runner_heartbeat_image.py`, where they belong:
+  they exercise `runner-heartbeat.sh`, and enrollment is only their setup.
+  `tests/mutation_battery_image_state.py` repointed at the new file
+  (`T_IMG`) and re-ran clean: **25/25 killed, 1/1 negative control behaved**.
+  A floor was added for the new suite by hand (9 = 90% of its 10 tests)
+  rather than by regenerating every floor.
+
+The count checks after the splits: **873 pytest / 873 node across 58 files**
+(the node runner discovers the new file), openspec **34/34**, exec-bit guard
+66/66, and the size gate at **0 over hard limit** — including
+`test_runner_enroll.py`, which the gate had been reporting as "pre-existing
+oversize (warning)" only because the breach was still uncommitted.
+
+### Sprint 2.2, first step: re-enroll must not truncate the provisioning
+
+The EnvironmentFile is shared — the cycle's three variables live in the same
+file the heartbeat reads (design D3.1, one file per runner) — and
+`runner-enroll.sh` owns only four keys of it. It rewrote the file with `cat >`,
+so **every re-enroll silently deleted the operator's hand-added provisioning**,
+and the host then reported "not provisioned" for a mount that was mounted and
+a store that was full. The failure is entirely absent from the enrolled host's
+own view: enrollment reports success, and the missing keys only reappear as a
+heartbeat reason on the next tick.
+
+`test_reenroll_preserves_hand_added_provisioning_lines` was written first and
+watched RED with the whole block destroyed in the message. The fix keeps the
+four owned keys, carries everything else over as found, and writes through
+`umask 077` to a temp file renamed into place — the previous `cat > f` then
+`chmod 600 f` left the token readable on disk for the length of a write.
+`test_reenroll_keeps_the_env_file_600_with_preserved_lines` pins the mode;
+it passed before the fix too and is recorded as a regression guard rather than
+as a watched RED.
+
 ## Sprint 4 — Divergence reporting
 
 - [ ] 4.1 Compare served `:main` digest against the record on the tick and
