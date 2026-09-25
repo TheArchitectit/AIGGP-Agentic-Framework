@@ -4,13 +4,20 @@ Every contract the project enforces maps to the test path that locks it.
 Unmapped claims belong in the README's verification table discipline
 (GREEN requires a hosted run; anything else is OPEN with a reason).
 
-Current floor state: 58 suites, 873 tests; floors in
+Current floor state: 63 suites, 959 tests; floors in
 `tests/expected-counts.json` (CI 'Test-count floors' step fails on shrinkage).
 
-## Suite inventory (count at inventory time)
+## Suite inventory
 
+Regenerated 2026-09-24 from the collected tree. The live authority on
+suite sizes is `tests/expected-counts.json`, whose floors CI enforces;
+this list is a snapshot and is expected to trail it between
+regenerations — a count here that disagrees with `python3
+tests/gen_floors.py` is this document being stale, not a regression.
+
+- `tests/test_coherence_image_identity.py` — 15 tests
 - `tests/test_coherence_local_wrapper.py` — 14 tests
-- `tests/test_coherence_workflow_template.py` — 11 tests
+- `tests/test_coherence_workflow_template.py` — 14 tests
 - `tests/test_evidence_integrity.py` — 20 tests
 - `tests/test_findings_to_spec.py` — 5 tests
 - `tests/test_fw_guards.py` — 7 tests
@@ -26,7 +33,7 @@ Current floor state: 58 suites, 873 tests; floors in
 - `tests/test_hub_coherence_attestation.py` — 32 tests
 - `tests/test_hub_coherence_cache.py` — 26 tests
 - `tests/test_hub_coherence_conformance.py` — 30 tests
-- `tests/test_hub_coherence_container.py` — 34 tests
+- `tests/test_hub_coherence_container.py` — 28 tests
 - `tests/test_hub_coherence_decision.py` — 6 tests
 - `tests/test_hub_coherence_evidence.py` — 10 tests
 - `tests/test_hub_coherence_exitcodes.py` — 34 tests
@@ -44,24 +51,33 @@ Current floor state: 58 suites, 873 tests; floors in
 - `tests/test_hub_coherence_schema.py` — 24 tests
 - `tests/test_hub_coherence_store.py` — 7 tests
 - `tests/test_hub_coherence_verify_cli.py` — 12 tests
-- `tests/test_hub_enroll_heartbeat.py` — 6 tests
-- `tests/test_hub_monitor.py` — 12 tests
-- `tests/test_hub_registry.py` — 9 tests
+- `tests/test_hub_enroll_heartbeat.py` — 7 tests
+- `tests/test_hub_monitor.py` — 16 tests
+- `tests/test_hub_registry.py` — 14 tests
 - `tests/test_hub_spec_coherence.py` — 13 tests
 - `tests/test_hub_watchdog.py` — 8 tests
 - `tests/test_metamorphic.py` — 24 tests
+- `tests/test_mutation_harness.py` — 19 tests
+- `tests/test_publish_trigger.py` — 9 tests
 - `tests/test_python_root_anchor.py` — 7 tests
 - `tests/test_quickstart_init.py` — 4 tests
 - `tests/test_regression_check.py` — 27 tests
 - `tests/test_regression_corpus.py` — 14 tests
-- `tests/test_regression_sizes.py` — 5 tests
+- `tests/test_regression_sizes.py` — 8 tests
+- `tests/test_repin_operation.py` — 21 tests
 - `tests/test_resource_governance.py` — 18 tests
-- `tests/test_runner_enroll.py` — 22 tests
+- `tests/test_runner_enroll.py` — 28 tests
+- `tests/test_runner_enroll_sweep.py` — 17 tests
 - `tests/test_runner_heartbeat_image.py` — 10 tests
+- `tests/test_runner_image_cycle.py` — 22 tests
 - `tests/test_scope_contract.py` — 5 tests
+- `tests/test_secret_scan.py` — 18 tests
+- `tests/test_secret_scan_fleet.py` — 15 tests
+- `tests/test_secret_validation_template.py` — 15 tests
 - `tests/test_silent_success_gate.py` — 4 tests
 - `tests/test_silent_success_overlay.py` — 6 tests
 - `tests/test_spec_traceability.py` — 12 tests
+- `tests/test_workflow_read.py` — 17 tests
 
 ## Claims without locks (must stay empty)
 

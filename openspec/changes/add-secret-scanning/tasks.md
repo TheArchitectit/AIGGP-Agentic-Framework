@@ -219,6 +219,97 @@
   the kind this repository keeps meeting — the next run's anchors would go
   stale and its verdicts would be read off a tree that is not the one under
   test — so it is recorded here as a task rather than as a footnote
+- [x] 5.2a The hardening pass 5.2 needed, and the hosted red it shipped — one
+  commit-pair after 5.2, because "push → confirm hosted green before claiming
+  closure" was the ritual step 5.2 had not finished. Run
+  [36090931527](https://github.com/TheArchitectit/AIGGP-Agentic-Framework/actions/runs/36090931527)
+  was **red in three jobs**, from two causes, and the second is the one worth
+  recording. (a) `tests/mutation_battery_runner_sweep.py` went in without the
+  exec bit — this host has `core.fileMode=false`, so the mode never reached the
+  index; it failed both the exec-bit step and
+  `test_fw_guards::TestExecBitCheck::test_real_tree_passes`, one missing
+  `git update-index --chmod=+x`. (b) The fw-* lane reported **32/34 killed with
+  survivors F1 and E5** — and both were *anchor misses this slice had caused*:
+  E5 anchored on the revoke list's last line, which split in two when the
+  sweep's units joined it, and F1 on the fixture's scrub line, which this
+  slice's `SECRET_SCAN_` edit had rewritten. Neither mutation had ever been
+  applied. The harness detected this (`ANCHOR … appears 0 times`) and then
+  filed it under **`survivors (a guard no named test depends on)`** — the wrong
+  diagnosis, sending the reader to write a test for a question nobody asked.
+  **Three fixes in the harness, each pinned by a test that fails without it:**
+  stale anchors get their own heading (a survivor and a stale anchor have the
+  same exit code, so the distinction can only live in the report); an exclusive
+  `flock` keyed by the resolved root refuses a second battery on the same tree
+  rather than interleaving; and the artifacts' sha256 is taken **before** the
+  battery starts and verified after, because per-entry restore verified against
+  a captured "original" cannot see a tree that a concurrent run already
+  mutated — each entry restores faithfully to the other's mutant and every
+  per-entry check passes. That third check is the mechanism behind 5.2's
+  recorded anomaly, reproduced by the fresh-eyes audit and now prevented rather
+  than documented. Twelve tests for the harness (18 in the file); the new
+  guards were probed by mutation, and the first version of the drift check was
+  **inert** — the pure functions were tested and nothing called them, caught by
+  probing and fixed by injecting the failure into `main`. **The fresh-eyes
+  audit's findings, all dispositioned:** (1, 2, 3) the escaping narrative in
+  three places was measured *wrong* — it claimed an unescaped
+  `$SECRET_SCAN_DECLARED` "expands to the empty string … while enrollment
+  reports success". Measured four ways against the real enroll: ambient unset
+  gives `rc=1, SECRET_SCAN_DECLARED: unbound variable` — enroll aborts under
+  `set -u` and installs nothing, which is loud; ambient **set** gives `rc=0`
+  and the *ambient path frozen into the unit*, where no later edit of the runner's
+  env file reaches it. So the escape defends against the freeze, not the crash,
+  and the silent case had no test — it does now
+  (`test_an_ambient_declaration_is_not_baked_into_the_unit`), while the
+  fixture's `SECRET_SCAN_` scrub was **deleted as inert**: nothing on the enroll
+  path reads the ambient variable, so no test could distinguish it, and it
+  removed the only way to exercise the hazard. Both batteries' F1 now run with
+  an ambient value set, which is why F1 is credited to the test that asserts the
+  token survives instead of to whichever enrolling test hit the crash first.
+  (4) enroll's reader is not systemd's: a declaration written
+  `SECRET_SCAN_DECLARED="/tmp/a b/declared.txt"` — a line systemd unquotes and
+  runs — was read *with its quotes on*, found no such file, and left a
+  provisioned sweep disabled; the strip is one `case`, and the boundary (one
+  layer of quotes, not an EnvironmentFile parser) is stated beside it. (5) the
+  empty-declaration and missing-file tests drove one branch, so the second
+  asserted nothing the first did not; they are one test now. (6) the
+  commented-out test was the only one that survived deleting the feature — it
+  has its siblings' non-vacuity assert. (8) the battery's header omitted F9 and
+  claimed "no assertion here reads a message", false for the suite it names;
+  both corrected, and F9's note now says the harness credits the presence
+  assertion rather than the end-to-end run. (9) the suite was absent from
+  `tests/expected-counts.json`, so all of it could have been deleted with CI
+  green — `gen_floors.py --update`, which also picked up six other suites that
+  had gone unfloored (total floor 727 → 861). **The gap 5.2's own comment
+  documented, closed:** a declaration that exists and is non-empty but names no
+  repository used to enable the timer that then exits 3 every tick — the exact
+  noise the gate exists to prevent. The check is now the sweep's OWN rule
+  (`strip at the first #, drop whitespace, skip if empty`) as one grep, and the
+  obvious shorter form a review proposed — `'^[^#[:space:]]'` — is **itself
+  divergent, measured**: it refuses an *indented* url, which the sweep reads and
+  scans, so enroll would report a provisioned sweep as not enabled. Both
+  directions of that agreement are asserted, in one test that asks both readers
+  about the same file. Guards added for the bare-path ExecStart (F10 —
+  incident #1's shape, pinned for the heartbeat and the cycle but until now only
+  *asserted* here, with no mutation able to falsify it) and for the quote strip
+  (F11). Final: **17 tests** in `tests/test_runner_enroll_sweep.py`, **12
+  mutations + 1 control** in the battery, each mutation killed by a named test
+  and the artifacts byte-identical after; `docs/contract-inventory.md`
+  regenerated (it had drifted to omitting nine suites) and reworded so a stale
+  count reads as staleness rather than as a regression. The audit's remaining
+  findings, dispositioned rather than silently dropped: (7) three of the
+  suite's assertions read a log substring (`"NOT enabled"`) — deliberate, since
+  that line is an operator's only signal that the sweep they believe is running
+  is not, and the battery's negative control is what keeps those distinguishable
+  from the assertions that read behaviour; (10, 11) both were the narrative
+  errors folded into (1–3); (12) two claims in the unit remain unclaimed by any
+  test **and by any mutation**, which the audit is right about:
+  `--report %t/devgate-secretscan-$SLUG.json` and `TimeoutStartSec=3600`.
+  Nothing reads that report until 5.3 builds the hub side, so there is nothing
+  to pin yet — and the timeout is a real hazard worth naming, because a
+  whole-fleet clone can exceed an hour and a timeout kill is a sweep that
+  reports nothing. Recorded here as a 5.3 input rather than pinned with a test
+  that would assert the number back at itself; (13) closed — the check it named
+  was already correct; (14) fixed, and its fix is the quote strip in (4).
 - [ ] 5.3 Hub: accept and render per-repo scan state, unknown when absent
   (secret-scan-07), reusing the heartbeat path — NOT YET. Note for whoever
   builds it: the sweep's report is a file, and the heartbeat is a POST body, so
