@@ -144,8 +144,8 @@ MUTATIONS = [
     # about. The body keeps the helper path and the systemd token, so the only
     # assertion that can see it is the one about the inline body.
     ("F10: the ExecStart is an inline bash -c body (incident #1's shape)",
-     [(LIB, 'ExecStart=$FLEET_HELPER --declared "\\$SECRET_SCAN_DECLARED" --report %t/devgate-secretscan-$SLUG.json',
-            'ExecStart=/bin/bash -c \'exec $FLEET_HELPER --declared "\\$SECRET_SCAN_DECLARED" --report %t/devgate-secretscan-$SLUG.json\'')],
+     [(LIB, 'ExecStart=$FLEET_HELPER --declared "\\$SECRET_SCAN_DECLARED" --report "$SCAN_REPORT"',
+            'ExecStart=/bin/bash -c \'exec $FLEET_HELPER --declared "\\$SECRET_SCAN_DECLARED" --report "$SCAN_REPORT"\'')],
      [T], {}),
 
     # F11 — the reader does not unquote. systemd unquotes an EnvironmentFile

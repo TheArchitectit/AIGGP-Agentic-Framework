@@ -31,12 +31,12 @@ rather than a line in the enroll suite:
     with no declaration exits 3 — a unit failing every tick is noise, and noise
     is how the alert that matters gets ignored.
 
-Separate file rather than more lines in `test_runner_enroll.py`, which is at
-the hard limit for test files; the honest response to that gate is to stop
-growing the file rather than to move the limit. This file then inherited the
-problem it was created to avoid — it is ~495 of 500 after the 5.2a hardening
-pass, so the next unit installed on a runner needs its own file rather than a
-test here.
+Separate file rather than more lines in `test_runner_enroll.py`. An earlier
+revision of this line said `test_runner_enroll.py` was "at the hard limit for
+test files", which was wrong: test files are limited at 600 lines
+(`TEST_HARD` in scripts/regression_sizes.py), so neither file was near a limit.
+The split is still the right shape — one file per installed unit reads better
+than one long file — but the reason is room, not a gate.
 
 Dual-runnable: pytest collects test_*; `python3 tests/test_runner_enroll_sweep.py`
 runs them too.

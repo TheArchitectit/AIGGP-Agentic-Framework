@@ -131,8 +131,8 @@ MUTATIONS = [
      [(REG, "        if image_digest is not UNREPORTED:",
             "        if image_digest is not None:")], [T_REG, T_HTTP], {}),
     ("R2: the sentinel default is replaced by None (an omission clears)",
-     [(REG, "                  image_digest=UNREPORTED, image_reason=UNREPORTED) -> bool:",
-            "                  image_digest=None, image_reason=None) -> bool:")],
+     [(REG, "                  image_digest=UNREPORTED, image_reason=UNREPORTED,",
+            "                  image_digest=None, image_reason=None,")],
      [T_REG, T_HTTP], {}),
     ("R3: image_missing never reports a deficiency", [(REG,
         '    return not runner.get("image_digest")', "    return False")], [T_MON], {}),
@@ -143,9 +143,9 @@ MUTATIONS = [
     # --- hub/server.py ------------------------------------------------------
     ("V1: the server forgets the sentinel (an omission clears over HTTP)", [(SRV,
         '                          data.get("image_digest", UNREPORTED),\n'
-        '                          data.get("image_reason", UNREPORTED))',
+        '                          data.get("image_reason", UNREPORTED),',
         '                          data.get("image_digest"),\n'
-        '                          data.get("image_reason"))')], [T_HTTP], {}),
+        '                          data.get("image_reason"),')], [T_HTTP], {}),
 
     # --- hub/monitor.py -----------------------------------------------------
     ("M1: the readiness check alerts about nobody", [(MON,

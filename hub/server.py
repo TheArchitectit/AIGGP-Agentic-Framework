@@ -169,13 +169,15 @@ class HubHandler(BaseHTTPRequestHandler):
         def do_heartbeat(reg):
             if not reg.verify_heartbeat_token(runner_name, presented):
                 return False
-            # The image fields are read presence-aware: a body that omits them
-            # must not clear a host's last report, while a body that sends an
-            # explicit null must (registry.UNREPORTED says why).
+            # The image fields and the fleet sweep's state are read
+            # presence-aware: a body that omits them must not clear a host's
+            # last report, while a body that sends an explicit null must
+            # (registry.UNREPORTED says why).
             reg.heartbeat(runner_name, data.get("last_job_seen"),
                           data.get("disk_ok"), data.get("podman_ok"),
                           data.get("image_digest", UNREPORTED),
-                          data.get("image_reason", UNREPORTED))
+                          data.get("image_reason", UNREPORTED),
+                          data.get("scan_state", UNREPORTED))
             return {"ok": True}
 
         result = state.with_registry(do_heartbeat)

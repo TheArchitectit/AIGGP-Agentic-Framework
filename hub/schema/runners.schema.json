@@ -46,6 +46,36 @@
           "description": "Why image_digest is null, in the host's own words. The vocabulary the shipped probe uses, one fault per fix: 'not provisioned: <vars> not set' | 'podman not on PATH' | 'store does not exist: <path>' | 'podman info failed for the configured store' | 'store mismatch: podman reports <a>, configured <b>' | 'pinned image absent from the store (not pulled)'. Free text from an untrusted-as-input host, so consumers must render it, never match on it.",
           "type": ["string", "null"]
         },
+        "scan_state": {
+          "description": "The last fleet secret sweep this host reported (secret-scan-07), or null when it has no scan state to report. Null is UNKNOWN, never healthy: a host that has never been swept is not a swept-and-clean host. 'unreadable' is set when a report exists on the host and would not parse, and it is NOT an empty fleet.",
+          "type": ["object", "null"],
+          "properties": {
+            "repos": {
+              "description": "One record per declared repository. A repository the sweep could not fetch appears here with its state and reason rather than being omitted.",
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["name", "state"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "state": {
+                    "description": "The sweep's own vocabulary: clean | findings | unfetchable | unscannable.",
+                    "type": "string"
+                  },
+                  "reason": { "type": ["string", "null"] },
+                  "scope": { "type": ["string", "null"] },
+                  "scanned_at": { "type": ["string", "null"] },
+                  "findings": { "type": "integer" },
+                  "uncovered": { "type": "integer" }
+                }
+              }
+            },
+            "unreadable": {
+              "description": "Why this host's report could not be read, or null when it was read. Free text from an untrusted-as-input host, so consumers must render it, never match on it.",
+              "type": ["string", "null"]
+            }
+          }
+        },
         "enrolled": { "type": "boolean", "default": true },
         "queue_threshold_min": { "type": "number" },
         "drift_period_min": { "type": "number" }

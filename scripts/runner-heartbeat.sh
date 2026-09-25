@@ -127,7 +127,62 @@ fi
 
 # The empty strings become JSON null: `or None` rather than a sentinel string,
 # so a consumer testing for null gets null and not "null".
+#
+# The fleet sweep's state rides here too (secret-scan-07), read from the report
+# the sweep leaves on disk. Its three cases are deliberately three different
+# things, and collapsing any pair is how a fleet reads clean while blind:
+#
+#   SECRET_SCAN_REPORT unset -> the key is still sent, as null. Absence is a
+#       POSITIVE report ("this host has no scan state"), which is what lets the
+#       hub clear a stale one to unknown. A key left out entirely means the
+#       opposite — "this spoke does not report scan state" — so the hub keeps
+#       what it had, which is right for an older helper and wrong here.
+#   the file is missing     -> null as well: the sweep has not run on this host.
+#   the file will not parse -> `unreadable`, NOT an empty fleet. The sweep
+#       rewrites this file on its own timer while this tick reads it, so a
+#       reader meeting a half-written file is a live case; an empty repos list
+#       would have been indistinguishable from "every repository is clean".
+#
+# Each repository is reduced to its state, and NOT its locations: the report
+# keeps rule/path/line/commit so an operator on the host can act, and the
+# heartbeat ships the fact that repository X has an uncovered secret without
+# carrying every finding's file path across the network on every tick.
+#
+# None of it can fail the tick. As with the image probe, a heartbeat that dies
+# blinds the whole fleet, which is worse than a state that reads unknown.
 body="$(python3 -c 'import json, os, sys
+
+def scan_state(path):
+    # No `if not path` guard: an unset SECRET_SCAN_REPORT reaches here as the
+    # empty string, and open("") raises FileNotFoundError — which is the same
+    # answer this function gives for a file that is not there, and the right
+    # one. A branch that returns None before the try would be a second way to
+    # say the same thing, and nothing could tell which of the two ran.
+    try:
+        with open(path, encoding="utf-8") as fh:
+            doc = json.load(fh)
+        repos = doc["repos"]
+        if not isinstance(repos, list):
+            # The hub predicate requires the same thing for the same reason
+            # (scan_state_unknown in hub/registry.py): a report whose repos is
+            # not a list has no repositories to render, and "no repositories"
+            # is what a dashboard shows as clean. Raising routes it to the
+            # `unreadable` branch below rather than returning an empty fleet.
+            # No apostrophes in here: this whole snippet lives in a
+            # single-quoted python3 -c, and one would end it mid-function.
+            raise ValueError("repos is not a list")
+        return {"repos": [{
+            "name": r["name"], "state": r["state"],
+            "reason": r.get("reason"), "scope": r.get("scope"),
+            "scanned_at": r.get("scanned_at"),
+            "findings": r.get("findings", 0),
+            "uncovered": r.get("uncovered", 0),
+        } for r in repos], "unreadable": None}
+    except FileNotFoundError:
+        return None
+    except Exception as exc:
+        return {"repos": [], "unreadable": f"{type(exc).__name__}: {exc}"}
+
 print(json.dumps({
     "runner_name": os.environ["RUNNER_NAME"],
     "heartbeat_token": os.environ["HEARTBEAT_TOKEN"],
@@ -135,6 +190,7 @@ print(json.dumps({
     "podman_ok": sys.argv[2] == "true",
     "image_digest": sys.argv[3] or None,
     "image_reason": sys.argv[4] or None,
+    "scan_state": scan_state(os.environ.get("SECRET_SCAN_REPORT", "")),
 }))' "$disk_ok" "$podman_ok" "$image_digest" "$image_reason")"
 
 # The response is kept for diagnosis, so its filename must be filesystem-safe.

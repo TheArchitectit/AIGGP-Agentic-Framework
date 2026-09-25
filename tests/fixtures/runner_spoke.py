@@ -119,7 +119,7 @@ exit 0
 
 
 def slug(name):
-    """Mirror of runner-enroll.sh set_unit_paths() — tests must use the same
+    """Mirror of the lib's set_unit_paths() — tests must use the same
     transformation the script does, or awkward names assert against nothing."""
     return re.sub(r"[^A-Za-z0-9_-]", "-", name)
 
@@ -163,6 +163,13 @@ class Spoke:
         # only way to exercise the hazard the escaping actually prevents, which
         # is a value from enroll's environment being frozen into the unit: see
         # test_an_ambient_declaration_is_not_baked_into_the_unit.
+        #
+        # XDG_RUNTIME_DIR is pinned into the sandbox for the same reason, one
+        # step further out: enrollment resolves the fleet sweep's report path
+        # from it (systemd's %t for a user unit IS this variable), so
+        # inheriting the host's would bake THIS machine's /run/user/1000 into
+        # the generated env file and write a test's report into the real
+        # runtime directory — a test that passes because of where it ran.
         self.env = {
             **{k: v for k, v in os.environ.items()
                if not k.startswith("COHERENCE_")},
@@ -171,7 +178,9 @@ class Spoke:
             "STUB_CURL_LOG": str(self.curl_log),
             "STUB_SYSTEMCTL_LOG": str(self.systemctl_log),
             "TMPDIR": str(self.home),
+            "XDG_RUNTIME_DIR": str(tmp_path / "run"),
         }
+        (tmp_path / "run").mkdir(exist_ok=True)
 
     # --- paths the script generates ------------------------------------------
     @property

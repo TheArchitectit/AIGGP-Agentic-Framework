@@ -48,6 +48,60 @@ SCHEMA_VERSION = 1
 UNREPORTED = object()
 
 
+def scan_state_unknown(runner: dict) -> bool:
+    """True when this host's fleet scan state is not a usable verdict.
+
+    Three different things land here and all three are the same answer to the
+    question "may I read this host as scanned?" — never reported (the sentinel
+    case: an older helper, or a host enrolled before the field existed), reported
+    as absent (an explicit null: the sweep has not run, or its report is gone),
+    and reported as unreadable (a report that was on disk and would not parse).
+
+    Keyed on the state being USABLE rather than on any one of those, because the
+    requirement is about the reading: a repository with no recorded scan state
+    SHALL be rendered unknown, never healthy (secret-scan-07). A predicate that
+    asked only "did the host report a file?" would count an unreadable report as
+    a clean fleet, which is the failure the reader-side reduction exists to
+    prevent and would be undone here.
+
+    TYPE SAFETY is part of the reading, not a formality. The registry stores
+    whatever a spoke posted, verbatim and unvalidated (`hub/schema/` declares the
+    shape; nothing enforces it on the way in — see tests/test_hub_registry.py's
+    drift test, which asserts exactly that). So `scan_state` can be a string, a
+    list, a bare `{}` — a buggy or hostile spoke with a valid heartbeat token can
+    put any JSON value there. A predicate that reached into it with `.get()`
+    would RAISE on those, and this is the function 5.3b's fleet view keys on: the
+    renderer would die on host-supplied input, which is a worse failure than the
+    one the type check costs. Hence `isinstance` rather than attribute access —
+    the same reason `image_missing` below only ever asks whether a value is
+    truthy. Every shape that is not the declared one reads as unknown, which is
+    the safe direction and the one the requirement asks for.
+
+    The `repos` list is required for the same reason one level down. A dict with
+    no `repos` (or a `repos` that is not a list) has no repositories to render,
+    and "no repositories" is the sentence a dashboard shows as clean — the exact
+    failure this predicate exists to prevent. Requiring the list to be there is
+    what keeps `{}` and `{"repos": {}}` unknown rather than empty-and-healthy.
+    The heartbeat's reader makes the same check for the same reason
+    (`isinstance(repos, list)` in runner-heartbeat.sh); these two are the hub and
+    spoke halves of one rule, and a test covers each.
+
+    What this does NOT check: whether a report that IS usable is recent. A sweep
+    that ran a month ago leaves a state that reads clean and is stale, and
+    bounded staleness needs the sweep's cadence in hand — recorded as a residual
+    rather than implied away, exactly as image_missing records its own. The
+    timed-out sweep is the sharper version and is not covered by that residual:
+    a host whose sweep now exceeds `TimeoutStartSec=3600` keeps whatever its last
+    successful report said, and nothing here notices.
+    """
+    state = runner.get("scan_state")
+    if not isinstance(state, dict):
+        return True
+    if state.get("unreadable"):
+        return True
+    return not isinstance(state.get("repos"), list)
+
+
 def image_missing(runner: dict) -> bool:
     """True when this host has reported no image at all — unknown or faulted.
 
@@ -158,6 +212,10 @@ class Registry:
             # no image state yet, and null must never read as healthy.
             "image_digest": None,
             "image_reason": None,
+            # Null until a sweep reports one, and null is UNKNOWN: a freshly
+            # enrolled host has not been swept, which is not the same fact as
+            # having been swept and found clean (secret-scan-07).
+            "scan_state": None,
             "enrolled": True,
         }
         self._data["runners"].append(runner)
@@ -165,13 +223,19 @@ class Registry:
 
     def heartbeat(self, runner_name: str, last_job_seen: str | None,
                   disk_ok: bool | None, podman_ok: bool | None,
-                  image_digest=UNREPORTED, image_reason=UNREPORTED) -> bool:
+                  image_digest=UNREPORTED, image_reason=UNREPORTED,
+                  scan_state=UNREPORTED) -> bool:
         """Update freshness + health fields for a verified runner.
 
-        The image fields take UNREPORTED as their default, not None: see the
-        sentinel above. A caller that means "the host reports no image" passes
-        None explicitly and the stored ref is cleared; a caller that passes
-        nothing leaves the last report alone.
+        The image fields and `scan_state` take UNREPORTED as their default, not
+        None: see the sentinel above. A caller that means "the host reports no
+        image" passes None explicitly and the stored ref is cleared; a caller
+        that passes nothing leaves the last report alone.
+
+        `scan_state` is the same distinction for the fleet sweep's report, and
+        it matters more here than for the image: null is a POSITIVE report that
+        this host has no scan state, which must clear a stale one to unknown —
+        whereas omitting it means the spoke has no opinion, which must not.
         """
         runner = self.find_runner(runner_name)
         if runner is None or not runner.get("enrolled", False):
@@ -187,6 +251,8 @@ class Registry:
             runner["image_digest"] = image_digest
         if image_reason is not UNREPORTED:
             runner["image_reason"] = image_reason
+        if scan_state is not UNREPORTED:
+            runner["scan_state"] = scan_state
         return True
 
     def verify_heartbeat_token(self, runner_name: str, presented: str) -> bool:

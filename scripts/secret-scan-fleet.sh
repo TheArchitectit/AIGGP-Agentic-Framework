@@ -245,21 +245,50 @@ done
 
 DECLARED_N="${#URLS[@]}"
 if [ -n "$REPORT" ]; then
+    # Written to a sibling and RENAMED into place, never opened for writing at
+    # its final path. The report has a second reader now — the heartbeat, on its
+    # own timer, in another process — and `open(path, "w")` leaves the file
+    # zero-length and half-written for as long as the write takes, which is a
+    # window a reader on a one-minute tick can land in. `os.replace` is atomic
+    # within a filesystem, so the heartbeat sees either the previous report or
+    # this one, and never a partial one.
+    #
+    # The reader's half of this is in runner-heartbeat.sh: a report it cannot
+    # parse is reported as `unreadable`, never as an empty fleet.
+    #
+    # mkstemp creates 0600. Left there rather than widened: the file sits in the
+    # runner's own runtime directory (/run/user/$UID, itself 0700) and nothing
+    # but this runner's user and its units reads it.
     python3 - "$RECORDS" "$REPORT" "$DECLARED_N" "$SCANNED" <<'PY'
-import json, sys
+import json, os, sys, tempfile
 
 records_path, report_path, declared, scanned = sys.argv[1:5]
 repos = [json.loads(l) for l in open(records_path) if l.strip()]
 states = {"clean": 0, "findings": 0, "unfetchable": 0, "unscannable": 0}
 for r in repos:
     states[r["state"]] = states.get(r["state"], 0) + 1
-with open(report_path, "w") as fh:
-    json.dump({
-        "declared": int(declared),
-        "scanned": int(scanned),
-        "states": states,
-        "repos": repos,
-    }, fh, indent=2, sort_keys=True)
+# The temp goes in the report own directory, which is what makes the rename
+# below atomic: `os.replace` is atomic within a filesystem and a directory is
+# the unit of "same filesystem" we can name. No abspath() here, and the absence
+# is deliberate rather than an oversight: mkstemp(dir="") already resolves
+# against the process directory, so a relative `--report report.json` and an
+# absolute one both put the temp beside the report, and adding abspath() would
+# be a line that changes no behaviour on any input.
+directory = os.path.dirname(report_path)
+fd, tmp = tempfile.mkstemp(dir=directory, prefix=".devgate-secretscan-",
+                           suffix=".json.tmp")
+try:
+    with os.fdopen(fd, "w") as fh:
+        json.dump({
+            "declared": int(declared),
+            "scanned": int(scanned),
+            "states": states,
+            "repos": repos,
+        }, fh, indent=2, sort_keys=True)
+    os.replace(tmp, report_path)
+except BaseException:
+    os.unlink(tmp)
+    raise
 PY
 fi
 

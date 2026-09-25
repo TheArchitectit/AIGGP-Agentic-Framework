@@ -151,6 +151,125 @@ def test_a_freshly_enrolled_runner_has_no_image_and_no_reason(tmp_path):
     assert runner["image_reason"] is None
 
 
+# --- the fleet sweep's state (secret-scan-07) --------------------------------
+#
+# The same presence-aware rule as the image fields, and it earns it for a
+# sharper reason: the difference between "this host has no scan state" and
+# "this host has not told us about scanning" is the difference between a
+# repository rendered unknown and one that keeps its last, stale verdict.
+
+SCAN = {"repos": [{"name": "alpha", "state": "clean", "reason": None,
+                   "scope": "all", "scanned_at": "2026-09-24T00:00:00Z",
+                   "findings": 0, "uncovered": 0}], "unreadable": None}
+
+
+def test_a_reported_scan_state_is_stored_for_the_host(tmp_path):
+    reg = Registry(str(tmp_path / "runners.json"))
+    reg.enroll("r1", "OWNER/REPO", [], "")
+    reg.heartbeat("r1", None, None, None, scan_state=SCAN)
+    assert reg.find_runner("r1")["scan_state"] == SCAN
+
+
+def test_a_reported_null_scan_state_clears_a_stored_one(tmp_path):
+    """A host whose report is gone must stop reading as swept. Kept as "no
+    news" it would keep the superseded verdict — and a fleet view showing a
+    clean sweep for a host that has no report is the whole failure mode the
+    requirement names."""
+    reg = Registry(str(tmp_path / "runners.json"))
+    reg.enroll("r1", "OWNER/REPO", [], "")
+    reg.heartbeat("r1", None, None, None, scan_state=SCAN)
+
+    reg.heartbeat("r1", None, None, None, scan_state=None)
+    assert reg.find_runner("r1")["scan_state"] is None
+
+
+def test_an_omitted_scan_state_leaves_the_last_report_alone(tmp_path):
+    """The other direction, and the one an older helper produces: a spoke that
+    does not speak about scanning must not clear what a newer one reported."""
+    reg = Registry(str(tmp_path / "runners.json"))
+    reg.enroll("r1", "OWNER/REPO", [], "")
+    reg.heartbeat("r1", None, None, None, scan_state=SCAN)
+
+    reg.heartbeat("r1", "job-1", True, True)     # says nothing about scanning
+    assert reg.find_runner("r1")["scan_state"] == SCAN
+
+
+def test_a_freshly_enrolled_runner_has_no_scan_state(tmp_path):
+    """Not swept is not swept-and-clean."""
+    reg = Registry(str(tmp_path / "runners.json"))
+    reg.enroll("r1", "OWNER/REPO", [], "")
+    assert reg.find_runner("r1")["scan_state"] is None
+
+
+def test_scan_state_unknown_covers_all_three_ways_of_not_knowing(tmp_path):
+    """The predicate the renderer keys on, stated once so the three cases
+    cannot drift apart: never reported, reported as absent, reported as
+    unreadable. A host with an unreadable report counted as a usable verdict is
+    a clean fleet read off a file nobody could parse."""
+    from hub.registry import scan_state_unknown
+
+    never = {"name": "r1"}
+    absent = {"name": "r1", "scan_state": None}
+    unreadable = {"name": "r1", "scan_state": {"repos": [],
+                                               "unreadable": "JSONDecodeError: x"}}
+    readable = {"name": "r1", "scan_state": SCAN}
+    assert scan_state_unknown(never) is True
+    assert scan_state_unknown(absent) is True
+    assert scan_state_unknown(unreadable) is True
+    assert scan_state_unknown(readable) is False
+
+
+def test_a_scan_state_of_the_wrong_shape_reads_as_unknown_and_does_not_raise():
+    """The registry stores whatever a spoke posted, unvalidated — the drift test
+    below asserts exactly that, so a buggy or hostile spoke holding a valid
+    heartbeat token can put any JSON value in this field. This predicate is what
+    5.3b's fleet view keys on, so a `.get()` on a string would take the renderer
+    down on host-supplied input, and `{}` would render as a fleet with no
+    repositories in it, which is the sentence a dashboard shows as clean.
+
+    Both halves are the requirement read strictly: a repository with no recorded
+    scan state is unknown, never healthy — and "recorded" means recorded in the
+    shape the field is declared as, not merely present."""
+    from hub.registry import scan_state_unknown
+
+    for bad in ("clean", 7, True, [], {"repos": {}}, {"repos": None}, {}):
+        runner = {"name": "r1", "scan_state": bad}
+        assert scan_state_unknown(runner) is True, f"{bad!r} counted as a verdict"
+
+    # A well-formed state with NO repositories is the one empty shape that is
+    # not unknown: the sweep refuses to run on an empty declaration, so a parsed
+    # report always lists what it was asked to scan, and an empty list here is a
+    # real (if odd) reading rather than a parse that failed.
+    empty_but_well_formed = {"repos": [], "unreadable": None}
+    assert scan_state_unknown({"name": "r1",
+                               "scan_state": empty_but_well_formed}) is False
+
+
+def test_a_registry_saved_before_the_scan_field_existed_still_loads(tmp_path):
+    """Same forward-compatibility direction as the image fields: monitor-hub's
+    volume holds a registry with no scan_state key at all, and it must read as
+    unknown rather than as a swept host."""
+    path = tmp_path / "runners.json"
+    path.write_text(json.dumps({
+        "version": 1, "enrollment_tokens": [],
+        "runners": [{"name": "r1", "repo": "OWNER/REPO", "labels": [],
+                     "host_alias": "", "enrolled_at": "2026-09-01T00:00:00Z",
+                     "heartbeat_token": "x", "last_heartbeat": None,
+                     "last_job_seen": None, "disk_ok": True, "podman_ok": True,
+                     "image_digest": None, "image_reason": None,
+                     "enrolled": True}],
+    }))
+    reg = Registry(str(path), auto_init=False)
+    from hub.registry import scan_state_unknown
+    runner = reg.find_runner("r1")
+    # The key is ABSENT, not present-and-null — that is the whole point of a
+    # registry written before the field existed, and `.get(...) is None` would
+    # be satisfied by either. Loading must not materialise defaults: the hub's
+    # next save would then write a null this host never reported.
+    assert "scan_state" not in runner, runner
+    assert scan_state_unknown(runner) is True
+
+
 def test_a_registry_saved_before_the_image_fields_existed_still_loads(tmp_path):
     """Forward compatibility, in the direction the fleet will actually move.
 
@@ -217,7 +336,7 @@ def test_every_field_the_registry_writes_is_declared_in_the_schema(tmp_path):
     # absent must accept null, or the schema would describe a shape the hub
     # itself never writes.
     for field in ("image_digest", "image_reason", "disk_ok", "podman_ok",
-                  "last_heartbeat", "last_job_seen"):
+                  "last_heartbeat", "last_job_seen", "scan_state"):
         assert "null" in schema["definitions"]["runner"]["properties"][field]["type"], \
             f"{field} is written as null but the schema does not allow it"
 

@@ -67,19 +67,11 @@ FLEET_HELPER="$ENV_DIR/devgate-secret-scan-fleet.sh"
 GATE_HELPER="$ENV_DIR/secret-scan.sh"
 
 # Unit and env paths depend on the runner's name, which is not final until the
-# arguments are parsed — set_unit_paths() derives SLUG and every path from it.
-SLUG=""
-SLUG_OWNER=""
-SLUG_ATTRIBUTABLE="yes"
-TICKET_FILE=""
-SERVICE_UNIT=""
-TIMER_UNIT=""
-WATCHDOG_SERVICE_UNIT=""
-WATCHDOG_TIMER_UNIT=""
-CYC_SERVICE_UNIT=""
-CYC_TIMER_UNIT=""
-FLEET_SERVICE_UNIT=""
-FLEET_TIMER_UNIT=""
+# arguments are parsed. They are NOT declared here: SLUG, every *_UNIT, TICKET_FILE
+# and SCAN_REPORT are declared in lib/runner-units.sh beside the install_fleet_sweep()
+# and friends that read them, and set_unit_paths() derives them from the name.
+# Splitting the declaration from the assignment is what an unset variable
+# silently depends on, so the two live in one file.
 
 # The cycle's interval is deliberately NOT the heartbeat's. A heartbeat is a
 # cheap local POST that wants to be current; the cycle may pull an image over
@@ -93,22 +85,11 @@ CYCLE_INTERVAL=3600
 # faster beat would spend a fleet's bandwidth to re-derive the same answer.
 SWEEP_INTERVAL=86400
 
-set_unit_paths() {
-    local name="$1"
-    # SLUG keeps only characters systemd accepts in a unit name, so a runner
-    # named "prod/web 1" does not silently produce an unusable unit.
-    SLUG="$(printf '%s' "$name" | LC_ALL=C sed 's/[^A-Za-z0-9_-]/-/g')"
-    [[ -n "$SLUG" ]] || die "runner name '$name' yields no usable unit name"
-    TICKET_FILE="$ENV_DIR/devgate-heartbeat-$SLUG.env"
-    SERVICE_UNIT="$STATE_DIR/devgate-hb-$SLUG.service"
-    TIMER_UNIT="$STATE_DIR/devgate-hb-$SLUG.timer"
-    WATCHDOG_SERVICE_UNIT="$STATE_DIR/devgate-watchdog-$SLUG.service"
-    WATCHDOG_TIMER_UNIT="$STATE_DIR/devgate-watchdog-$SLUG.timer"
-    CYC_SERVICE_UNIT="$STATE_DIR/devgate-imgcycle-$SLUG.service"
-    CYC_TIMER_UNIT="$STATE_DIR/devgate-imgcycle-$SLUG.timer"
-    FLEET_SERVICE_UNIT="$STATE_DIR/devgate-secretscan-$SLUG.service"
-    FLEET_TIMER_UNIT="$STATE_DIR/devgate-secretscan-$SLUG.timer"
-}
+# set_unit_paths() and runtime_dir() live in lib/runner-units.sh with the paths
+# they derive. What stays here is slug_owner(), because the ownership rule it
+# implements is a DECISION about which host may claim a name, not an operation
+# on this host's unit namespace — the seam lib/runner-units.sh states about
+# itself.
 
 # Sets SLUG_OWNER to the RUNNER_NAME recorded at $TICKET_FILE ("" when no file
 # exists there) and SLUG_ATTRIBUTABLE to "no" when a file DOES exist but names
@@ -295,7 +276,7 @@ install_timer() {
     # write. The `mv` is a rename within one directory, so it is atomic.
     local preserved=""
     if [[ -e "$TICKET_FILE" && ! -L "$TICKET_FILE" ]]; then
-        preserved="$(grep -vE '^(HUB_URL|RUNNER_NAME|HEARTBEAT_TOKEN|LAST_JOB_SEEN)=' \
+        preserved="$(grep -vE '^(HUB_URL|RUNNER_NAME|HEARTBEAT_TOKEN|LAST_JOB_SEEN|SECRET_SCAN_REPORT)=' \
             "$TICKET_FILE" 2>/dev/null || true)"
     fi
     (
@@ -305,6 +286,12 @@ install_timer() {
             printf 'RUNNER_NAME=%s\n' "$RUNNER_NAME"
             printf 'HEARTBEAT_TOKEN=%s\n' "$hb_token"
             printf 'LAST_JOB_SEEN=%s\n' ""
+            # The report path, written here rather than there because this is
+            # where the value is computed (set_unit_paths) and because BOTH
+            # consumers read this file: the sweep unit names it in ExecStart and
+            # the heartbeat reads it to find the report. One line, two readers,
+            # and a test that the unit's copy still matches this one.
+            printf 'SECRET_SCAN_REPORT=%s\n' "$SCAN_REPORT"
             if [[ -n "$preserved" ]]; then
                 printf '# --- not managed by runner-enroll.sh; carried over as found ---\n'
                 printf '%s\n' "$preserved"

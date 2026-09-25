@@ -192,6 +192,107 @@ class Fleet:
         return {r["name"]: r for r in report["repos"]}
 
 
+# --- the report is its own contract, because a second reader now has it -----
+
+def test_the_report_is_replaced_and_never_truncated_where_a_reader_will_find_it(tmp_path):
+    """The heartbeat reads this file on its own timer, from another process, so
+    the write has to be a replace rather than an in-place rewrite.
+
+    Measured as an INODE CHANGE, which is exactly the difference between the
+    two writes: `open(path, "w")` truncates the file it already has, so a reader
+    arriving mid-write sees a zero-length or half-finished report under the same
+    inode; writing a sibling and renaming keeps the old file whole until one
+    atomic step puts the new one in its place, which necessarily yields a new
+    inode. (The new file is created before the rename, while the old one is
+    still on disk, so the allocator cannot hand back the same number.)
+
+    Necessary for atomicity and not proof of it. The other half of the guarantee
+    lives in the reader: the heartbeat renders a report it cannot parse as
+    `unreadable`, never as an empty — and therefore clean — fleet.
+    """
+    f = Fleet(tmp_path)
+    f.repo("alpha")
+    declared = f.declare(f.url("alpha"))
+    report = f.root / "fleet-report.json"
+
+    first = f.run(declared, "--report", str(report))
+    assert first.returncode == 0, first.stderr
+    inode = report.stat().st_ino
+
+    second = f.run(declared, "--report", str(report))
+    assert second.returncode == 0, second.stderr
+    assert report.stat().st_ino != inode, \
+        "the report was rewritten in place; a concurrent reader can see it truncated"
+
+    # And the temporary the write went through is gone: a leftover would be
+    # picked up by anything globbing the directory for reports.
+    leftovers = [p.name for p in f.root.glob(".*secretscan*")]
+    assert leftovers == [], leftovers
+
+
+def test_a_report_write_that_fails_leaves_no_temporary_and_no_half_report(tmp_path):
+    """The other half of the atomic write, and the half nothing exercised: the
+    cleanup on the failure path.
+
+    Forced by aiming `--report` at a path that is already a DIRECTORY. Every
+    earlier step succeeds — the scan runs, the records are written, mkstemp
+    creates its sibling in the same directory — and `os.replace` then fails,
+    which is the one way to reach the except branch without mocking anything.
+    Three things have to hold afterwards: the sweep does not report success, the
+    temporary does not stay on disk (a glob for reports would pick it up), and
+    the path it could not write is left exactly as it was rather than turned
+    into a truncated file.
+
+    An interrupted write is the case an operator actually meets: a full
+    filesystem, a lost runtime directory, a unit killed between the two steps.
+    """
+    f = Fleet(tmp_path)
+    f.repo("alpha")
+    declared = f.declare(f.url("alpha"))
+    occupied = f.root / "fleet-report.json"
+    occupied.mkdir()
+
+    res = f.run(declared, "--report", str(occupied))
+    assert res.returncode != 0, "a report that could not be written is not a success"
+    assert occupied.is_dir(), "the write clobbered what was already at the path"
+    assert list(occupied.iterdir()) == [], "a half-written report was left in place"
+
+    leftovers = [p.name for p in f.root.glob(".*secretscan*")]
+    assert leftovers == [], f"the temporary survived a failed write: {leftovers}"
+
+
+def test_a_relative_report_path_is_written_where_the_caller_meant(tmp_path):
+    """The only caller that passes a relative `--report` is a person running the
+    sweep by hand, and for them "the report went somewhere else" is the failure
+    that wastes the run.
+
+    This pins the BEHAVIOUR for the relative spelling — the report lands in the
+    process's own directory, with nothing left beside it — and not the
+    sibling-of-the-report property the atomicity comment rests on. That property
+    is unobservable from here: the temp lands beside the report whether the path
+    is resolved or not (`mkstemp(dir="")` resolves against the process
+    directory), and `os.replace` succeeds either way on a single filesystem.
+    Written down because a mutation battery was built for the line that used to
+    resolve the path, survived, and was removed with the line — see
+    tests/mutation_battery_scan_report.py's note where S18 would be."""
+    f = Fleet(tmp_path)
+    f.repo("alpha")
+    declared = f.declare(f.url("alpha"))
+    workdir = f.root / "cwd"
+    workdir.mkdir()
+
+    res = subprocess.run([BASH, str(SCRIPT), "--declared", str(declared),
+                          "--report", "relative-report.json"],
+                         cwd=workdir, env=f.env, capture_output=True, text=True,
+                         timeout=120)
+    assert res.returncode == 0, res.stderr
+    written = workdir / "relative-report.json"
+    assert written.exists(), f"no report at {written}: {res.stderr}"
+    assert json.loads(written.read_text())["repos"], "the report is empty"
+    leftovers = [p.name for p in workdir.glob(".*secretscan*")]
+    assert leftovers == [], leftovers
+
+
 # --- it scans what it was told to, and says so (secret-scan-04) -------------
 
 def test_a_clean_fleet_exits_zero_and_names_every_repository(tmp_path):

@@ -4,19 +4,24 @@
 # done nothing — a silent success. It refuses instead.
 #
 # Split out of runner-enroll.sh when the size gate learned to size .sh (task
-# #13, FAIL-8f9249ca) and found that script 89 lines over its hard limit. The
-# seam is what this file IS: every operation that writes into, or removes from,
-# the host's unit/env namespace. runner-enroll.sh keeps what it DECIDES — which
-# runner, which hub, which token, which host may own a slug — and emits the
-# heartbeat's and the image cycle's units; the units that arrive whole with
-# their own enablement rule (the watchdog, the fleet sweep) live here, where
-# that rule stays beside the unit it governs.
+# #13, FAIL-8f9249ca) and found that script 89 lines over its hard limit, and
+# widened once more in 5.3a when the scan report's path crossed it with them
+# (the same gate, one slice later: the extraction is a response to the limit,
+# not a tidying that happened to fit). The seam is what this file IS: the paths
+# a runner's units are named by, and every operation that writes into or
+# removes from the host's unit/env namespace. runner-enroll.sh keeps what it
+# DECIDES — which runner, which hub, which token, which host may own a slug —
+# and emits the heartbeat's and the image cycle's units; the units that arrive
+# whole with their own enablement rule (the watchdog, the fleet sweep) live
+# here, where that rule stays beside the unit it governs.
 #
 # Sourced functions share the caller's shell scope, so the globals they read
-# ($SLUG, $TICKET_FILE, $HB_HELPER, $CYC_HELPER, $WATCHDOG_*_UNIT,
-# $FLEET_*_UNIT, $FLEET_HELPER, ...) are set by the caller. The heredoc
-# discipline and the "never inline into ExecStart" rule (FAIL-6e7b6f84) are
-# documented where the units using them live.
+# ($ENV_DIR, $STATE_DIR, $HB_HELPER, $CYC_HELPER, $FLEET_HELPER, the cadences)
+# are set by the caller. The path globals ($SLUG, $TICKET_FILE, every *_UNIT,
+# $SCAN_REPORT) are the exception: declared and derived in this file by
+# set_unit_paths(), so that the paths a unit reads are defined beside it. The
+# heredoc discipline and the "never inline into ExecStart" rule (FAIL-6e7b6f84)
+# are documented where the units using them live.
 #
 # $SWEEP_INTERVAL is deliberately the exception to the watchdog's arrangement,
 # where the cadence is clamped and computed beside the unit that uses it: a
@@ -29,6 +34,78 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
          "run that instead" >&2
     exit 2
 fi
+
+# --- the runner's name, and every path derived from it ------------------------
+#
+# These are declared HERE, beside the units that read them and the one function
+# that derives them, rather than in runner-enroll.sh where they used to sit:
+# they are the interface between the two files, and a reader of a unit that
+# reads $FLEET_TIMER_UNIT should be able to find where that value comes from
+# without opening the other file.
+#
+# Be exact about what the declaration buys, because it is not silence-proofing:
+# every one of these is assigned by set_unit_paths() before any reader runs, and
+# under `set -u` a read of an undeclared variable ABORTS LOUDLY rather than
+# defaulting — so deleting the block would not make a unit path quietly empty,
+# it would make enrollment fail with a message. What the block is for is that
+# the set of paths a runner owns is stated in one place, next to the derivation.
+#
+# $SLUG_OWNER and $SLUG_ATTRIBUTABLE are deliberately declared NOWHERE, in either
+# file: slug_owner() in runner-enroll.sh assigns both unconditionally on entry,
+# and every one of the three sites that reads them calls it on the line before.
+# A declaration would be a line that never runs. runner-enroll.sh supplies
+# $STATE_DIR and $ENV_DIR, the two directories these paths are built under,
+# because choosing the host's layout is a decision that stays with the script's
+# other decisions.
+SLUG=""
+TICKET_FILE=""
+SERVICE_UNIT=""
+TIMER_UNIT=""
+WATCHDOG_SERVICE_UNIT=""
+WATCHDOG_TIMER_UNIT=""
+CYC_SERVICE_UNIT=""
+CYC_TIMER_UNIT=""
+FLEET_SERVICE_UNIT=""
+FLEET_TIMER_UNIT=""
+SCAN_REPORT=""
+
+# The runtime directory a user unit's `%t` resolves to, resolved HERE so that
+# the sweep and the heartbeat can be handed one value rather than each
+# resolving it independently.
+#
+# `%t` is systemd's own answer and the sweep unit could be left to expand it —
+# but the heartbeat is a bash script and has no specifiers, so it would have to
+# re-derive the path, and it knows `$RUNNER_NAME` where the unit names the file
+# by `$SLUG`. Those differ for any name systemd cannot take literally
+# ("prod/web 1" -> "prod-web-1"), so the two would disagree about which file to
+# look at and a scanning host would read unknown forever. One value, computed
+# once, handed to both.
+#
+# XDG_RUNTIME_DIR is unset over a non-login ssh session while the user manager
+# still sets it for its units, so the fallback is not cosmetic: it is the
+# difference between naming the file the sweep writes and naming one it does
+# not. /run/user/$UID is exactly what systemd falls back to.
+runtime_dir() {
+    printf '%s' "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+}
+
+set_unit_paths() {
+    local name="$1"
+    # SLUG keeps only characters systemd accepts in a unit name, so a runner
+    # named "prod/web 1" does not silently produce an unusable unit.
+    SLUG="$(printf '%s' "$name" | LC_ALL=C sed 's/[^A-Za-z0-9_-]/-/g')"
+    [[ -n "$SLUG" ]] || die "runner name '$name' yields no usable unit name"
+    TICKET_FILE="$ENV_DIR/devgate-heartbeat-$SLUG.env"
+    SERVICE_UNIT="$STATE_DIR/devgate-hb-$SLUG.service"
+    TIMER_UNIT="$STATE_DIR/devgate-hb-$SLUG.timer"
+    WATCHDOG_SERVICE_UNIT="$STATE_DIR/devgate-watchdog-$SLUG.service"
+    WATCHDOG_TIMER_UNIT="$STATE_DIR/devgate-watchdog-$SLUG.timer"
+    CYC_SERVICE_UNIT="$STATE_DIR/devgate-imgcycle-$SLUG.service"
+    CYC_TIMER_UNIT="$STATE_DIR/devgate-imgcycle-$SLUG.timer"
+    FLEET_SERVICE_UNIT="$STATE_DIR/devgate-secretscan-$SLUG.service"
+    FLEET_TIMER_UNIT="$STATE_DIR/devgate-secretscan-$SLUG.timer"
+    SCAN_REPORT="$(runtime_dir)/devgate-secretscan-$SLUG.json"
+}
 
 # Install a helper a unit will ExecStart. It is COPIED rather than referenced
 # in place, because an inline `bash -c` body in ExecStart loses every variable
@@ -143,6 +220,35 @@ enable_image_cycle() {
 # as ONE word. systemd splits an unquoted `$VAR` on whitespace, and a
 # declaration path is allowed to contain a space.
 #
+# The `--report "$SCAN_REPORT"` beside it is the deliberate OPPOSITE, and the
+# difference is worth stating rather than looking like an inconsistency. It is
+# NOT escaped: enroll expands it here, at write time, and the unit ends up
+# naming the report file literally. It has to, because the report is now read
+# by the HEARTBEAT as well — a bash script with no access to systemd's `%t` —
+# so the path must exist as a resolved value somewhere both can read it, and
+# the env file is that somewhere. What keeps the two carriers honest is a test
+# (test_the_sweep_unit_reports_to_the_path_the_heartbeat_reads) rather than the
+# hope that one assignment was written twice the same way.
+#
+# What escaping `$SCAN_REPORT` would actually do is worse than a mismatch, and
+# is worth stating precisely because the obvious guess is wrong. It would NOT
+# make the heartbeat re-derive anything: the heartbeat reads
+# `SECRET_SCAN_REPORT` from the env file, and enrollment writes that line
+# whatever the unit says. Escaped, systemd would look up `$SCAN_REPORT` in the
+# unit's own environment — and `SCAN_REPORT` is not a key the env file carries
+# (the five keys there are HUB_URL, RUNNER_NAME, HEARTBEAT_TOKEN, LAST_JOB_SEEN
+# and SECRET_SCAN_REPORT), so it expands to the EMPTY STRING and the unit runs
+# `--report ""`. Measured: the sweep takes an empty report path as "no report
+# requested" (secret-scan-fleet.sh: `if [ -n "$REPORT" ]`) and writes no file at
+# all — so the fleet would have no per-repository state while the unit exited
+# on the scan's own verdict, and nothing on the host would say the report was
+# the thing that went missing. A silent total no-op, not a name mismatch.
+#
+# This is the one place `%t` was load-bearing and is now reimplemented by
+# hand: systemd's specifier was authoritative, and `runtime_dir()` above is
+# this repository's answer to it. Stated because it is a real (small) loss of
+# authority, bought for the heartbeat being able to find the same file at all.
+#
 # What the escaping defends against, measured rather than assumed (all four
 # combinations, against the real enroll and a stub systemctl):
 #
@@ -176,7 +282,7 @@ Description=DevGate fleet secret sweep ($SLUG)
 [Service]
 Type=oneshot
 EnvironmentFile=$TICKET_FILE
-ExecStart=$FLEET_HELPER --declared "\$SECRET_SCAN_DECLARED" --report %t/devgate-secretscan-$SLUG.json
+ExecStart=$FLEET_HELPER --declared "\$SECRET_SCAN_DECLARED" --report "$SCAN_REPORT"
 TimeoutStartSec=3600
 EOF
 

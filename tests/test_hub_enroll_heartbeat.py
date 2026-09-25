@@ -176,6 +176,58 @@ def test_image_state_rides_the_heartbeat_over_http(tmp_path):
         hub.close()
 
 
+def test_fleet_scan_state_rides_the_heartbeat_over_http(tmp_path):
+    """The same three-way distinction for the sweep's report (secret-scan-07),
+    through the same boundary and for the same reason: `data.get("scan_state")`
+    alone returns None for both "says nothing" and "says null", so a poster that
+    never mentions scanning would silently clear a real report."""
+    hub = HubFixture(tmp_path)
+    scan = {"repos": [{"name": "alpha", "state": "findings", "reason": None,
+                       "scope": "all", "scanned_at": "2026-09-24T00:00:00Z",
+                       "findings": 1, "uncovered": 0}], "unreadable": None}
+    try:
+        code, body = hub.post("/enroll", {"runner_name": "r1", "repo": "OWNER/REPO",
+                                          "enrollment_token": "test-enroll-token-PLACEHOLDER"})
+        hb_token = body["heartbeat_token"]
+
+        # A swept host, as runner-heartbeat.sh posts it.
+        code, body = hub.post("/heartbeat", {
+            "runner_name": "r1", "heartbeat_token": hb_token,
+            "disk_ok": True, "podman_ok": True, "scan_state": scan})
+        assert code == 200, body
+        assert hub.state.registry.find_runner("r1")["scan_state"] == scan
+
+        # A body that says nothing about scanning (an older helper).
+        code, body = hub.post("/heartbeat", {"runner_name": "r1", "heartbeat_token": hb_token,
+                                             "disk_ok": True, "podman_ok": True})
+        assert code == 200, body
+        assert hub.state.registry.find_runner("r1")["scan_state"] == scan, \
+            "a body that never mentioned scanning cleared the host's report"
+
+        # The report is gone on the host: explicit null, which must clear it to
+        # unknown rather than leave the superseded verdict reading as swept.
+        code, body = hub.post("/heartbeat", {
+            "runner_name": "r1", "heartbeat_token": hb_token,
+            "scan_state": None})
+        assert code == 200, body
+        assert hub.state.registry.find_runner("r1")["scan_state"] is None, \
+            "a host with no report kept showing a stale sweep"
+
+        # An unreadable report is not an empty fleet.
+        unreadable = {"repos": [], "unreadable": "JSONDecodeError: Expecting value"}
+        code, body = hub.post("/heartbeat", {
+            "runner_name": "r1", "heartbeat_token": hb_token,
+            "scan_state": unreadable})
+        assert code == 200, body
+        runner = hub.state.registry.find_runner("r1")
+        assert runner["scan_state"] == unreadable
+        from hub.registry import scan_state_unknown
+        assert scan_state_unknown(runner) is True, \
+            "a host whose report would not parse counted as swept"
+    finally:
+        hub.close()
+
+
 def test_health_endpoint_shape(tmp_path):
     hub = HubFixture(tmp_path)
     try:

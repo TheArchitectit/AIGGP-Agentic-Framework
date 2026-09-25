@@ -37,9 +37,9 @@
   "test_hub_coherence_schema": 21,
   "test_hub_coherence_store": 6,
   "test_hub_coherence_verify_cli": 10,
-  "test_hub_enroll_heartbeat": 6,
+  "test_hub_enroll_heartbeat": 7,
   "test_hub_monitor": 14,
-  "test_hub_registry": 12,
+  "test_hub_registry": 18,
   "test_hub_spec_coherence": 11,
   "test_hub_watchdog": 7,
   "test_metamorphic": 21,
@@ -56,14 +56,15 @@
   "test_runner_enroll_sweep": 15,
   "test_runner_heartbeat_image": 9,
   "test_runner_image_cycle": 19,
+  "test_runner_scan_report": 11,
   "test_scope_contract": 4,
   "test_secret_scan": 16,
-  "test_secret_scan_fleet": 13,
+  "test_secret_scan_fleet": 16,
   "test_secret_validation_template": 13,
   "test_silent_success_gate": 3,
   "test_silent_success_overlay": 5,
   "test_spec_traceability": 10,
   "test_workflow_read": 15
  },
- "total_floor": 863
+ "total_floor": 884
 }
