@@ -33,7 +33,7 @@ const bundledRulesPath = join(devgateRoot, ".guardrails", "prevention-rules", "p
 const overlayRulesPath = join(projectRoot, ".guardrails", "prevention-rules", "pattern-rules.json");
 
 // Source file extensions to scan (language-agnostic)
-const SOURCE_EXTENSIONS = [".ts", ".js", ".py", ".rs", ".go", ".gd", ".java", ".kt", ".rb", ".php", ".jsx", ".tsx", ".svelte"];
+const SOURCE_EXTENSIONS = [".ts", ".js", ".py", ".rs", ".go", ".gd", ".java", ".kt", ".rb", ".php", ".jsx", ".tsx", ".svelte", ".zig"];
 
 // Directories to skip (DevGate's own dir + common non-source dirs)
 

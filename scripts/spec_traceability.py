@@ -28,7 +28,7 @@ REQ_ID = re.compile(r"<!--\s*id:\s*([a-z0-9-]+)\s*-->")
 # widened to match the shipped gate surface.
 MARKER = re.compile(r"(?://|#)\s*spec:[ \t]*([a-z0-9-]+(?:[ \t]*,[ \t]*[a-z0-9-]+)*)")
 ID = re.compile(r"[a-z0-9-]+")
-SCAN_EXTS = {".rs", ".py", ".mjs", ".js", ".ts", ".sh"}
+SCAN_EXTS = {".rs", ".py", ".mjs", ".js", ".ts", ".sh", ".zig"}
 SCAN_SKIP = {"target", "node_modules", ".git", "openspec", ".devgate"}
 ID = re.compile(r"[a-z0-9-]+")
 # Shell scripts are part of the shipped gate surface: the specs negative
@@ -36,7 +36,7 @@ ID = re.compile(r"[a-z0-9-]+")
 # a .sh file. Without .sh here, a marker in that file is silently invisible and
 # its requirement reads UNCOVERED — coverage that looks asserted in the source
 # but is never counted.
-SCAN_EXTS = {".rs", ".py", ".mjs", ".js", ".ts", ".sh"}
+SCAN_EXTS = {".rs", ".py", ".mjs", ".js", ".ts", ".sh", ".zig"}
 SCAN_SKIP = {"target", "node_modules", ".git", "openspec", ".devgate"}
 
 

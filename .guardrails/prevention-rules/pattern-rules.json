@@ -1,7 +1,7 @@
 {
   "$schema": "./pattern-rules.schema.json",
   "description": "Language-agnostic pattern-based prevention rules for regression detection",
-  "version": "3.2.0",
+  "version": "3.3.0",
   "rules": [
     {
       "rule_id": "PREVENT-001",
@@ -494,6 +494,71 @@
         "*.go"
       ],
       "suggestion": "Prefer 0600 for log/data files, or 0640/0644 if group/world read is intentional"
+    },
+    {
+      "rule_id": "PREVENT-Z-001",
+      "name": "Zig: catch unreachable",
+      "enabled": true,
+      "pattern": "catch\\s+unreachable",
+      "forbidden_context": null,
+      "message": "catch unreachable turns a recoverable error into a hard crash.",
+      "severity": "error",
+      "file_glob": [
+        "*.zig"
+      ],
+      "suggestion": "Handle the error, propagate it with try, or map it to a defined fallback."
+    },
+    {
+      "rule_id": "PREVENT-Z-002",
+      "name": "Zig: orelse unreachable",
+      "enabled": true,
+      "pattern": "orelse\\s+unreachable",
+      "forbidden_context": null,
+      "message": "orelse unreachable turns a recoverable null into a hard crash.",
+      "severity": "error",
+      "file_glob": [
+        "*.zig"
+      ],
+      "suggestion": "Handle the null: return an error, or supply a real default with orelse."
+    },
+    {
+      "rule_id": "PREVENT-Z-003",
+      "name": "Zig: swallowed error (catch {})",
+      "enabled": true,
+      "pattern": "catch\\s*\\{\\s*\\}",
+      "forbidden_context": null,
+      "message": "An empty catch block silently discards an error.",
+      "severity": "warning",
+      "file_glob": [
+        "*.zig"
+      ],
+      "suggestion": "Log it, propagate it, or state why it is safe to ignore."
+    },
+    {
+      "rule_id": "PREVENT-Z-004",
+      "name": "Zig: @panic in production code",
+      "enabled": true,
+      "pattern": "@panic\\s*\\(",
+      "forbidden_context": null,
+      "message": "@panic aborts the process. Fine in a test, a defect on a shipped path.",
+      "severity": "warning",
+      "file_glob": [
+        "*.zig"
+      ],
+      "suggestion": "Return an error instead, or suppress inline with a stated reason."
+    },
+    {
+      "rule_id": "PREVENT-Z-005",
+      "name": "Zig: std.debug.print left in code",
+      "enabled": true,
+      "pattern": "std\\.debug\\.print",
+      "forbidden_context": null,
+      "message": "Debug output left in production code.",
+      "severity": "warning",
+      "file_glob": [
+        "*.zig"
+      ],
+      "suggestion": "Remove it, or suppress inline if the message is a genuine diagnostic."
     }
   ]
 }

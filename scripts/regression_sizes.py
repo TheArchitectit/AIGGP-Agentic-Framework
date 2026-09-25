@@ -37,7 +37,7 @@ TEST_HARD = 600
 # Source file extensions to check (language-agnostic)
 SOURCE_EXTENSIONS = (".ts", ".tsx", ".py", ".rs", ".go", ".gd", ".java", ".kt",
                      ".rb", ".php", ".js", ".jsx", ".swift", ".c", ".cpp", ".h", ".cs",
-                     ".sh")
+                     ".sh", ".zig")
 
 # Test-file extensions for the PREFIX convention ("test_*.py" / "test_*.sh").
 # A tuple because the convention is about naming, not about Python.

@@ -143,3 +143,20 @@ def test_both_layouts_merge(tmp_path):
     assert result.returncode == 0
     assert "router-req-01" in result.stdout and "net-req-01" in result.stdout
     assert "2/2 requirements covered" not in result.stdout  # nothing marked yet
+
+
+def test_zig_marker_counts_as_coverage(tmp_path):
+    """Zig source is the shipped gate surface for a Zig project, so a
+    // spec: <id> marker in a .zig file must satisfy the requirement. Without
+    .zig in SCAN_EXTS the marker is invisible and the requirement reads
+    UNCOVERED -- coverage that looks asserted in the source but is never counted.
+    Zig uses // comments, so the marker grammar already fits; only the
+    extension allowlist kept it out."""
+    write(tmp_path / "openspec/specs/router/spec.md", SPEC)
+    write(tmp_path / "src/thing.zig",
+          'const std = @import("std");\n'
+          '// spec: router-req-01 -- enforced by route()\n'
+          'pub fn route() void {}\n')
+    result = run(tmp_path, "--report")
+    assert result.returncode == 0
+    assert "router-req-01: covered" in result.stdout

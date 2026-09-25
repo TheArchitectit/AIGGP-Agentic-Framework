@@ -362,6 +362,24 @@ check("allow-file: declaration past the header does not exempt", r.err.includes(
 check("allow-file: exactly 3 violations (reason/rule/position)", r.err.includes("3 violation(s)"));
 rmSync(dir12, { recursive: true, force: true });
 
+// --- 14. Zig source is scanned, AND Zig rules fire --------------------------
+// A Zig project's entire source tree was invisible to this gate: .zig was absent
+// from SOURCE_EXTENSIONS, so the scan reported "clean" having evaluated nothing.
+// Adding the extension alone is still not enough -- every rule is file_glob
+// scoped and none named *.zig, so the walk would find files no rule can match.
+// Both halves are asserted here: the extension is walked, and the rules fire.
+const dir13 = mkdtempSync(join(tmpdir(), "devgate-scan-"));
+makeProject(dir13, {
+	"src/crashy.zig": "const std = @import(\"std\");\npub fn main() void {\n    const f = std.fs.cwd() catch unreachable;\n}\n",
+	"src/clean.zig": "const std = @import(\"std\");\npub fn clean() void {}\n",
+});
+r = runScan(dir13);
+check("zig: a catch unreachable violation blocks the scan", r.code === 1);
+check("zig: finding names the rule and the file",
+	r.err.includes("PREVENT-Z-001") && r.err.includes("crashy.zig"));
+check("zig: a clean zig file is not reported", !r.err.includes("clean.zig"));
+rmSync(dir13, { recursive: true, force: true });
+
 // --- 13. Python-side semantics agree: file_glob + allow + ignore -------------
 // (game_regression.py is exercised by tests/test_game_regression.py,
 //  gate_overlay.py by tests/test_gate_overlay.py)
