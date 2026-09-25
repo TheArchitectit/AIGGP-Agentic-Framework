@@ -36,7 +36,12 @@ TEST_HARD = 600
 
 # Source file extensions to check (language-agnostic)
 SOURCE_EXTENSIONS = (".ts", ".tsx", ".py", ".rs", ".go", ".gd", ".java", ".kt",
-                     ".rb", ".php", ".js", ".jsx", ".swift", ".c", ".cpp", ".h", ".cs")
+                     ".rb", ".php", ".js", ".jsx", ".swift", ".c", ".cpp", ".h", ".cs",
+                     ".sh")
+
+# Test-file extensions for the PREFIX convention ("test_*.py" / "test_*.sh").
+# A tuple because the convention is about naming, not about Python.
+TEST_PREFIX_EXTENSIONS = (".py", ".sh")
 
 
 def format_severity(severity: str) -> str:
@@ -61,11 +66,14 @@ def _classify_file(rel_path: str) -> tuple[int | None, int | None]:
     is_test = rel_path.endswith((".test.ts", ".test.tsx", ".test.js", ".spec.ts",
                                  ".spec.js", "_test.py", "_test.go",
                                  ".test.rs", ".test.gd"))
-    # pytest naming is a PREFIX convention ("test_*.py") — endswith() can never
-    # express it, and a glob passed to endswith() is a dead literal that
-    # silently classified every pytest file as source (FAIL-f6228dda).
+    # The test naming convention is a PREFIX ("test_*.py", "test_*.sh") —
+    # endswith() can never express it, and a glob passed to endswith() is a
+    # dead literal that silently classified every pytest file as source
+    # (FAIL-f6228dda). Shell tests follow the same convention (FAIL-8f9249ca):
+    # adding `.sh` to the scope without this would judge tests/test_x.sh at
+    # SRC_HARD while tests/test_x.py at the same size got TEST_HARD.
     base = os.path.basename(rel_path)
-    if base.startswith("test_") and base.endswith(".py"):
+    if base.startswith("test_") and base.endswith(TEST_PREFIX_EXTENSIONS):
         is_test = True
     if is_test:
         return (None, TEST_HARD)

@@ -39,6 +39,17 @@ def _write_fixture(root: Path, rel_path: str, line_count: int) -> Path:
     return path
 
 
+def _write_sh_fixture(root: Path, rel_path: str, line_count: int) -> Path:
+    """A shell fixture. The gate counts lines and does not read the language,
+    but a fixture that claims to be a shell script should be one — a reader
+    who checks 'does this really exercise .sh?' should get a yes."""
+    path = root / rel_path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    body = "\n".join(f"true  # line {i}" for i in range(line_count - 1))
+    path.write_text(f"#!/usr/bin/env bash\n{body}\n", encoding="utf-8")
+    return path
+
+
 def test_oversize_test_file_is_flagged_at_test_hard():
     """MUST-flag: a TEST_HARD+1-line pytest file is a blocking violation."""
     with tempfile.TemporaryDirectory() as td:
@@ -94,6 +105,46 @@ def test_non_test_file_at_same_size_is_flagged_at_src_hard():
         assert by_file["scripts/helper.py"]["hard"] == SRC_HARD, by_file
 
 
+def test_oversize_shell_script_is_flagged_at_src_hard():
+    """MUST-flag, and the reason task #13 exists: SOURCE_EXTENSIONS named
+    sixteen languages and none of them was the one this repository's
+    fleet-side scripts are written in. `scripts/` was walked, the `.sh` files
+    inside it were not sized, and `scripts/runner-enroll.sh` reached 589 lines
+    against a 500-line limit with the gate reporting nothing — the same shape
+    as FAIL-f6228dda, where the scope list silently excluded a directory."""
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        _write_sh_fixture(root, "scripts/giant.sh", SRC_HARD + 1)
+        issues = check_file_sizes(root, ["scripts"])
+        hard = [i for i in issues if i["kind"] == "hard"]
+        assert len(hard) == 1, f"oversize shell script not flagged: {issues}"
+        v = hard[0]
+        assert v["file"] == "scripts/giant.sh", v
+        assert v["lines"] == SRC_HARD + 1, v
+        assert v["hard"] == SRC_HARD, (
+            f"evaluated at hard={v['hard']}, not SRC_HARD: {v}")
+        assert v["severity"] == "error", v
+
+
+def test_a_shell_test_file_is_judged_at_the_test_limit():
+    """The `test_*` prefix convention is not a Python fact — it is how a test
+    file is named. Adding `.sh` to the scope without it would judge a shell
+    test at SRC_HARD while its Python sibling gets TEST_HARD, which is the
+    inconsistency this extension is the one moment to avoid introducing."""
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        _write_sh_fixture(root, "tests/test_big.sh", 550)
+        issues = check_file_sizes(root, ["tests"])
+        assert issues == [], (
+            f"550-line shell test flagged at {issues} — misclassified against SRC_HARD"
+        )
+        _write_sh_fixture(root, "tests/test_giant.sh", TEST_HARD + 1)
+        issues = check_file_sizes(root, ["tests"])
+        assert [i["file"] for i in issues] == ["tests/test_giant.sh"], (
+            f"the shell-test fixtures produced other findings: {issues}")
+        assert issues[0]["hard"] == TEST_HARD, issues[0]
+
+
 def test_source_dirs_include_test_directories():
     """FAIL-f6228dda scope defect: tests/ must be a candidate, not just hub/scripts."""
     for candidate in ("tests", "test"):
@@ -102,6 +153,22 @@ def test_source_dirs_include_test_directories():
                 f"{candidate}/ exists under the project root but SOURCE_DIRS "
                 f"skips it — the size gate never walks test files ({SOURCE_DIRS})"
             )
+
+
+def test_source_dirs_include_the_directory_the_shell_scripts_live_in():
+    """Found by the mutation battery, not by a RED: `.sh` in SOURCE_EXTENSIONS
+    is inert unless the walk enters scripts/, and nothing asserted that it
+    does. `test_source_dirs_include_test_directories` pins tests/ only, so
+    dropping "scripts" from the candidate list was uncaught while every shell
+    script in this repository — the language this file's scope extension was
+    written for — silently stopped being sized. FAIL-f6228dda was a scope list
+    drifting from its intent; the scope list needs its own MUST-flag test."""
+    assert (PROJECT_ROOT / "scripts").is_dir(), (
+        "fixture assumption broken: this repository has no scripts/ directory")
+    assert "scripts" in SOURCE_DIRS, (
+        f"scripts/ exists under the project root but SOURCE_DIRS skips it — no "
+        f"shell script in this repository is sized ({SOURCE_DIRS})"
+    )
 
 
 def main() -> int:
