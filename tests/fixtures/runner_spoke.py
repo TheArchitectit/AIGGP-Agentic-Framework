@@ -150,13 +150,22 @@ class Spoke:
         # from the other side: the environment would silently choose the
         # branch under test. Scrubbed here rather than per test so no later
         # test can reintroduce the coupling by forgetting to unset them.
-        # SECRET_SCAN_* is scrubbed for the same measured reason, one
-        # provisioned key later: SECRET_SCAN_DECLARED is the variable the sweep
-        # timer is enabled by, so a host (or a CI environment) that already
-        # exports it decides which branch the not-provisioned tests exercise.
+        #
+        # SECRET_SCAN_* is deliberately NOT scrubbed, and an earlier revision
+        # scrubbed it on a justification that does not hold: it claimed an
+        # ambient SECRET_SCAN_DECLARED "decides which branch the not-provisioned
+        # tests exercise". Nothing on the enroll path reads the ambient
+        # variable — the provisioning key is read from the runner's own env file
+        # (measured: with an ambient value set, the generated unit still carries
+        # the systemd token and the timer is still not enabled). That made the
+        # scrub a guard no test could distinguish, which is the same inert-guard
+        # shape the sweep's own `-z` branch was deleted for. It also removed the
+        # only way to exercise the hazard the escaping actually prevents, which
+        # is a value from enroll's environment being frozen into the unit: see
+        # test_an_ambient_declaration_is_not_baked_into_the_unit.
         self.env = {
             **{k: v for k, v in os.environ.items()
-               if not k.startswith(("COHERENCE_", "SECRET_SCAN_"))},
+               if not k.startswith("COHERENCE_")},
             "HOME": str(self.home),
             "PATH": f"{bindir}:{os.environ['PATH']}",
             "STUB_CURL_LOG": str(self.curl_log),

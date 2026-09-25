@@ -19,14 +19,36 @@ survivor was visible only to whoever remembered to look. CI runs them by name
 now, and `test_every_battery_runs_in_the_suite` keeps a fourth from being added
 unrun.
 
+Three misreports are guarded against here rather than left to be noticed, all
+three having been observed on the hosted lane:
+
+  * a stale anchor filed as a survivor (`survivors (a guard no named test
+    depends on)` — the wrong diagnosis, and the same exit code, so only the
+    report can carry the difference),
+  * two batteries on one tree interleaving, each capturing its "original" from
+    the other's mutant and restoring faithfully to it, so both runs' verdicts
+    are worthless while every per-entry check passes,
+  * a run that leaves a mutant applied, which the per-entry restores cannot see
+    and which makes the NEXT run's anchors and verdicts read off a tree that is
+    not the one under test.
+
+The second and third are why a battery takes a `flock` and hashes its artifacts
+before it starts; `tests/test_mutation_harness.py` drives each failure against a
+synthetic repository whose outcome is known by construction, including an
+injected non-restoring entry.
+
 Kept out of the `test_*.py` namespace so pytest's collection stays about the
 product; the batteries are a separate, slower, self-mutating lane.
 """
+import contextlib
+import fcntl
+import hashlib
 import json
 import os
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import workflow_read
@@ -85,6 +107,66 @@ def well_formed(path):
         except SyntaxError:
             return False
     return True
+
+
+class BatteryInProgress(RuntimeError):
+    """Another battery holds this tree. Refused, not queued."""
+
+
+@contextlib.contextmanager
+def battery_lock(root):
+    """One battery per tree at a time, across processes.
+
+    A battery mutates tracked files in place, so two concurrent runs each
+    capture their "original" from whatever the other has already left behind —
+    and each then restores faithfully to the *other's* mutant while every
+    per-entry check passes. Measured: a concurrent run produced three phantom
+    anchor misses and credited kills to unrelated tests, and both runs' verdicts
+    were worthless. That is also the shape of this session's unexplained
+    anomaly, where three mutants were found applied on disk with verdicts
+    derived from the mutated tree.
+
+    Keyed by the resolved root, so a battery against a copy of the tree is
+    independent (it shares no files) while two runs against the same tree
+    contend. Refusing rather than blocking: a battery takes minutes, and a
+    silently serialised run is indistinguishable from a slow one.
+    """
+    key = hashlib.sha256(str(Path(root).resolve()).encode()).hexdigest()[:16]
+    path = Path(tempfile.gettempdir()) / f"devgate-mutation-{key}.lock"
+    fd = os.open(path, os.O_CREAT | os.O_RDWR, 0o644)
+    try:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            raise BatteryInProgress(
+                f"another battery is already running against {root} — refusing "
+                "rather than interleaving, which would corrupt both runs' "
+                "verdicts. Wait for it, or run against a copy of the tree.")
+        yield
+    finally:
+        os.close(fd)
+
+
+def artifact_hashes(root, rels):
+    """sha256 of each named file, for a baseline taken before any mutation."""
+    out = {}
+    for rel in rels:
+        path = Path(root) / rel
+        out[rel] = hashlib.sha256(path.read_bytes()).hexdigest() \
+            if path.is_file() else None
+    return out
+
+
+def verify_hashes(root, baseline):
+    """The names that differ from the baseline.
+
+    Verified against a hash taken before the battery started rather than
+    against the text an entry captured as it went: an entry that captures its
+    "original" from an already-mutated tree restores to that mutant and every
+    per-entry check passes. Only a baseline has the vantage point to see it.
+    """
+    return sorted(rel for rel, want in baseline.items()
+                  if artifact_hashes(root, [rel])[rel] != want)
 
 
 def clear_bytecode(root=None):
@@ -160,10 +242,35 @@ def main(mutations, controls, controls_note, root=None):
     reporting on a fixture it does not understand. `controls_note` says what
     that particular battery's controls pin, which differs between them, so it is
     the caller's words rather than a generic line.
+
+    Three things are reported apart from each other because they need three
+    different responses: a killed mutation is the guard holding, a *survivor*
+    says a guard has no test and the test is missing, and a *stale anchor* says
+    the mutation never applied at all and it is the anchor that needs re-pointing
+    — filing the last two together sends the reader to write a test that answers
+    a question nobody asked. All three non-zero exits are the same code; the
+    distinction lives in the report, which is why it is asserted.
     """
-    survivors = []
+    root = root or REPO
+    artifacts = sorted({rel for _, edits, _, _ in [*mutations, *controls]
+                        for rel, _, _ in edits})
+    try:
+        with battery_lock(root):
+            return _run_battery(mutations, controls, controls_note, root, artifacts)
+    except BatteryInProgress as exc:
+        print(f"  REFUSED {exc}")
+        return 1
+
+
+def _run_battery(mutations, controls, controls_note, root, artifacts):
+    baseline = artifact_hashes(root, artifacts)
+
+    survivors, stale = [], []
     for name, edits, tests, extra_env in mutations:
-        if run_entry(name, edits, tests, extra_env, True, root) is not True:
+        verdict = run_entry(name, edits, tests, extra_env, True, root)
+        if verdict is None:
+            stale.append(name)
+        elif verdict is not True:
             survivors.append(name)
 
     controls_bad = []
@@ -171,13 +278,29 @@ def main(mutations, controls, controls_note, root=None):
         if run_entry(name, edits, tests, extra_env, False, root) is not True:
             controls_bad.append(name)
 
-    print(f"\n{len(mutations) - len(survivors)}/{len(mutations)} mutations killed")
+    drifted = verify_hashes(root, baseline)
+
+    print(f"\n{len(mutations) - len(survivors) - len(stale)}/{len(mutations)} "
+          f"mutations killed")
     if survivors:
         print("survivors (a guard no named test depends on):")
         for s in survivors:
+            print(f"  - {s}")
+    if stale:
+        print("stale anchors (the mutation never applied — re-point the anchor; "
+              "a new test would not help):")
+        for s in stale:
             print(f"  - {s}")
     print(f"{len(controls) - len(controls_bad)}/{len(controls)} "
           f"negative controls behaved ({controls_note})")
     for c in controls_bad:
         print(f"  - {c} (expected to survive and did not, or a bad anchor)")
-    return 1 if (survivors or controls_bad) else 0
+    if drifted:
+        # The harness's own failure, not a verdict about the code: every entry
+        # restored what it captured, and the tree still does not match the
+        # baseline it started from.
+        print("HARNESS FAILURE — mutations left applied, vs the baseline taken "
+              "before this battery started:")
+        for rel in drifted:
+            print(f"  - {rel}")
+    return 1 if (survivors or stale or controls_bad or drifted) else 0

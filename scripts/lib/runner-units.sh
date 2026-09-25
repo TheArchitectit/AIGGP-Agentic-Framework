@@ -13,9 +13,16 @@
 # that rule stays beside the unit it governs.
 #
 # Sourced functions share the caller's shell scope, so the globals they read
-# ($SLUG, $TICKET_FILE, $HB_HELPER, $CYC_HELPER, $WATCHDOG_*_UNIT, ...) are set
-# by the caller. The heredoc discipline and the "never inline into ExecStart"
-# rule (FAIL-6e7b6f84) are documented where the units using them live.
+# ($SLUG, $TICKET_FILE, $HB_HELPER, $CYC_HELPER, $WATCHDOG_*_UNIT,
+# $FLEET_*_UNIT, $FLEET_HELPER, ...) are set by the caller. The heredoc
+# discipline and the "never inline into ExecStart" rule (FAIL-6e7b6f84) are
+# documented where the units using them live.
+#
+# $SWEEP_INTERVAL is deliberately the exception to the watchdog's arrangement,
+# where the cadence is clamped and computed beside the unit that uses it: a
+# cadence is a decision about the FLEET, not an operation on this host's unit
+# namespace, so it stays in runner-enroll.sh with the other decisions. That is
+# the seam this file is, not an oversight to tidy up.
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
     echo "runner-units.sh is a library sourced by scripts/runner-enroll.sh;" \
@@ -132,12 +139,28 @@ enable_image_cycle() {
 #
 # The ExecStart is a bare path like the other two, and the declaration is
 # written `"\$SECRET_SCAN_DECLARED"`: ESCAPED so the unquoted heredoc does not
-# expand it at write time (the variable is unset in enroll's shell, so an
-# unescaped `$` would emit `--declared` with no argument, and every tick would
-# exit 3 while enrollment reported success — incident #1's shape), and QUOTED so
-# systemd hands its own expansion through as ONE word. systemd splits an
-# unquoted `$VAR` on whitespace, and a declaration path is allowed to contain a
-# space.
+# expand it at write time, and QUOTED so systemd hands its own expansion through
+# as ONE word. systemd splits an unquoted `$VAR` on whitespace, and a
+# declaration path is allowed to contain a space.
+#
+# What the escaping defends against, measured rather than assumed (all four
+# combinations, against the real enroll and a stub systemctl):
+#
+#   ambient unset, escaped    -> rc 0, unit carries `$SECRET_SCAN_DECLARED`
+#   ambient set,   escaped    -> rc 0, unit carries `$SECRET_SCAN_DECLARED`
+#   ambient unset, UNESCAPED  -> rc 1: `SECRET_SCAN_DECLARED: unbound variable`
+#                                (enroll runs `set -u`), and no unit is written
+#   ambient set,   UNESCAPED  -> rc 0, and the AMBIENT path is baked into the
+#                                unit as a literal, where no later change to
+#                                the env file can reach it
+#
+# So the unset case is loud — enroll aborts, nothing is installed — and the
+# hazard the escaping actually prevents is the third line's opposite: a value
+# from enroll's own environment frozen into the unit. That is the silent one,
+# and it is the case `test_an_ambient_declaration_is_not_baked_into_the_unit`
+# pins. (An earlier revision of this comment claimed the unset case expanded to
+# the empty string "while enrollment reported success". It does not: that is a
+# crash. Incident #1's shape is the ambient-value trap, one heredoc over.)
 #
 # The timer is enabled by PROVISIONING, exactly as the cycle's is, and for a
 # sharper version of the same reason: the sweep REFUSES to run on an empty
@@ -172,32 +195,68 @@ EOF
 
     # Last assignment wins in both readers, so `tail -n 1` matches what systemd
     # will do with a duplicated key rather than picking a line systemd ignores.
-    local declared=""
+    local declared
     declared="$(grep -E '^SECRET_SCAN_DECLARED=' "$TICKET_FILE" 2>/dev/null \
         | tail -n 1 | cut -d= -f2- || true)"
 
-    # ONE condition, deliberately, not an `-z` check followed by an `-s` check.
-    # `[ -s "" ]` is false, so the file test already subsumes the unset value;
-    # a separate branch for it would be a second guard that no mutation can
-    # kill — a message selector, not a guard (the battery's F3 is what found
-    # this: it mutated that branch and the suite stayed green).
+    # One matching pair of surrounding quotes comes off, because systemd
+    # unquotes a value and the ExecStart above is quoted precisely so a path
+    # containing a space survives. Measured divergence without this: with
+    # `SECRET_SCAN_DECLARED="/tmp/with space/declared.txt"` — a line systemd
+    # reads, unquotes and runs perfectly — this test resolved the literal
+    # `"/tmp/with space/declared.txt"` (quotes and all), found no such file, and
+    # left the sweep disabled on a host whose operator had provisioned it.
     #
-    # `-s`, not `-n`: the file must exist AND be non-empty. A key pointing at a
-    # deleted declaration is a sweep that cannot run, dressed as one that can.
+    # The boundary, stated rather than implied: this is ONE layer of quotes, not
+    # an EnvironmentFile parser. Escape sequences and a trailing `# comment`
+    # after a value are not emulated, so a declaration written either way reads
+    # here as a path that does not exist — and the message below prints the
+    # value it read, so the operator can see the quotes or the comment in it.
+    # Two full parsers would drift; the sweep stays the authority on whether a
+    # declaration it was handed is usable.
+    case "$declared" in
+        \"*\"|\'*\')
+            declared="${declared:1:${#declared}-2}"
+            ;;
+    esac
+
+    # ONE condition, deliberately, not an `-s` check followed by a "does it name
+    # a repository" check. This grep already fails on a file that is missing or
+    # empty, so a second existence test would be a message selector rather than
+    # a guard — the shape the battery's F3 found in the first draft of this
+    # block, where `-z` and `-s` were two branches over one fact.
     #
-    # The boundary, stated rather than implied: a declaration that exists and is
-    # non-empty but names no repository (comments only, say) still passes here
-    # and then exits 3 on its first tick. Detecting that means re-implementing
-    # the sweep's parser in shell, and two parsers drift — the sweep's own
-    # message is the authority on its own declaration.
-    if [[ ! -s "$declared" ]]; then
-        log "Fleet secret sweep installed but NOT enabled: SECRET_SCAN_DECLARED=${declared:-<unset>} is not an existing, non-empty file"
+    # The pattern is the sweep's OWN rule, not an approximation of it, because
+    # the two must not disagree: `secret-scan-fleet.sh` strips a line at its
+    # first `#`, removes every whitespace character, and skips it if nothing
+    # remains. So a line counts here exactly when it has a non-`#`, non-blank
+    # character BEFORE its first `#` — which is what `^[^#]*[^#[:space:]]`
+    # matches. Measured counter-example to the obvious shorter form: the
+    # `^[^#[:space:]]` a review proposed would refuse `  https://…` (an INDENTED
+    # url), which the sweep reads and scans happily — enroll would report a
+    # provisioned sweep as not enabled, the same false negative the quoted-path
+    # strip above exists to prevent, in the other direction.
+    #
+    # Closing this is the point of the whole block: a declaration that names
+    # nothing makes the sweep exit 3 on every tick, and a unit that fails every
+    # tick is indistinguishable on a dashboard from a sweep that ran and found
+    # nothing. The scope is still deliberately not "is this a valid URL" — that
+    # IS the sweep's parser, and two of those drift.
+    if ! grep -qE '^[^#]*[^#[:space:]]' "$declared" 2>/dev/null; then
+        log "Fleet secret sweep installed but NOT enabled: SECRET_SCAN_DECLARED=${declared:-<unset>} is not a file naming at least one repository"
         log "  Set SECRET_SCAN_DECLARED=/path/to/declared-repos.txt (one repo URL per line) in $TICKET_FILE, then re-run enroll."
-        log "  The sweep exits 3 on an empty declaration by design, so enabling it here would fail every tick."
+        log "  Blank lines and # comments are skipped, and the sweep exits 3 on a declaration that names nothing, so enabling it here would fail every tick."
         log "  Units are in place: devgate-secretscan-$SLUG.service / .timer"
         return 0
     fi
 
+    # Reload before enabling, as install_watchdog does: a re-enroll rewrites
+    # both units, and enabling without a reload leaves the MANAGER running the
+    # previous revision of a unit whose file on disk is already the new one.
+    # The watchdog's reload used to cover this by running later in the flow —
+    # until the watchdog is absent, when it returns before reloading and this
+    # unit is left unreloaded.
+    systemctl --user daemon-reload
     systemctl --user enable "devgate-secretscan-$SLUG.timer" 2>/dev/null || true
     systemctl --user start "devgate-secretscan-$SLUG.timer"
     log "Fleet secret sweep timer enabled: devgate-secretscan-$SLUG.timer (helper: $FLEET_HELPER)"

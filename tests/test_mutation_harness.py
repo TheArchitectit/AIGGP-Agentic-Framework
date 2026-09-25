@@ -124,6 +124,95 @@ def test_a_battery_with_a_survivor_exits_nonzero(repo, capsys):
     assert "survivors" in capsys.readouterr().out
 
 
+def test_a_stale_anchor_is_reported_as_a_stale_anchor_not_a_survivor(repo, capsys):
+    """A stale anchor and a survivor both mean exit 1, so the exit code cannot
+    carry the difference — and the two need opposite responses. A survivor says
+    "write the test this guard is missing"; a stale anchor says "the mutation
+    never applied, re-point it", and writing a new test would answer a question
+    that was never asked.
+
+    Measured on the hosted fw-* lane: two anchor misses (a revoke line and a
+    fixture scrub line this change had moved) were printed under `survivors (a
+    guard no named test depends on)`. Same exit code, wrong diagnosis.
+    """
+    code = h.main([("M1: the anchor is stale", [STALE], ["test_widget.py"], {})],
+                  [], "controls note", root=repo)
+    out = capsys.readouterr().out
+    assert code == 1
+    assert "stale anchor" in out, out
+    assert "M1" in out.split("stale anchor", 1)[1], \
+        f"the stale anchor is not listed under its own heading: {out}"
+    # The misreport this pins: with no real survivor, the survivors heading and
+    # its "a guard no named test depends on" promise must not appear at all.
+    assert "survivors (" not in out, out
+
+
+def test_a_second_battery_on_the_same_tree_refuses_rather_than_interleaving(repo, capsys):
+    """Two batteries mutate the same files in place, so interleaving corrupts
+    both: each captures its "original" from whatever the other left, and the
+    restore put back the other's mutant. Measured — a concurrent run produced
+    three phantom anchor misses and credited kills to unrelated tests, and both
+    runs' verdicts were worthless.
+
+    Refusing is the choice, not queueing: a battery is minutes long, and a
+    silently serialised run looks identical to a slow one.
+    """
+    with h.battery_lock(repo):
+        code = h.main([("M1: the real defect", [KILLS], ["test_widget.py"], {})],
+                      [], "controls note", root=repo)
+    out = capsys.readouterr().out
+    assert code == 1, "a battery ran while another held the tree"
+    assert "already running" in out or "another battery" in out, out
+    # It must not have touched the tree on its way to refusing.
+    assert (repo / "widget.py").read_text() == WIDGET
+
+
+def test_a_file_that_does_not_match_the_battery_baseline_is_reported(tmp_path):
+    """Restoring is verified against a hash taken BEFORE the battery ran, not
+    against the text an entry captured as it went.
+
+    The difference is the whole failure mode: an entry that captures a
+    "original" from a tree someone else already mutated restores faithfully to
+    that mutant, and every per-entry check passes while the tree is left
+    changed. A baseline hash is the only vantage point from which that is
+    visible.
+    """
+    f = tmp_path / "widget.py"
+    f.write_text(WIDGET, encoding="utf-8")
+    baseline = h.artifact_hashes(tmp_path, ["widget.py"])
+    assert h.verify_hashes(tmp_path, baseline) == []
+
+    f.write_text(WIDGET.replace("10", "11"), encoding="utf-8")
+    assert h.verify_hashes(tmp_path, baseline) == ["widget.py"]
+
+
+def test_a_mutant_left_applied_is_a_harness_failure_not_a_verdict(repo, capsys, monkeypatch):
+    """That baseline check WIRED INTO `main`, not merely available to it.
+
+    The functions above can pass while nothing calls them — the shape this
+    repository keeps meeting, where a guard exists and no test depends on its
+    being used. The failure is injected rather than described: an entry that
+    writes its mutant and reports success, which is what the earlier anomaly
+    left behind. Every per-entry restore said it had restored; only the
+    baseline can see the tree is not what the battery started from, and the
+    next run's anchors and verdicts would otherwise be read off it.
+    """
+    def leaves_it_mutated(name, edits, tests, extra_env, expect_kill, root=None):
+        """Applies the edit and never restores it — the injected failure."""
+        for rel, old, new in edits:
+            path = Path(root) / rel
+            path.write_text(path.read_text().replace(old, new), encoding="utf-8")
+        return True
+
+    monkeypatch.setattr(h, "run_entry", leaves_it_mutated)
+    code = h.main([("M1: supposed to be caught", [KILLS], ["test_widget.py"], {})],
+                  [], "controls note", root=repo)
+    out = capsys.readouterr().out
+    assert code == 1, out
+    assert "HARNESS FAILURE" in out, out
+    assert "widget.py" in out.split("HARNESS FAILURE")[1], out
+
+
 def test_a_clean_battery_exits_zero(repo):
     assert h.main([("M1: the real defect", [KILLS], ["test_widget.py"], {})],
                   [("N1: must survive", [BLIND], ["test_widget.py"], {})],

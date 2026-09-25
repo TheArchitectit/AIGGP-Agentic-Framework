@@ -190,11 +190,22 @@ MUTATIONS = [
     # it — so the stub keeps podman's side effect, and this pins that.
     ("F2: the podman stub stops materialising the store (an inert assertion)",
      [(FIX, '    [ -z "${store:-}" ] || mkdir -p "$store"\\n', "")], [T_IMG], {}),
+    # SECRET_SCAN_DECLARED is set here for the same reason the three
+    # COHERENCE_* keys are: it is the ambient value the fixture must not
+    # inherit, and setting it is what makes this mutation evaluate the hazard
+    # rather than a coincidence. Measured, with the mutation applied: ambient
+    # UNSET makes enroll abort under `set -u` ("SECRET_SCAN_DECLARED: unbound
+    # variable") and the run dies for a reason unrelated to escaping, which is
+    # how this mutation used to be credited to a test that asserts nothing about
+    # it. Ambient SET makes enroll succeed and bake the ambient path into the
+    # unit — the actual failure — so the killer is now the test that asserts the
+    # unit still carries the systemd token.
     ("F1: the Spoke inherits ambient COHERENCE_* (the branch is chosen by the host)",
      [(FIX, '            **{k: v for k, v in os.environ.items()\n'
             '               if not k.startswith("COHERENCE_")},', "            **os.environ,")],
      [T_IMG], {"COHERENCE_IMAGE": "ambient", "COHERENCE_IMAGE_MANIFEST_DIGEST": "sha256:a",
-                  "COHERENCE_PODMAN_STORE": "/tmp/ambient-store"}),
+                  "COHERENCE_PODMAN_STORE": "/tmp/ambient-store",
+                  "SECRET_SCAN_DECLARED": "/tmp/ambient-declared.txt"}),
 
     # --- scripts/runner-enroll.sh: installing the cycle (img-cycle-02, D3) ---
     # The cycle is installed the way the heartbeat is — a copied helper, the
@@ -222,8 +233,13 @@ MUTATIONS = [
     ("E4: the cycle's ExecStart becomes an inline shell body (incident #1)",
      [(ENR, "ExecStart=$CYC_HELPER", "ExecStart=bash -c '$CYC_HELPER'")],
      [T_ENROLL], {}),
+    # The anchor is the cycle pair's own line in the revoke list, which the
+    # sweep's arrival split across two lines (the fleet pair now follows it).
+    # Its previous spelling matched through to the end of the line — the moment
+    # that line stopped being the last one, the anchor matched nothing, and a
+    # mutation that never applied was summarised as a survivor.
     ("E5: revoke leaves the cycle timer behind (a unit failing forever)",
-     [(ENR, '          "$CYC_TIMER_UNIT" "$CYC_SERVICE_UNIT"\n', "")],
+     [(ENR, '          "$CYC_TIMER_UNIT" "$CYC_SERVICE_UNIT" \\\n', "")],
      [T_ENROLL], {}),
     ("E6: an existing helper is overwritten (a host's diverged copy vanishes "
      "without a word)", [(LIB, '    if [[ -x "$dest" ]]; then',

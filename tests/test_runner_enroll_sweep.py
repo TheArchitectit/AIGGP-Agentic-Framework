@@ -15,12 +15,16 @@ rather than a line in the enroll suite:
     no gate beside it dies at its own precondition on every tick, which is a
     host that looks enrolled and sweeps nothing.
 
-  * The declaration path is expanded by SYSTEMD from the EnvironmentFile, not by
-    enroll's shell. This is the same family as incident #1 (the inline `bash -c`
-    ExecStart) and it fails the same silent way: an unescaped `$SECRET_SCAN_
-    DECLARED` in the heredoc expands to the empty string at write time, the unit
-    runs `--declared` with no argument, and every tick exits 3 while enrollment
-    reports success. It is asserted against the generated UNIT, not described.
+  * The declaration path is expanded by SYSTEMD from the EnvironmentFile, not
+    left as whatever enroll's shell held. Both halves are asserted against the
+    generated UNIT. The failure is measured rather than described, because the
+    first version of this paragraph described it wrong: with the escaping
+    removed, an UNSET ambient variable makes enroll abort under `set -u`
+    ("unbound variable") and no unit is written at all — loud, and not the
+    "expands to the empty string while enrollment reports success" that was
+    claimed. The silent case is an ambient variable that IS set: enroll
+    succeeds and freezes that value into the unit, where the runner's env file
+    can no longer reach it.
 
   * The timer is enabled by PROVISIONING, like the image cycle's: units land on
     disk either way, and an unprovisioned host gets no running timer. A sweep
@@ -29,7 +33,10 @@ rather than a line in the enroll suite:
 
 Separate file rather than more lines in `test_runner_enroll.py`, which is at
 the hard limit for test files; the honest response to that gate is to stop
-growing the file rather than to move the limit.
+growing the file rather than to move the limit. This file then inherited the
+problem it was created to avoid — it is ~495 of 500 after the 5.2a hardening
+pass, so the next unit installed on a runner needs its own file rather than a
+test here.
 
 Dual-runnable: pytest collects test_*; `python3 tests/test_runner_enroll_sweep.py`
 runs them too.
@@ -144,9 +151,8 @@ def test_the_sweep_units_are_named_for_the_runner(tmp_path):
 
 def test_the_declaration_path_is_expanded_by_systemd_not_by_enroll(tmp_path):
     """The heredoc is unquoted, so an unescaped `$SECRET_SCAN_DECLARED` is
-    expanded by enroll's shell — where it is unset — and the unit is written
-    with `--declared` and no argument. Every tick then exits 3 (bad invocation)
-    while enrollment reports success, which is incident #1's shape exactly."""
+    expanded by enroll's own shell while the unit is being written, and what
+    lands on disk is a literal path rather than the token systemd expands."""
     s = Spoke(tmp_path)
     assert s.enroll("alpha").returncode == 0
     service, _ = s.fleet_units("alpha")
@@ -157,11 +163,59 @@ def test_the_declaration_path_is_expanded_by_systemd_not_by_enroll(tmp_path):
     exec_line = exec_lines[0]
     assert f"${DECLARED_KEY}" in exec_line, (
         f"the declaration is not left for systemd to expand — enroll's shell "
-        f"expanded it to nothing instead: {exec_line!r}")
+        f"expanded it instead: {exec_line!r}")
+    # The bare-path rule, pinned for the heartbeat and the cycle and (until the
+    # battery's F10 existed to falsify it) only asserted here: systemd
+    # substitutes $ in ExecStart against the unit's own environment before any
+    # shell runs, so an inline body loses the variables the body itself defines
+    # — incident #1, FAIL-6e7b6f84.
     assert "bash -c" not in exec_line, (
-        "an inline shell body loses the variables it defines itself (incident "
+        f"an inline shell body loses the variables it defines itself (incident "
         f"#1): {exec_line!r}")
     assert str(s.fleet_helper()) in exec_line, exec_line
+
+
+def test_an_ambient_declaration_is_not_baked_into_the_unit(tmp_path):
+    """The hazard the escaping actually prevents, and the one no test covered.
+
+    Measured, four ways, against the real enroll: with ambient UNSET an
+    unescaped `$SECRET_SCAN_DECLARED` makes enroll abort (`set -u`, "unbound
+    variable") and no unit is written — loud. With ambient SET it is silent and
+    worse: enroll succeeds and the ambient path is frozen into the unit as a
+    literal, where no later edit to the runner's env file can reach it, so the
+    sweep runs against whatever path the operator's shell happened to carry at
+    enrollment time. On a host where that path exists, the sweep that runs is
+    not the one the env file declares — and nothing reports it.
+
+    That is why the escape is the guard and `bash -c` is not: an inline body
+    (incident #1) loses its own variables, and this loses the host's.
+    """
+    s = Spoke(tmp_path)
+    assert s.enroll("alpha").returncode == 0
+
+    ambient = tmp_path / "ambient-declared.txt"
+    ambient.write_text("https://example.test/ambient/repo.git\n")
+    s.env[DECLARED_KEY] = str(ambient)
+
+    res = s.enroll("alpha")
+    assert res.returncode == 0, res.stderr
+
+    service, _ = s.fleet_units("alpha")
+    exec_line = next(l for l in service.read_text().splitlines()
+                     if l.startswith("ExecStart="))
+    assert str(ambient) not in exec_line, (
+        "the ambient declaration was baked into the unit at write time, where "
+        f"the runner's env file can no longer change it: {exec_line!r}")
+    assert f"${DECLARED_KEY}" in exec_line, (
+        f"the unit does not defer the declaration to systemd: {exec_line!r}")
+
+    # Non-vacuity, and the second half of the property: an ambient variable is
+    # not provisioning. The key is read from the runner's env file, which has
+    # none — so a host that merely exports it must still get no running timer.
+    assert s.fleet_units("alpha")[1].is_file(), \
+        "the timer unit is absent, so 'it was not enabled' proves nothing"
+    assert "secretscan" not in " ".join(s.systemctl_calls()), \
+        "an ambient variable was read as provisioning and enabled the sweep"
 
 
 def test_the_sweep_reads_the_runner_s_own_environment_file(tmp_path):
@@ -216,37 +270,35 @@ def test_the_sweep_is_enabled_once_a_declaration_is_provisioned(tmp_path):
     assert f"start {timer}" in calls, f"the sweep timer was not started: {calls}"
 
 
-def test_a_declaration_naming_a_missing_file_does_not_enable_the_timer(tmp_path):
-    """The variable being set is not the same as the sweep being able to run.
-    Enabling here produces a unit that exits 3 on every tick, which reads on a
-    dashboard exactly like a sweep that found nothing."""
-    s = Spoke(tmp_path)
-    assert s.enroll("alpha").returncode == 0
+def test_the_gate_is_on_the_declaration_being_usable_not_on_the_key_existing(tmp_path):
+    """One property, two operator mistakes that must reach the same verdict: a
+    key naming a file that has since been deleted, and a key left with no value
+    at all. The variable being set is not the same as the sweep being able to
+    run, so the gate tests the FILE (`-s`) rather than the key's presence — and
+    the mutant that swaps one for the other is separated by the missing-file
+    case, not by the empty one.
 
-    res = _provision(s, "alpha", str(tmp_path / "gone.txt"))
-    assert res.returncode == 0, res.stderr
-    # Non-vacuity: without this, "no secretscan in the systemctl calls" is also
-    # true of a host where the sweep was never installed at all.
-    assert s.fleet_units("alpha")[1].is_file(), \
-        "the timer unit is absent, so 'it was not enabled' proves nothing"
+    They are one test because they are one branch, `[[ ! -s "$declared" ]]`.
+    Kept apart, the second asserted nothing the first did not — the same
+    unkillable-second-guard shape the shell comment next to that condition
+    records deleting, one slice earlier.
+    """
+    for case, value in (("deleted", str(tmp_path / "gone.txt")), ("blank", "")):
+        (tmp_path / case).mkdir()          # Spoke homes are made without parents
+        s = Spoke(tmp_path / case)
+        assert s.enroll("alpha").returncode == 0
 
-    calls = " ".join(s.systemctl_calls())
-    assert "secretscan" not in calls, \
-        f"the sweep was enabled with a declaration that does not exist: {calls}"
-    assert "NOT enabled" in res.stdout, res.stdout
+        res = _provision(s, "alpha", value)
+        assert res.returncode == 0, res.stderr
+        # Non-vacuity: without this, "no secretscan in the systemctl calls" is
+        # also true of a host where the sweep was never installed at all.
+        assert s.fleet_units("alpha")[1].is_file(), \
+            "the timer unit is absent, so 'it was not enabled' proves nothing"
 
-
-def test_an_empty_declaration_does_not_enable_the_timer(tmp_path):
-    """`SECRET_SCAN_DECLARED=` is a key with no value — the operator edited the
-    file and left it blank, or a provisioning step failed halfway."""
-    s = Spoke(tmp_path)
-    assert s.enroll("alpha").returncode == 0
-    res = _provision(s, "alpha", "")
-    assert res.returncode == 0, res.stderr
-    assert s.fleet_units("alpha")[1].is_file(), \
-        "the timer unit is absent, so 'it was not enabled' proves nothing"
-    assert "secretscan" not in " ".join(s.systemctl_calls()), s.systemctl_calls()
-    assert "NOT enabled" in res.stdout, res.stdout
+        calls = " ".join(s.systemctl_calls())
+        assert "secretscan" not in calls, \
+            f"the sweep was enabled with a {case} declaration: {calls}"
+        assert "NOT enabled" in res.stdout, res.stdout
 
 
 def test_a_duplicated_declaration_resolves_to_the_last_one(tmp_path):
@@ -271,6 +323,118 @@ def test_a_duplicated_declaration_resolves_to_the_last_one(tmp_path):
         f"have used the corrected last one:\n{env.read_text()}")
 
 
+def test_a_declaration_naming_no_repository_does_not_enable_the_timer(tmp_path):
+    """The third way a declaration can be unusable, and the one that used to
+    pass: a file that exists, is non-empty, and names nothing — every line
+    blank or a `#` comment.
+
+    It has to be refused here rather than left to the sweep, because the sweep
+    exits 3 on it: enabling the timer buys a unit that fails on every tick, and
+    on a dashboard that is indistinguishable from a sweep that ran and found
+    nothing. The two readers must agree on this file, so the scope of the check
+    is exactly the sweep's own rule (strip at the first `#`, drop whitespace,
+    skip if nothing is left) and no further.
+    """
+    s = Spoke(tmp_path)
+    assert s.enroll("alpha").returncode == 0
+
+    empty_of_repos = tmp_path / "declared.txt"
+    empty_of_repos.write_text("# the fleet, to be filled in\n\n   \n# TODO\n")
+    res = _provision(s, "alpha", str(empty_of_repos))
+    assert res.returncode == 0, res.stderr
+
+    assert s.fleet_units("alpha")[1].is_file(), \
+        "the timer unit is absent, so 'it was not enabled' proves nothing"
+    assert "secretscan" not in " ".join(s.systemctl_calls()), (
+        "a declaration naming no repository was read as provisioning, so the "
+        f"sweep was enabled to exit 3 on every tick:\n{empty_of_repos.read_text()}")
+    assert "NOT enabled" in res.stdout, res.stdout
+
+
+def test_an_indented_url_is_read_as_the_sweep_reads_it(tmp_path):
+    """The two readers of the declaration file must agree, in BOTH directions.
+
+    `secret-scan-fleet.sh` strips each line at its first `#` and then removes
+    every whitespace character, so `  https://…  ` is a repository to it. A
+    check here written as `^[^#[:space:]]` — the obvious shorter form, and the
+    one a review proposed — would refuse that line, and enroll would report a
+    provisioned sweep as NOT enabled while the sweep itself would have scanned
+    the fleet: the same false negative the quoted-path strip exists to prevent,
+    in the other direction.
+
+    Asserted by asking BOTH readers about the same file: enroll must enable the
+    timer, and the installed sweep must accept the declaration and exit 0.
+    """
+    import subprocess
+
+    s = Spoke(tmp_path)
+    assert s.enroll("alpha").returncode == 0
+    s.stub_gitleaks()
+
+    origin = tmp_path / "origin"
+    origin.mkdir()
+    git = ["git", "-c", "user.email=a@b", "-c", "user.name=a"]
+    subprocess.run([*git, "init", "-q", "."], cwd=origin, check=True)
+    subprocess.run([*git, "commit", "-q", "--allow-empty", "-m", "init"],
+                   cwd=origin, check=True)
+
+    declared = tmp_path / "declared.txt"
+    declared.write_text(f"   file://{origin}   # indented, with a trailing note\n")
+
+    res = _provision(s, "alpha", str(declared))
+    assert res.returncode == 0, res.stderr
+    assert s.fleet_units("alpha")[1].is_file(), \
+        "the timer unit is absent, so 'it was not enabled' proves nothing"
+    assert "secretscan" in " ".join(s.systemctl_calls()), (
+        "enroll refused a declaration the sweep reads as one repository — the "
+        f"two readers disagree:\n{declared.read_text()}")
+
+    # The other reader, on the same file.
+    work = tmp_path / "work"
+    work.mkdir()
+    swept = s.run_fleet_helper("alpha", declared, "--work", str(work))
+    assert swept.returncode == 0, (
+        f"the sweep refused the declaration enroll accepted (rc={swept.returncode}):\n"
+        f"{swept.stdout}\n{swept.stderr}")
+
+
+def test_a_quoted_declaration_path_is_read_as_systemd_reads_it(tmp_path):
+    """enroll parses the EnvironmentFile itself, so its reader is a second
+    reader of a file systemd also reads — and where they diverge, a provisioned
+    sweep is silently left disabled.
+
+    Measured divergence: systemd unquotes a value, so
+    `SECRET_SCAN_DECLARED="/tmp/a b/declared.txt"` is a line it reads and runs
+    perfectly. enroll resolved the literal string including the quotes, found no
+    such file, and left the timer off on a host whose operator had provisioned
+    it — defeating, one step earlier, exactly the whitespace case the ExecStart's
+    own quoting exists to defend.
+
+    The boundary is asserted too: this is one matching pair of quotes, not an
+    EnvironmentFile parser. A trailing comment is not emulated, and the message
+    prints the value it read, which is where the operator can see it.
+    """
+    spaced = tmp_path / "with space"
+    spaced.mkdir()
+    declared = spaced / "declared.txt"
+    declared.write_text("https://example.test/owner/repo.git\n")
+
+    s = Spoke(tmp_path)
+    assert s.enroll("alpha").returncode == 0
+    env = s.env_file("alpha")
+    env.write_text(env.read_text()
+                   + f'{DECLARED_KEY}="{declared}"\n')
+    res = s.enroll("alpha")
+    assert res.returncode == 0, res.stderr
+
+    assert s.fleet_units("alpha")[1].is_file(), \
+        "the timer unit is absent, so 'it was not enabled' proves nothing"
+    assert "secretscan" in " ".join(s.systemctl_calls()), (
+        "a quoted declaration path containing a space was read with its quotes "
+        "still on it, so enroll saw a file that does not exist and left the "
+        f"sweep disabled — while systemd reads that line fine:\n{env.read_text()}")
+
+
 def test_a_commented_out_declaration_does_not_enable_the_timer(tmp_path):
     """`#SECRET_SCAN_DECLARED=/path` is how an operator turns the sweep off
     without losing the path. systemd ignores it, so enroll must too — a grep
@@ -285,6 +449,11 @@ def test_a_commented_out_declaration_does_not_enable_the_timer(tmp_path):
     env.write_text(env.read_text() + f"#{DECLARED_KEY}={good}\n")
     res = s.enroll("alpha")
     assert res.returncode == 0, res.stderr
+    # Non-vacuity, as in the two tests above: without this, "no secretscan in
+    # the systemctl calls" is equally true of a host where the sweep does not
+    # exist — this was the only test in the file that survived deleting it.
+    assert s.fleet_units("alpha")[1].is_file(), \
+        "the timer unit is absent, so 'it was not enabled' proves nothing"
     assert "secretscan" not in " ".join(s.systemctl_calls()), (
         "a commented-out declaration was read as a live one and enabled the "
         f"sweep the operator had just turned off:\n{env.read_text()}")
