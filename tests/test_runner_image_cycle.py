@@ -37,8 +37,16 @@ REF = f"{IMAGE}@{RECORDED}"
 # Answers the podman verbs the cycle uses, from JSON state plus env knobs:
 #   STUB_PULL_RC       exit code for `podman pull`            (default 0)
 #   STUB_RMI_RC        exit code for `podman rmi`             (default 0)
+#   STUB_INFO_RC       exit code for `podman info`            (default 0)
 #   STUB_INSPECT       what `image inspect {{.Digest}}` prints on success
-#   STUB_GRAPH_ROOT    what `info {{.Store.GraphRoot}}` prints (default: --root)
+#   STUB_GRAPH_ROOT    what `info {{.Store.GraphRoot}}` prints (default: the
+#                      normalised --root, which is what podman actually answers)
+#
+# The stub reproduces two MEASURED side effects, because each is the only thing
+# that makes a test non-vacuous: `info` materialises the store it is pointed at
+# (so "the cycle did not create the store" means something), and `rmi` removes
+# the ID's rows and the refs they own (so "the pinned image survived the prune"
+# can fail).
 # Global flags before the verb are parsed and recorded, so a test can assert the
 # cycle addressed the store it was configured with rather than the ambient one.
 # `podman images` answers from the state file's "images" list (see Host.stock),
@@ -84,11 +92,27 @@ if not rest:
     sys.exit(125)
 
 if rest[0] == "info":
-    # MEASURED 2026-09-24: `podman --root <path> info --format
-    # '{{.Store.GraphRoot}}'` answers with the path it was given. That is the
-    # point — --root is a request, this is the answer.
-    row = {"Store.GraphRoot": os.environ.get("STUB_GRAPH_ROOT") or root or "",
+    # MEASURED 2026-09-24 (podman 6.1.1): `podman --root <path> info --format
+    # '{{.Store.GraphRoot}}'` answers with the path NORMALISED, not verbatim —
+    # `--root /tmp/ps1/` answers `/tmp/ps1`, and `--root /tmp//ps1` answers
+    # `/tmp/ps1` too. So this stub normalises as well. It did not always: it
+    # used to echo its argument, which encoded the opposite premise and meant
+    # the real comparison in the script was never exercised against the answer
+    # podman actually gives. A verbatim stub agrees with a byte comparison, so
+    # the two masked each other and a trailing-slash typo read as a mismatch.
+    #
+    # `podman --root X info` also MATERIALISES X when it does not exist
+    # (measured: one run left X/{db.sql,libpod} behind). That side effect is
+    # reproduced here rather than omitted, because it is the only thing that
+    # makes an assertion about the store NOT being created mean anything.
+    if root and root != "<none>":
+        os.makedirs(os.path.realpath(root), exist_ok=True)
+    row = {"Store.GraphRoot": os.environ.get("STUB_GRAPH_ROOT")
+           or (os.path.realpath(root) if root else ""),
            "Host.Security.Rootless": "false"}
+    if os.environ.get("STUB_INFO_RC"):
+        sys.stderr.write("Error: cannot connect to Podman\n")
+        sys.exit(int(os.environ["STUB_INFO_RC"]))
     emit(fmt_of(rest, ["Store.GraphRoot"]), row)
     sys.exit(0)
 
@@ -148,7 +172,22 @@ if rest[0] == "rmi":
     rc = int(os.environ.get("STUB_RMI_RC", "0"))
     if rc != 0:
         sys.stderr.write("Error: image is in use by a container\n")
-    sys.exit(rc)
+        sys.exit(rc)
+    # MEASURED 2026-09-24: `podman rmi <id>` removes every row that ID carries,
+    # and the image leaves the store. The stub used to return 0 without
+    # touching state, so "the pinned image survived the prune" was an assertion
+    # about a store where nothing could ever be removed — green whatever the
+    # script did. Reaping the rows here is what gives the post-prune
+    # re-verification something to catch.
+    target = rest[-1]
+    reaped = [i for i in state.get("images", []) if i["id"] == target]
+    gone = set()
+    for i in reaped:
+        gone.update(i.get("refs") or ["%s@%s" % (i["repository"], i["digest"])])
+    state["images"] = [i for i in state.get("images", []) if i["id"] != target]
+    state["present"] = [r for r in state.get("present", []) if r not in gone]
+    save()
+    sys.exit(0)
 
 sys.stderr.write("stub: unhandled argv %r\n" % (rest,))
 sys.exit(125)
@@ -158,7 +197,7 @@ sys.exit(125)
 class Host:
     """A fake runner host with podman stubbed on PATH."""
 
-    def __init__(self, tmp_path, **knobs):
+    def __init__(self, tmp_path, store_exists=True, **knobs):
         bindir = tmp_path / "bin"
         bindir.mkdir(exist_ok=True)
         self.log = tmp_path / "podman.jsonl"
@@ -169,7 +208,13 @@ class Host:
         p.write_text(PODMAN_STUB)
         p.chmod(0o755)
         self.bindir = bindir
+        # A provisioned host's store is a MOUNT that exists before anything
+        # runs, so it exists here by default. `store_exists=False` models the
+        # host whose mount has not come up — the case where an empty store
+        # written onto the underlying filesystem outlives the mount.
         self.store = str(tmp_path / "store")
+        if store_exists:
+            (tmp_path / "store").mkdir(exist_ok=True)
         self.env = {
             **os.environ,
             "PATH": f"{bindir}:{os.environ['PATH']}",
@@ -199,13 +244,24 @@ class Host:
         self._save(state)
 
     def stock(self, *images):
-        """Publish the `podman images` listing: (id, repository, digest[, tag])
-        rows. Tag defaults to `<none>`, which is how podman lists an image
-        pulled by digest and never tagged."""
+        """Publish the `podman images` listing: (id, repository, digest[, tag[,
+        refs]]) rows. Tag defaults to `<none>`, which is how podman lists an
+        image pulled by digest and never tagged.
+
+        `refs` names the store refs that ID owns — what `image exists` would
+        answer true for, and what `rmi <id>` takes away. It defaults to
+        `repository@digest`, which is right for a digest-pulled row, and exists
+        as an override for the case MEASURED 2026-09-24 where a row's digest is
+        NOT the ref: the listing's `.Digest` and `inspect`'s `.Digest` are two
+        different values for the same bytes (`sha256:294b683c…` vs
+        `sha256:d56c381f…` for one alpine pull), so a listing can name an ID
+        with a digest that is not the one the record pins while that ID is
+        exactly what the pinned ref resolves to."""
         state = self._state()
         state["images"] = [
             {"id": r[0], "repository": r[1], "digest": r[2],
-             "tag": r[3] if len(r) > 3 else "<none>"}
+             "tag": r[3] if len(r) > 3 else "<none>",
+             "refs": list(r[4]) if len(r) > 4 else None}
             for r in images]
         self._save(state)
 
@@ -254,6 +310,20 @@ def test_present_image_is_not_pulled(tmp_path):
     assert not h.pull_refs(), "a host already holding the pinned digest was re-pulled"
 
 
+def test_a_converged_host_says_so(tmp_path):
+    """stdout is the whole of what a fleet operator sees (the timer's journal),
+    so a convergence that prints nothing is indistinguishable from a tick that
+    never ran. The line must also come LAST — it is a claim about the store, so
+    printing it before the checks that could contradict it means the one line
+    grepped for says the opposite of the exit code."""
+    h = Host(tmp_path)
+    res = h.runs()
+    assert res.returncode == 0, res.stderr
+    assert "converged" in res.stdout.lower(), (
+        f"a converged host did not say so: {res.stdout!r}")
+    assert REF in res.stdout, f"the claim did not name the ref: {res.stdout!r}"
+
+
 def test_the_target_is_digest_qualified_never_a_tag(tmp_path):
     """coh-rt-01: the executed bytes are resolved by digest. A cycle that
     follows a tag would provision whatever the tag points at today."""
@@ -292,6 +362,82 @@ def test_a_store_other_than_the_configured_one_fails_closed(tmp_path):
     assert "/somewhere/else" in msg and h.store in msg, (
         f"the store mismatch was not named on both sides: {msg!r}")
     assert not h.pull_refs(), "pulled into a store it had not verified"
+
+
+def test_a_trailing_slash_on_the_store_is_not_a_mismatch(tmp_path):
+    """MEASURED 2026-09-24 (podman 6.1.1): `--root /tmp/ps1/` answers
+    `/tmp/ps1`. The comparison is between two NAMES for one directory, so a
+    spelling difference — a trailing slash, an ordinary EnvironmentFile typo —
+    must not be read as two different stores. Compared as raw strings it is,
+    and the tick then refuses to converge on a host that is configured
+    correctly."""
+    h = Host(tmp_path, store_exists=True)
+    h.env["COHERENCE_PODMAN_STORE"] = h.store + "/"
+    res = h.runs()
+    assert res.returncode == 0, (
+        f"a trailing slash made a correctly provisioned host read as a store "
+        f"mismatch: {res.stdout + res.stderr!r}")
+    assert "mismatch" not in (res.stdout + res.stderr).lower(), res.stdout
+
+
+def test_a_podman_that_fails_is_not_reported_as_a_store_mismatch(tmp_path):
+    """A podman that cannot answer is not a wrong path. `|| true` collapses the
+    failure to an empty string, which equals no configured store — so every
+    cause (a broken store, a permission problem, a podman that will not start)
+    arrived as "store mismatch" and sent the operator to edit a path that was
+    already correct. Each cause needs its own words."""
+    h = Host(tmp_path, STUB_INFO_RC=125)
+    h.attach()
+    res = h.runs()
+    msg = (res.stdout + res.stderr)
+    assert res.returncode != 0, "a podman that could not answer reported convergence"
+    assert "store mismatch" not in msg.lower(), (
+        f"a failure to answer was rendered as a store mismatch: {msg!r}")
+    assert "podman" in msg.lower(), f"the failure did not name podman: {msg!r}"
+    assert not h.pull_refs(), "pulled without ever verifying the store"
+
+
+def test_the_store_is_never_created_by_the_cycle(tmp_path):
+    """MEASURED 2026-09-24: `podman --root X info` MATERIALISES X when it is
+    missing (one run left X/{db.sql,libpod} behind). The store is a mount, so
+    creating it on a host whose mount has not come up leaves an empty store on
+    the underlying filesystem — one that outlives the mount, is filled by the
+    pull that follows, and is invisible from the mount the gate actually reads.
+    So existence is checked before podman is asked anything."""
+    h = Host(tmp_path, store_exists=False)
+    res = h.runs()
+    msg = (res.stdout + res.stderr)
+    assert res.returncode != 0, "a host with no store reported convergence"
+    assert h.store in msg, f"the missing store was not named: {msg!r}"
+    assert not Path(h.store).exists(), (
+        "the cycle created the store it was pointed at — a cycle must not "
+        "bring up storage that has not been mounted")
+    assert not h.calls(), "asked podman about a store that does not exist"
+
+
+def test_the_pinned_image_is_still_there_after_the_prune(tmp_path):
+    """Exit 0 claims the recorded bytes are in this store. The prune reaps IDs,
+    and `podman rmi <id>` takes every row that ID carries — so the reap set is
+    decided by reasoning about podman's listing, and reasoning is exactly what
+    this repository does not accept in place of a check. MEASURED 2026-09-24:
+    the listing's `.Digest` and `inspect`'s `.Digest` are DIFFERENT values for
+    the same bytes, so a listing can legitimately report a digest that is not
+    the recorded one for the pinned image — which is how the guard below lets
+    the pinned ID into the reap set. Re-verifying afterwards is what turns the
+    invariant into an observation."""
+    h = Host(tmp_path)
+    # The listing names ID `aaaa` with the digest OTHER, while `aaaa` is what
+    # the pinned ref resolves to — the listing's digest is not the ref. So the
+    # guard reads `aaaa` as a superseded build of this repo (same repository,
+    # untagged, digest not the recorded one) and reaps the pinned image.
+    h.stock(("aaaa", IMAGE, OTHER, "<none>", [REF]))
+    h.attach(REF)
+    res = h.runs()
+    assert "aaaa" in h.rmis(), "the scenario did not exercise the reap at all"
+    assert res.returncode != 0, (
+        "the prune removed the pinned image and the tick still reported "
+        "convergence")
+    assert "converged" not in res.stdout.lower(), res.stdout
 
 
 # --- fail-closed paths (img-cycle-01, img-cycle-02) -----------------------------
@@ -414,10 +560,17 @@ def test_prune_never_removes_an_id_carrying_another_name(tmp_path):
 
 
 def test_a_locally_built_tag_of_this_repo_is_not_pruned(tmp_path):
-    """A digest-pulled image lists with Tag `<none>`; a local build lists with
-    a tag and no digest. Only the former is a superseded registry build — the
-    latter is someone's working image, under the very repo name the CI build
-    job uses."""
+    """A digest-pulled image that was never tagged lists with Tag `<none>`; one
+    built or pulled under a name lists WITH that name. Only the former is a
+    superseded registry build — the latter is someone's working image, under
+    the very repo name the CI build job uses.
+
+    MEASURED 2026-09-24, correcting what this docstring and the script's own
+    comment used to claim: a local build lists WITH a digest
+    (`sha256:df67b148…` for a `FROM scratch` build), not "a tag and no digest".
+    The Tag is therefore the whole of the discrimination — the digest
+    comparison cannot be doing any of this work, and a reader who believed it
+    was would think a tagged build was excluded twice over."""
     h = Host(tmp_path)
     h.stock(("eeee", IMAGE, "<none>", "latest"))
     res = h.runs()
