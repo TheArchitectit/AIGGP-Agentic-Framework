@@ -14,6 +14,8 @@ The HTTP transport and its rate-limit handling live in hub/github_client.py;
 this module is the polling POLICY — what to check, and what to alert on.
 
 // spec: mon-channels-01, mon-online-01, mon-queue-01, mon-gates-01, mon-drift-01
+// spec: secret-scan-07 — the hub-side rendering of the fleet sweep's state, via
+// scan_view.scan_alerts (see hub/scan_view.py); this module only raises them.
 """
 
 from __future__ import annotations
@@ -27,6 +29,7 @@ from . import registry
 from .alerts import AlertSink
 from .config import Config
 from .github_client import GitHubClient, parse_iso
+from .scan_view import scan_alerts
 from .server import HubState
 
 log = logging.getLogger("hub.monitor")
@@ -96,8 +99,23 @@ class MonitorLoop:
                 log.error("poll failed for %s: %s", repo, e, exc_info=True)
 
     def _poll_repo(self, repo: str, runners: list[dict]) -> None:
-        """Poll all checks for a single repo."""
+        """Poll all checks for a single repo.
+
+        The two checks that read ONLY the registry run FIRST, before any call
+        that can raise out of this method. `github_client` catches HTTPError but
+        not URLError, so a refused connection or a DNS failure propagates into
+        poll_cycle's per-repo handler and aborts every check that has not run
+        yet: ordering, not just independence, is what keeps an image deficiency
+        or an unscanned repository from going quiet through a network outage.
+        (Measured — placed last, a closed port silences both.)
+        """
         owner = repo.split("/")[0]
+
+        # --- 3.5 Evaluator-image readiness (img-cycle-03)
+        self._check_image_readiness(repo, runners)
+
+        # --- 3.6 Fleet scan state (secret-scan-07)
+        self._check_scan_state(repo, runners)
 
         # --- 3.1 Runner status + queued-run age (mon-online-01, mon-queue-01)
         self._check_runner_status(repo, runners)
@@ -111,9 +129,6 @@ class MonitorLoop:
 
         # --- 3.4 Spec-coherence presence/recency (coh-int-02, coh-int-07)
         self._check_spec_coherence(repo, owner)
-
-        # --- 3.5 Evaluator-image readiness (img-cycle-03)
-        self._check_image_readiness(repo, runners)
 
     def _check_runner_status(self, repo: str, runners: list[dict]) -> None:
         """Check GitHub API runner status + heartbeat freshness (mon-online-01)."""
@@ -185,6 +200,25 @@ class MonitorLoop:
                           "has not reported an image state at all, so it cannot "
                           "be counted ready to gate")
             self._raise_alert(repo, "runner_image_missing", runner["name"], detail)
+
+    def _check_scan_state(self, repo: str, runners: list[dict]) -> None:
+        """A repository whose scan state is unknown is not a clean repository.
+
+        secret-scan-07's hub half. Like `_check_image_readiness` above — and for
+        the same reason — this reads only the registry, so a GitHub rate limit
+        cannot silence it, and it is NOT folded into `_check_runner_status`,
+        which returns early on an API failure.
+
+        The sentences live in `scan_view.scan_alerts`: what a verdict should say
+        is not a property of the poll loop, and this method exists to attach the
+        repo and the runner name to whatever that view decides. It raises
+        nothing of its own and re-renders nothing — a second opinion about
+        whether a state is usable is exactly the divergence this repository
+        keeps finding (the predicate is the single reader of that question).
+        """
+        for runner in runners:
+            for check_class, detail in scan_alerts(runner):
+                self._raise_alert(repo, check_class, runner["name"], detail)
 
     def _check_queue_drain(self, repo: str, runners: list[dict]) -> None:
         """Check for queued workflow runs older than threshold (mon-queue-01)."""

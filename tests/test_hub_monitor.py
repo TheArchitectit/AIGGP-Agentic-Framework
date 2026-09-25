@@ -12,6 +12,7 @@ Dual-runnable: pytest collects test_*; `python3 tests/test_hub_monitor.py` runs 
 """
 import json
 import os
+import socket
 import sys
 import threading
 from datetime import datetime, timedelta, timezone
@@ -552,6 +553,41 @@ def test_a_rate_limited_hub_still_alerts_about_a_missing_image(tmp_path):
     classes = [a[1] for a in sink.alerts]
     assert "runner_image_missing" in classes, (
         f"the image deficiency was silenced by the API failure: {sink.alerts}")
+
+
+# --- fleet scan state rendering (secret-scan-07) -----------------------------
+
+def test_poll_cycle_reports_scan_state_while_the_api_is_unreachable(tmp_path):
+    """The seam, the attribution, and the ordering this check exists for.
+
+    Pins that poll_cycle DISPATCHES the check (a wiring that exists and is never
+    called passes every direct-method test) and that two hosts sharing one
+    check_class are told apart by runner. The port here is CLOSED, not rate
+    limited: the client catches HTTPError but NOT URLError, so a refused
+    connection raises out of `_check_runner_status` into poll_cycle's per-repo
+    handler and aborts every check after it — reading only the registry keeps
+    this check alive through that, but only if it runs before the network calls.
+    """
+    probe = socket.socket()
+    probe.bind(("127.0.0.1", 0))
+    dead_port = probe.getsockname()[1]
+    probe.close()  # nothing listens there now: a real ECONNREFUSED
+    state, r1 = _image_state_state(tmp_path, None, None)
+    r2 = state.registry.enroll("r2", "owner/repo", ["devgate"], "ucs03")
+    r2["scan_state"] = {"repos": [{"name": "alpha", "state": "findings",
+                                   "findings": 2, "uncovered": 1}],
+                        "unreadable": None}
+    state.registry.save()
+    sink = _CollectSink()
+    monitor = MonitorLoop(state, alert_sink=sink)
+    monitor.client.api_base = f"http://127.0.0.1:{dead_port}"
+    monitor.client.backoff_max = 0
+    monitor.poll_cycle()
+    # Compare the prefix: tuple equality includes LENGTH, so a 3-tuple is never
+    # `in` a list of 4-tuples — the assertion would hold for no wiring at all.
+    got = [(repo, cls, who) for repo, cls, who, _ in sink.alerts]
+    assert ("owner/repo", "runner_scan_unknown", "r1") in got, sink.alerts
+    assert ("owner/repo", "runner_scan_findings", "r2") in got, sink.alerts
 
 
 def main() -> int:

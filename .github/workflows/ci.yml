@@ -380,7 +380,8 @@ jobs:
                    tests/mutation_battery_publish_trigger.py \
                    tests/mutation_battery_secret_scan_fleet.py \
                    tests/mutation_battery_runner_sweep.py \
-                   tests/mutation_battery_scan_report.py; do
+                   tests/mutation_battery_scan_report.py \
+                   tests/mutation_battery_scan_view.py; do
             echo "::group::$b"
             python3 "$b" || exit 1
             echo "::endgroup::"
