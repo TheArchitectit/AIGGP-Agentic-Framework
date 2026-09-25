@@ -130,6 +130,52 @@ def test_heartbeat_cycle_and_revoke(tmp_path):
         hub.close()
 
 
+def test_image_state_rides_the_heartbeat_over_http(tmp_path):
+    """The whole path, because the distinction is made at the JSON boundary.
+
+    The registry's sentinel is only meaningful if the SERVER reads the body
+    presence-aware — a body whose image keys are missing must not clear the
+    stored ref, and a body that sends null must. Doing this at the registry
+    alone would leave the decision to `data.get(key)`, which returns None for
+    both and would silently pick "clear" for every poster that says nothing.
+    """
+    hub = HubFixture(tmp_path)
+    ref = "ghcr.io/owner/repo/devgate-coherence@sha256:" + "a" * 64
+    try:
+        code, body = hub.post("/enroll", {"runner_name": "r1", "repo": "OWNER/REPO",
+                                          "enrollment_token": "test-enroll-token-PLACEHOLDER"})
+        hb_token = body["heartbeat_token"]
+
+        # Converged, as runner-heartbeat.sh posts it.
+        code, body = hub.post("/heartbeat", {
+            "runner_name": "r1", "heartbeat_token": hb_token,
+            "disk_ok": True, "podman_ok": True,
+            "image_digest": ref, "image_reason": None})
+        assert code == 200, body
+        runner = hub.state.registry.find_runner("r1")
+        assert runner["image_digest"] == ref
+        assert runner["image_reason"] is None
+
+        # A body that says nothing about images (an older helper on the host).
+        code, body = hub.post("/heartbeat", {"runner_name": "r1", "heartbeat_token": hb_token,
+                                             "disk_ok": True, "podman_ok": True})
+        assert code == 200, body
+        assert hub.state.registry.find_runner("r1")["image_digest"] == ref, \
+            "an omitted image field cleared a converged host's ref"
+
+        # The host loses its image: explicit null plus the reason.
+        code, body = hub.post("/heartbeat", {
+            "runner_name": "r1", "heartbeat_token": hb_token,
+            "image_digest": None, "image_reason": "podman not on PATH"})
+        assert code == 200, body
+        runner = hub.state.registry.find_runner("r1")
+        assert runner["image_digest"] is None, \
+            "a host that reported no image kept showing a stale ref"
+        assert runner["image_reason"] == "podman not on PATH"
+    finally:
+        hub.close()
+
+
 def test_health_endpoint_shape(tmp_path):
     hub = HubFixture(tmp_path)
     try:

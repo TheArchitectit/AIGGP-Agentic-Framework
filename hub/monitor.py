@@ -10,97 +10,26 @@ queue (mon-channels-01). The poll loop runs in a daemon thread; it backs off
 on 403/429 (rate limit) and logs loudly when GITHUB_TOKEN is absent so the
 hub never passes vacuously.
 
-Stdlib-only: urllib.request for GitHub API calls, no pip dependencies.
+The HTTP transport and its rate-limit handling live in hub/github_client.py;
+this module is the polling POLICY — what to check, and what to alert on.
 
 // spec: mon-channels-01, mon-online-01, mon-queue-01, mon-gates-01, mon-drift-01
 """
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 import time
-import urllib.error
-import urllib.request
 from datetime import datetime, timezone
 
+from . import registry
 from .alerts import AlertSink
 from .config import Config
+from .github_client import GitHubClient, parse_iso
 from .server import HubState
 
 log = logging.getLogger("hub.monitor")
-
-
-def _parse_iso(value: str | None) -> datetime | None:
-    """Parse an ISO-8601 timestamp; return None on failure."""
-    if not value:
-        return None
-    try:
-        return datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError:
-        return None
-
-
-class GitHubClient:
-    """Minimal GitHub REST client (stdlib urllib). Backs off on 403/429."""
-
-    def __init__(self, api_base: str, token: str, backoff_max: int = 120) -> None:
-        self.api_base = api_base.rstrip("/")
-        self.token = token
-        self.backoff_max = backoff_max
-        self._last_request_time = 0.0
-
-    def _request(self, method: str, path: str, body: dict | None = None,
-                 accept: str = "application/vnd.github+json") -> tuple[int, dict | list]:
-        """Make an authenticated GitHub API request. Returns (status, parsed_body)."""
-        url = f"{self.api_base}{path}"
-        headers = {
-            "Authorization": f"Bearer {self.token}",
-            "Accept": accept,
-            "X-GitHub-Api-Version": "2022-11-28",
-        }
-        data = None
-        if body is not None:
-            data = json.dumps(body).encode()
-            headers["Content-Type"] = "application/json"
-
-        req = urllib.request.Request(url, data=data, headers=headers, method=method)
-        try:
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                raw = resp.read().decode()
-                return resp.status, json.loads(raw) if raw else {}
-        except urllib.error.HTTPError as e:
-            body_raw = e.read().decode() if e.fp else ""
-            try:
-                parsed = json.loads(body_raw) if body_raw else {}
-            except json.JSONDecodeError:
-                parsed = {"message": body_raw[:200]}
-            return e.code, parsed
-
-    def get(self, path: str) -> tuple[int, dict | list]:
-        return self._request("GET", path)
-
-    def post(self, path: str, body: dict) -> tuple[int, dict | list]:
-        return self._request("POST", path, body=body)
-
-    def get_with_backoff(self, path: str, max_retries: int = 3) -> tuple[int, dict | list] | None:
-        """GET with exponential backoff on 403/429. Returns None if all retries exhausted."""
-        for attempt in range(max_retries):
-            status, body = self.get(path)
-            if status == 200:
-                return (status, body)
-            if status in (403, 429):
-                # Rate limited — honor Retry-After header if present.
-                retry_after = body.get("retry_after") or body.get("X-Retry-After")
-                wait = min(int(retry_after) if retry_after else (2 ** attempt) * 10, self.backoff_max)
-                log.warning("rate limited on %s (attempt %d/%d), backing off %ds",
-                            path, attempt + 1, max_retries, wait)
-                time.sleep(wait)
-                continue
-            # Other errors: return immediately.
-            return (status, body)
-        return None
 
 
 class MonitorLoop:
@@ -183,6 +112,9 @@ class MonitorLoop:
         # --- 3.4 Spec-coherence presence/recency (coh-int-02, coh-int-07)
         self._check_spec_coherence(repo, owner)
 
+        # --- 3.5 Evaluator-image readiness (img-cycle-03)
+        self._check_image_readiness(repo, runners)
+
     def _check_runner_status(self, repo: str, runners: list[dict]) -> None:
         """Check GitHub API runner status + heartbeat freshness (mon-online-01)."""
         owner = repo.split("/")[0]
@@ -208,7 +140,7 @@ class MonitorLoop:
             api_online = api_runner is not None and api_runner.get("status") == "online"
 
             # Check heartbeat freshness.
-            last_hb = _parse_iso(runner.get("last_heartbeat"))
+            last_hb = parse_iso(runner.get("last_heartbeat"))
             hb_fresh = (
                 last_hb is not None
                 and (now - last_hb).total_seconds() < stale_threshold_sec
@@ -223,6 +155,36 @@ class MonitorLoop:
                     reasons.append(f"heartbeat stale ({age_str})")
                 self._raise_alert(repo, "runner_offline", name,
                                   detail="; ".join(reasons))
+
+    def _check_image_readiness(self, repo: str, runners: list[dict]) -> None:
+        """A host that cannot serve the pinned image is not ready to gate.
+
+        Deliberately NOT folded into `_check_runner_status`, which returns
+        early when the runners API call fails: an image deficiency raised
+        there would be silenced by a rate limit, precisely when an operator is
+        looking at the dashboard. This check reads only the registry, so it
+        cannot be starved by GitHub.
+
+        The detail carries the reason the host gave, because "no image" alone
+        does not say whether to fix the EnvironmentFile, install podman, or
+        re-pull — and a host that reported NOTHING is told apart from one that
+        reported a fault, in the sentence and not just in a trailing
+        parenthetical: the two need different actions (provision the host, or
+        fix what it reported), and a helper that predates the cycle is the
+        first case on every already-enrolled host. img-cycle-03 keeps "unknown"
+        and "cannot serve" separate for the same reason.
+        """
+        for runner in runners:
+            if not registry.image_missing(runner):
+                continue
+            reason = runner.get("image_reason")
+            if reason:
+                detail = f"cannot serve the pinned evaluator image: {reason}"
+            else:
+                detail = ("cannot serve the pinned evaluator image: this host "
+                          "has not reported an image state at all, so it cannot "
+                          "be counted ready to gate")
+            self._raise_alert(repo, "runner_image_missing", runner["name"], detail)
 
     def _check_queue_drain(self, repo: str, runners: list[dict]) -> None:
         """Check for queued workflow runs older than threshold (mon-queue-01)."""
@@ -241,7 +203,7 @@ class MonitorLoop:
         registered_labels = {lbl for r in runners for lbl in r.get("labels", [])}
 
         for run in body.get("workflow_runs", []):
-            created = _parse_iso(run.get("created_at"))
+            created = parse_iso(run.get("created_at"))
             if created is None:
                 continue
             age_sec = (now - created).total_seconds()
@@ -335,7 +297,7 @@ class MonitorLoop:
             return
 
         # Check recency: must have completed within one period + grace.
-        completed_at = _parse_iso(latest.get("completed_at"))
+        completed_at = parse_iso(latest.get("completed_at"))
         if completed_at is None:
             self._raise_alert(repo, "drift_overdue", "?",
                               detail="latest drift scan has no completion timestamp")
@@ -444,7 +406,7 @@ class MonitorLoop:
 
         # Recency, same 24h + grace window drift uses. The schedule period is
         # not visible from the API, so this is the same conservative default.
-        completed_at = _parse_iso(latest.get("completed_at"))
+        completed_at = parse_iso(latest.get("completed_at"))
         if completed_at is None:
             self._raise_alert(
                 repo, "coherence_overdue", "?",

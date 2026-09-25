@@ -1,0 +1,321 @@
+#!/usr/bin/env python3
+"""Mutation battery for the runner image-state slice (img-cycle-01..03).
+
+Each mutation is a single edit to shipped code (or, for the combined entry, to
+shipped code AND its fixture) that makes a specific promise false while leaving
+everything else alone. A mutation is KILLED when one of the named test files
+fails because of it; a SURVIVOR means a guard no test actually depends on — the
+guard is decoration, and the suite would not notice its removal.
+
+Two properties this battery asserts about itself, because a battery that lies
+is worse than none:
+
+  * A mutation that merely BREAKS THE PARSER kills every test at once, which
+    looks identical to a clean behavioural kill. Each mutated artifact is
+    checked for well-formedness first and reported INVALID rather than killed.
+  * The count of the anchor text is asserted before the edit, and a mutation
+    whose anchor has drifted is reported rather than silently skipped.
+
+Run it from the repository root: it rewrites files in place and restores them.
+This lives in the repository (rather than in /tmp) so that "no survivors" can
+be re-checked by whoever reads the ledger next.
+"""
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parent.parent
+
+# Hermetic: an ambient git identity or config could change how a test that
+# shells out to git behaves (this bit the re-pin suite once).
+ENV = dict(os.environ,
+           HOME="/nonexistent-devgate-mutation",
+           XDG_CONFIG_HOME="/nonexistent-devgate-mutation",
+           GIT_CONFIG_GLOBAL="/dev/null", GIT_CONFIG_SYSTEM="/dev/null")
+
+HB = "scripts/runner-heartbeat.sh"
+REG = "hub/registry.py"
+SRV = "hub/server.py"
+MON = "hub/monitor.py"
+SCH = "hub/schema/runners.schema.json"
+FIX = "tests/fixtures/runner_spoke.py"
+
+T_REG = "tests/test_hub_registry.py"
+T_MON = "tests/test_hub_monitor.py"
+T_HTTP = "tests/test_hub_enroll_heartbeat.py"
+T_ENROLL = "tests/test_runner_enroll.py"
+
+MISSING_BLOCK = '''    missing=""
+    [ -n "${COHERENCE_IMAGE:-}" ] || missing="${missing:+$missing, }COHERENCE_IMAGE"
+    [ -n "${COHERENCE_IMAGE_MANIFEST_DIGEST:-}" ] \\
+        || missing="${missing:+$missing, }COHERENCE_IMAGE_MANIFEST_DIGEST"
+    [ -n "${COHERENCE_PODMAN_STORE:-}" ] \\
+        || missing="${missing:+$missing, }COHERENCE_PODMAN_STORE"
+'''
+
+DETAIL_BLOCK = '''            if reason:
+                detail = f"cannot serve the pinned evaluator image: {reason}"
+            else:
+                detail = ("cannot serve the pinned evaluator image: this host "
+                          "has not reported an image state at all, so it cannot "
+                          "be counted ready to gate")
+'''
+
+IMAGE_DIGEST_BLOCK = '''        "image_digest": {
+          "description": "The digest-qualified evaluator ref this host would gate with, or null when it cannot serve the pinned image (img-cycle-03). Null is UNKNOWN, never healthy.",
+          "type": ["string", "null"]
+        },
+'''
+
+CANON_GUARD = ('    elif [ "$(canonical_dir "$graph_root")" != '
+               '"$(canonical_dir "$COHERENCE_PODMAN_STORE")" ]; then')
+RAW_GUARD = '    elif [ "$graph_root" != "$COHERENCE_PODMAN_STORE" ]; then'
+
+INFO_FAIL = '''    elif ! graph_root="$(podman --root "$COHERENCE_PODMAN_STORE" info \\
+            --format '{{.Store.GraphRoot}}' 2>/dev/null)"; then
+        image_reason="podman info failed for the configured store (not a path mismatch)"
+'''
+
+# (name, [(file, old, new), …], [tests that must fail], {env overrides})
+MUTATIONS = [
+    # --- scripts/runner-heartbeat.sh ---------------------------------------
+    ("S1: the heartbeat stops reporting the image at all", [(HB,
+        '    "image_digest": sys.argv[3] or None,\n    "image_reason": sys.argv[4] or None,\n',
+        "")], [T_ENROLL], {}),
+    ("S2: the mismatch branch is dropped (a wrong store reads as converged)",
+     [(HB, CANON_GUARD, "    elif false; then")], [T_ENROLL], {}),
+    # NB: the whole two-line condition, not just the first line. Replacing only
+    # the first leaves `>/dev/null 2>&1; then` orphaned, and the resulting
+    # syntax error "kills" the mutation without any behaviour differing — which
+    # is what the well-formedness pre-check below exists to refuse.
+    ("S3: presence is assumed, never checked (absent reads as converged)",
+     [(HB, '    elif ! podman --root "$COHERENCE_PODMAN_STORE" image exists "$pinned_ref" \\\n'
+           '        >/dev/null 2>&1; then', "    elif false; then")], [T_ENROLL], {}),
+    ("S4: the reason names every variable, set or not", [(HB, MISSING_BLOCK,
+        '    missing="COHERENCE_IMAGE, COHERENCE_IMAGE_MANIFEST_DIGEST, COHERENCE_PODMAN_STORE"\n')],
+     [T_ENROLL], {}),
+    ("S5: the probe enforces (a dead heartbeat instead of an unknown image)",
+     [(HB, "# The empty strings become JSON null",
+           '[ -n "$image_digest" ] || exit 3\n\n# The empty strings become JSON null')],
+     [T_ENROLL], {}),
+    ("S6: podman-missing is reported with the absence reason", [(HB,
+        '    image_reason="podman not on PATH"',
+        '    image_reason="pinned image absent from the store (not pulled)"')],
+     [T_ENROLL], {}),
+    ("S7: the reported ref is not digest-qualified", [(HB,
+        '        image_digest="$pinned_ref"', '        image_digest="$COHERENCE_IMAGE"')],
+     [T_ENROLL], {}),
+    # The store is checked for existence BEFORE podman is asked. Removing the
+    # guard is not a cosmetic reordering: podman materialises the store it is
+    # pointed at (the fixture's stub does too, exactly as measured), so the
+    # tick would leave one behind on a host whose mount has not come up.
+    ("S8: the store's existence is assumed (podman creates it as a side effect)",
+     [(HB, '    if [ ! -d "$COHERENCE_PODMAN_STORE" ]; then',
+           "    if false; then")], [T_ENROLL], {}),
+    ("S9: a failing podman is reported as a path mismatch again", [(HB, INFO_FAIL, "")],
+     [T_ENROLL], {}),
+    ("S10: the two store paths are compared as raw strings", [(HB, CANON_GUARD, RAW_GUARD)],
+     [T_ENROLL], {}),
+
+    # --- hub/registry.py ----------------------------------------------------
+    ("R1: null is treated as no-news (a stale ref outlives its own report)",
+     [(REG, "        if image_digest is not UNREPORTED:",
+            "        if image_digest is not None:")], [T_REG, T_HTTP], {}),
+    ("R2: the sentinel default is replaced by None (an omission clears)",
+     [(REG, "                  image_digest=UNREPORTED, image_reason=UNREPORTED) -> bool:",
+            "                  image_digest=None, image_reason=None) -> bool:")],
+     [T_REG, T_HTTP], {}),
+    ("R3: image_missing never reports a deficiency", [(REG,
+        '    return not runner.get("image_digest")', "    return False")], [T_MON], {}),
+    ("R4: readiness requires a reason (an unreported host counts as ready)",
+     [(REG, '    return not runner.get("image_digest")',
+            '    return runner.get("image_reason") is not None')], [T_MON], {}),
+
+    # --- hub/server.py ------------------------------------------------------
+    ("V1: the server forgets the sentinel (an omission clears over HTTP)", [(SRV,
+        '                          data.get("image_digest", UNREPORTED),\n'
+        '                          data.get("image_reason", UNREPORTED))',
+        '                          data.get("image_digest"),\n'
+        '                          data.get("image_reason"))')], [T_HTTP], {}),
+
+    # --- hub/monitor.py -----------------------------------------------------
+    ("M1: the readiness check alerts about nobody", [(MON,
+        "            if not registry.image_missing(runner):\n                continue",
+        "            if True:\n                continue")], [T_MON], {}),
+    ("M2: the readiness check is not called by the poll loop", [(MON,
+        "        self._check_image_readiness(repo, runners)", "        pass  # mutated away")],
+     [T_MON], {}),
+    ("M3: the unreported branch is dropped (unreported hosts go silent)",
+     [(MON, DETAIL_BLOCK,
+        '            detail = f"cannot serve the pinned evaluator image: {reason}"\n')],
+     [T_MON], {}),
+    ("M4: the reason is dropped from the alert detail", [(MON,
+        '                detail = f"cannot serve the pinned evaluator image: {reason}"',
+        '                detail = "cannot serve the pinned evaluator image"')], [T_MON], {}),
+    ("M5: an unreported image is rendered as a reported fault", [(MON,
+        '                detail = ("cannot serve the pinned evaluator image: this host "\n'
+        '                          "has not reported an image state at all, so it cannot "\n'
+        '                          "be counted ready to gate")',
+        '                detail = ("cannot serve the pinned evaluator image "\n'
+        '                          "(no reason reported by the host)")')], [T_MON], {}),
+
+    # --- hub/schema/runners.schema.json -------------------------------------
+    ("J1: the schema stops declaring image_digest", [(SCH, IMAGE_DIGEST_BLOCK, "")],
+     [T_REG], {}),
+    ("J2: image_digest is declared non-nullable", [(SCH,
+        '"type": ["string", "null"]\n        },\n        "image_reason"',
+        '"type": "string"\n        },\n        "image_reason"')], [T_REG], {}),
+    ("J3: the example's _comment is undeclared in the runner shape", [(SCH,
+        '        "_comment": { "type": "array", "items": { "type": "string" } },\n'
+        '        "name": { "type": "string" },',
+        '        "name": { "type": "string" },')], [T_REG], {}),
+
+    # --- the fixture's own guards -------------------------------------------
+    # The probe branches on COHERENCE_*, so a Spoke that inherited them from
+    # the ambient environment would exercise whichever branch the machine
+    # happens to be provisioned for. This is why the env override below is
+    # required to kill it: on a host that sets none of them the mutation is
+    # invisible, which is exactly how the coupling survived until an audit.
+    # The stub's other measured fidelity. "The tick did not create the store"
+    # is an assertion about the probe only while something WOULD have created
+    # it — so the stub keeps podman's side effect, and this pins that.
+    ("F2: the podman stub stops materialising the store (an inert assertion)",
+     [(FIX, '    [ -z "${store:-}" ] || mkdir -p "$store"\\n', "")], [T_ENROLL], {}),
+    ("F1: the Spoke inherits ambient COHERENCE_* (the branch is chosen by the host)",
+     [(FIX, '            **{k: v for k, v in os.environ.items()\n'
+            '               if not k.startswith("COHERENCE_")},', "            **os.environ,")],
+     [T_ENROLL], {"COHERENCE_IMAGE": "ambient", "COHERENCE_IMAGE_MANIFEST_DIGEST": "sha256:a",
+                  "COHERENCE_PODMAN_STORE": "/tmp/ambient-store"}),
+
+]
+
+# Negative controls: pairs of edits that must NOT kill anything, because each
+# demonstrates that a FIXTURE property is load-bearing. They are reported
+# separately from the kill count — a battery entry whose expected outcome is
+# "survives" would make the headline number meaningless.
+NEGATIVE_CONTROLS = [
+    # The audit's measurement only becomes a TEST because the stub normalises
+    # the way podman does. Break both halves and they agree with each other:
+    # the byte comparison matches a verbatim stub, and every behavioral test
+    # passes — which is exactly how the defect survived the first suite.
+    ("N1: raw compare + a verbatim stub — they mask each other",
+     [(HB, CANON_GUARD, RAW_GUARD),
+      (FIX, '    realpath -m -- "${STUB_GRAPH_ROOT:-${store:-}}"\\n',
+            '    echo "${STUB_GRAPH_ROOT:-${store:-}}"\\n')],
+     [T_ENROLL], {}),
+]
+
+# (A second control was tried here — the store guard removed alongside the
+# stub's side effect, expected to survive because the kill then rests on the
+# reason assertion alone. It did NOT survive, and that result is worth keeping:
+# the two assertions in that test are independent, so the guard's removal is
+# caught by the reason even when the store assertion goes inert. What the
+# stub's side effect protects is the STRENGTH of the second assertion, and
+# that is pinned directly by F2 plus test_the_podman_stub_materialises_the_store_like_podman_does
+# rather than by a control that cannot isolate it.)
+
+
+def _well_formed(path):
+    """True when the mutated artifact still parses. False means INVALID."""
+    text = path.read_text()
+    if path.suffix == ".json":
+        try:
+            import json
+            json.loads(text)
+            return True
+        except Exception:
+            return False
+    if path.suffix == ".sh":
+        return subprocess.run(["bash", "-n", str(path)],
+                              capture_output=True, text=True).returncode == 0
+    if path.suffix == ".py":
+        try:
+            compile(text, str(path), "exec")
+            return True
+        except SyntaxError:
+            return False
+    return True
+
+
+def _clear_bytecode():
+    """Drop __pycache__ before each run.
+
+    Restoring a mutated .py can leave the same size and an mtime inside the
+    filesystem's resolution, so CPython keeps the MUTATED bytecode cached and
+    the next run imports it. Observed once: a restore-then-verify step reported
+    the mutation's error against a file that was already correct.
+    """
+    for d in REPO.rglob("__pycache__"):
+        shutil.rmtree(d, ignore_errors=True)
+
+
+def run_tests(files, extra_env=None):
+    _clear_bytecode()
+    env = dict(ENV)
+    env.update(extra_env or {})
+    return subprocess.run([sys.executable, "-m", "pytest", *files, "-q",
+                           "-p", "no:cacheprovider"],
+                          capture_output=True, text=True, cwd=str(REPO), env=env)
+
+
+def _run_entry(name, edits, tests, extra_env, expect_kill):
+    """Apply edits, run the named tests, restore. Returns True when the
+    outcome matched the expectation (killed, or survived)."""
+    originals = {}
+    for rel, old, new in edits:
+        path = REPO / rel
+        originals.setdefault(rel, path.read_text())
+        count = originals[rel].count(old)
+        if count != 1:
+            print(f"  ANCHOR  {name}: {rel} anchor appears {count} times, not 1")
+            return None
+    for rel, old, new in edits:
+        path = REPO / rel
+        path.write_text(originals[rel].replace(old, new))
+    well_formed = all(_well_formed(REPO / rel) for rel, _, _ in edits)
+    try:
+        res = run_tests(tests, extra_env)
+        killed = res.returncode != 0
+    finally:
+        for rel, text in originals.items():
+            (REPO / rel).write_text(text)
+
+    if not well_formed:
+        print(f"  INVALID {name}: the mutation does not parse — not a kill")
+        return False
+    if killed:
+        tail = [l for l in res.stdout.splitlines() if l.startswith("FAILED")]
+        print(f"  killed  {name}\n            by {tail[0][7:] if tail else '(?)'}")
+    else:
+        print(f"  SURVIVED {name}")
+    return killed == expect_kill
+
+
+def main():
+    survivors = []
+    for name, edits, tests, extra_env in MUTATIONS:
+        if _run_entry(name, edits, tests, extra_env, expect_kill=True) is not True:
+            survivors.append(name)
+
+    controls_bad = []
+    for name, edits, tests, extra_env in NEGATIVE_CONTROLS:
+        if _run_entry(name, edits, tests, extra_env, expect_kill=False) is not True:
+            controls_bad.append(name)
+
+    print(f"\n{len(MUTATIONS) - len(survivors)}/{len(MUTATIONS)} mutations killed")
+    if survivors:
+        print("survivors (a guard no named test depends on):")
+        for s in survivors:
+            print(f"  - {s}")
+    print(f"{len(NEGATIVE_CONTROLS) - len(controls_bad)}/{len(NEGATIVE_CONTROLS)} "
+          "negative controls behaved (these MUST survive — they prove a fixture "
+          "property is load-bearing)")
+    for c in controls_bad:
+        print(f"  - {c} (expected to survive and did not, or a bad anchor)")
+    return 1 if (survivors or controls_bad) else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -19,6 +19,56 @@ from . import tokens
 
 SCHEMA_VERSION = 1
 
+# UNREPORTED marks a heartbeat field the body did not mention at all.
+#
+# Most fields here treat `None` as "no news": a heartbeat that omits `disk_ok`
+# leaves the last reading in place. That rule is fine for the health booleans
+# and wrong for the image, which needs a third state. A host that converged
+# yesterday and lost its image today reports an explicit JSON null — and if
+# null were also "no news", the hub would keep the superseded ref and the fleet
+# view would show that host as ready to gate. So the image fields distinguish,
+# on the way in, a body that SAYS null from a body that says nothing.
+#
+# "Nothing" is said by OMITTING the argument, never by passing None: for the
+# image fields `None` IS the report that there is no image, and
+# `heartbeat(..., image_digest=None)` therefore CLEARS a stored ref. Do not
+# read that as no-news — that reading is how a converged host's digest gets
+# wiped by a caller meaning to leave it alone.
+#
+# The distinction is invisible in the wire format — JSON has one null — so it
+# has to be made here, from the presence of the key. It is worth the sentinel:
+# the two cases are different facts (the host reports no image / the host has
+# not told us about images) and the monitor renders them differently.
+#
+# Written as # comments rather than a bare string literal on purpose: a
+# literal is not a docstring, so the mutation tool treats this prose as code
+# and reports `bool:and->or` survivors on lines inside it (observed: five
+# permanent, unkillable "survivors" in this block) — noise that trains an
+# operator to ignore the report.
+UNREPORTED = object()
+
+
+def image_missing(runner: dict) -> bool:
+    """True when this host has reported no image at all — unknown or faulted.
+
+    Called by the monitor and available to any dashboard: an absent digest, no
+    matter why, is not readiness (img-cycle-03). Deliberately keyed on whether
+    a digest was REPORTED, and not on a reason being present — a host whose image state
+    was never reported is exactly as unable to gate as one that reported a
+    fault, and requiring a reason would quietly count it as ready.
+
+    What it does NOT check, and cannot from the registry alone: whether the
+    reported digest is still the PINNED one. A host that converged on pin A
+    and has not ticked since the pin moved to B holds a digest that is present
+    and stale, and reads here as ready. The window is bounded by the heartbeat
+    interval only in the ordinary case; nothing in this check bounds the AGE of
+    the reading. Catching it needs the current pin in hand, which is the
+    served-vs-recorded advisory's job (Sprint 4) rather than this predicate's —
+    recorded as a residual instead of implied away, because "ready to gate" is
+    the reading an operator acts on.
+    """
+    return not runner.get("image_digest")
+
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -104,14 +154,25 @@ class Registry:
             "last_job_seen": None,
             "disk_ok": None,
             "podman_ok": None,
+            # Null until a heartbeat reports one: a freshly enrolled host has
+            # no image state yet, and null must never read as healthy.
+            "image_digest": None,
+            "image_reason": None,
             "enrolled": True,
         }
         self._data["runners"].append(runner)
         return runner
 
     def heartbeat(self, runner_name: str, last_job_seen: str | None,
-                  disk_ok: bool | None, podman_ok: bool | None) -> bool:
-        """Update freshness + health fields for a verified runner."""
+                  disk_ok: bool | None, podman_ok: bool | None,
+                  image_digest=UNREPORTED, image_reason=UNREPORTED) -> bool:
+        """Update freshness + health fields for a verified runner.
+
+        The image fields take UNREPORTED as their default, not None: see the
+        sentinel above. A caller that means "the host reports no image" passes
+        None explicitly and the stored ref is cleared; a caller that passes
+        nothing leaves the last report alone.
+        """
         runner = self.find_runner(runner_name)
         if runner is None or not runner.get("enrolled", False):
             return False
@@ -122,6 +183,10 @@ class Registry:
             runner["disk_ok"] = disk_ok
         if podman_ok is not None:
             runner["podman_ok"] = podman_ok
+        if image_digest is not UNREPORTED:
+            runner["image_digest"] = image_digest
+        if image_reason is not UNREPORTED:
+            runner["image_reason"] = image_reason
         return True
 
     def verify_heartbeat_token(self, runner_name: str, presented: str) -> bool:

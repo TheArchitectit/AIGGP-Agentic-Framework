@@ -18,6 +18,30 @@
       "last_job_seen": "example-run-id",
       "disk_ok": true,
       "podman_ok": true,
+      "image_digest": "ghcr.io/owner/repo/devgate-coherence@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "image_reason": null,
+      "enrolled": true,
+      "queue_threshold_min": 30,
+      "drift_period_min": 1440
+    },
+    {
+      "_comment": [
+        "Two shapes of the same field, because the null one is the one that gets",
+        "misread: a host that cannot serve the pinned image still heartbeats, and",
+        "its null is UNKNOWN — not healthy, and not ready to gate (img-cycle-03)."
+      ],
+      "name": "example-runner-no-image",
+      "repo": "OWNER/REPO",
+      "labels": ["devgate"],
+      "host_alias": "dell-u2",
+      "enrolled_at": "2026-09-13T00:00:00Z",
+      "heartbeat_token": "example-heartbeat-token-PLACEHOLDER",
+      "last_heartbeat": "2026-09-13T00:05:00Z",
+      "last_job_seen": null,
+      "disk_ok": true,
+      "podman_ok": false,
+      "image_digest": null,
+      "image_reason": "not provisioned: COHERENCE_IMAGE, COHERENCE_IMAGE_MANIFEST_DIGEST, COHERENCE_PODMAN_STORE not set",
       "enrolled": true,
       "queue_threshold_min": 30,
       "drift_period_min": 1440

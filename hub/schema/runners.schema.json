@@ -6,6 +6,11 @@
   "additionalProperties": false,
   "required": ["version", "runners"],
   "properties": {
+    "_comment": {
+      "description": "Explanatory prose for a human reading the redacted example. Declared here because the example carries it and this schema closes itself to undeclared keys — an example that violates its own schema teaches the wrong shape.",
+      "type": "array",
+      "items": { "type": "string" }
+    },
     "version": { "const": 1 },
     "enrollment_tokens": {
       "description": "One-time enrollment tokens; consumed on successful /enroll.",
@@ -22,6 +27,7 @@
       "type": "object",
       "required": ["name", "repo", "enrolled_at", "heartbeat_token"],
       "properties": {
+        "_comment": { "type": "array", "items": { "type": "string" } },
         "name": { "type": "string" },
         "repo": { "type": "string", "pattern": "^[^/]+/[^/]+$" },
         "labels": { "type": "array", "items": { "type": "string" } },
@@ -32,6 +38,14 @@
         "last_job_seen": { "type": ["string", "null"] },
         "disk_ok": { "type": ["boolean", "null"] },
         "podman_ok": { "type": ["boolean", "null"] },
+        "image_digest": {
+          "description": "The digest-qualified evaluator ref this host would gate with, or null when it cannot serve the pinned image (img-cycle-03). Null is UNKNOWN, never healthy.",
+          "type": ["string", "null"]
+        },
+        "image_reason": {
+          "description": "Why image_digest is null, in the host's own words. The vocabulary the shipped probe uses, one fault per fix: 'not provisioned: <vars> not set' | 'podman not on PATH' | 'store does not exist: <path>' | 'podman info failed for the configured store' | 'store mismatch: podman reports <a>, configured <b>' | 'pinned image absent from the store (not pulled)'. Free text from an untrusted-as-input host, so consumers must render it, never match on it.",
+          "type": ["string", "null"]
+        },
         "enrolled": { "type": "boolean", "default": true },
         "queue_threshold_min": { "type": "number" },
         "drift_period_min": { "type": "number" }
