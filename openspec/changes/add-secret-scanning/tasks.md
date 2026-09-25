@@ -301,22 +301,195 @@
   that line is an operator's only signal that the sweep they believe is running
   is not, and the battery's negative control is what keeps those distinguishable
   from the assertions that read behaviour; (10, 11) both were the narrative
-  errors folded into (1–3); (12) two claims in the unit remain unclaimed by any
-  test **and by any mutation**, which the audit is right about:
+  errors folded into (1–3); (12) two claims in the unit were unclaimed by any
+  test **and by any mutation**, which the audit was right about:
   `--report %t/devgate-secretscan-$SLUG.json` and `TimeoutStartSec=3600`.
-  Nothing reads that report until 5.3 builds the hub side, so there is nothing
-  to pin yet — and the timeout is a real hazard worth naming, because a
-  whole-fleet clone can exceed an hour and a timeout kill is a sweep that
-  reports nothing. Recorded here as a 5.3 input rather than pinned with a test
-  that would assert the number back at itself; (13) closed — the check it named
-  was already correct; (14) fixed, and its fix is the quote strip in (4).
+  **Half of this is now closed and half is not, and they are split apart on
+  purpose.** The report path stopped being unclaimed the moment 5.3a gave it a
+  second reader: it is computed once in `scripts/lib/runner-units.sh`, carried
+  by the unit's `--report` and by the env file, and four mutations (S1, S2,
+  S13, S20) plus the joint sweep→heartbeat test now fail if the two carriers
+  disagree about the file. The timeout is unchanged and still unclaimed —
+  a whole-fleet clone can exceed an hour and a timeout kill is a sweep that
+  reports nothing, so it is recorded as a residual of 5.3a rather than pinned
+  with a test that would assert the number back at itself; (13) closed — the
+  check it named was already correct; (14) fixed, and its fix is the quote
+  strip in (4).
 - [ ] 5.3 Hub: accept and render per-repo scan state, unknown when absent
-  (secret-scan-07), reusing the heartbeat path — NOT YET. Note for whoever
-  builds it: the sweep's report is a file, and the heartbeat is a POST body, so
-  the state has to travel the way the image state does — a field on the
-  heartbeat, one per declared repository, with absence rendered as unknown
-  rather than as clean (the `UNREPORTED` sentinel in `hub/registry.py` is the
-  precedent, and `null` is a positive report there, not an absence).
+  (secret-scan-07), reusing the heartbeat path — **5.3a DONE, 5.3b NOT YET.**
+  5.3a is the producer and the transport: the sweep's report reaches the
+  heartbeat, the heartbeat ships it, the hub stores it presence-aware. 5.3b is
+  the rendering (the monitor and the docs) and is the only part left. That the
+  split is worth recording rather than hiding: after 5.3a the state is stored
+  and NOTHING RENDERS IT, which is a real intermediate state and exactly the
+  kind of half-built thing that gets mistaken for done.
+
+  **The path, which is where the work actually was.** The distinguishing
+  decision: TWO processes now read one file on two different timers, and they
+  decide the path independently unless something stops them. The sweep names it
+  by `$SLUG` (sanitized) and the heartbeat knows `$RUNNER_NAME`, so for any
+  runner whose name needs sanitizing — `prod/web 1` → `prod-web-1` — a
+  heartbeat deriving the path would look for a filename the sweep never writes,
+  and that host would read unknown forever while scanning perfectly. This is
+  the two-readers-one-fact divergence this repository has already been bitten
+  by twice, so the value is computed ONCE (`runtime_dir()` and the assignment
+  that uses it, both in `scripts/lib/runner-units.sh`) and
+  handed to both carriers: the unit's `--report` and the env file. It costs a
+  small loss of authority — systemd's `%t` was the specifier that resolved
+  this, and enroll now reimplements it — and that is stated in the code rather
+  than left as an inconsistency, because the heartbeat is a bash script with no
+  specifiers and could not have read `%t` at all. What keeps the two carriers
+  honest is a test (`test_the_sweep_unit_reports_to_the_path_the_heartbeat_reads`)
+  rather than the hope that one assignment was written twice the same way.
+  **A mutation found this test was weaker than it read:** the first version
+  asserted the path was merely "under tmp_path", which $HOME also is, and the
+  mutation that moved the report to `~/.cache` walked through it — the two
+  carriers still agreed with each other, which is a different question from
+  which directory. The assertion is the exact path now.
+
+  **The reader's three cases**, each of which collapses into a fleet reading
+  clean while blind, so each is its own mutation (S4/S5/S6):
+  `SECRET_SCAN_REPORT` unset or the file missing → `scan_state: null`, a
+  POSITIVE report of absent (which is what lets the hub clear a stale verdict
+  to unknown); the file will not parse → `{"repos": [], "unreadable": ...}`,
+  NEVER an empty fleet — an empty `repos` list is the sentence a dashboard
+  renders as clean, produced from a file nobody could read; and a repository
+  the sweep could not fetch keeps its reason rather than being dropped.
+
+  **A live race, closed.** The report was written with `open(path, "w")`, which
+  leaves it zero-length and half-written for the length of the write. Harmless
+  while nothing else read it; a reader on a one-minute tick landing in that
+  window is a real case now that the heartbeat does. The write is a sibling
+  plus `os.replace`, and the test measures the INODE change — `open(w)` keeps
+  the file it truncates, `os.replace` necessarily yields a new inode. Stated as
+  necessary for atomicity and not proof of it; the reader's half is the
+  `unreadable` case above.
+
+  **What the heartbeat ships, decided rather than inherited:** the per-repo
+  STATE, not the finding locations. The report file keeps rule/path/line/commit
+  so an operator on the host can act; the heartbeat carrying them would put the
+  file paths of unremediated findings on the wire on every tick and grow the
+  body with every finding in the fleet. Pinned by a test so it cannot quietly
+  reverse.
+
+  **Hub side**, the image precedent exactly: `scan_state` joins the
+  presence-aware `UNREPORTED` read at the registry and at the JSON boundary
+  (S8/S9 — conflating "says null" with "says nothing" either keeps a superseded
+  sweep or wipes a real one), the field is declared in the schema (the drift
+  invariant picks it up automatically), and `scan_state_unknown()` is the
+  predicate 5.3b will render on — keyed on the state being USABLE, so an
+  unreadable report is unknown and not a verdict (S10).
+
+  New: `tests/test_runner_scan_report.py` (13 tests) and
+  `tests/mutation_battery_scan_report.py` (**18 mutations + 4 controls, all 18
+  killed** by a named test in one of four suites — the change crosses runner and
+  hub, so its guards are tested where they live). The battery is registered in
+  the CI batteries step, which `test_every_battery_runs_in_the_suite` checks
+  against the directory. Floors 863 → 884 (64 suites, 983 tests), contract
+  inventory regenerated.
+
+  **An adversarial read of the finished slice, and what it changed.** A
+  fresh-eyes audit was run over the whole change once it was green, and most of
+  what it returned was not style — it was guards I had written believing they
+  were guards. Dispositioned in full, because the pattern matters more than the
+  individual lines:
+
+  * **`scan_state_unknown()` was type-unsafe, and that is a live defect, not
+    tidiness.** It read `state.get("unreadable")` on whatever a spoke posted.
+    Nothing validates that field on the way in — `test_every_field_the_registry
+    _writes_is_declared_in_the_schema` asserts exactly that nothing does — so a
+    buggy or hostile host holding a valid heartbeat token can put `"clean"` or
+    `[1, 2]` there, and `.get` on a string raises `AttributeError` inside the
+    function 5.3b's fleet view renders through. Worse, `{}` — a dict, so no
+    raise — read as a USABLE verdict: a fleet with no repositories in it, which
+    is the sentence a dashboard shows as clean. The predicate now asks
+    `isinstance` first, requires `repos` to be a list one level down, and every
+    shape that is not the declared one reads as unknown. That is the
+    requirement read strictly: a repository with no recorded scan state is
+    unknown, never healthy, and "recorded" means recorded in the declared
+    shape (S14, S15, plus `test_a_scan_state_of_the_wrong_shape_reads_as_unknown
+    _and_does_not_raise`).
+  * **Two lines removed rather than kept with a comment praising them.** The
+    heartbeat's `if not path: return None` was behaviourally redundant (an
+    unset variable arrives as the empty string, and `open("")` raises
+    `FileNotFoundError` on its own), and `os.path.abspath(report_path)` in the
+    sweep was inert. The second is worth recording because the audit *claimed*
+    a mutation would kill it — an unresolved relative `--report` leaving
+    `dirname` empty so `mkstemp` fails — and when the mutation was written it
+    **SURVIVED**. Measured directly instead of argued: `mkstemp(dir="")`
+    resolves against the process directory and succeeds, and `os.replace` works
+    either way, so the line changed no behaviour on any input and the guard it
+    claimed to remove did not exist. It is gone, with the measurement written
+    where the mutation would have been (S18's slot in the battery) and the
+    behaviour pinned for both spellings instead. **Measurement beat the
+    audit's reasoning, and the reasoning was plausible** — which is the case
+    for writing the mutation rather than taking the finding on faith.
+  * **Three untested guards in code I had just written**, each given a test and
+    a mutation: the reader's `isinstance(repos, list)` (S16), `runtime_dir()`'s
+    XDG fallback — the variable is absent over a non-login ssh session, which
+    is where hosts get provisioned (S17) — and the write's failure-path cleanup
+    of its temporary (S19).
+  * **The seam, which no single suite could see before this round.** Every
+    other test of the transport checks one half: the sweep's tests inspect a
+    report they wrote, the heartbeat's inspect one they wrote themselves. So
+    the sweep could name a repository under a key the heartbeat never reads and
+    BOTH suites stay green while every host in the fleet reads unreadable for a
+    field that is right there under a different name — the two-readers failure
+    again, one layer down. `test_the_report_the_heartbeat_reads_is_the_one_the
+    _sweep_actually_wrote` runs a real sweep over real git origins into the path
+    enrollment computed and has the real heartbeat read it back; S20 is the
+    mutation that only it can kill.
+  * **A harness gap, closed per-suite rather than fixed.** A kill in
+    `tests/mutation_harness.py` is "the named test exited non-zero", and it does
+    not first check that the test passes UNMUTATED — so a test that later
+    starts failing for a reason of its own would be credited as the killer of
+    whatever mutation names it. The harness is not mine to rewrite mid-slice;
+    what is here instead is a negative control per suite (N1–N4, rewording a
+    comment in the heartbeat, the sweep, the registry and the server). If the
+    guards were reading prose, or a named test were failing for the wrong
+    reason, a control stops surviving and says so. Queued as a task against the
+    harness itself, which is where the real fix belongs.
+  * **Prose that lied, corrected.** A docstring claimed the 500-line hard limit
+    forced the test-file split; the real limit for a `test_*.py` is 600 and the
+    split was for room — and it cited another file that repeated the claim, so
+    both were wrong together. The escaping counterfactual ("if the unit
+    escaped `$SCAN_REPORT` the two carriers would disagree about the name") was
+    replaced with the measured mechanism, which is worse and different: an
+    escaped reference is not an env-file key, so systemd expands it to the
+    EMPTY STRING, the sweep runs `--report ""`, and takes that as "no report
+    requested" — **a silent total no-op, not a name mismatch.** And a comment
+    describing the extracted globals block overstated what declaring them buys
+    (it does not silence-proof anything; `set -u` aborts loudly) — it now says
+    what the block is actually for, and `SLUG_OWNER`/`SLUG_ATTRIBUTABLE` are
+    declared nowhere at all, because the three sites that read them call
+    `slug_owner()` on the line before and a declaration would be a line that
+    never runs.
+  * **Four new guardrail warnings, all the same false positive.** The scanner's
+    PREVENT-024 ("triple-underscored package name may be AI-hallucinated") fires
+    on `from hub.registry import scan_state_unknown`, because a function name
+    with three snake_case segments looks like a PyPI package. Nine across the
+    tree now, four of them from this change's import lines, all warning-level
+    and non-blocking; recorded so that a future reader does not read the count
+    as adoption of an undeclared dependency.
+
+  **Residuals, recorded rather than implied away.** (i) The report lives in the
+  runtime directory (`%t`'s location, unchanged from 5.2), which is
+  per-session, so a reboot leaves the fleet reading unknown until the next
+  sweep — up to a day. That IS what the requirement asks for (absence renders
+  unknown, never healthy) and it is why the assertion pins the directory
+  explicitly, but a state directory that survives a reboot is a defensible
+  alternative and the choice is now visible instead of accidental. (ii)
+  `install_helper` never refreshes an existing helper: a host enrolled before
+  this change keeps its old heartbeat script, which does not ship `scan_state`
+  at all — and because "says nothing" is deliberately read as "no news", that
+  host keeps whatever verdict it last reported rather than going unknown. The
+  presence-aware rule is right; the upgrade path is the gap. (iii) A sweep that
+  exceeds `TimeoutStartSec=3600` is killed, and the last successful report stays
+  on disk — a stale verdict with nothing marking it stale. Not pinned, because
+  the honest fix is a timestamp the reader checks and that is 5.3b's business.
+  (iv) A `SIGKILL` between `mkstemp` and `os.replace` leaves a
+  `.devgate-secretscan-*.json.tmp` in the runtime directory; the `BaseException`
+  path covers signals a handler can see, not the one that cannot be caught.
 
 ## Sprint 6 — Evidence
 
