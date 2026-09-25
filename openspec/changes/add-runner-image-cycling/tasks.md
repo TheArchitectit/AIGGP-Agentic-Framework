@@ -165,6 +165,14 @@ here; the rest are recorded with a disposition rather than absorbed.
    re-checkable: **25/25 killed, each by one named test**, plus one negative
    control that must and does survive (see below).
 
+   Then re-measured with the repository's own tool against the committed tree
+   (clean, so the battery is reproducible at all): `scripts/mutation_check.py`
+   reports **66 mutants — 66 killed, 0 survived**: 26 on `hub/registry.py`,
+   32 on `hub/monitor.py`, 8 on `hub/github_client.py`. The five
+   prose-literal pseudo-survivors are gone, which is the point of the finding —
+   a report listing blind spots no test can ever close teaches an operator to
+   stop reading it, and the next real survivor goes unnoticed behind them.
+
 Dispositions for what was NOT changed here, so nothing is silently absorbed:
 
 - **The provisioning path does not exist yet.** Nothing writes `COHERENCE_*`
@@ -185,6 +193,22 @@ Dispositions for what was NOT changed here, so nothing is silently absorbed:
   as a residual in `image_missing`, owned by Sprint 4.
 - **`/health` renders no image state at all**, so "fleet view" is realised only
   through the alert path; noted rather than papered over.
+
+### And the commit after it: the exec-bit guard reads the INDEX
+
+The push above went red hosted while the same suite was green here, on
+`TestExecBitCheck::test_real_tree_passes` — `tests/mutation_battery_image_state.py`
+is shebang'd and was committed `100644`. The full local run that cleared this
+commit was green because the file was still UNTRACKED at that moment: the guard
+asks `git ls-files -s`, so it judges what is in the index, and a new script
+cannot be judged until it is staged. The sequence "run the suite, then `git add`"
+therefore proves nothing about the tree being committed — the same shape as the
+staged-edit trap, one level further out. Fixed with
+`git update-index --chmod=+x` (`core.fileMode=false` here, so an on-disk chmod
+does not reach the index on its own), and the whole suite re-run AFTER staging
+this time.
+
+Nothing else in the run differed: same 866 tests, same collection.
 
 ## Sprint 4 — Divergence reporting
 
