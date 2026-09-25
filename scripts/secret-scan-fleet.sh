@@ -211,7 +211,7 @@ for url in "${URLS[@]}"; do
             # Nothing about this sweep is trustworthy, including the clean
             # verdicts already collected, so the exit code says so even though
             # those records stay in the report as what was observed.
-            why="$(head -n 1 "$TMPD/$IDX-gate.log" 2>/dev/null || true)"
+            why="$(tail -n 1 "$TMPD/$IDX-gate.log" 2>/dev/null || true)"
             record "$name" "$url" unscannable \
                 "scanner unusable: ${why:-gitleaks could not run}" "" 0 ""
             echo "[secret-scan-fleet] SCANNER UNUSABLE at $name: ${why:-gitleaks could not run}" >&2

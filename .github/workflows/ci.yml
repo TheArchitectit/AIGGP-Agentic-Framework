@@ -377,7 +377,8 @@ jobs:
           for b in tests/mutation_battery_size_scope.py \
                    tests/mutation_battery_image_cycle.py \
                    tests/mutation_battery_image_state.py \
-                   tests/mutation_battery_publish_trigger.py; do
+                   tests/mutation_battery_publish_trigger.py \
+                   tests/mutation_battery_secret_scan_fleet.py; do
             echo "::group::$b"
             python3 "$b" || exit 1
             echo "::endgroup::"
