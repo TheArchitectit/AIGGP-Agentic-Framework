@@ -73,11 +73,38 @@ correctly configured host report a mismatch. The check is on the DIRECTORY each
 name denotes (`cd` + `pwd -P`, builtins) rather than on the spelling. The
 heartbeat probe carries that correction here — where the defect was worse than
 a refusal, because its mismatch branch skips the presence check and so hid a
-converged host from the fleet view entirely. The cycler carries the same
-comparison and the same `|| true` (which turns a podman that failed into a
-"mismatch" that no EnvironmentFile edit can fix); it fails closed rather than
-hiding a host, and its correction is owed with its own tests rather than
-smuggled into this change.
+converged host from the fleet view entirely.
+
+The cycler carried the same byte comparison and the same `|| true`. Its
+correction was owed with its own tests rather than smuggled into this change,
+and that is now paid (2026-09-25). Three things moved, and each is a separate
+promise rather than a tidier spelling of one:
+
+- The same canonical comparison, and a podman that cannot answer gets its own
+  exit code and its own words instead of arriving as a "mismatch" no
+  EnvironmentFile edit can fix.
+- The store is checked for EXISTENCE before podman is asked anything, and the
+  cycle REFUSES to create it. `podman --root X info` materialises X (measured),
+  so on a host whose mount has not come up the old order created an empty store
+  on the underlying filesystem and pulled the pinned image into it — filling
+  storage the gate never reads, while the mounted filesystem stayed empty.
+- The pinned image is re-verified AFTER the reap. `podman rmi <id>` takes every
+  row that ID carries, and the reap set is computed from a listing whose
+  `.Digest` is not a reliable identifier of the bytes: measured 2026-09-24, the
+  listing's digest and `inspect`'s digest are different values for one image
+  (`sha256:294b683c…` vs `sha256:d56c381f…`). So a listing can report a digest
+  other than the recorded one for the image that IS the recorded bytes, putting
+  the pinned ID in the reap set. The check turns that invariant from reasoning
+  into an observation — and the mutation battery can now produce the loss, so
+  "the pinned image survived" is not a claim about a store where nothing is
+  ever removed.
+
+Also corrected there from measurement, because it was offered as a reason: the
+comment claimed a locally built image "lists with a tag and no digest". It
+lists WITH a digest (`sha256:df67b148…` for a `FROM scratch` build). The Tag is
+the whole of the discrimination, and the digest comparison is doing none of
+that work — a reader who believed otherwise would think a tagged build was
+excluded twice over.
 
 What the tick can then claim is narrow and true: *the recorded bytes are in the
 store named by this unit's EnvironmentFile*. Which store the runner container

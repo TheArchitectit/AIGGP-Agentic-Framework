@@ -210,6 +210,66 @@ this time.
 
 Nothing else in the run differed: same 866 tests, same collection.
 
+### The cycler's own audit, paid 2026-09-25 (`runner-image-cycle.sh`)
+
+The disposition above said the cycler's correction was "owed with its own tests
+rather than smuggled into this change". Paid separately, with its own tests and
+its own battery, because six of the nine audit items are about this script
+alone and three of them are defects that lose data.
+
+Fixed here (tests written first; each new test watched RED, and each fix is
+killed by exactly one named test in `tests/mutation_battery_image_cycle.py`) —
+**7/7 mutations killed, 1/1 negative control behaved**:
+
+1. **The store was compared by spelling.** Same measurement, same fix: podman
+   NORMALISES (`--root /tmp/ps1/` answers `/tmp/ps1`), so a trailing slash in
+   the EnvironmentFile made a correctly provisioned host exit 5 forever. Now
+   compared as the directory each name denotes.
+2. **A podman that could not answer was a "store mismatch".** `|| true` turned
+   "podman will not start" into an empty string, which equals no configured
+   store. It has exit code 7 and its own words now. Codes 5/6/7 are distinct
+   because the fixes are: 5 edits a path, 6 fixes a mount, 7 asks why podman
+   is down.
+3. **The cycle CREATED the store.** This is the worst of the three. `podman
+   --root X info` materialises X, so on a host whose mount had not come up the
+   old order made an empty store on the underlying filesystem and then PULLED
+   the pinned image into it — filling storage the gate never reads while the
+   mounted filesystem stayed empty. The old test could not see it because the
+   stub never created anything; the stub now reproduces the side effect, as
+   the heartbeat's does.
+4. **The reap could take the pinned image and still report success.** `podman
+   rmi <id>` removes every row that ID carries, and the reap set is computed
+   from a listing whose `.Digest` — MEASURED — is not a reliable identifier of
+   the bytes (one image, two digests: `sha256:294b683c…` in the listing vs
+   `sha256:d56c381f…` from inspect). So a listing can name an ID with a digest
+   other than the recorded one while that ID is exactly what the pinned ref
+   resolves to, which puts it in the reap set. The test reproduces the loss;
+   exit 0 was a lie in that scenario before this fix.
+5. **The success claim printed BEFORE the prune**, so a run that reaped the
+   pinned image announced "converged" and then exited 4 — the one line an
+   operator greps for said the opposite of the exit code. It is now the last
+   thing the script does, and `test_a_converged_host_says_so` pins the other
+   half (a convergence nobody can see is indistinguishable from a tick that
+   never ran).
+6. **A comment that was offered as a reason and is false.** It claimed a local
+   build "lists with a tag and no digest". MEASURED: a `FROM scratch` build
+   lists WITH a digest (`sha256:df67b148…`). The Tag is the whole of the
+   discrimination, and the digest comparison does none of that work.
+
+Not changed, and why:
+
+- **The bash < 4.4 associative-array concern does not reproduce.** Rather than
+  guard against it and ship a guard no test could kill, it was measured:
+  docker.io/library/ubuntu:16.04 (bash 4.3.48) iterates an empty associative
+  array under `set -u` without error in all five variants tried (`declare -A
+  a=()`, bare `declare -A a`, the count, unquoted, emptied-after-use), and both
+  runner scripts pass `bash -n` there. No guard added.
+- **The stub's `rmi` now mutates state**, so "the pinned image survived" is a
+  claim that can fail. That change is itself mutation-pinned (K6) — without it
+  the scenario goes inert.
+- **No timeout on the podman calls**, as recorded above; it is the same
+  exposure as the probe's and belongs with it.
+
 ## Sprint 4 — Divergence reporting
 
 - [ ] 4.1 Compare served `:main` digest against the record on the tick and
