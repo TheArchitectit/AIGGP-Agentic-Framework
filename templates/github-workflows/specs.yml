@@ -97,5 +97,8 @@ jobs:
 
       - name: Requirement-ID traceability
         run: |
+          # pipefail so a traceability failure is not masked by `tail` (the
+          # default Actions shell lacks it; a ratchet regression would read green).
+          set -o pipefail
           python3 .devgate/scripts/spec_traceability.py --root . --report | tail -8
           python3 .devgate/scripts/spec_traceability.py --root . | tail -2
