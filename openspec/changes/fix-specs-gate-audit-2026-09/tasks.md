@@ -419,3 +419,17 @@ disposition rule this package set.
       rejected here.
 - [x] Do not mark AIGGP-00/-09/-10 closed. They depend on the AIGGP program.
       This ledger tracks the *drift audit's* findings, not package acceptance.
+
+## Open note — the permanently-empty shape survives in `guardrails-scan` scoping
+
+- [ ] `semantic-scan`'s walk gained `.mjs`/`.cjs` on 2026-09-26 (closing the
+      coherence package's S0 carry-forward), but `guardrails-scan.mjs`'s
+      `SOURCE_EXTENSIONS` still omits `.mjs` — and this repo's first-party JS
+      is 100% `.mjs`. The pattern-scan rules scoped by file_glob (`*.js`/`*.ts`
+      family globs) therefore evaluate none of this repo's own modules. Not a
+      root escape (the root is correct and pinned) — the *extension scoping* is
+      the hollow part. Decision owed: add `.mjs`/`.cjs` to `SOURCE_EXTENSIONS`
+      and re-baseline any new rule hits, or record the rules as bundle-only
+      (meant for consumers, not DevGate-itself) so the emptiness is declared,
+      not discovered. Left open deliberately: it changes what a shipped gate
+      evaluates and deserves its own evidence pass, not a ride-along commit.

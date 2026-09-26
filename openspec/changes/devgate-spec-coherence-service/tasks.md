@@ -160,9 +160,26 @@ round-3 APPROVE at pin `856cbd08…` listed these as non-blocking):
   writable floor left to fall back to and is out of contract scope.
 - [ ] Close S0 carry-forwards: independent review of R1–R9 and ADR disposition
   (round-1 process debt; audit covered code, not the ADR clause decisions).
-- [ ] `semantic-scan.mjs` root detection: either scope it to this repo or
+- [x] `semantic-scan.mjs` root detection: either scope it to this repo or
   declare it out of service for this repo — do not keep a permanently-red or
   silently-parent-scanning gate (GD-adjacent, round 2–3).
+  **CLOSED 2026-09-26 — scoped IN, via the walk's extensions.** The root
+  detection itself was fixed earlier (layout contract,
+  `fix-specs-gate-audit-2026-09`); what kept the gate hollow was that its
+  file walk matched only `.ts/.tsx/.js/.jsx` while every first-party module in
+  this repo is `.mjs` (8 tracked, zero `.js/.ts`) — so the gate reported "no
+  TypeScript/JavaScript files found" and exited 0 without evaluating a single
+  file: the permanently-empty horn of exactly the alternative this line
+  forbids. Fix: `.mjs`/`.cjs` added to the walk (they're ESM/CommonJS JS
+  files; the parser has always handled them). Measured after: the scan
+  evaluates the repo's modules and reports SEMANTIC-001 clean. Pin: the
+  root-anchor fixture's semantic-scan count assertions were moved 3→11 by
+  planting `mod_4.mjs` in the synthetic repo — RED against the old walk
+  (counted 3), green after (counted 11), and the fixture header documents the
+  derivation so extension drift shows immediately. The `guardrails-scan.mjs`
+  `SOURCE_EXTENSIONS` list also lacks `.mjs`; deliberately NOT touched here —
+  same permanently-empty shape, but its disposition belongs to the audit
+  package's scope list, not this line. Carried there as an open note below.
 
 Round-4 independent verification of `dbbb659` (pin 59ba3ad8): **APPROVE** —
 all six r3-indep fixes falsified-and-held, masking-mutation round re-run clean,
