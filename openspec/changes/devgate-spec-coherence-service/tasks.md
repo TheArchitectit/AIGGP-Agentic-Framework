@@ -769,7 +769,51 @@ sprints. Findings and dispositions:
       shows them as an explicit `5 skipped` count, never inside the passed column; locally (podman + image
       present) all three classes execute, container suite 34/34 green. The SKIPPED-branch guards in `ci.yml` stay as future-proofing for podman-less
       runners, with the header comment now saying so explicitly (`2981fff`).
-- [ ] Adapter default-deny: timeouts/unparseable results surface ERROR, never neutral/pass (coh-int-05).
+- [x] Adapter default-deny: timeouts/unparseable results surface ERROR, never neutral/pass (coh-int-05).
+      CLOSED 2026-09-26 (`c79af1e`), after an evidence pass split the requirement in two. The CONTAINER
+      adapter half was already shipped and pinned — `hub/coherence/container_exec.py` maps a killed run
+      (timeout, output-overflow), an unparseable bundle, a missing bundle, a non-contract exit code, and
+      an exit/result disagreement each to ERROR/32, six named tests in
+      `tests/test_hub_coherence_container.py:404-445` (`test_timeout_surfaces_error_not_pass`,
+      `test_unparseable_result_is_error_not_pass`, `test_no_result_file_is_error_not_pass`, and the
+      three contract-agreement cases). What the line actually left open was the FLEET adapter:
+      `hub/monitor.py` transports the gate workflow's CI conclusion, and it classified only
+      `conclusion == "failure"` (plus `skipped` with its own coh-int-06 class) — a FRESH run concluding
+      `timed_out` / `cancelled` / `action_required` / `neutral` / `stale` fell through to the recency
+      window and alerted NOTHING, i.e. a non-pass read healthy: the default-allow in this requirement's
+      own words. Not hypothetical: the coherence template declares `timeout-minutes: 20`, so a slow
+      evaluation ends as `timed_out`, and a fleet-API sample on this very repo (2026-09-26) counts 8
+      `cancelled` runs against 37 `failure` — `cancelled` is the most-used non-pass conclusion after
+      failure itself. The conclusion vocabulary was verified against the REST docs rather than memory —
+      `stale`, not `stalled` (the first draft of the table had it wrong; the docs caught it).
+      Fix: `NON_PASSING_CONCLUSIONS` membership table (GitHub's run-conclusion enum minus `success`, a
+      pass, and `skipped`, which keeps its distinct coh-int-06 class by design) applied at ALL THREE
+      conclusion sites — coherence, drift (same hole for `drift_failed`, where `timed_out` is a
+      scheduled scan's likeliest real non-pass), and check-run gate results (had failure+timed_out,
+      missing cancelled/action_required/neutral). In-progress conclusions (`status`-field values like
+      `queued`/`in_progress`, never `conclusion`) and a null `completed_at` were confirmed safe-side
+      before the fix: they take the `coherence_overdue` raise, never silence.
+      TDD: `tests/test_hub_monitor_default_deny.py`, 5 tests, watched RED first — three membership
+      loops (one per check, each failing on the first unclassified member), a `success`-stays-silent
+      floor (the fix must not become alert-noise), and skip-class-survival (coh-int-06's distinct class
+      must not be folded away). The test list is written OUT in the test file, never imported from the
+      production constant — an imported list shrinks in silence when a member is deleted. The
+      already-classified literals (`failure`, gates' `timed_out`, coherence's skip) are re-asserted by
+      CLASS NAME inside the loops, so a widening that drops an old member fails too.
+      Mutation battery `tests/mutation_battery_monitor_default_deny.py`: **9/9 killed, each by exactly
+      one named test** — five member deletions (M1–M5), two literal-comparison reverts at the coherence
+      and drift sites kept separate so the same defect class at a different site cannot hide behind the
+      first site's killer (M6/M7 — the first run caught M7 with a STALE ANCHOR, not a silent survivor:
+      the drift site's text differs from the coherence site's, exactly the difference the anchor check
+      exists to notice), the check-run revert to the old two-member tuple (M8), and folding `skipped`
+      into the table (M9, killed by the skip-class test). Negative control N1 shrinks the TEST's probe
+      list with production whole and MUST survive — it did. The battery is registered in the CI
+      batteries step, which `test_every_battery_runs_in_the_suite` caught before I did (the suite's
+      first red run in this slice named the omission in one line — the wiring guard works). Floor entry
+      `test_hub_monitor_default_deny: 4` added targeted (90% of 5, sibling rounding); `--update` not
+      used, per the relocation lesson. Full gate battery: pytest 1001/5-skipped, node runner green,
+      openspec strict 36/36, silent-success scan OK, `regression_check --all` 0 hard,
+      `git diff --check` clean, exec bit verified via `git ls-tree`.
 - [ ] Account for repo-scoped runners and multi-runner hosts: stock `runner-enroll.sh` is single-runner-per-host (fixed unit names); per-runner units (`devgate-hb-<name>.{service,timer}`) where a host runs multiple spokes (coh-int-07).
 - [ ] Outage, mirror, cached-attestation, protocol-mismatch behavior; migration guide + operator runbook.
 - [ ] Real pilots behind R9 provenance, now that fleet recon confirms the repos are real registered spokes: gamerepo01 (runner `ucs03-game` — was `dell-u2-game` before the 2026-09-25 two-tier rebalance; both it and `u85-game` are now offline), gamerepo02/LobsterWars (`ucs03-gamerepo02`, registered + online since 2026-09-25 — this closes the earlier "no runner behind the label" gap), and one clean repo; capture lineage/13-violation facts from the real repos with owner approval before labeling fixtures non-synthetic; Stage 2 ratchet demo blocks a new violation while named debt remains advisory.
