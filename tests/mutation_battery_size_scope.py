@@ -52,11 +52,12 @@ CHECK = "scripts/regression_check.py"
 T_SIZES = "tests/test_regression_sizes.py"
 
 EXTENSIONS_WITH_SH = '''                     ".rb", ".php", ".js", ".jsx", ".swift", ".c", ".cpp", ".h", ".cs",
-                     ".sh")'''
-EXTENSIONS_WITHOUT_SH = '''                     ".rb", ".php", ".js", ".jsx", ".swift", ".c", ".cpp", ".h", ".cs")'''
+                     ".sh", ".zig")'''
+EXTENSIONS_WITHOUT_SH = '''                     ".rb", ".php", ".js", ".jsx", ".swift", ".c", ".cpp", ".h", ".cs",
+                     ".zig")'''
 
-TEST_PREFIX_WITH_SH = 'TEST_PREFIX_EXTENSIONS = (".py", ".sh")'
-TEST_PREFIX_WITHOUT_SH = 'TEST_PREFIX_EXTENSIONS = (".py",)'
+TEST_PREFIX_WITH_SH = 'TEST_PREFIX_EXTENSIONS = (".py", ".sh", ".zig")'
+TEST_PREFIX_WITHOUT_SH = 'TEST_PREFIX_EXTENSIONS = (".py", ".zig")'
 
 DIRS_WITH_SCRIPTS = 'SOURCE_DIRS = []\nfor candidate in ["src", "lib", "app", "extensions", "scripts", "internal", "pkg", "cmd", "game",'
 DIRS_WITHOUT_SCRIPTS = 'SOURCE_DIRS = []\nfor candidate in ["src", "lib", "app", "extensions", "internal", "pkg", "cmd", "game",'
@@ -88,7 +89,7 @@ MUTATIONS = [
 # not a fixture property.
 NEGATIVE_CONTROLS = [
     ("N1: an extension nothing in the tree uses — must change no outcome",
-     [(SIZES, EXTENSIONS_WITH_SH, EXTENSIONS_WITH_SH.replace('".sh")', '".sh", ".bak")'))],
+     [(SIZES, EXTENSIONS_WITH_SH, EXTENSIONS_WITH_SH.replace('".sh", ".zig")', '".sh", ".zig", ".bak")'))],
      [T_SIZES], {}),
 ]
 
