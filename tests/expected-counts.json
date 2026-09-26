@@ -18,6 +18,7 @@
   "test_hub_coherence_assertion_schema": 13,
   "test_hub_coherence_attestation": 28,
   "test_hub_coherence_cache": 23,
+  "test_hub_coherence_compat": 13,
   "test_hub_coherence_conformance": 27,
   "test_hub_coherence_container": 25,
   "test_hub_coherence_decision": 5,
@@ -71,5 +72,5 @@
   "test_hub_monitor_default_deny": 4,
   "test_runbook_claims": 4
  },
- "total_floor": 896
+ "total_floor": 940
 }
