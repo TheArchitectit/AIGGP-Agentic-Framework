@@ -62,7 +62,7 @@ def traceability_completeness(assertion: dict, package: dict, subject_root: str,
         for rid, meta in reqs.items():
             if meta.get("testable") and rid not in marked:
                 findings.append(_mk(assertion, "unmarked-requirement",
-                                    expected=f"// spec: {rid} in subject source",
+                                    expected=f"`// spec: {rid}` or `# spec: {rid}` in subject source",
                                     observed="no marker in subject tree",
                                     locations=[rid]))
     return findings
@@ -71,9 +71,18 @@ def traceability_completeness(assertion: dict, package: dict, subject_root: str,
 # Marker grammar copied from scripts/spec_traceability.py: one marker line
 # may carry several comma-separated ids, and the comma anchor keeps a
 # trailing comment (`// spec: <id> -- why`) out of the captured ids.
-MARKER_RE = re.compile(r"//\s*spec:[ \t]*([a-z0-9-]+(?:[ \t]*,[ \t]*[a-z0-9-]+)*)")
+# `#` alone is a valid prefix (the gate's H6 fix: `//`-only locked Python
+# and shell consumers out) — the repo's Python files use `# // spec:`, which
+# the `//` arm already catches, but a bare `# spec:` marker counted COVERED
+# by the gate had to read UNMARKED here. Two authorities, silent disagreement
+# in both directions; now one grammar.
+MARKER_RE = re.compile(r"(?://|#)\s*spec:[ \t]*([a-z0-9-]+(?:[ \t]*,[ \t]*[a-z0-9-]+)*)")
 MARKER_ID_RE = re.compile(r"[a-z0-9-]+")
-MARKER_EXTS = {".rs", ".py", ".mjs", ".js", ".ts"}
+# Extension + skip-dir sets match scripts/spec_traceability.py (SCAN_EXTS /
+# SCAN_SKIP, its 2026-09-24 note): a marker in a .sh or .zig file counts
+# there, so it must count here too — otherwise the two authorities disagree
+# silently and one side's coverage claim is unverifiable.
+MARKER_EXTS = {".rs", ".py", ".mjs", ".js", ".ts", ".sh", ".zig"}
 MARKER_SKIP = {"target", "node_modules", ".git", "openspec", ".devgate"}
 
 

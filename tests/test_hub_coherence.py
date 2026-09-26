@@ -443,6 +443,35 @@ class TestTraceabilityMarkerScan(unittest.TestCase):
             self.assertEqual(fs[0]["subject_locations"], ["r2"])
             self.assertIn("r2", fs[0]["finding_key"])
 
+    def test_hash_marker_covers_per_gate_grammar(self):
+        # The gate's documented convention is `(?://|#) spec:` — `#` alone so
+        # Python/shell can carry markers (spec_traceability.py's H6 fix). The
+        # evaluator claimed to mirror that grammar but matched `//` only, so a
+        # repo covered by the gate read UNMARKED to the evaluator. Both forms
+        # must mean the same thing — the divergence was silent either way.
+        with tempfile.TemporaryDirectory() as td:
+            subj = Path(td) / "subject"
+            (subj / "src").mkdir(parents=True)
+            (subj / "src" / "app.py").write_text("# spec: r1\n# spec: r2\n")
+            fs = evaluators.traceability_completeness(
+                self._assertion(), dict(self.PKG), str(subj))
+            self.assertEqual(fs, [])
+
+    def test_shell_and_zig_markers_cover(self):
+        # The gate scans .sh and .zig (scripts/specs-validate-negative-control.sh
+        # carries `# // spec:` markers); the evaluator's extension list lacked
+        # them, so the same silent-discovery class as the `#` prefix: covered
+        # by the gate, invisible here.
+        with tempfile.TemporaryDirectory() as td:
+            subj = Path(td) / "subject"
+            (subj / "scripts").mkdir(parents=True)
+            (subj / "src").mkdir(parents=True)
+            (subj / "scripts" / "ctl.sh").write_text("# spec: r1\n")
+            (subj / "src" / "main.zig").write_text("// spec: r2\n")
+            fs = evaluators.traceability_completeness(
+                self._assertion(), dict(self.PKG), str(subj))
+            self.assertEqual(fs, [])
+
     def test_trailing_prose_cannot_fake_coverage(self):
         # The id grammar is comma-anchored: `-- why r2` after the marker
         # must not be read as covering r2.
