@@ -562,3 +562,24 @@ pin, in push order.
       unmonitored under the two-tier label rule); the repo-side question —
       whether the monitor should alert on a GH-online runner whose host row
       is absent — needs a spec call before code. Recorded, not acted on.
+- [ ] **Private-repo hosted risk, measured: every spoke token on ucs03 is
+      readable by every CI job on ucs03.** Evidence pass (read-only, no token
+      values touched): the hub's `heartbeat_token` is the *only* credential on
+      /heartbeat AND on /revoke (server.py authenticates revoke by the
+      token itself), and on ucs03 the runner services AND the heartbeat env
+      files share one UID — `ps` shows `devgate-runner-*` MainPID owned by
+      `user001`, and all four `devgate-heartbeat-<runner>.env` files are
+      `-rw------- user001`. 0600 guards against other USERS, not against a
+      co-resident job: a workflow in ANY repo whose label lands on this
+      host's runner (RadCode's CI is as trusted here as DevGate's own) can
+      read every spoke token on the box — forge heartbeats (fleet health is
+      a lie on demand) and revoke every runner (token-authed /revoke = one
+      stolen line disables the fleet). The template side is clean by
+      comparison (`permissions: contents: read`, no hub credential in the
+      workflow at all today); the exposure is host topology, not the gate.
+      Disposition pending owner decision: per-runner UIDs on shared hosts is
+      the structural fix (systemd --user instances don't isolate from each
+      other); a hub-side stopgap is splitting the revoke credential from the
+      heartbeat credential so token theft degrades to false-health, not
+      fleet kill. Recorded with measurements, not acted on — touches live
+      hosts and the mon-enroll-01 auth contract.
