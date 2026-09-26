@@ -18,6 +18,9 @@ this module is the polling POLICY — what to check, and what to alert on.
 // scan_view.scan_alerts (see hub/scan_view.py); this module only raises them.
 // spec: coh-int-05 — the monitor is the FLEET ADAPTER for the coherence gate's
 // CI conclusion; any non-passing conclusion must surface, never default-allow.
+// spec: coh-int-07, coh-int-02 — _check_spec_coherence polls EACH registered
+// repo against that repo's watched branches (never borrowing another repo's
+// result); no watched branches is the explicit coherence_unconfigured no-op.
 """
 
 from __future__ import annotations
