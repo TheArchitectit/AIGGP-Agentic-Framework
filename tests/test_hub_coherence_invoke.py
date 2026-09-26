@@ -76,12 +76,12 @@ class InvokeBuilderTest(unittest.TestCase):
             policy_root=str(self.tmp / "div" / "policy"),
             context_root=str(self.tmp / "div" / "ctx"),
             outputs=self.outputs)
-        ctx = json.loads((self.tmp / "div" / "ctx" / "context.json").read_text())
+        ctx = json.loads((self.tmp / "div" / "ctx" / "context.json").read_text(encoding="utf-8"))
         self.assertEqual(req["policy"]["expected_digest"],
                          ctx["policy_binding"]["expected_digest"])
         # And it is NOT what a recompute from the policy bytes would claim:
         from hub.coherence import canon
-        real_bundle = json.loads((self.tmp / "div" / "policy" / "policy.json").read_text())
+        real_bundle = json.loads((self.tmp / "div" / "policy" / "policy.json").read_text(encoding="utf-8"))
         self.assertNotEqual(req["policy"]["expected_digest"],
                             canon.digest_obj("policy/v1", real_bundle))
 
@@ -189,20 +189,20 @@ class BuilderIsUsableByTheDriverTest(unittest.TestCase):
             policy_root=self.policy, context_root=self.context)
         rj = self.tmp / "req.json"
         lj = self.tmp / "launch.json"
-        rj.write_text(json.dumps(req))
-        lj.write_text(json.dumps(cfg))
+        rj.write_text(json.dumps(req), encoding="utf-8")
+        lj.write_text(json.dumps(cfg), encoding="utf-8")
 
         def fake_run(ctx, *, output_dir, container_args, env):
             # The driver must have rewritten the four roots to mount targets
             # and replaced outputs with /output — proof the mounts cover them.
-            staged = json.loads((Path(output_dir) / "request.container.json").read_text())
+            staged = json.loads((Path(output_dir) / "request.container.json").read_text(encoding="utf-8"))
             assert staged["subject"]["root"] == "/input"
             assert staged["openspec"]["root"].startswith("/openspec")
             assert staged["policy"]["root"].startswith("/policy")
             assert staged["context"]["root"].startswith("/context")
             assert staged["outputs"] == "/output"
             (Path(output_dir) / "result.json").write_text(
-                json.dumps({"decision": "PASS"}))
+                json.dumps({"decision": "PASS"}), encoding="utf-8")
             return LaunchRun(0, b"", "completed")
 
         with mock.patch.object(ce.launcher, "run", side_effect=fake_run) as m:
@@ -229,7 +229,7 @@ class BuilderIsUsableByTheDriverTest(unittest.TestCase):
             policy_root=self.policy, context_root=self.context)
         cfg["mounts"] = [m for m in cfg["mounts"] if m["target"] != "/openspec"]
         rj = self.tmp / "r.json"; lj = self.tmp / "l.json"
-        rj.write_text(json.dumps(req)); lj.write_text(json.dumps(cfg))
+        rj.write_text(json.dumps(req), encoding="utf-8"); lj.write_text(json.dumps(cfg), encoding="utf-8")
         with mock.patch.object(ce.launcher, "run") as m:
             rc = ce.run_containerized(str(rj), str(lj), str(REGISTRY))
         m.assert_not_called()
@@ -261,11 +261,11 @@ class InvokeAsACommandTest(unittest.TestCase):
                  "--image", reg["image"], "--profile", prof["label"],
                  "--manifest-digest", prof["image_manifest_digest"],
                  "--request-out", str(req_p), "--launch-out", str(launch_p)],
-                cwd=str(REPO), capture_output=True, text=True)
+                cwd=str(REPO), capture_output=True, text=True, encoding="utf-8", errors="replace")
             self.assertEqual(proc.returncode, 0,
                              f"builder CLI failed: {proc.stderr}")
-            req = json.loads(req_p.read_text())
-            cfg = json.loads(launch_p.read_text())
+            req = json.loads(req_p.read_text(encoding="utf-8"))
+            cfg = json.loads(launch_p.read_text(encoding="utf-8"))
             self.assertEqual(
                 schemacheck.validate(req, schemacheck.load("request.schema.json")),
                 [], "CLI-emitted request must be schema-valid")

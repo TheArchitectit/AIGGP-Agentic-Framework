@@ -32,7 +32,7 @@ _EVALUATOR_IMAGE_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 
 @lru_cache(maxsize=8)
 def _schema(name: str) -> dict:
-    return json.loads((SCHEMA_DIR / name).read_text())
+    return json.loads((SCHEMA_DIR / name).read_text(encoding="utf-8"))
 
 
 def _fail(out_dir: str, error_class: str, reason: str, stage: str,
@@ -92,7 +92,7 @@ def _safe_out_dir(req: dict, request_path: str) -> str:
 def run(request_path: str) -> int:
     out_dir = str(Path(request_path).resolve().parent)
     try:
-        req = json.loads(Path(request_path).read_text())
+        req = json.loads(Path(request_path).read_text(encoding="utf-8"))
         if not isinstance(req, dict):
             raise ValueError("request must be a JSON object")
         # Protocol guard before deep validation (coh-dec-04, exit 40): a
@@ -364,7 +364,7 @@ def _load_assertions(openspec_root: str) -> list:
         return []
     out = []
     for f in sorted(spec_dir.glob("*.json")):
-        data = json.loads(f.read_text())
+        data = json.loads(f.read_text(encoding="utf-8"))
         out.extend(data if isinstance(data, list) else [data])
     return out
 

@@ -15,7 +15,7 @@ class PackageError(ValueError):
 
 def _load_json(path: Path) -> dict:
     try:
-        return json.loads(path.read_text())
+        return json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as e:
         raise PackageError(f"cannot read package manifest {path}: {e}") from e
 

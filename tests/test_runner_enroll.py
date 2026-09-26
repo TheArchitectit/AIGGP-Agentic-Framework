@@ -49,7 +49,7 @@ def test_execstart_is_a_copied_helper_not_inline_bash(tmp_path):
 
     unit = s.units / "devgate-hb-alpha.service"
     assert unit.exists(), "per-runner service unit was not written"
-    text = unit.read_text()
+    text = unit.read_text(encoding="utf-8")
 
     assert "bash -c" not in text, "incident #1: inline ExecStart gets mangled by systemd"
 
@@ -90,7 +90,7 @@ def test_missing_env_is_a_config_error_not_a_pass(tmp_path):
     """No EnvironmentFile means we cannot check — that must never exit 0."""
     res = subprocess.run(["bash", str(HEARTBEAT)],
                          env={"PATH": os.environ["PATH"], "TMPDIR": str(tmp_path)},
-                         capture_output=True, text=True, timeout=30)
+                         capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30)
     assert res.returncode != 0, "helper exited 0 without any env — vacuous pass"
     assert res.returncode == 1, res.stderr
 
@@ -130,7 +130,7 @@ def test_env_file_is_600_and_holds_the_token(tmp_path):
     assert env.exists()
     mode = oct(env.stat().st_mode & 0o777)
     assert mode == "0o600", f"token file is {mode}, expected 0o600"
-    text = env.read_text()
+    text = env.read_text(encoding="utf-8")
     assert "RUNNER_NAME=alpha" in text
     assert "HEARTBEAT_TOKEN=tok-alpha" in text
 
@@ -154,12 +154,12 @@ def test_reenroll_preserves_hand_added_provisioning_lines(tmp_path):
         "COHERENCE_PODMAN_STORE=/var/lib/devgate/store",
         "IMAGE_CYCLE_PRUNE=0",
     ]
-    env.write_text(env.read_text() + "\n".join(hand_added) + "\n")
+    env.write_text(env.read_text(encoding="utf-8") + "\n".join(hand_added) + "\n", encoding="utf-8")
 
     res = s.enroll("alpha")
     assert res.returncode == 0, res.stderr
 
-    after = env.read_text()
+    after = env.read_text(encoding="utf-8")
     for line in hand_added:
         assert line in after, (
             f"re-enrolling deleted an operator's line, and nothing else in "
@@ -175,7 +175,7 @@ def test_reenroll_keeps_the_env_file_600_with_preserved_lines(tmp_path):
     s = Spoke(tmp_path)
     assert s.enroll("alpha").returncode == 0
     env = s.env_file("alpha")
-    env.write_text(env.read_text() + "COHERENCE_PODMAN_STORE=/var/lib/devgate/store\n")
+    env.write_text(env.read_text(encoding="utf-8") + "COHERENCE_PODMAN_STORE=/var/lib/devgate/store\n", encoding="utf-8")
 
     assert s.enroll("alpha").returncode == 0
     mode = oct(env.stat().st_mode & 0o777)
@@ -200,10 +200,10 @@ def test_unit_names_stay_valid_for_an_awkward_runner_name(tmp_path):
 def test_legacy_units_are_retired_for_the_runner_being_reenrolled(tmp_path):
     s = Spoke(tmp_path)
     s.units.mkdir(parents=True, exist_ok=True)
-    (s.units / "devgate-heartbeat.timer").write_text("[Timer]\n")
-    (s.units / "devgate-heartbeat.service").write_text("[Service]\n")
+    (s.units / "devgate-heartbeat.timer").write_text("[Timer]\n", encoding="utf-8")
+    (s.units / "devgate-heartbeat.service").write_text("[Service]\n", encoding="utf-8")
     (s.home / ".devgate-heartbeat.env").write_text(
-        "HUB_URL=%s\nRUNNER_NAME=alpha\n" % HUB)
+        "HUB_URL=%s\nRUNNER_NAME=alpha\n" % HUB, encoding="utf-8")
 
     assert s.enroll("alpha").returncode == 0
     assert not (s.units / "devgate-heartbeat.timer").exists(), \
@@ -215,9 +215,9 @@ def test_legacy_units_are_left_when_they_belong_to_another_runner(tmp_path):
     """Not destructive: someone else's working units must survive our enroll."""
     s = Spoke(tmp_path)
     s.units.mkdir(parents=True, exist_ok=True)
-    (s.units / "devgate-heartbeat.timer").write_text("[Timer]\n")
+    (s.units / "devgate-heartbeat.timer").write_text("[Timer]\n", encoding="utf-8")
     (s.home / ".devgate-heartbeat.env").write_text(
-        "HUB_URL=%s\nRUNNER_NAME=gamma\n" % HUB)
+        "HUB_URL=%s\nRUNNER_NAME=gamma\n" % HUB, encoding="utf-8")
 
     assert s.enroll("alpha").returncode == 0
     assert (s.units / "devgate-heartbeat.timer").exists(), \
@@ -271,7 +271,7 @@ def test_revoke_does_not_delete_another_runners_units(tmp_path):
 
     res = subprocess.run(
         ["bash", str(SCRIPT), "--revoke", HUB, "tok-ci-slash-runner", "ci/runner"],
-        env=s.env, capture_output=True, text=True, timeout=60)
+        env=s.env, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
 
     assert (s.units / "devgate-hb-ci-runner.service").exists(), \
         "revoke of a colliding name deleted another runner's units"
@@ -287,7 +287,7 @@ def test_revoke_still_removes_its_own_units(tmp_path):
 
     res = subprocess.run(
         ["bash", str(SCRIPT), "--revoke", HUB, "tok-alpha", "alpha"],
-        env=s.env, capture_output=True, text=True, timeout=60)
+        env=s.env, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
 
     assert res.returncode == 0, res.stderr
     assert not (s.units / "devgate-hb-alpha.service").exists(), "own unit survived"
@@ -316,11 +316,11 @@ def test_unattributable_env_file_is_not_overwritten(tmp_path):
     envdir = s.home / ".config" / "containers"
     envdir.mkdir(parents=True, exist_ok=True)
     target = envdir / "devgate-heartbeat-alpha.env"
-    target.write_text("HEARTBEAT_TOKEN=PRECIOUS\n")
+    target.write_text("HEARTBEAT_TOKEN=PRECIOUS\n", encoding="utf-8")
 
     res = s.enroll("alpha")
     assert res.returncode != 0, "token file without an owner was overwritten"
-    assert "PRECIOUS" in target.read_text(), "the token was lost"
+    assert "PRECIOUS" in target.read_text(encoding="utf-8"), "the token was lost"
 
 
 def test_unattributable_legacy_units_are_left_alone(tmp_path):
@@ -328,13 +328,13 @@ def test_unattributable_legacy_units_are_left_alone(tmp_path):
     guard must fail closed exactly like the per-runner guard does."""
     s = Spoke(tmp_path)
     s.units.mkdir(parents=True, exist_ok=True)
-    (s.units / "devgate-heartbeat.timer").write_text("[Timer]\n")
-    (s.home / ".devgate-heartbeat.env").write_text("HEARTBEAT_TOKEN=LEGACY-SECRET\n")
+    (s.units / "devgate-heartbeat.timer").write_text("[Timer]\n", encoding="utf-8")
+    (s.home / ".devgate-heartbeat.env").write_text("HEARTBEAT_TOKEN=LEGACY-SECRET\n", encoding="utf-8")
 
     assert s.enroll("newcomer").returncode == 0
     assert (s.units / "devgate-heartbeat.timer").exists(), \
         "legacy units deleted on an owner we could not read"
-    assert "LEGACY-SECRET" in (s.home / ".devgate-heartbeat.env").read_text()
+    assert "LEGACY-SECRET" in (s.home / ".devgate-heartbeat.env").read_text(encoding="utf-8")
 
 
 def test_a_runner_named_like_the_sentinel_cannot_claim_a_file(tmp_path):
@@ -344,11 +344,11 @@ def test_a_runner_named_like_the_sentinel_cannot_claim_a_file(tmp_path):
     envdir = s.home / ".config" / "containers"
     envdir.mkdir(parents=True, exist_ok=True)
     target = envdir / "devgate-heartbeat-UNKNOWN.env"
-    target.write_text("HEARTBEAT_TOKEN=UNATTRIBUTABLE\n")
+    target.write_text("HEARTBEAT_TOKEN=UNATTRIBUTABLE\n", encoding="utf-8")
 
     res = s.enroll("UNKNOWN")
     assert res.returncode != 0, "sentinel name claimed an unattributable file"
-    assert "UNATTRIBUTABLE" in target.read_text()
+    assert "UNATTRIBUTABLE" in target.read_text(encoding="utf-8")
 
 
 def test_a_directory_at_the_env_path_fails_before_the_hub(tmp_path):
@@ -431,11 +431,11 @@ def test_an_existing_cycle_helper_is_left_unchanged_and_flagged(tmp_path):
     s = Spoke(tmp_path)
     assert s.enroll("alpha").returncode == 0
     helper = s.cycle_helper()
-    helper.write_text("#!/usr/bin/env bash\n# locally patched\n")
+    helper.write_text("#!/usr/bin/env bash\n# locally patched\n", encoding="utf-8")
 
     res = s.enroll("alpha")
     assert res.returncode == 0, res.stderr
-    assert "locally patched" in helper.read_text(), "the host's helper was overwritten"
+    assert "locally patched" in helper.read_text(encoding="utf-8"), "the host's helper was overwritten"
     assert "WARNING" in res.stdout and str(helper) in res.stdout, res.stdout
 
 
@@ -447,7 +447,7 @@ def test_the_cycle_unit_points_at_the_helper_and_the_shared_env_file(tmp_path):
     service, timer = s.cycle_units("alpha")
     assert service.is_file() and timer.is_file(), "cycle units were not written"
 
-    body = service.read_text()
+    body = service.read_text(encoding="utf-8")
     assert f"EnvironmentFile={s.env_file('alpha')}" in body, body
     assert f"ExecStart={s.cycle_helper()}" in body, body
     assert "Type=oneshot" in body, body
@@ -457,7 +457,7 @@ def test_the_cycle_unit_points_at_the_helper_and_the_shared_env_file(tmp_path):
     # on every host in the fleet, is a hammering of the registry that a local
     # POST does not resemble — and it buys nothing, because the desired state
     # is a pinned digest that changes only when someone re-pins it (D1).
-    tbody = timer.read_text()
+    tbody = timer.read_text(encoding="utf-8")
     assert "OnUnitActiveSec=3600" in tbody, tbody
     assert "OnUnitActiveSec=300" not in tbody, tbody
 
@@ -494,7 +494,7 @@ def test_the_cycle_timer_starts_once_the_host_is_provisioned(tmp_path):
     assert any("enable devgate-imgcycle-alpha.timer" in c for c in calls), calls
     assert any("start devgate-imgcycle-alpha.timer" in c for c in calls), calls
     # …and the provisioning itself is untouched (the truncation bug's cousin).
-    env = s.env_file("alpha").read_text()
+    env = s.env_file("alpha").read_text(encoding="utf-8")
     for key in CYC_KEYS:
         assert f"{key}=" in env, env
 
@@ -510,7 +510,7 @@ def test_revoke_removes_the_image_cycle_units(tmp_path):
 
     res = subprocess.run(
         ["bash", str(SCRIPT), "--revoke", HUB, token, "alpha"],
-        env=s.env, capture_output=True, text=True, timeout=60)
+        env=s.env, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
     assert res.returncode == 0, res.stderr
     assert not service.exists() and not timer.exists(), \
         f"cycle units survived revoke: {service.exists()} {timer.exists()}"

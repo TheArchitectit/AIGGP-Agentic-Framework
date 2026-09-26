@@ -133,7 +133,7 @@ def load_failure_registry(root):
 def get_changed_files(root, staged=True):
     """Get list of changed files via git."""
     cmd = ["git", "diff", "--name-only", "--cached"] if staged else ["git", "diff", "--name-only"]
-    result = subprocess.run(cmd, cwd=root, capture_output=True, text=True)
+    result = subprocess.run(cmd, cwd=root, capture_output=True, text=True, encoding="utf-8", errors="replace")
     if result.returncode != 0:
         return []
     return [f.strip() for f in result.stdout.splitlines() if f.strip()]

@@ -94,14 +94,14 @@ def build_root(tmp: Path, *, declared_name="widget", approved_name="widget",
     subj = root / "subject"
     subj.mkdir(parents=True)
     for name, content in (subject_files or {"README.md": f"# product: {declared_name}\n"}).items():
-        (subj / name).write_text(content)
+        (subj / name).write_text(content, encoding="utf-8")
 
     # Package
     pkg = root / "openspec"
     (pkg / "specs").mkdir(parents=True)
     assertions = assertions if assertions is not None else [assertion()]
     for i, a in enumerate(assertions):
-        (pkg / "specs" / f"{a['id']}.json").write_text(json.dumps(a))
+        (pkg / "specs" / f"{a['id']}.json").write_text(json.dumps(a), encoding="utf-8")
     inv = [{"path": str(f.relative_to(pkg)), "kind": "normative",
             "digest": digest_bytes(f.read_bytes())}
            for f in sorted((pkg / "specs").glob("*.json"))]
@@ -110,7 +110,7 @@ def build_root(tmp: Path, *, declared_name="widget", approved_name="widget",
         "package_id": "com.test.widget", "package_version": "2026.09.17",
         "product": {"identity": {"name": approved_name}},
         "normative_inventory": inv, "imports": [],
-    }))
+    }), encoding="utf-8")
 
     # Policy
     pol = root / "policy"
@@ -135,10 +135,10 @@ def build_root(tmp: Path, *, declared_name="widget", approved_name="widget",
     if min_bundle_epoch is not None:
         bundle["min_bundle_epoch"] = min_bundle_epoch
     if baseline is not None:
-        (pol / "baseline.json").write_text(json.dumps(baseline))
+        (pol / "baseline.json").write_text(json.dumps(baseline), encoding="utf-8")
     if exceptions is not None:
-        (pol / "exceptions.json").write_text(json.dumps(exceptions))
-    (pol / "policy.json").write_text(json.dumps(bundle))
+        (pol / "exceptions.json").write_text(json.dumps(exceptions), encoding="utf-8")
+    (pol / "policy.json").write_text(json.dumps(bundle), encoding="utf-8")
     real_policy_digest = canon.digest_obj("policy/v1", bundle)
     claimed = real_policy_digest if policy_digest_ok else "sha256:" + "f" * 64
 
@@ -168,7 +168,7 @@ def build_root(tmp: Path, *, declared_name="widget", approved_name="widget",
     }
     if policy_binding is not None:
         ctx_dict["policy_binding"] = policy_binding
-    (ctx / "context.json").write_text(json.dumps(ctx_dict))
+    (ctx / "context.json").write_text(json.dumps(ctx_dict), encoding="utf-8")
 
     # Expected digests are REAL computed content digests, not placeholders:
     # the CLI verifies them (round-2 audit finding 6a), so a wrong value must
@@ -197,7 +197,7 @@ def build_root(tmp: Path, *, declared_name="widget", approved_name="widget",
     if repository is not None:
         req["repository"] = repository
     req_path = root / "request.json"
-    req_path.write_text(json.dumps(req))
+    req_path.write_text(json.dumps(req), encoding="utf-8")
     return req_path, out
 
 

@@ -45,7 +45,7 @@ def _baseline():
 def _run(req):
     return subprocess.run([sys.executable, "-m", "hub.coherence",
                            "--request", str(req)],
-                          capture_output=True, text=True, cwd=str(REPO),
+                          capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO),
                           env={**os.environ, **fx.cli_env()})
 
 
@@ -67,7 +67,7 @@ class TestLadderDemo(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             req, out = _ladder_fixture(Path(td), stage=1)
             p = _run(req)
-            res = json.loads((out / "result.json").read_text())
+            res = json.loads((out / "result.json").read_text(encoding="utf-8"))
             self.assertEqual(p.returncode, result.EXIT_ADVISORY)
             self.assertEqual(res["assertion_summary"]["violated"], N)
             self.assertEqual({f["assertion_id"] for f in res["findings"]},
@@ -84,7 +84,7 @@ class TestLadderDemo(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             req, out = _ladder_fixture(Path(td), stage=2, baseline=_baseline())
             p = _run(req)
-            res = json.loads((out / "result.json").read_text())
+            res = json.loads((out / "result.json").read_text(encoding="utf-8"))
             self.assertEqual(p.returncode, result.EXIT_ADVISORY,
                              "all 13 are named baseline debt -> no regression")
             self.assertTrue(all(f["enforcement"] == "ADVISORY"
@@ -99,7 +99,7 @@ class TestLadderDemo(unittest.TestCase):
             req, out = _ladder_fixture(Path(td), stage=2, baseline=_baseline(),
                                        extra_assertion=new)
             p = _run(req)
-            res = json.loads((out / "result.json").read_text())
+            res = json.loads((out / "result.json").read_text(encoding="utf-8"))
             self.assertEqual(p.returncode, result.EXIT_FAIL)
             self.assertEqual(res["decision"], "FAIL")
             blocked = [f for f in res["findings"] if f["enforcement"] == "BLOCK"]
@@ -119,7 +119,7 @@ class TestLadderDemo(unittest.TestCase):
             req, out = _ladder_fixture(Path(td), stage=2, baseline=_baseline(),
                                        exceptions=exc)
             p = _run(req)
-            res = json.loads((out / "result.json").read_text())
+            res = json.loads((out / "result.json").read_text(encoding="utf-8"))
             self.assertEqual(p.returncode, result.EXIT_FAIL)
             blocked = [f for f in res["findings"]
                        if f["enforcement"] == "BLOCK"]
@@ -136,7 +136,7 @@ class TestLadderDemo(unittest.TestCase):
             req, out = _ladder_fixture(Path(td), stage=2, baseline=_baseline(),
                                        exceptions=exc)
             p = _run(req)
-            res = json.loads((out / "result.json").read_text())
+            res = json.loads((out / "result.json").read_text(encoding="utf-8"))
             self.assertEqual(p.returncode, result.EXIT_ADVISORY)
             hit = [f for f in res["findings"] if f["assertion_id"] == AIDS[5]]
             self.assertEqual(hit[0]["enforcement"], "EXCEPTION-ADVISORY")
@@ -159,18 +159,18 @@ class TestLadderDemo(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             base = Path(td)
             req, out = _ladder_fixture(base, stage=2, baseline=_baseline())
-            pol_dir = Path(json.loads(req.read_text())["policy"]["root"])
+            pol_dir = Path(json.loads(req.read_text(encoding="utf-8"))["policy"]["root"])
             ctx_dir = base / "issued-ctx"
             issue.issue_context(
                 str(ctx_dir), str(pol_dir), repo="com.test.widget",
                 registry_path=str(_registry_file(base)),
                 evaluation_time="2026-09-17T00:00:00Z",
                 baseline_set=_baseline())
-            r = json.loads(req.read_text())
+            r = json.loads(req.read_text(encoding="utf-8"))
             r["context"] = {"root": str(ctx_dir),
                             "expected_digest":
                                 context.load(str(ctx_dir))["context_digest"]}
-            req.write_text(json.dumps(r))
+            req.write_text(json.dumps(r), encoding="utf-8")
             p = _run(req)
             self.assertEqual(p.returncode, result.EXIT_ADVISORY)
             # Baseline swap detection on the issued path.
@@ -189,17 +189,17 @@ class TestLadderDemo(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             base = Path(td)
             req, out = _ladder_fixture(base, stage=2)  # no baseline file at all
-            pol_dir = Path(json.loads(req.read_text())["policy"]["root"])
+            pol_dir = Path(json.loads(req.read_text(encoding="utf-8"))["policy"]["root"])
             ctx_dir = base / "issued-ctx"
             issue.issue_context(
                 str(ctx_dir), str(pol_dir), repo="com.test.widget",
                 registry_path=str(_registry_file(base)),
                 evaluation_time="2026-09-17T00:00:00Z")  # no baseline_set
-            r = json.loads(req.read_text())
+            r = json.loads(req.read_text(encoding="utf-8"))
             r["context"] = {"root": str(ctx_dir),
                             "expected_digest":
                                 context.load(str(ctx_dir))["context_digest"]}
-            req.write_text(json.dumps(r))
+            req.write_text(json.dumps(r), encoding="utf-8")
             p1 = _run(req)
             self.assertEqual(p1.returncode, result.EXIT_FAIL)  # unbaselined
             # Bind nothing; now write a matching baseline and re-run.
@@ -212,7 +212,7 @@ class TestLadderDemo(unittest.TestCase):
 def _registry_file(td: Path) -> Path:
     rp = td / "stage-registry.json"
     rp.write_text(json.dumps({"com.test.widget": {
-        "stage": 2, "owner": "portfolio-owner", "next_stage": 3}}))
+        "stage": 2, "owner": "portfolio-owner", "next_stage": 3}}), encoding="utf-8")
     return rp
 
 

@@ -25,7 +25,7 @@ def run_scan(root: Path, allowlist: Path = None) -> subprocess.CompletedProcess:
     if allowlist is not None:
         env["SILENT_SUCCESS_SCAN_ALLOWLIST"] = str(allowlist)
     return subprocess.run(["bash", str(SCRIPT)], capture_output=True,
-                          text=True, env=env, timeout=120, cwd=str(REPO))
+                          text=True, encoding="utf-8", errors="replace", env=env, timeout=120, cwd=str(REPO))
 
 
 def make_project(tmp: Path) -> Path:
@@ -35,12 +35,12 @@ def make_project(tmp: Path) -> Path:
     (proj / ".guardrails" / "prevention-rules").mkdir(parents=True)
     rules = json.loads(
         (REPO / ".guardrails" / "prevention-rules" /
-         "silent-success-rules.json").read_text())
+         "silent-success-rules.json").read_text(encoding="utf-8"))
     (proj / ".guardrails" / "prevention-rules" /
-     "silent-success-rules.json").write_text(json.dumps(rules))
+     "silent-success-rules.json").write_text(json.dumps(rules), encoding="utf-8")
     allowlist = {"entries": []}
     (proj / ".guardrails" / "silent-success-allowlist.json").write_text(
-        json.dumps(allowlist))
+        json.dumps(allowlist), encoding="utf-8")
     (proj / "hub").mkdir()
     return proj
 
@@ -54,7 +54,7 @@ class TestSilentSuccessGateCanary(unittest.TestCase):
                 "def handle(req):\n"
                 "    try:\n"
                 "        return do_work(req)\n"
-                "    except Exception: pass  # silent success\n")
+                "    except Exception: pass  # silent success\n", encoding="utf-8")
             r = run_scan(proj)
             self.assertEqual(r.returncode, 1, r.stdout)
             self.assertIn("NEW/unlisted", r.stdout)
@@ -71,7 +71,7 @@ class TestSilentSuccessGateCanary(unittest.TestCase):
                 "def test_x():\n"
                 "    try:\n"
                 "        run()\n"
-                "    except Exception: pass\n")
+                "    except Exception: pass\n", encoding="utf-8")
             r = run_scan(proj)
             self.assertEqual(r.returncode, 0, r.stdout)
 
@@ -79,7 +79,7 @@ class TestSilentSuccessGateCanary(unittest.TestCase):
         """The real self-gate: DevGate's own hub/ and scripts/ are scanned
         with the families live on every run."""
         r = subprocess.run(["bash", str(SCRIPT)], capture_output=True,
-                           text=True, timeout=120, cwd=str(REPO))
+                           text=True, encoding="utf-8", errors="replace", timeout=120, cwd=str(REPO))
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
         self.assertIn("4 enabled family(ies)", r.stdout,
                       "the self-gate must not be running vacuously")
@@ -90,15 +90,15 @@ class TestSilentSuccessGateCanary(unittest.TestCase):
             (proj / "hub").mkdir(exist_ok=True)
             victim = proj / "hub" / "handled.py"
             marker_line = '    except ValueError: pass  # reviewed: no-op is the contract\n'
-            victim.write_text("def f():\n" + marker_line)
+            victim.write_text("def f():\n" + marker_line, encoding="utf-8")
             allow_fp = (proj / ".guardrails" /
                         "silent-success-allowlist.json")
-            allow = json.loads(allow_fp.read_text())
+            allow = json.loads(allow_fp.read_text(encoding="utf-8"))
             allow["entries"].append({
                 "file": "hub/handled.py", "marker": "except ValueError: pass",
                 "family": "python_inline_swallowed_exception",
                 "reason": "drill fixture", "removal": "never"})
-            allow_fp.write_text(json.dumps(allow))
+            allow_fp.write_text(json.dumps(allow), encoding="utf-8")
             r = run_scan(proj, allowlist=allow_fp)
             self.assertEqual(r.returncode, 0, r.stdout)
             self.assertIn("[allowlisted]", r.stdout)

@@ -22,10 +22,10 @@ ZERO_DIGEST = "sha256:" + "0" * 64
 def _run(req_path: Path, out_dir: Path):
     """Invoke the real CLI; return (exit_code, parsed result or None)."""
     r = subprocess.run([sys.executable, "-m", "hub.coherence", "--request", str(req_path)],
-                       capture_output=True, text=True, cwd=str(REPO),
+                       capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO),
                        env={**os.environ, **fx.cli_env()})
     rp = out_dir / "result.json"
-    parsed = json.loads(rp.read_text()) if rp.exists() else None
+    parsed = json.loads(rp.read_text(encoding="utf-8")) if rp.exists() else None
     return r.returncode, parsed
 
 
@@ -54,9 +54,9 @@ class TestExitCodeSweep(unittest.TestCase):
     def test_30_invalid_input(self):
         with tempfile.TemporaryDirectory() as td:
             req, out = fx.build_root(Path(td))
-            r = json.loads(req.read_text())
+            r = json.loads(req.read_text(encoding="utf-8"))
             r["openspec"]["root"] = str(Path(td) / "missing")
-            req.write_text(json.dumps(r))
+            req.write_text(json.dumps(r), encoding="utf-8")
             code, res = _run(req, out)
             self.assertEqual(code, result.EXIT_INVALID_INPUT)
             self.assertEqual(res["decision"], "ERROR")
@@ -94,7 +94,7 @@ class TestExitCodeSweep(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             base = Path(td)
             # (a) outputs is a regular file — cannot be a directory
-            f = base / "afile"; f.write_text("x")
+            f = base / "afile"; f.write_text("x", encoding="utf-8")
             # (b) outputs is read-only — cannot be written into
             ro = base / "ro"; ro.mkdir(); os.chmod(ro, 0o555)
             # (c) outputs nested under a regular file — no such directory
@@ -104,12 +104,12 @@ class TestExitCodeSweep(unittest.TestCase):
                 for label, bad in cases.items():
                     req, _ = fx.build_root(base / label, stage=3,
                                            declared_name="other", approved_name="widget")
-                    r = json.loads(req.read_text())
+                    r = json.loads(req.read_text(encoding="utf-8"))
                     r["outputs"] = bad
-                    req.write_text(json.dumps(r))
+                    req.write_text(json.dumps(r), encoding="utf-8")
                     p = subprocess.run([sys.executable, "-m", "hub.coherence",
                                         "--request", str(req)],
-                                       capture_output=True, text=True, cwd=str(REPO))
+                                       capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO))
                     self.assertEqual(p.returncode, result.EXIT_EVIDENCE,
                                      f"{label}: expected exit 33, got {p.returncode}")
                     self.assertNotIn("Traceback", p.stderr,
@@ -126,9 +126,9 @@ class TestExitCodeSweep(unittest.TestCase):
         """Unsupported api_version -> exit 40, before any resolver runs."""
         with tempfile.TemporaryDirectory() as td:
             req, out = fx.build_root(Path(td))
-            r = json.loads(req.read_text())
+            r = json.loads(req.read_text(encoding="utf-8"))
             r["api_version"] = "devgate.spec-coherence/v99"
-            req.write_text(json.dumps(r))
+            req.write_text(json.dumps(r), encoding="utf-8")
             code, res = _run(req, out)
             self.assertEqual(code, result.EXIT_PROTOCOL)
             self.assertEqual(res["decision"], "ERROR")
@@ -148,12 +148,12 @@ class TestEnvelopeHonestyIndep(unittest.TestCase):
             try:
                 # declared == approved -> zero findings (PASS shape)
                 req, out = fx.build_root(Path(td) / "f", stage=1)
-                r = json.loads(req.read_text())
+                r = json.loads(req.read_text(encoding="utf-8"))
                 r["outputs"] = str(ro)
-                req.write_text(json.dumps(r))
+                req.write_text(json.dumps(r), encoding="utf-8")
                 p = subprocess.run([sys.executable, "-m", "hub.coherence",
                                     "--request", str(req)],
-                                   capture_output=True, text=True, cwd=str(REPO))
+                                   capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO))
                 self.assertNotIn("Traceback", p.stderr, "raw traceback")
                 self.assertEqual(p.returncode, result.EXIT_EVIDENCE,
                                  f"expected exit 33, got {p.returncode}")
@@ -169,7 +169,7 @@ class TestEnvelopeHonestyIndep(unittest.TestCase):
             (out / "result.json").mkdir()   # IsADirectoryError on write
             p = subprocess.run([sys.executable, "-m", "hub.coherence",
                                 "--request", str(req)],
-                               capture_output=True, text=True, cwd=str(REPO))
+                               capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO))
             self.assertNotIn("Traceback", p.stderr)
             self.assertEqual(p.returncode, result.EXIT_PASS,
                              "decision stands; the payload just relocates")
@@ -184,16 +184,16 @@ class TestEnvelopeHonestyIndep(unittest.TestCase):
         bare "'root'" KeyError text)."""
         with tempfile.TemporaryDirectory() as td:
             req, out = fx.build_root(Path(td) / "f")
-            r = json.loads(req.read_text())
+            r = json.loads(req.read_text(encoding="utf-8"))
             r["policy"] = {"expected_digest": "sha256:" + "a" * 64}
-            req.write_text(json.dumps(r))
+            req.write_text(json.dumps(r), encoding="utf-8")
             p = subprocess.run([sys.executable, "-m", "hub.coherence",
                                 "--request", str(req)],
-                               capture_output=True, text=True, cwd=str(REPO))
+                               capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO))
             self.assertNotIn("Traceback", p.stderr)
             self.assertEqual(p.returncode, result.EXIT_INVALID_INPUT,
                              f"expected exit 30, got {p.returncode}")
-            env = json.loads((req.parent / "result.json").read_text())
+            env = json.loads((req.parent / "result.json").read_text(encoding="utf-8"))
             self.assertIn("policy", env["error"]["reason"])
             self.assertIn("'root'", env["error"]["reason"],
                           "the missing key must be named by the schema guard")
@@ -205,25 +205,25 @@ class TestEnvelopeHonestyIndep(unittest.TestCase):
                              ("exceptions.json", "cannot read exception set")):
             with tempfile.TemporaryDirectory() as td:
                 req, out = fx.build_root(Path(td) / "f", stage=2)
-                pr = Path(json.loads(req.read_text())["policy"]["root"])
-                (pr / name).write_text("{ broken")
+                pr = Path(json.loads(req.read_text(encoding="utf-8"))["policy"]["root"])
+                (pr / name).write_text("{ broken", encoding="utf-8")
                 p = subprocess.run([sys.executable, "-m", "hub.coherence",
                                     "--request", str(req)],
-                                   capture_output=True, text=True, cwd=str(REPO))
+                                   capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO))
                 self.assertNotIn("Traceback", p.stderr, name)
                 self.assertEqual(p.returncode, result.EXIT_POLICY,
                                  f"{name}: expected exit 31, got {p.returncode}")
                 # Pin the reason came from the set loader, not any other
                 # policy failure — otherwise a CLI-level catch-all could mask
                 # the loader's own wrap being deleted (mutation round 2).
-                env = json.loads((out / "result.json").read_text())
+                env = json.loads((out / "result.json").read_text(encoding="utf-8"))
                 self.assertIn(prefix, env["error"]["reason"], name)
 
     def test_load_adoption_sets_wraps_json_errors(self):
         """Unit-level pin for the loader's own wrap (belt layer)."""
         from hub.coherence import policy
         with tempfile.TemporaryDirectory() as td:
-            (Path(td) / "baseline.json").write_text("{ broken")
+            (Path(td) / "baseline.json").write_text("{ broken", encoding="utf-8")
             with self.assertRaises(policy.PolicyError) as c:
                 policy.load_adoption_sets(td)
             self.assertIn("cannot read baseline set", str(c.exception))
@@ -237,12 +237,12 @@ class TestEnvelopeHonestyIndep(unittest.TestCase):
         for bad in (None, "", "   "):
             with tempfile.TemporaryDirectory() as td:
                 req, out = fx.build_root(Path(td) / "f")
-                r = json.loads(req.read_text())
+                r = json.loads(req.read_text(encoding="utf-8"))
                 r["subject"]["expected_digest"] = bad
-                req.write_text(json.dumps(r))
+                req.write_text(json.dumps(r), encoding="utf-8")
                 p = subprocess.run([sys.executable, "-m", "hub.coherence",
                                     "--request", str(req)],
-                                   capture_output=True, text=True, cwd=str(REPO))
+                                   capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO))
                 self.assertNotIn("Traceback", p.stderr)
                 self.assertEqual(p.returncode, result.EXIT_INVALID_INPUT,
                                  f"expected_digest={bad!r}: expected exit 30, "
@@ -251,7 +251,7 @@ class TestEnvelopeHonestyIndep(unittest.TestCase):
                 # _check_expected guard: null hits its type rule, ""/"   " hit
                 # its pattern rule. Both are exit 30, name the field, and land
                 # beside the request (out_dir isn't trusted until validated).
-                env = json.loads((req.parent / "result.json").read_text())
+                env = json.loads((req.parent / "result.json").read_text(encoding="utf-8"))
                 self.assertIn("expected_digest", env["error"]["reason"],
                               f"expected_digest={bad!r}: field not named")
 
@@ -333,7 +333,7 @@ class TestRuntimeSchemaValidation(unittest.TestCase):
     def _env(self, req, out):
         for cand in (out / "result.json", Path(req).parent / "result.json"):
             if cand.exists():
-                return json.loads(cand.read_text())
+                return json.loads(cand.read_text(encoding="utf-8"))
         self.fail("no envelope written anywhere")
 
     def test_wrong_shape_baseline_dict_is_exit31(self):
@@ -341,11 +341,11 @@ class TestRuntimeSchemaValidation(unittest.TestCase):
         adoption.evaluate and crash there with AttributeError."""
         with tempfile.TemporaryDirectory() as td:
             req, out = fx.build_root(Path(td) / "f", stage=2)
-            pr = Path(json.loads(req.read_text())["policy"]["root"])
-            (pr / "baseline.json").write_text(json.dumps({"a": 1}))
+            pr = Path(json.loads(req.read_text(encoding="utf-8"))["policy"]["root"])
+            (pr / "baseline.json").write_text(json.dumps({"a": 1}), encoding="utf-8")
             p = subprocess.run([sys.executable, "-m", "hub.coherence",
                                 "--request", str(req)],
-                               capture_output=True, text=True, cwd=str(REPO),
+                               capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO),
                                env={**os.environ, **fx.cli_env()})
             self.assertNotIn("Traceback", p.stderr)
             self.assertEqual(p.returncode, result.EXIT_POLICY,
@@ -354,11 +354,11 @@ class TestRuntimeSchemaValidation(unittest.TestCase):
     def test_list_of_strings_baseline_is_exit31(self):
         with tempfile.TemporaryDirectory() as td:
             req, out = fx.build_root(Path(td) / "f", stage=2)
-            pr = Path(json.loads(req.read_text())["policy"]["root"])
-            (pr / "baseline.json").write_text(json.dumps(["just", "strings"]))
+            pr = Path(json.loads(req.read_text(encoding="utf-8"))["policy"]["root"])
+            (pr / "baseline.json").write_text(json.dumps(["just", "strings"]), encoding="utf-8")
             p = subprocess.run([sys.executable, "-m", "hub.coherence",
                                 "--request", str(req)],
-                               capture_output=True, text=True, cwd=str(REPO),
+                               capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO),
                                env={**os.environ, **fx.cli_env()})
             self.assertNotIn("Traceback", p.stderr)
             self.assertEqual(p.returncode, result.EXIT_POLICY)
@@ -372,14 +372,14 @@ class TestRuntimeSchemaValidation(unittest.TestCase):
         arm escape (mutation round 3)."""
         with tempfile.TemporaryDirectory() as td:
             req, out = fx.build_root(Path(td) / "f", stage=2)
-            pr = Path(json.loads(req.read_text())["policy"]["root"])
+            pr = Path(json.loads(req.read_text(encoding="utf-8"))["policy"]["root"])
             exc = [fx.exception_entry("assertion-0", 1, "README.md", "identity-mismatch",
                                       expires_at="2027-01-01T00:00:00Z")]
             exc[0]["expires_at"] = "garbage"
-            (pr / "exceptions.json").write_text(json.dumps(exc))
+            (pr / "exceptions.json").write_text(json.dumps(exc), encoding="utf-8")
             p = subprocess.run([sys.executable, "-m", "hub.coherence",
                                 "--request", str(req)],
-                               capture_output=True, text=True, cwd=str(REPO),
+                               capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO),
                                env={**os.environ, **fx.cli_env()})
             self.assertNotIn("Traceback", p.stderr)
             self.assertEqual(p.returncode, result.EXIT_POLICY)
@@ -394,17 +394,17 @@ class TestRuntimeSchemaValidation(unittest.TestCase):
         path, not the adoption ValueError belt — is the thing caught."""
         with tempfile.TemporaryDirectory() as td:
             req, out = fx.build_root(Path(td) / "f")
-            cr = Path(json.loads(req.read_text())["context"]["root"])
-            ctx = json.loads((cr / "context.json").read_text())
+            cr = Path(json.loads(req.read_text(encoding="utf-8"))["context"]["root"])
+            ctx = json.loads((cr / "context.json").read_text(encoding="utf-8"))
             ctx["evaluation_time"] = "last tuesday"
-            (cr / "context.json").write_text(json.dumps(ctx))
+            (cr / "context.json").write_text(json.dumps(ctx), encoding="utf-8")
             from hub.coherence import canon
-            r = json.loads(req.read_text())
+            r = json.loads(req.read_text(encoding="utf-8"))
             r["context"]["expected_digest"] = canon.digest_obj("context/v1", ctx)
-            req.write_text(json.dumps(r))
+            req.write_text(json.dumps(r), encoding="utf-8")
             p = subprocess.run([sys.executable, "-m", "hub.coherence",
                                 "--request", str(req)],
-                               capture_output=True, text=True, cwd=str(REPO))
+                               capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO))
             self.assertNotIn("Traceback", p.stderr)
             self.assertEqual(p.returncode, result.EXIT_POLICY)
             env = self._env(req, out)
@@ -462,7 +462,7 @@ class TestRuntimeSchemaValidation(unittest.TestCase):
                     "context_id": "x", "evaluation_time": "2026-09-17T00:00:00Z",
                     "stage": 1, "execution_profile": "p",
                     "issuance": {"issued_at": "2026-09-17T00:00:00Z",
-                                 "issuer": "cp"}}))
+                                 "issuer": "cp"}}), encoding="utf-8")
                 with self.assertRaises(context.ContextError):
                     context.load(str(cdir))
         finally:
@@ -481,7 +481,7 @@ class TestRuntimeSchemaValidation(unittest.TestCase):
         (mutation round 3: CLI path only exercised the format guard)."""
         from hub.coherence import policy
         with tempfile.TemporaryDirectory() as td:
-            (Path(td) / "exceptions.json").write_text(json.dumps(["not", "entries"]))
+            (Path(td) / "exceptions.json").write_text(json.dumps(["not", "entries"]), encoding="utf-8")
             with self.assertRaises(policy.PolicyError) as c:
                 policy.load_adoption_sets(td)
             self.assertIn("invalid exception set", str(c.exception))
@@ -491,12 +491,12 @@ class TestRuntimeSchemaValidation(unittest.TestCase):
         a wrong-typed inputRef digest is rejected by the pattern arm."""
         with tempfile.TemporaryDirectory() as td:
             req, out = fx.build_root(Path(td) / "f")
-            r = json.loads(req.read_text())
+            r = json.loads(req.read_text(encoding="utf-8"))
             r["subject"]["expected_digest"] = "md5:xyz"
-            req.write_text(json.dumps(r))
+            req.write_text(json.dumps(r), encoding="utf-8")
             p = subprocess.run([sys.executable, "-m", "hub.coherence",
                                 "--request", str(req)],
-                               capture_output=True, text=True, cwd=str(REPO))
+                               capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO))
             self.assertEqual(p.returncode, result.EXIT_INVALID_INPUT)
             env = self._env(req, out)
             self.assertIn("expected_digest", env["error"]["reason"])
@@ -512,12 +512,12 @@ class TestOutputsTypeGuard(unittest.TestCase):
         for label, val in bad_values:
             with tempfile.TemporaryDirectory() as td:
                 req, out = fx.build_root(Path(td))
-                r = json.loads(req.read_text())
+                r = json.loads(req.read_text(encoding="utf-8"))
                 r["outputs"] = val
-                req.write_text(json.dumps(r))
+                req.write_text(json.dumps(r), encoding="utf-8")
                 p = subprocess.run([sys.executable, "-m", "hub.coherence",
                                     "--request", str(req)],
-                                   capture_output=True, text=True, cwd=str(REPO))
+                                   capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO))
                 self.assertNotIn("Traceback", p.stderr,
                                  f"outputs={label}: raw traceback")
                 self.assertEqual(p.returncode, result.EXIT_INVALID_INPUT,
@@ -527,7 +527,7 @@ class TestOutputsTypeGuard(unittest.TestCase):
                 env_path = req.parent / "result.json"
                 self.assertTrue(env_path.exists(),
                                 f"outputs={label}: no envelope written")
-                res = json.loads(env_path.read_text())
+                res = json.loads(env_path.read_text(encoding="utf-8"))
                 self.assertEqual(res["decision"], "ERROR",
                                  f"outputs={label}: must be an error envelope")
                 self.assertEqual(res["error"]["class"], "invalid-input",

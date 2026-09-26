@@ -159,7 +159,7 @@ class TestResourceAuditScript(unittest.TestCase):
         r = subprocess.run(
             [sys.executable, str(script), "--budget-seconds", "30",
              sys.executable, "-c", "import time; time.sleep(0.2)"],
-            capture_output=True, text=True, timeout=120)
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
         self.assertEqual(r.returncode, 0, r.stderr)
         import json
         rep = json.loads(r.stdout)
@@ -173,7 +173,7 @@ class TestResourceAuditScript(unittest.TestCase):
         r = subprocess.run(
             [sys.executable, str(script), "--budget-seconds", "1",
              sys.executable, "-c", "while True: pass"],
-            capture_output=True, text=True, timeout=120)
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
         self.assertEqual(r.returncode, 30)
         import json
         rep = json.loads(r.stdout)

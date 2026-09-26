@@ -51,7 +51,7 @@ def _template_blocks() -> str:
     """Concatenation of the template's `run: |` bodies, de-indented — the same
     extraction tests/test_coherence_workflow_template.py uses, so a template
     edit that breaks THIS view of the file breaks that suite too."""
-    lines = (TEMPLATE.read_text()).split("\n")
+    lines = (TEMPLATE.read_text(encoding="utf-8")).split("\n")
     out, i = [], 0
     while i < len(lines):
         m = re.match(r"^(\s*)run: \|$", lines[i])
@@ -109,7 +109,7 @@ class WrapperExistsTest(unittest.TestCase):
         by identity (the template's DEVGATE_PIN): the wrapper may only shell out
         to `python3 -m hub.coherence[.invoke]`, never install anything. A pip
         line would make 'local == CI' depend on what the developer installed."""
-        text = WRAPPER.read_text()
+        text = WRAPPER.read_text(encoding="utf-8")
         self.assertNotIn("pip install", text,
                          "wrapper installs packages — breaks stdlib-only local use")
         # Every "python3" token literal is a `-m` module invocation, and every
@@ -150,7 +150,7 @@ class BuilderByteEquivalenceTest(unittest.TestCase):
         # the pinned registry — the same source the template reads (its
         # digest-resolution step loads execution-profiles.json), so a wrapper
         # consulting anything else cannot byte-match.
-        reg = json.loads((REPO / "container/execution-profiles.json").read_text())
+        reg = json.loads((REPO / "container/execution-profiles.json").read_text(encoding="utf-8"))
         prof = reg["profiles"][0]
         subs = {
             "$CAND_ROOT": str(self.tmp),        # template: CAND_ROOT="$PWD"
@@ -170,7 +170,7 @@ class BuilderByteEquivalenceTest(unittest.TestCase):
             cmd.append(a)
         env = dict(os.environ, PYTHONPATH=".")
         r = subprocess.run(cmd, cwd=str(REPO), env=env,
-                           capture_output=True, text=True)
+                           capture_output=True, text=True, encoding="utf-8", errors="replace")
         self.assertEqual(r.returncode, 0, f"template replay failed: {r.stderr}")
 
     def _run_wrapper(self, out_dir: Path, extra=()) -> subprocess.CompletedProcess:
@@ -180,7 +180,7 @@ class BuilderByteEquivalenceTest(unittest.TestCase):
              "--policy", str(self.roots["policy"]),
              "--context", str(self.roots["context"]),
              "--outputs", str(out_dir), "--build-only", *extra],
-            capture_output=True, text=True)
+            capture_output=True, text=True, encoding="utf-8", errors="replace")
 
     def test_request_and_launch_bytes_match_the_template_replay(self):
         # `outputs` is part of the request, so the two runs cannot share one
@@ -250,7 +250,7 @@ class BuilderByteEquivalenceTest(unittest.TestCase):
              "--policy", str(bad / "policy"),
              "--context", str(bad / "ctx"),
              "--outputs", str(out), "--build-only"],
-            capture_output=True, text=True,
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
             env={**os.environ, "HUB_COHERENCE_CP_KEY": "a" * 64})
         self.assertEqual(r.returncode, 30,
                          f"with a control-plane key configured the unsigned "
@@ -303,7 +303,7 @@ class DryRunTranscriptTest(unittest.TestCase):
                  "--policy", str(tmp / "policy"),
                  "--context", str(tmp / "ctx"),
                  "--outputs", str(out), "--dry-run"],
-                capture_output=True, text=True)
+                capture_output=True, text=True, encoding="utf-8", errors="replace")
             self.assertEqual(r.returncode, 0, r.stderr)
             b_flags = [a for a in _template_builder_command() if a.startswith("--")]
             d_flags = [a for a in _template_driver_command() if a.startswith("--")]
@@ -344,7 +344,7 @@ class ProfileIdentityTest(unittest.TestCase):
              "--policy", str(tmp / "policy"),
              "--context", str(tmp / "ctx"),
              "--outputs", str(out), "--build-only", *extra],
-            capture_output=True, text=True,
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
             env={**os.environ, **env_extra})
 
     def test_head_inserted_registry_profile_does_not_become_default(self):
@@ -357,7 +357,7 @@ class ProfileIdentityTest(unittest.TestCase):
         tmp = Path(tempfile.mkdtemp(prefix="dg-prof-"))
         try:
             fx.build_root(tmp, binding=True)
-            real = json.loads((REPO / "container/execution-profiles.json").read_text())
+            real = json.loads((REPO / "container/execution-profiles.json").read_text(encoding="utf-8"))
             ci_digest = real["profiles"][0]["image_manifest_digest"]
             real["profiles"].insert(0, {
                 "label": "znew-v9", "platform": "linux/z",
@@ -365,7 +365,7 @@ class ProfileIdentityTest(unittest.TestCase):
                 "base_image": "example@sha256:" + "e" * 64,
                 "semantic_equivalence_group": "default", "built": "2099-01-01"})
             prof_file = tmp / "profiles.json"
-            prof_file.write_text(json.dumps(real))
+            prof_file.write_text(json.dumps(real), encoding="utf-8")
             out = tmp / "out"
             w = self._wrapper(out, tmp,
                               {"DEVGATE_EXECUTION_PROFILES": str(prof_file)})
@@ -373,7 +373,7 @@ class ProfileIdentityTest(unittest.TestCase):
                              f"the CI-pinned profile is still in the registry "
                              f"(just not first) — the default identity must "
                              f"still resolve to it: {w.stderr}")
-            launch = (out / "launch.json").read_text()
+            launch = (out / "launch.json").read_text(encoding="utf-8")
             self.assertIn(ci_digest, launch,
                           "launch config does not name the CI-pinned digest")
             self.assertNotIn("znew-v9", launch,
@@ -389,11 +389,11 @@ class ProfileIdentityTest(unittest.TestCase):
         tmp = Path(tempfile.mkdtemp(prefix="dg-prof-"))
         try:
             fx.build_root(tmp, binding=True)
-            reg = json.loads((REPO / "container/execution-profiles.json").read_text())
+            reg = json.loads((REPO / "container/execution-profiles.json").read_text(encoding="utf-8"))
             for p in reg["profiles"]:
                 p["image_manifest_digest"] = "sha256:" + "f" * 64
             prof_file = tmp / "profiles.json"
-            prof_file.write_text(json.dumps(reg))
+            prof_file.write_text(json.dumps(reg), encoding="utf-8")
             out = tmp / "out"
             w = self._wrapper(out, tmp, {"DEVGATE_EXECUTION_PROFILES":
                                          str(prof_file)})
@@ -415,13 +415,13 @@ class ProfileIdentityTest(unittest.TestCase):
         tmp = Path(tempfile.mkdtemp(prefix="dg-prof-"))
         try:
             fx.build_root(tmp, binding=True)
-            real = json.loads((REPO / "container/execution-profiles.json").read_text())
+            real = json.loads((REPO / "container/execution-profiles.json").read_text(encoding="utf-8"))
             other = dict(real["profiles"][0], label="linux-arm64-v9",
                          image_manifest_digest="sha256:" + "a" * 64,
                          platform="linux/arm64")
             real["profiles"].append(other)
             prof_file = tmp / "profiles.json"
-            prof_file.write_text(json.dumps(real))
+            prof_file.write_text(json.dumps(real), encoding="utf-8")
             out = tmp / "out"
             w = self._wrapper(out, tmp,
                               {"DEVGATE_EXECUTION_PROFILES": str(prof_file)},
@@ -434,7 +434,7 @@ class ProfileIdentityTest(unittest.TestCase):
             self.assertIn("no comparable ci pin", w.stderr.lower(),
                           "running bytes CI never pinned must be announced, "
                           "not silent")
-            self.assertIn("sha256:" + "a" * 64, (out / "launch.json").read_text())
+            self.assertIn("sha256:" + "a" * 64, (out / "launch.json").read_text(encoding="utf-8"))
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 
@@ -490,7 +490,7 @@ class DriverExitRelayTest(unittest.TestCase):
                  "--policy", str(tmp / "policy"),
                  "--context", str(tmp / "ctx"),
                  "--outputs", str(out), "--dry-run"],
-                capture_output=True, text=True)
+                capture_output=True, text=True, encoding="utf-8", errors="replace")
             self.assertEqual(dry.returncode, 0, dry.stderr)
             lines = [ln[2:] for ln in dry.stdout.splitlines()
                      if ln.startswith("$ ")]
@@ -502,7 +502,7 @@ class DriverExitRelayTest(unittest.TestCase):
             (fake / "python3").write_text(
                 "#!/usr/bin/env bash\n"
                 "if [[ \"$*\" == *hub.coherence.invoke* ]]; then\n"
-                '  for a in "$@"; do case "$a" in */request.json|*/launch.json) '
+                '  for a in "$@"; do case "$a" in */request.json|*/launch.json, encoding="utf-8") '
                 "echo '{}' > \"$a\";; esac; done\n"
                 "  exit 0\n"
                 "fi\n"
@@ -520,7 +520,7 @@ class DriverExitRelayTest(unittest.TestCase):
                                    "--policy", str(tmp / "policy"),
                                    "--context", str(tmp / "ctx"),
                                    "--outputs", str(out)]],
-                capture_output=True, text=True,
+                capture_output=True, text=True, encoding="utf-8", errors="replace",
                 env={**os.environ,
                      "PATH": f"{fake}{os.pathsep}{os.environ['PATH']}",
                      "DRIVER_ENV_DUMP": str(dump),
@@ -535,7 +535,7 @@ class DriverExitRelayTest(unittest.TestCase):
             self.assertTrue(dump.is_file(),
                             "the driver was never invoked as a child of the "
                             "wrapper (or crashed before its env was dumped)")
-            denv = dump.read_text()
+            denv = dump.read_text(encoding="utf-8")
             self.assertIn("HUB_COHERENCE_CP_KEY=" + "b" * 64, denv,
                           "driver child lost the caller's environment — "
                           "local signature enforcement diverges from CI")
@@ -560,7 +560,7 @@ class ControlPlaneRootsTest(unittest.TestCase):
         local command must refuse too — a wrapper that defaulted
         --policy/--context to repo content would be repository content deciding
         what runs, the exact thing the template's empty defaults prevent."""
-        r = subprocess.run([str(WRAPPER)], capture_output=True, text=True)
+        r = subprocess.run([str(WRAPPER)], capture_output=True, text=True, encoding="utf-8", errors="replace")
         self.assertNotEqual(r.returncode, 0)
         self.assertIn("--subject", r.stderr + r.stdout)
 

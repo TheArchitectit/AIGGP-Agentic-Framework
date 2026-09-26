@@ -17,7 +17,7 @@ REPO = Path(__file__).resolve().parent.parent
 def run_init(target: Path, *extra: str):
     return subprocess.run(
         ["node", str(REPO / "scripts" / "init.mjs"), str(target), *extra],
-        capture_output=True, text=True, timeout=120, cwd=str(REPO))
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120, cwd=str(REPO))
 
 
 class TestQuickstartInit(unittest.TestCase):

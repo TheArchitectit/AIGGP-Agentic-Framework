@@ -26,7 +26,7 @@ class TestSingleScopeContract(unittest.TestCase):
         self.assertEqual(hits, [], f"re-declared scope lists: {hits}")
 
     def test_scope_json_covers_vendored_and_cache(self):
-        scope = json.loads((REPO / ".guardrails/scope.json").read_text())
+        scope = json.loads((REPO / ".guardrails/scope.json").read_text(encoding="utf-8"))
         for required in ("node_modules", "vendor", "__pycache__", ".venv",
                          ".git", ".sandbox-home"):
             self.assertIn(required, scope["skip_dirs"])
@@ -38,24 +38,24 @@ class TestSingleScopeContract(unittest.TestCase):
             proj = Path(td) / "proj"
             (proj / "src").mkdir(parents=True)
             (proj / "src" / "app.go").write_text(
-                "package main\n\nfunc main() {}\n")
+                "package main\n\nfunc main() {}\n", encoding="utf-8")
             cache = proj / ".sandbox-home" / "go" / "pkg" / "mod" / "example.com"
             cache.mkdir(parents=True)
             planted = cache / "evil.go"
-            planted.write_text("package mod\n// fake cache marker\n")
+            planted.write_text("package mod\n// fake cache marker\n", encoding="utf-8")
             (proj / ".guardrails").mkdir()
             (proj / ".guardrails" / "scope.json").write_text(
-                (REPO / ".guardrails" / "scope.json").read_text())
+                (REPO / ".guardrails" / "scope.json").read_text(encoding="utf-8"), encoding="utf-8")
             env = dict(os.environ, SILENT_SUCCESS_SCAN_ROOT=str(proj))
             ss = subprocess.run(
                 ["bash", str(REPO / "scripts" / "silent-success-scan.sh")],
-                capture_output=True, text=True, env=env, timeout=120,
+                capture_output=True, text=True, encoding="utf-8", errors="replace", env=env, timeout=120,
                 cwd=str(REPO))
             self.assertNotIn("evil.go", ss.stdout + ss.stderr,
                              "cache tree was scanned by silent-success")
             g = subprocess.run(
                 ["node", str(REPO / "scripts" / "guardrails-scan.mjs")],
-                capture_output=True, text=True, env=env, timeout=120,
+                capture_output=True, text=True, encoding="utf-8", errors="replace", env=env, timeout=120,
                 cwd=str(proj))
             self.assertNotIn("evil.go", g.stdout + g.stderr,
                              "cache tree was scanned by guardrails")
@@ -70,11 +70,11 @@ class TestGoTestExclusionScopeNotMute(unittest.TestCase):
         (proj / ".guardrails" / "prevention-rules").mkdir(parents=True)
         rules = json.loads(
             (REPO / ".guardrails" / "prevention-rules" /
-             "silent-success-rules.json").read_text())
+             "silent-success-rules.json").read_text(encoding="utf-8"))
         (proj / ".guardrails" / "prevention-rules" /
-         "silent-success-rules.json").write_text(json.dumps(rules))
+         "silent-success-rules.json").write_text(json.dumps(rules), encoding="utf-8")
         (proj / ".guardrails" / "silent-success-allowlist.json").write_text(
-            json.dumps({"entries": []}))
+            json.dumps({"entries": []}), encoding="utf-8")
         (proj / "hub").mkdir()
         return proj
 
@@ -84,10 +84,10 @@ class TestGoTestExclusionScopeNotMute(unittest.TestCase):
             (proj / "store_test.go").write_text(
                 "func TestClose(t *testing.T) {\n"
                 "    t.Cleanup(func() { _ = conn.Close() })\n"
-                "}\n")
+                "}\n", encoding="utf-8")
             r = subprocess.run(
                 ["bash", str(REPO / "scripts" / "silent-success-scan.sh")],
-                capture_output=True, text=True,
+                capture_output=True, text=True, encoding="utf-8", errors="replace",
                 env=dict(os.environ, SILENT_SUCCESS_SCAN_ROOT=str(proj)),
                 timeout=120, cwd=str(REPO))
             self.assertEqual(r.returncode, 0, r.stdout)
@@ -102,10 +102,10 @@ class TestGoTestExclusionScopeNotMute(unittest.TestCase):
             (proj / "store.go").write_text(
                 "func Close() {\n"
                 "    defer func() { _ = conn.Close() }() // ignored error\n"
-                "}\n")
+                "}\n", encoding="utf-8")
             r = subprocess.run(
                 ["bash", str(REPO / "scripts" / "silent-success-scan.sh")],
-                capture_output=True, text=True,
+                capture_output=True, text=True, encoding="utf-8", errors="replace",
                 env=dict(os.environ, SILENT_SUCCESS_SCAN_ROOT=str(proj)),
                 timeout=120, cwd=str(REPO))
             self.assertEqual(r.returncode, 1, r.stdout)

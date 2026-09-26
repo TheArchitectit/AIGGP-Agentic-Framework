@@ -79,7 +79,7 @@ def set_digest(entries: list, label: str) -> str:
 
 def load_stage_registry(path: str) -> dict:
     """repo -> {stage, owner, ...}. Stage is the authoritative adoption record."""
-    data = json.loads(Path(path).read_text())
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
     if not isinstance(data, dict):
         raise ValueError("stage registry must be an object keyed by repo")
     for repo, rec in data.items():
@@ -152,7 +152,7 @@ def issue_context(ctx_dir: str, policy_dir: str, *, repo: str,
             f"no policy.json under {pol_root}: the issuer cannot bind a "
             f"central policy (coh-pol-02); place the current bundle first")
     try:
-        current = json.loads(policy_bundle_path.read_text())
+        current = json.loads(policy_bundle_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as e:
         raise ValueError(f"cannot read policy bundle {policy_bundle_path}: {e}") from e
     floor = current.get("min_bundle_epoch", 0)

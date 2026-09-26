@@ -47,7 +47,7 @@ def load_entries(path: Path) -> list:
 def entries_at_ref(repo: Path, ref: str, rel: str) -> list | None:
     """Entries as of `ref`, or None when the file did not exist there."""
     r = subprocess.run(
-        ["git", "show", f"{ref}:{rel}"], capture_output=True, text=True,
+        ["git", "show", f"{ref}:{rel}"], capture_output=True, text=True, encoding="utf-8", errors="replace",
         cwd=str(repo))
     if r.returncode != 0:
         return None

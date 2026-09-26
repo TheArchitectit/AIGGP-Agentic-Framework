@@ -67,7 +67,7 @@ class TestStaleness(unittest.TestCase):
         self._tmp = TemporaryDirectory()
         self.root = Path(self._tmp.name)
         (self.root / "src").mkdir()
-        (self.root / "src" / "a.py").write_text("x = buggy_call(1)\n")
+        (self.root / "src" / "a.py").write_text("x = buggy_call(1)\n", encoding="utf-8")
 
     def tearDown(self):
         self._tmp.cleanup()
@@ -128,14 +128,14 @@ class TestRegistryLoading(unittest.TestCase):
             p.write_text(
                 "# DevGate Failure Registry\n"
                 "# Format: one JSON object per line\n"
-                + json.dumps({"failure_id": "FAIL-1"}) + "\n")
+                + json.dumps({"failure_id": "FAIL-1"}) + "\n", encoding="utf-8")
             entries = load_registry(p)
             self.assertEqual([e["failure_id"] for e in entries], ["FAIL-1"])
 
     def test_bad_line_skipped_not_fatal(self):
         with TemporaryDirectory() as td:
             p = Path(td) / "registry.jsonl"
-            p.write_text('{"failure_id": "FAIL-1"}\nNOT JSON\n')
+            p.write_text('{"failure_id": "FAIL-1"}\nNOT JSON\n', encoding="utf-8")
             entries = load_registry(p)
             self.assertEqual(len(entries), 1)
 

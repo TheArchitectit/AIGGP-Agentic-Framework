@@ -87,7 +87,7 @@ def _env_value(s, runner, key):
     """The value the unit's EnvironmentFile gives for one key, as systemd
     would read it — the file is the carrier, so it is read the way systemd
     reads it and not through an exporter of the script's own."""
-    for line in s.env_file(runner).read_text().splitlines():
+    for line in s.env_file(runner).read_text(encoding="utf-8").splitlines():
         if line.startswith(f"{key}="):
             return line.split("=", 1)[1]
     return None
@@ -107,7 +107,7 @@ def _unit_report_path(s, runner):
     empty argument, which the sweep would take as "no report") is not read as
     agreement.
     """
-    unit = s.fleet_units(runner)[0].read_text()
+    unit = s.fleet_units(runner)[0].read_text(encoding="utf-8")
     match = re.search(r"--report\s+(\S+)", unit)
     assert match, f"the sweep unit names no --report path:\n{unit}"
     value = match.group(1)
@@ -185,7 +185,7 @@ def test_a_re_enrollment_does_not_leave_a_second_report_path_behind(tmp_path):
     assert s.enroll("alpha").returncode == 0
     assert s.enroll("alpha").returncode == 0
 
-    lines = [l for l in s.env_file("alpha").read_text().splitlines()
+    lines = [l for l in s.env_file("alpha").read_text(encoding="utf-8").splitlines()
              if l.startswith("SECRET_SCAN_REPORT=")]
     assert len(lines) == 1, lines
 
@@ -304,9 +304,9 @@ def test_an_unset_report_variable_is_unknown_and_not_an_error(tmp_path):
     s = Spoke(tmp_path)
     assert s.enroll("alpha").returncode == 0
     envf = s.env_file("alpha")
-    kept = [l for l in envf.read_text().splitlines()
+    kept = [l for l in envf.read_text(encoding="utf-8").splitlines()
             if not l.startswith("SECRET_SCAN_REPORT=")]
-    assert len(kept) < len(envf.read_text().splitlines()), "nothing to remove"
+    assert len(kept) < len(envf.read_text(encoding="utf-8").splitlines()), "nothing to remove"
     envf.write_text("\n".join(kept) + "\n", encoding="utf-8")
     assert _env_value(s, "alpha", "SECRET_SCAN_REPORT") is None, "key still present"
 

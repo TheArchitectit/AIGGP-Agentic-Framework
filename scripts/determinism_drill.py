@@ -74,14 +74,14 @@ def main() -> int:
         for i in range(args.runs):
             run_dir = tdp / f"run-{i:04d}"
             run_dir.mkdir()
-            request = json.loads(req.read_text())
+            request = json.loads(req.read_text(encoding="utf-8"))
             request["outputs"] = str(run_dir)
             req_i = run_dir / "request.json"
-            req_i.write_text(json.dumps(request))
+            req_i.write_text(json.dumps(request), encoding="utf-8")
             r = subprocess.run(
                 [sys.executable, "-m", "hub.coherence", "--request",
                  str(req_i)],
-                capture_output=True, text=True, timeout=120, env=env)
+                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120, env=env)
             if r.returncode != 0:
                 print(f"determinism-drill: run {i} exited {r.returncode}: "
                       f"{r.stderr.strip()[:200]}", file=sys.stderr)

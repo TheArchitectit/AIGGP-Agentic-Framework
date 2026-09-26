@@ -26,10 +26,10 @@ SCHEMA = (REPO / "openspec/changes/devgate-spec-coherence-service"
 def _run(req_path: Path, out_dir: Path):
     """Invoke the real CLI; return (exit_code, parsed result or None)."""
     r = subprocess.run([sys.executable, "-m", "hub.coherence", "--request", str(req_path)],
-                       capture_output=True, text=True, cwd=str(REPO),
+                       capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO),
                        env={**os.environ, **fx.cli_env()})
     rp = out_dir / "result.json"
-    parsed = json.loads(rp.read_text()) if rp.exists() else None
+    parsed = json.loads(rp.read_text(encoding="utf-8")) if rp.exists() else None
     return r.returncode, parsed
 
 
@@ -76,7 +76,7 @@ class TestErrorExecutionSignals(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             req, out = fx.build_root(Path(td), declared_name="other",
                                      approved_name="widget", stage=3)
-            r = json.loads(req.read_text())
+            r = json.loads(req.read_text(encoding="utf-8"))
             pkg = package.resolve(r["openspec"]["root"])
             a_fact = fx.assertion(aid="fact.missing", subjects=[
                 {"kind": "captured-fact", "fact_id": "fact.absent"}],
@@ -125,7 +125,7 @@ class TestCrashDecisionMatrix(unittest.TestCase):
     def test_crash_envelope_validates_against_frozen_schema(self):
         with tempfile.TemporaryDirectory() as td:
             _, res = self._mixed_run(Path(td), "run")
-        schema = json.loads(SCHEMA.read_text())
+        schema = json.loads(SCHEMA.read_text(encoding="utf-8"))
         self.assertEqual(schemacheck.validate(res, schema), [])
 
     def test_repeated_crash_runs_yield_the_same_decision(self):

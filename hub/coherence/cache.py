@@ -112,7 +112,7 @@ def put(store_root, material: dict, payload: bytes, *, cached_at: str,
               "cached_at": cached_at, "signer": signer,
               "retained_refs": retained_refs or [],
               "payload": base64.b64encode(bytes(payload)).decode("ascii")}
-    (root / _ENTRY_DIR / f"{k}.json").write_text(json.dumps(record))
+    (root / _ENTRY_DIR / f"{k}.json").write_text(json.dumps(record), encoding="utf-8")
     return k
 
 
@@ -130,7 +130,7 @@ def get(store_root, material: dict, *, as_of: str, ttl_seconds=None,
     if not fp.is_file():
         return {"hit": False, "reason": "no-entry"}
     try:
-        rec = json.loads(fp.read_text())
+        rec = json.loads(fp.read_text(encoding="utf-8"))
         payload = base64.b64decode(rec["payload"], validate=True)
     except (OSError, ValueError, KeyError, TypeError):
         # A corrupt/truncated/garbage record is a miss, never a traceback.

@@ -25,7 +25,7 @@ SCHEMA_DIR = Path(__file__).resolve().parent.parent.parent / \
 @lru_cache(maxsize=16)
 def load(name: str) -> dict:
     """Load a frozen schema by file name (e.g. 'request.schema.json')."""
-    return json.loads((SCHEMA_DIR / name).read_text())
+    return json.loads((SCHEMA_DIR / name).read_text(encoding="utf-8"))
 
 SUPPORTED = {"type", "required", "additionalProperties", "properties", "enum",
              "const", "pattern", "minItems", "minimum", "minLength", "items",

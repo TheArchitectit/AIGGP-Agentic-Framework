@@ -108,7 +108,7 @@ def test_jsonl_log_appended(tmp_path):
     day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     log_file = Path(alerts_dir) / f"alerts-{day}.jsonl"
     assert log_file.exists(), f"expected {log_file}"
-    lines = log_file.read_text().strip().splitlines()
+    lines = log_file.read_text(encoding="utf-8").strip().splitlines()
     assert len(lines) == 2, f"expected 2 lines, got {len(lines)}"
 
     entry1 = json.loads(lines[0])
@@ -224,7 +224,7 @@ def test_null_notifier_logs_only(tmp_path):
     day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     log_file = Path(alerts_dir) / f"alerts-{day}.jsonl"
     assert log_file.exists(), f"expected audit log {log_file}"
-    entry = json.loads(log_file.read_text().strip())
+    entry = json.loads(log_file.read_text(encoding="utf-8").strip())
     assert entry["repo"] == "owner/repo"
     assert entry["check_class"] == "queue_stall"
     assert entry["runner"] == "r1"
@@ -256,7 +256,7 @@ def test_recurrence_comment_cooldown(tmp_path):
         assert len(comments) == 1, f"expected 1 comment, got {len(comments)}"
         # The audit log still records every occurrence (mon-alert-01).
         day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        lines = (Path(alerts_dir) / f"alerts-{day}.jsonl").read_text().strip().splitlines()
+        lines = (Path(alerts_dir) / f"alerts-{day}.jsonl").read_text(encoding="utf-8").strip().splitlines()
         assert len(lines) == 3, f"expected 3 audit lines, got {len(lines)}"
     finally:
         server.shutdown()

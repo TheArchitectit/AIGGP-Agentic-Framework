@@ -33,14 +33,14 @@ class TestVerifyFailClosed(unittest.TestCase):
 
     def test_unparseable_manifest_rejected(self):
         with tempfile.TemporaryDirectory() as td:
-            (Path(td) / "evidence-manifest.json").write_text('{"objects": [')
+            (Path(td) / "evidence-manifest.json").write_text('{"objects": [', encoding="utf-8")
             self.assertFalse(evidence.verify(td, "sha256:" + "a" * 64))
 
     def test_object_replaced_by_directory_rejected(self):
         with tempfile.TemporaryDirectory() as td:
             digest = evidence.seal([_finding()], td)
             manifest = json.loads(
-                (Path(td) / "evidence-manifest.json").read_text())
+                (Path(td) / "evidence-manifest.json").read_text(encoding="utf-8"))
             obj = Path(td) / manifest["objects"][0]["path"]
             obj.unlink()
             obj.mkdir()
@@ -50,9 +50,9 @@ class TestVerifyFailClosed(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             digest = evidence.seal([_finding()], td)
             manifest = json.loads(
-                (Path(td) / "evidence-manifest.json").read_text())
+                (Path(td) / "evidence-manifest.json").read_text(encoding="utf-8"))
             obj = Path(td) / manifest["objects"][0]["path"]
-            obj.write_text('{"tampered": true}')
+            obj.write_text('{"tampered": true}', encoding="utf-8")
             self.assertFalse(evidence.verify(td, digest))
 
     def test_nonstring_object_path_rejected_not_crash(self):
@@ -63,7 +63,7 @@ class TestVerifyFailClosed(unittest.TestCase):
                         "objects": [{"path": None, "digest": "sha256:" +
                                      "a" * 64}]}
             (Path(td) / "evidence-manifest.json").write_text(
-                json.dumps(manifest))
+                json.dumps(manifest), encoding="utf-8")
             self.assertFalse(evidence.verify(td, "sha256:" + "a" * 64))
 
     def test_consistent_escaping_bundle_rejected(self):
@@ -146,7 +146,7 @@ class TestSealErrorPaths(unittest.TestCase):
             digest = evidence.seal([_finding()], td,
                                    retention_by_aid={"a1": 365})
             manifest = json.loads(
-                (Path(td) / "evidence-manifest.json").read_text())
+                (Path(td) / "evidence-manifest.json").read_text(encoding="utf-8"))
             classes = {o["assertion_id"]: o.get("retention_class")
                        for o in manifest["objects"]}
             self.assertEqual(classes.get("a1"), "retention:365d")
@@ -188,22 +188,22 @@ class TestMutationToolCrashRecovery(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             tdp = Path(td)
             victim = tdp / "victim.py"
-            victim.write_text(victim_src)
+            victim.write_text(victim_src, encoding="utf-8")
             backup = victim.with_name(victim.name + ".mutation-backup")
             # Simulate a killed run: mutant on disk + stale backup.
-            victim.write_text("def check(n):\n    return n < 10  # mutant\n")
+            victim.write_text("def check(n):\n    return n < 10  # mutant\n", encoding="utf-8")
             backup.write_bytes(victim_src.encode())
 
             from scripts import mutation_check  # noqa: E402  (ported tool)
             self.assertTrue(mutation_check._Restore.recover(victim))
-            self.assertEqual(victim.read_text(), victim_src)
+            self.assertEqual(victim.read_text(encoding="utf-8"), victim_src)
             self.assertFalse(backup.exists())
 
             # And a normal run afterwards leaves no sidecar behind.
             r = subprocess.run(
                 [sys.executable, str(REPO_FW / "scripts" / "mutation_check.py"),
                  "--target", str(victim), "--tests", "true"],
-                capture_output=True, text=True, timeout=60, cwd=str(REPO_FW))
+                capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60, cwd=str(REPO_FW))
             self.assertFalse(backup.exists(),
                              "clean run must consume the backup")
-            self.assertEqual(victim.read_text(), victim_src)
+            self.assertEqual(victim.read_text(encoding="utf-8"), victim_src)

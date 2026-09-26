@@ -38,12 +38,12 @@ NOW = fx.FIXED_TIME
 def _run(req):
     return subprocess.run(
         [sys.executable, "-m", "hub.coherence", "--request", str(req)],
-        capture_output=True, text=True, cwd=str(REPO),
+        capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO),
         env={**os.environ, **fx.cli_env()})
 
 
 def _binding_error(out):
-    env = json.loads((out / "result.json").read_text())
+    env = json.loads((out / "result.json").read_text(encoding="utf-8"))
     return env, env["error"]
 
 
@@ -74,7 +74,7 @@ class TestSubstitutionAttempt(unittest.TestCase):
                       "required_assertions": [], "approved_evaluators": [],
                       "approved_signers": [],
                       "stages": {"max_advisory_age_days": 30}}
-            (root / "policy.json").write_text(json.dumps(bundle))
+            (root / "policy.json").write_text(json.dumps(bundle), encoding="utf-8")
             dig = canon.digest_obj("policy/v1", bundle)
             with self.assertRaises(policy.PolicyError) as c:
                 policy.resolve(str(root), dig)
@@ -123,7 +123,7 @@ class TestRollbackRejection(unittest.TestCase):
                       "required_assertions": [], "approved_evaluators": [],
                       "approved_signers": [],
                       "stages": {"max_advisory_age_days": 30}}
-            (root / "policy.json").write_text(json.dumps(bundle))
+            (root / "policy.json").write_text(json.dumps(bundle), encoding="utf-8")
             dig = canon.digest_obj("policy/v1", bundle)
             binding = {"expected_digest": dig, "min_bundle_epoch": 0,
                        "grandfathers": []}
@@ -197,7 +197,7 @@ class TestMalformedBindings(unittest.TestCase):
                   "approved_signers": [],
                   "stages": {"max_advisory_age_days": 30}}
         bundle.update(extra)
-        (root / "policy.json").write_text(json.dumps(bundle))
+        (root / "policy.json").write_text(json.dumps(bundle), encoding="utf-8")
         return root, canon.digest_obj("policy/v1", bundle)
 
     def test_binding_without_expected_digest_is_refused(self):
@@ -275,7 +275,7 @@ class TestIssuanceWritesTheBinding(unittest.TestCase):
         td = Path(td)
         rp = td / "reg.json"
         rp.write_text(json.dumps(
-            {"com.test.widget": {"stage": 2, "owner": "o"}}))
+            {"com.test.widget": {"stage": 2, "owner": "o"}}), encoding="utf-8")
         return rp
 
     def test_issued_context_binds_the_current_bundle(self):
@@ -288,12 +288,12 @@ class TestIssuanceWritesTheBinding(unittest.TestCase):
                       "required_assertions": [], "approved_evaluators": [],
                       "approved_signers": [],
                       "stages": {"max_advisory_age_days": 30}}
-            (pol / "policy.json").write_text(json.dumps(bundle))
+            (pol / "policy.json").write_text(json.dumps(bundle), encoding="utf-8")
             out = issue.issue_context(
                 str(Path(td) / "c"), str(pol), repo="com.test.widget",
                 registry_path=str(self._registry(td)),
                 evaluation_time=NOW)
-            ctx = json.loads((Path(td) / "c" / "context.json").read_text())
+            ctx = json.loads((Path(td) / "c" / "context.json").read_text(encoding="utf-8"))
             b = ctx["policy_binding"]
             self.assertEqual(b["expected_digest"],
                              canon.digest_obj("policy/v1", bundle))

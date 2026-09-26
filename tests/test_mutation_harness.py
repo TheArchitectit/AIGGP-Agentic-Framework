@@ -93,17 +93,17 @@ def test_a_mutations_syntax_error_is_invalid_not_a_kill(repo):
 
 
 def test_a_mutation_that_does_not_apply_leaves_the_file_untouched(repo):
-    before = (repo / "widget.py").read_text()
+    before = (repo / "widget.py").read_text(encoding="utf-8")
     _run(repo, STALE, expect_kill=True)
-    assert (repo / "widget.py").read_text() == before
+    assert (repo / "widget.py").read_text(encoding="utf-8") == before
 
 
 def test_a_killed_mutation_is_restored_too(repo):
     """The restore lives in a finally so a failing battery cannot leave a
     mutant on disk for the next run to be judged against."""
-    before = (repo / "widget.py").read_text()
+    before = (repo / "widget.py").read_text(encoding="utf-8")
     _run(repo, KILLS, expect_kill=True)
-    assert (repo / "widget.py").read_text() == before
+    assert (repo / "widget.py").read_text(encoding="utf-8") == before
 
 
 def test_a_battery_whose_control_dies_exits_nonzero(repo, capsys):
@@ -164,7 +164,7 @@ def test_a_second_battery_on_the_same_tree_refuses_rather_than_interleaving(repo
     assert code == 1, "a battery ran while another held the tree"
     assert "already running" in out or "another battery" in out, out
     # It must not have touched the tree on its way to refusing.
-    assert (repo / "widget.py").read_text() == WIDGET
+    assert (repo / "widget.py").read_text(encoding="utf-8") == WIDGET
 
 
 def test_a_file_that_does_not_match_the_battery_baseline_is_reported(tmp_path):
@@ -201,7 +201,7 @@ def test_a_mutant_left_applied_is_a_harness_failure_not_a_verdict(repo, capsys, 
         """Applies the edit and never restores it — the injected failure."""
         for rel, old, new in edits:
             path = Path(root) / rel
-            path.write_text(path.read_text().replace(old, new), encoding="utf-8")
+            path.write_text(path.read_text(encoding="utf-8").replace(old, new), encoding="utf-8")
         return True
 
     monkeypatch.setattr(h, "run_entry", leaves_it_mutated)

@@ -154,7 +154,7 @@ class TestUploadBoundsManifestPaths(unittest.TestCase):
             # Plant a "secret" outside the bundle and point the manifest at
             # it via traversal.
             secret = root / "outside-secret.json"
-            secret.write_text("leak-me")
+            secret.write_text("leak-me", encoding="utf-8")
             manifest = {
                 "api_version": "devgate.spec-coherence.evidence/v1",
                 "objects": [{"path": "../outside-secret.json",

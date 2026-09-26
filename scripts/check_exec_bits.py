@@ -30,7 +30,7 @@ EXIT_USAGE = 2
 
 def ls_files_with_modes(repo: str) -> list[tuple[str, str]]:
     r = subprocess.run(["git", "ls-files", "--stage"], cwd=repo,
-                       capture_output=True, text=True)
+                       capture_output=True, text=True, encoding="utf-8", errors="replace")
     if r.returncode != 0:
         print(f"check-exec-bits: git ls-files failed: {r.stderr}",
               file=sys.stderr)
@@ -47,7 +47,7 @@ def committed_first_line(repo: str, path: str) -> str | None:
     # Read the INDEX (`:path` = stage 0), not HEAD: pre-commit usage must
     # judge staged content, and a fresh scratch repo may have no commits.
     r = subprocess.run(["git", "show", f":{path}"], cwd=repo,
-                       capture_output=True, text=True)
+                       capture_output=True, text=True, encoding="utf-8", errors="replace")
     if r.returncode != 0 or not r.stdout:
         return None
     return r.stdout.splitlines()[0] if r.stdout.splitlines() else None

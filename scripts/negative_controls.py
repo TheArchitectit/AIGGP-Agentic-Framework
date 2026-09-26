@@ -60,7 +60,7 @@ def _run_cli(request_path: Path, extra_env: dict = None):
     env.update(extra_env or {})
     return subprocess.run(
         [sys.executable, "-m", "hub.coherence", "--request", str(request_path)],
-        capture_output=True, text=True, timeout=CLI_TIMEOUT,
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=CLI_TIMEOUT,
         env=env, cwd=str(DEVGATE_ROOT))
 
 
@@ -70,7 +70,7 @@ def _read_decision(out_dir: Path):
     for fp in (Path(out_dir) / "result.json", Path(out_dir).parent / "result.json"):
         if fp.exists():
             try:
-                return json.loads(fp.read_text()).get("decision")
+                return json.loads(fp.read_text(encoding="utf-8")).get("decision")
             except (OSError, json.JSONDecodeError):
                 return None
     return None
@@ -84,9 +84,9 @@ def _read_decision(out_dir: Path):
 def nc_01_wrong_subject_digest(td: str):
     """The request claims a subject digest that does not match the tree."""
     req, out = fx.build_root(Path(td))
-    r = json.loads(req.read_text())
+    r = json.loads(req.read_text(encoding="utf-8"))
     r["subject"]["expected_digest"] = "sha256:" + "f" * 64
-    req.write_text(json.dumps(r))
+    req.write_text(json.dumps(r), encoding="utf-8")
     return "nc-01-wrong-subject-digest", 30, "ERROR", \
         "forged subject digest"
 
@@ -100,9 +100,9 @@ def nc_02_wrong_policy_digest(td: str):
 def nc_03_bad_api_version(td: str):
     """A foreign api_version must be refused at the protocol layer."""
     req, out = fx.build_root(Path(td))
-    r = json.loads(req.read_text())
+    r = json.loads(req.read_text(encoding="utf-8"))
     r["api_version"] = "devgate.spec-coherence/v0.9"
-    req.write_text(json.dumps(r))
+    req.write_text(json.dumps(r), encoding="utf-8")
     return "nc-03-foreign-api-version", 40, "ERROR", "unsupported protocol"
 
 
@@ -110,7 +110,7 @@ def nc_04_malformed_request(td: str):
     """A request missing required fields is invalid input, never an eval."""
     root = Path(td)
     req = root / "request.json"
-    req.write_text(json.dumps({"api_version": "devgate.spec-coherence/v1"}))
+    req.write_text(json.dumps({"api_version": "devgate.spec-coherence/v1"}), encoding="utf-8")
     return "nc-04-malformed-request", 30, "ERROR", "missing required fields"
 
 
@@ -148,17 +148,17 @@ def nc_06_violated_identity_blocks(td: str):
 def nc_07_hostile_overlay(td: str):
     """An overlay disabling a centrally required assertion is a policy error."""
     req, out = fx.build_root(Path(td), stage=2)
-    r = json.loads(req.read_text())
+    r = json.loads(req.read_text(encoding="utf-8"))
     polroot = Path(r["policy"]["root"])
     # Make the assertion centrally required, then overlay-disable it.
     from hub.coherence import canon as C
-    bundle = json.loads((polroot / "policy.json").read_text())
+    bundle = json.loads((polroot / "policy.json").read_text(encoding="utf-8"))
     bundle["required_assertions"] = ["product.identity"]
-    (polroot / "policy.json").write_text(json.dumps(bundle))
+    (polroot / "policy.json").write_text(json.dumps(bundle), encoding="utf-8")
     r["policy"]["expected_digest"] = C.digest_obj("policy/v1", bundle)
-    req.write_text(json.dumps(r))
+    req.write_text(json.dumps(r), encoding="utf-8")
     (polroot / "overlay.json").write_text(json.dumps(
-        {"assertions": [{"id": "product.identity", "disabled": True}]}))
+        {"assertions": [{"id": "product.identity", "disabled": True}]}), encoding="utf-8")
     return "nc-07-hostile-overlay-rejected", 31, "ERROR", \
         "overlay weakens central policy"
 
@@ -212,7 +212,7 @@ def nc_10_attestation_substitution(base: str):
                      "key": key_hex, "valid_from": "2026-01-01T00:00:00Z",
                      "valid_until": "2027-01-01T00:00:00Z"}]}
     signers_fp = sub / "signers.json"
-    signers_fp.write_text(json.dumps(signers_doc))
+    signers_fp.write_text(json.dumps(signers_doc), encoding="utf-8")
 
     env = {k: v for k, v in os.environ.items()
            if k not in (A.SIGNER_KEY_ENV, A.SIGNER_IDENTITY_ENV,
@@ -223,7 +223,7 @@ def nc_10_attestation_substitution(base: str):
                 A.EVALUATOR_IMAGE_ENV: "sha256:" + "3" * 64})
     run = subprocess.run(
         [sys.executable, "-m", "hub.coherence", "--request", str(req)],
-        capture_output=True, text=True, timeout=CLI_TIMEOUT, env=env,
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=CLI_TIMEOUT, env=env,
         cwd=str(DEVGATE_ROOT))
     if run.returncode != 0:
         return False, f"setup evaluation failed (exit {run.returncode})"
@@ -239,7 +239,7 @@ def nc_10_attestation_substitution(base: str):
     verify = subprocess.run(
         [sys.executable, "-m", "hub.coherence", "--verify-run", str(out),
          "--signer-set", str(signers_fp)],
-        capture_output=True, text=True, timeout=CLI_TIMEOUT, env=env,
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=CLI_TIMEOUT, env=env,
         cwd=str(DEVGATE_ROOT))
     result_fp.write_bytes(original)
     if verify.returncode != 1:

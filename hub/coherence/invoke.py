@@ -141,8 +141,8 @@ def _main(argv=None) -> int:
                         semantics=args.semantics, request_id=args.request_id)
     cfg = build_launch(args.image, args.profile, args.manifest_digest,
                        args.subject, args.openspec, args.policy, args.context)
-    _P(args.request_out).write_text(_json.dumps(req, sort_keys=True))
-    _P(args.launch_out).write_text(_json.dumps(cfg, sort_keys=True))
+    _P(args.request_out).write_text(_json.dumps(req, sort_keys=True), encoding="utf-8")
+    _P(args.launch_out).write_text(_json.dumps(cfg, sort_keys=True), encoding="utf-8")
     return 0
 
 

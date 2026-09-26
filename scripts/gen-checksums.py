@@ -23,7 +23,7 @@ EXIT_OK, EXIT_MISMATCH, EXIT_USAGE = 0, 1, 2
 
 def tracked_scripts(repo: Path) -> list[str]:
     r = subprocess.run(["git", "ls-files", "scripts/", "hub/"], cwd=str(repo),
-                       capture_output=True, text=True)
+                       capture_output=True, text=True, encoding="utf-8", errors="replace")
     if r.returncode != 0:
         print(f"gen-checksums: git ls-files failed: {r.stderr}", file=sys.stderr)
         sys.exit(EXIT_USAGE)
@@ -60,7 +60,7 @@ def main() -> int:
         ]
         for rel in files:
             lines.append(f"{digest(repo / rel)}  {rel}")
-        out.write_text("\n".join(lines) + "\n")
+        out.write_text("\n".join(lines) + "\n", encoding="utf-8")
         print(f"gen-checksums: wrote {len(files)} checksums to {MANIFEST}")
         return EXIT_OK
 
@@ -69,7 +69,7 @@ def main() -> int:
         print(f"gen-checksums: FAIL — {MANIFEST} missing", file=sys.stderr)
         return EXIT_MISMATCH
     recorded = {}
-    for line in out.read_text().splitlines():
+    for line in out.read_text(encoding="utf-8").splitlines():
         line = line.strip()
         if not line or line.startswith("#"):
             continue

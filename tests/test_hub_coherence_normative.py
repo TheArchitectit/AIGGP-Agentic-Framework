@@ -19,7 +19,7 @@ from tests.fixtures.coherence import fixtures as fx
 class TestNormativeBoundary(unittest.TestCase):
     def _package_root(self, td):
         req, _ = fx.build_root(Path(td))
-        r = json.loads(req.read_text())
+        r = json.loads(req.read_text(encoding="utf-8"))
         return r["openspec"]["root"]
 
     def test_informative_only_change_leaves_normative_digest_stable(self):
@@ -30,9 +30,9 @@ class TestNormativeBoundary(unittest.TestCase):
             before = package.resolve(root)["package_digest"]
             # Commentary outside the authenticated normative inventory.
             (Path(root) / "COMMENTARY.md").write_text(
-                "informative note, synthetic (R9)\n")
+                "informative note, synthetic (R9)\n", encoding="utf-8")
             (Path(root) / "specs" / "NOTES.md").write_text(
-                "design commentary beside the normative closure\n")
+                "design commentary beside the normative closure\n", encoding="utf-8")
             after = package.resolve(root)["package_digest"]
             self.assertEqual(before, after)
 
@@ -44,9 +44,9 @@ class TestNormativeBoundary(unittest.TestCase):
             root = self._package_root(td)
             before = package.resolve(root)["package_digest"]
             mp = Path(root) / "package.json"
-            manifest = json.loads(mp.read_text())
+            manifest = json.loads(mp.read_text(encoding="utf-8"))
             manifest["normative_inventory"][0]["kind"] = "informative"
-            mp.write_text(json.dumps(manifest))
+            mp.write_text(json.dumps(manifest), encoding="utf-8")
             after = package.resolve(root)["package_digest"]
             self.assertNotEqual(before, after)
 
@@ -59,15 +59,15 @@ class TestNormativeBoundary(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             root = self._package_root(td)
             mp = Path(root) / "package.json"
-            manifest = json.loads(mp.read_text())
+            manifest = json.loads(mp.read_text(encoding="utf-8"))
             entry = manifest["normative_inventory"][0]
             entry["kind"] = "informative"
-            mp.write_text(json.dumps(manifest))
+            mp.write_text(json.dumps(manifest), encoding="utf-8")
             before = package.resolve(root)["package_digest"]
             content = b"informative rewrite, synthetic (R9)"
             (Path(root) / entry["path"]).write_bytes(content)
             entry["digest"] = canon.digest_bytes("file/v1", content)
-            mp.write_text(json.dumps(manifest))
+            mp.write_text(json.dumps(manifest), encoding="utf-8")
             after = package.resolve(root)["package_digest"]
             self.assertEqual(before, after)
 

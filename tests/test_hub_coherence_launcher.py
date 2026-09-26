@@ -191,7 +191,7 @@ class TestLauncherValidation(unittest.TestCase):
         td = Path(tempfile.mkdtemp(prefix="dg-sockf-"))
         self.addCleanup(shutil.rmtree, td, ignore_errors=True)
         fp = td / "docker.sock"
-        fp.write_text("not a socket\n")
+        fp.write_text("not a socket\n", encoding="utf-8")
         cfg = base_cfg()
         cfg["mounts"] = [{"source": str(fp), "target": "/sock",
                           "readonly": True}]
@@ -377,7 +377,7 @@ class TestLauncherRun(unittest.TestCase):
         # makes podman attempt a registry pull.
         r = subprocess.run(["podman", "image", "inspect", "--format",
                             "{{.Digest}}", self.IMAGE],
-                           capture_output=True, text=True)
+                           capture_output=True, text=True, encoding="utf-8", errors="replace")
         digest = r.stdout.strip()
         if not digest.startswith("sha256:"):
             self.skipTest("could not resolve local image digest")
@@ -385,7 +385,7 @@ class TestLauncherRun(unittest.TestCase):
         self.cfg["image"] = self.IMAGE + "@" + digest
         self.out = Path(tempfile.mkdtemp(prefix="dg-run-"))
         self.inp = Path(tempfile.mkdtemp(prefix="dg-in-"))
-        (self.inp / "placeholder.txt").write_text("synthetic input (R9)\n")
+        (self.inp / "placeholder.txt").write_text("synthetic input (R9)\n", encoding="utf-8")
         self.cfg["mounts"] = [{"source": str(self.inp),
                                "target": "/input", "readonly": True}]
 

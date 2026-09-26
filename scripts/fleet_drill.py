@@ -78,7 +78,7 @@ class Hub:
              "--bind-host", "127.0.0.1", "--bind-port", str(port),
              "--data-dir", str(data_dir)],
             cwd=str(DEVGATE_ROOT), env=env,
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace")
 
     def url(self, path: str) -> str:
         return f"http://127.0.0.1:{self.port}{path}"
@@ -178,7 +178,7 @@ def main() -> int:
         # 10. Watchdog against the ALIVE hub (real script, real HTTP)
         env = dict(os.environ, HUB_URL=hub.url(""))
         wd = subprocess.run(["bash", str(WATCHDOG)], capture_output=True,
-                            text=True, env=env, timeout=60)
+                            text=True, encoding="utf-8", errors="replace", env=env, timeout=60)
         step("watchdog-alive-hub-exit-0", wd.returncode == 0,
              (wd.stderr.strip().splitlines() or [""])[0][:60])
 
@@ -223,7 +223,7 @@ def main() -> int:
         # 15. Watchdog against a DEAD hub
         hub.stop()
         wd = subprocess.run(["bash", str(WATCHDOG)], capture_output=True,
-                            text=True, env=env, timeout=60)
+                            text=True, encoding="utf-8", errors="replace", env=env, timeout=60)
         step("watchdog-dead-hub-exit-1", wd.returncode == 1,
              (wd.stderr.strip().splitlines() or [""])[0][:60])
 

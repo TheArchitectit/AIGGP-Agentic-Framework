@@ -56,11 +56,11 @@ class TestPlannerEvaluatorAllowlist(unittest.TestCase):
             (pol / "overlay.json").write_text(json.dumps({
                 "assertions": [{"id": "a1",
                                 "evaluator": {"id": "repo.evil", "digest": "sha256:" + "b" * 64}}],
-            }))
+            }), encoding="utf-8")
             a = _assertion("a1")
             central = {"required_assertions": [], "approved_evaluators": []}
             swapped = policy.apply_overlay([a], json.loads(
-                (pol / "overlay.json").read_text()), central)
+                (pol / "overlay.json").read_text(encoding="utf-8")), central)
             with self.assertRaises(plan.PlanError) as cm:
                 plan.plan(swapped, [])
             self.assertIn("unapproved-evaluator:repo.evil", str(cm.exception))

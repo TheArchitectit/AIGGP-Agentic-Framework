@@ -61,7 +61,7 @@ def _git_cat_file_t(repo_root: Path, sha: str) -> bool:
     try:
         result = subprocess.run(
             ["git", "cat-file", "-t", sha],
-            capture_output=True, text=True,
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
             cwd=str(repo_root), timeout=10,
         )
         return result.returncode == 0

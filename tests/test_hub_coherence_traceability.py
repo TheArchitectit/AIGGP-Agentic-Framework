@@ -42,7 +42,7 @@ class TestTraceabilityMarkerScan(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             subj = Path(td) / "subject"
             (subj / "src").mkdir(parents=True)
-            (subj / "src" / "app.py").write_text("// spec: r1, r2 -- why\n")
+            (subj / "src" / "app.py").write_text("// spec: r1, r2 -- why\n", encoding="utf-8")
             fs = evaluators.traceability_completeness(
                 self._assertion(), dict(self.PKG), str(subj))
             self.assertEqual(fs, [])
@@ -51,7 +51,7 @@ class TestTraceabilityMarkerScan(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             subj = Path(td) / "subject"
             (subj / "src").mkdir(parents=True)
-            (subj / "src" / "app.py").write_text("// spec: r1\n")
+            (subj / "src" / "app.py").write_text("// spec: r1\n", encoding="utf-8")
             fs = evaluators.traceability_completeness(
                 self._assertion(), dict(self.PKG), str(subj))
             self.assertEqual(len(fs), 1)
@@ -68,7 +68,7 @@ class TestTraceabilityMarkerScan(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             subj = Path(td) / "subject"
             (subj / "src").mkdir(parents=True)
-            (subj / "src" / "app.py").write_text("# spec: r1\n# spec: r2\n")
+            (subj / "src" / "app.py").write_text("# spec: r1\n# spec: r2\n", encoding="utf-8")
             fs = evaluators.traceability_completeness(
                 self._assertion(), dict(self.PKG), str(subj))
             self.assertEqual(fs, [])
@@ -82,8 +82,8 @@ class TestTraceabilityMarkerScan(unittest.TestCase):
             subj = Path(td) / "subject"
             (subj / "scripts").mkdir(parents=True)
             (subj / "src").mkdir(parents=True)
-            (subj / "scripts" / "ctl.sh").write_text("# spec: r1\n")
-            (subj / "src" / "main.zig").write_text("// spec: r2\n")
+            (subj / "scripts" / "ctl.sh").write_text("# spec: r1\n", encoding="utf-8")
+            (subj / "src" / "main.zig").write_text("// spec: r2\n", encoding="utf-8")
             fs = evaluators.traceability_completeness(
                 self._assertion(), dict(self.PKG), str(subj))
             self.assertEqual(fs, [])
@@ -94,7 +94,7 @@ class TestTraceabilityMarkerScan(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             subj = Path(td) / "subject"
             (subj / "src").mkdir(parents=True)
-            (subj / "src" / "app.py").write_text("// spec: r1 -- why r2\n")
+            (subj / "src" / "app.py").write_text("// spec: r1 -- why r2\n", encoding="utf-8")
             fs = evaluators.traceability_completeness(
                 self._assertion(), dict(self.PKG), str(subj))
             self.assertEqual([f["subject_locations"][0] for f in fs], ["r2"])
@@ -105,7 +105,7 @@ class TestTraceabilityMarkerScan(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             subj = Path(td) / "subject"
             (subj / "node_modules").mkdir(parents=True)
-            (subj / "node_modules" / "dep.py").write_text("// spec: r2\n")
+            (subj / "node_modules" / "dep.py").write_text("// spec: r2\n", encoding="utf-8")
             fs = evaluators.traceability_completeness(
                 self._assertion(), dict(self.PKG), str(subj))
             # r2's only marker sits in a skipped dir, so both ids are

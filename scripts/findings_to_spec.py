@@ -154,7 +154,7 @@ def existing_state(spec_path: Path) -> tuple[set[str], set[tuple[str, str]]]:
     """
     if not spec_path.exists():
         return set(), set()
-    text = spec_path.read_text()
+    text = spec_path.read_text(encoding="utf-8")
     ids = set(re.findall(r"<!--\s*id:\s*([a-z0-9-]+)\s*-->", text))
     covered = {(m[0], m[1]) for m in ORIGIN_LINE.findall(text)}
     return ids, covered
@@ -177,7 +177,12 @@ def main() -> int:
     root = args.root.resolve()
     findings = registry_findings(root, args.registry)
     if args.stdin:
-        findings += scan_findings(sys.stdin.read())
+        # Read as UTF-8 explicitly. The platform default is cp1252 on Windows,
+        # which cannot decode valid UTF-8 continuation bytes, so a caller piping
+        # well-formed text would get a traceback instead of a tool. Undecodable
+        # bytes are replaced rather than raising: this is a CLI reading piped
+        # input, and a stray byte must not produce a stack trace.
+        findings += scan_findings(sys.stdin.buffer.read().decode("utf-8", errors="replace"))
     if not findings:
         print("findings-to-spec: no findings from merged registry"
               + (" or stdin" if args.stdin else "") + " — nothing to scaffold.")

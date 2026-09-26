@@ -46,7 +46,7 @@ FC_ENTRY = {
 def _write(tmp: Path, rel: str, text: str) -> str:
     p = tmp / rel
     p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(text)
+    p.write_text(text, encoding="utf-8")
     return str(p)
 
 
@@ -105,7 +105,7 @@ def test_guardrailsignore_scans(tmp_path=None):
     import tempfile
     with tempfile.TemporaryDirectory() as d:
         tmp = Path(d)
-        (tmp / ".guardrailsignore").write_text("# frozen legacy\narchive/\n*.generated.go\n")
+        (tmp / ".guardrailsignore").write_text("# frozen legacy\narchive/\n*.generated.go\n", encoding="utf-8")
         pats = load_ignore_patterns(tmp)
         assert pats == ["archive/", "*.generated.go"]
         assert is_ignored(str(tmp / "archive/python/main.py"), str(tmp), pats)

@@ -194,7 +194,7 @@ class TestContainerExec(unittest.TestCase):
 
     def _write(self, name, obj):
         p = self.tmp / name
-        p.write_text(obj if isinstance(obj, str) else json.dumps(obj))
+        p.write_text(obj if isinstance(obj, str) else json.dumps(obj), encoding="utf-8")
         return str(p)
 
     def _run(self, req, cfg, run_patch=None):
@@ -214,7 +214,7 @@ class TestContainerExec(unittest.TestCase):
         for d in (self.out, self.tmp):
             p = d / "result.json"
             if p.exists():
-                return json.loads(p.read_text())
+                return json.loads(p.read_text(encoding="utf-8"))
         self.fail("no result.json written")
 
     def test_malformed_launch_config_is_exit30(self):
@@ -272,8 +272,8 @@ class TestContainerExec(unittest.TestCase):
             # directory itself, so in-container envelopes (emitted beside the
             # request file) land on the designated output bind.
             captured["staged"] = json.loads(
-                (Path(output_dir) / ce.STAGED_REQUEST_NAME).read_text())
-            (output_dir / "result.json").write_text('{"decision": "PASS"}')
+                (Path(output_dir) / ce.STAGED_REQUEST_NAME).read_text(encoding="utf-8"))
+            (output_dir / "result.json").write_text('{"decision": "PASS"}', encoding="utf-8")
             return LaunchRun(0, b"", "completed")
 
         rc, _ = self._run(driver_request(), launch_cfg(), fake_run)
@@ -314,7 +314,7 @@ class TestContainerExec(unittest.TestCase):
 
     def test_coherent_fail_relayed(self):
         def fake_run(ctx, *, output_dir, container_args, env=None):
-            (output_dir / "result.json").write_text('{"decision": "FAIL"}')
+            (output_dir / "result.json").write_text('{"decision": "FAIL"}', encoding="utf-8")
             return LaunchRun(20, b"", "completed")
 
         rc, _ = self._run(driver_request(), launch_cfg(), fake_run)
@@ -328,7 +328,7 @@ class TestContainerExec(unittest.TestCase):
                 "decision": "ERROR",
                 "error": {"class": "execution",
                           "reason": "evaluator-crash:KeyError:crasher",
-                          "stage": "evaluation"}}))
+                          "stage": "evaluation"}}), encoding="utf-8")
             return LaunchRun(32, b"", "completed")
 
         rc, _ = self._run(driver_request(), launch_cfg(), fake_run)
@@ -359,7 +359,7 @@ class TestContainerExec(unittest.TestCase):
             self.assertEqual(rc, 30)
             # The rejection envelope lands in the caller-declared outputs
             # dir itself (inside the mount source, as declared).
-            env = json.loads((Path(outs) / "result.json").read_text())
+            env = json.loads((Path(outs) / "result.json").read_text(encoding="utf-8"))
             self.assertIn("outputs-inside-mount-source",
                           env["error"]["reason"])
             m.assert_not_called()
@@ -372,7 +372,7 @@ class TestContainerExec(unittest.TestCase):
             (output_dir / "result.json").write_text(
                 json.dumps({"decision": "PASS",
                            "error": {"class": "execution", "reason": "hidden",
-                                     "stage": "evaluation"}}))
+                                     "stage": "evaluation"}}), encoding="utf-8")
             return LaunchRun(0, b"", "completed")
 
         rc, _ = self._run(driver_request(), launch_cfg(), fake_run)
@@ -393,7 +393,7 @@ class TestContainerExec(unittest.TestCase):
             return real_emit(path, payload)
 
         def fake_run(ctx, *, output_dir, container_args, env=None):
-            (output_dir / "result.json").write_text('{"decision": "PASS"}')
+            (output_dir / "result.json").write_text('{"decision": "PASS"}', encoding="utf-8")
             return LaunchRun(0, b"", "completed")
 
         with mock.patch.object(ce.result, "emit", side_effect=spy):
@@ -422,7 +422,7 @@ class TestContainerExec(unittest.TestCase):
         default-allow or neutral verdict."""
         def fake_run(ctx, *, output_dir, container_args, env=None):
             # Write garbage that is not valid JSON
-            (output_dir / "result.json").write_text("{broken json!!!")
+            (output_dir / "result.json").write_text("{broken json!!!", encoding="utf-8")
             return LaunchRun(0, b"", "completed")
 
         rc, _ = self._run(driver_request(), launch_cfg(), fake_run)
@@ -487,13 +487,13 @@ class TestContainerExecReal(unittest.TestCase):
     def test_incontainer_rejection_relays_exit30(self):
         req = {"api_version": DRIVER_API, "outputs": str(self.out)}
         rp = self.tmp / "request.json"
-        rp.write_text(json.dumps(req))
+        rp.write_text(json.dumps(req), encoding="utf-8")
         cfg = launch_cfg()
         cfg["mounts"] = []
         cp = self.tmp / "launch.json"
-        cp.write_text(json.dumps(cfg))
+        cp.write_text(json.dumps(cfg), encoding="utf-8")
         rc = ce.run_containerized(str(rp), str(cp), str(REGISTRY))
-        res = json.loads((self.out / "result.json").read_text())
+        res = json.loads((self.out / "result.json").read_text(encoding="utf-8"))
         self.assertEqual(rc, 30, res)
         self.assertEqual(res["decision"], "ERROR")
 

@@ -197,7 +197,7 @@ def _git_clean(path: Path) -> bool:
     try:
         r = subprocess.run(
             ["git", "status", "--porcelain", "--", str(path)],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30,
             cwd=str(path.parent))
     except (OSError, subprocess.TimeoutExpired):
         return True  # not a git tree or git unavailable — nothing to protect
@@ -222,7 +222,7 @@ def run_mutations(target: Path, test_cmd: list, timeout: float,
             restore.write(mutated)
             try:
                 r = subprocess.run(
-                    test_cmd, capture_output=True, text=True,
+                    test_cmd, capture_output=True, text=True, encoding="utf-8", errors="replace",
                     timeout=timeout, cwd=workdir)
                 status = "KILLED" if r.returncode != 0 else "SURVIVED"
             except subprocess.TimeoutExpired:
@@ -324,7 +324,7 @@ def main() -> int:
     if args.json_out:
         Path(args.json_out).write_text(json.dumps({
             "target": str(target), "results": results,
-        }, indent=1))
+        }, indent=1), encoding="utf-8")
 
     survived = [r for r in results if r["status"] == "SURVIVED"]
     timed_out = [r for r in results if r["status"] == "KILLED_BY_TIMEOUT"]

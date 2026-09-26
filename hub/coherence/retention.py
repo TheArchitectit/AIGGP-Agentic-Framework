@@ -105,7 +105,7 @@ def retain(store_root, subject_digest: str, payload: bytes, *,
         bundle.write_bytes(payload)
     meta = {"subject_digest": subject_digest, "content_digest": content_ref,
             "retained_at": retained_at, "retention_days": retention_days}
-    record.write_text(json.dumps(meta))
+    record.write_text(json.dumps(meta), encoding="utf-8")
     return content_ref
 
 
@@ -126,7 +126,7 @@ def read(store_root, ref: str, *, as_of: str, authorization) -> bytes:
             expected, authorization):
         raise RetentionError("retention-unauthorized")
     try:
-        meta = json.loads(_record_path(store_root, ref).read_text())
+        meta = json.loads(_record_path(store_root, ref).read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         raise RetentionError("retention-record-missing") from None
     try:

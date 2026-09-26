@@ -33,7 +33,7 @@ import gate_overlay  # noqa: E402
 
 def _write(path: Path, obj) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(obj) if not isinstance(obj, str) else obj)
+    path.write_text(json.dumps(obj) if not isinstance(obj, str) else obj, encoding="utf-8")
 
 
 def _rules_payload(ids):

@@ -36,7 +36,7 @@ def load(root: str) -> dict:
     if not fp.exists():
         raise ContextError(f"missing evaluation context: {fp}")
     try:
-        ctx = json.loads(fp.read_text())
+        ctx = json.loads(fp.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as e:
         raise ContextError(f"cannot read context {fp}: {e}") from e
 

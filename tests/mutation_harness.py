@@ -99,7 +99,7 @@ def well_formed(path):
             return False
     if path.suffix == ".sh":
         return subprocess.run(["bash", "-n", str(path)],
-                              capture_output=True, text=True).returncode == 0
+                              capture_output=True, text=True, encoding="utf-8", errors="replace").returncode == 0
     if path.suffix == ".py":
         try:
             compile(text, str(path), "exec")
@@ -187,7 +187,7 @@ def run_tests(files, extra_env=None, root=None):
     env.update(extra_env or {})
     return subprocess.run([sys.executable, "-m", "pytest", *files, "-q",
                            "-p", "no:cacheprovider"],
-                          capture_output=True, text=True,
+                          capture_output=True, text=True, encoding="utf-8", errors="replace",
                           cwd=str(root or REPO), env=env)
 
 

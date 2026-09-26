@@ -111,7 +111,9 @@ if not SOURCE_DIRS:
 
 def run_git_command(args: list[str]) -> tuple[int, str, str]:
     try:
-        result = subprocess.run(["git"] + args, capture_output=True, text=True, cwd=str(PROJECT_ROOT), errors="replace")
+        result = subprocess.run(["git"] + args, capture_output=True, text=True,
+                                encoding="utf-8", errors="replace",
+                                cwd=str(PROJECT_ROOT))
         return result.returncode, result.stdout, result.stderr
     except FileNotFoundError:
         return 1, "", "git command not found"

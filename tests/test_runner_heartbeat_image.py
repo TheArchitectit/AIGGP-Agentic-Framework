@@ -241,7 +241,7 @@ def test_the_podman_stub_materialises_the_store_like_podman_does(tmp_path):
     assert not store.exists()
 
     subprocess.run([str(stub), "--root", str(store), "info"],
-                   env=s.env, capture_output=True, text=True, timeout=30)
+                   env=s.env, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30)
     assert store.is_dir(), "the stub must create the store the way podman does"
 
 

@@ -61,7 +61,7 @@ def load_registry(path: Path) -> list:
 def changed_files(diff_base: str, cwd: str) -> list:
     """Files added/modified in the diff range (union of name-status)."""
     r = subprocess.run(["git", "diff", "--name-only", "--diff-filter=ACMR",
-                        diff_base], capture_output=True, text=True, cwd=cwd)
+                        diff_base], capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=cwd)
     if r.returncode != 0:
         raise RuntimeError(f"git diff failed: {r.stderr.strip()}")
     return [l.strip() for l in r.stdout.splitlines() if l.strip()]

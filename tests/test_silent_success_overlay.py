@@ -101,7 +101,7 @@ def _mk_project(tmp: Path, *, bundled_rules: dict, overlay_rules: dict | None,
 def _run(tmp: Path) -> subprocess.CompletedProcess:
     return subprocess.run(
         ["bash", str(tmp / ".devgate" / "scripts" / "silent-success-scan.sh")],
-        cwd=tmp, capture_output=True, text=True, timeout=60)
+        cwd=tmp, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
 
 
 GO_CLOSE = _family("go_close", r"_\s*=\s*f\.Close\(\)", enabled=True, file_glob=["*.go"])
@@ -210,7 +210,7 @@ def test_standalone_checkout_same_path_guard():
             encoding="utf-8")
         (tmp / "a.go").write_text("_ = f.Close()\n", encoding="utf-8")
         p = subprocess.run(["bash", str(tmp / "scripts" / "silent-success-scan.sh")],
-                           cwd=tmp, capture_output=True, text=True, timeout=60)
+                           cwd=tmp, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
         out = _out(p)
         assert p.returncode == 1, out
         assert "a.go:1 (go_close)" in out, out

@@ -135,11 +135,11 @@ class Spoke:
         self.curl_log = tmp_path / "curl.jsonl"
         self.systemctl_log = tmp_path / "systemctl.log"
         self.tools_dir = tmp_path / "tools"
-        self.curl_log.write_text("")
-        self.systemctl_log.write_text("")
+        self.curl_log.write_text("", encoding="utf-8")
+        self.systemctl_log.write_text("", encoding="utf-8")
         for name, body in (("curl", CURL_STUB), ("systemctl", SYSTEMCTL_STUB)):
             p = bindir / name
-            p.write_text(body)
+            p.write_text(body, encoding="utf-8")
             p.chmod(0o755)
         # Ambient COHERENCE_* is scrubbed, not inherited. These are the very
         # variables the image probe branches on, so a host that HAS been
@@ -221,7 +221,7 @@ class Spoke:
     def token_of(self, runner):
         env = self.env_file(runner)
         assert env.exists(), f"per-runner env file was never written: {env}"
-        for line in env.read_text().splitlines():
+        for line in env.read_text(encoding="utf-8").splitlines():
             if line.startswith("HEARTBEAT_TOKEN="):
                 return line.split("=", 1)[1]
         return None
@@ -231,7 +231,7 @@ class Spoke:
         return subprocess.run(
             ["bash", str(SCRIPT), HUB, "enroll-secret",
              "--repo", "owner/repo", "--runner-name", runner],
-            env=self.env, capture_output=True, text=True, timeout=60)
+            env=self.env, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
 
     def revoke(self, runner):
         """Revoke the way the CLI spells it: the token and the runner name are
@@ -240,14 +240,14 @@ class Spoke:
         revoke the hostname-derived default."""
         return subprocess.run(
             ["bash", str(SCRIPT), "--revoke", HUB, f"tok-{runner}", runner],
-            env=self.env, capture_output=True, text=True, timeout=60)
+            env=self.env, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
 
     def requests(self, path=None):
-        rows = [json.loads(l) for l in self.curl_log.read_text().splitlines() if l]
+        rows = [json.loads(l) for l in self.curl_log.read_text(encoding="utf-8").splitlines() if l]
         return [r for r in rows if path is None or r["path"] == path]
 
     def systemctl_calls(self):
-        return [l for l in self.systemctl_log.read_text().splitlines() if l]
+        return [l for l in self.systemctl_log.read_text(encoding="utf-8").splitlines() if l]
 
     def _env_from_file(self, runner, extra=None):
         """The environment systemd would give a unit: the runner's own env file
@@ -255,7 +255,7 @@ class Spoke:
         envf = self.env_file(runner)
         assert envf.exists(), f"per-runner env file was never written: {envf}"
         env = dict(self.env)
-        for line in envf.read_text().splitlines():
+        for line in envf.read_text(encoding="utf-8").splitlines():
             if "=" in line:
                 k, v = line.split("=", 1)
                 env[k] = v
@@ -268,7 +268,7 @@ class Spoke:
         assert helper.exists(), f"heartbeat helper was never installed: {helper}"
         return subprocess.run(["bash", str(helper)],
                               env=self._env_from_file(runner, extra_env),
-                              capture_output=True, text=True, timeout=60)
+                              capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
 
     def run_fleet_helper(self, runner, declared, *args):
         """Run the INSTALLED sweep the way its unit does — which is the only way
@@ -282,7 +282,7 @@ class Spoke:
         assert helper.exists(), f"the sweep helper was never installed: {helper}"
         return subprocess.run(
             ["bash", str(helper), "--declared", str(declared), *args],
-            env=self._env_from_file(runner), capture_output=True, text=True,
+            env=self._env_from_file(runner), capture_output=True, text=True, encoding="utf-8", errors="replace",
             timeout=120)
 
     # --- the sweep's collaborator ---------------------------------------------
@@ -313,7 +313,7 @@ class Spoke:
             "if opt('--report-format') == 'json' and opt('--report-path'):\n"
             "    with open(opt('--report-path'), 'w') as fh:\n"
             f"        json.dump({findings or []!r}, fh)\n"
-            f"sys.exit({rc if rc is not None else (1 if findings else 0)})\n")
+            f"sys.exit({rc if rc is not None else (1 if findings else 0)})\n", encoding="utf-8")
         p.chmod(0o755)
         return p
 
@@ -350,7 +350,7 @@ class Spoke:
             "#!/usr/bin/env bash\n"
             'if [ "${1:-}" = "--root" ]; then store="${2:-}"; shift 2; fi\n'
             'case "${1:-}" in\n'
-            '  info)\n'
+            '  info, encoding="utf-8")\n'
             '    [ -z "${store:-}" ] || mkdir -p "$store"\n'
             '    rc="${STUB_INFO_RC:-0}"\n'
             '    [ "$rc" = "0" ] || exit "$rc"\n'

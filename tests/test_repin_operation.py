@@ -95,7 +95,7 @@ class TestRePinOperation(unittest.TestCase):
             r = _run(repo, binp)
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
             self.assertEqual(_rec(repo)["profiles"][0]["image_manifest_digest"], SERVED)
-            raw = (repo / "container" / "execution-profiles.json").read_text()
+            raw = (repo / "container" / "execution-profiles.json").read_text(encoding="utf-8")
             self.assertNotIn(LOCAL, raw,
                              "the local-storage digest reached the record")
 
@@ -133,7 +133,7 @@ class TestRePinOperation(unittest.TestCase):
             tmp = Path(td)
             repo, _ = _fixture(tmp, digest="sha256:" + "c" * 64)
             binp = _stub_bin(tmp)
-            (repo / "wip.txt").write_text("uncommitted\n")
+            (repo / "wip.txt").write_text("uncommitted\n", encoding="utf-8")
             r = _run(repo, binp)
             self.assertEqual(r.returncode, 5, r.stdout + r.stderr)
             self.assertEqual(_rec(repo)["profiles"][0]["image_manifest_digest"],
@@ -149,7 +149,7 @@ class TestRePinOperation(unittest.TestCase):
             # re-pin does, and leave DEVGATE_PIN pointing at the old tree.
             t = repo / "templates" / "github-workflows" / "spec-coherence.yml"
             t.write_text(re.sub(r"(COHERENCE_IMAGE_MANIFEST_DIGEST: )\S+",
-                                rf"\g<1>{SERVED}", t.read_text()))
+                                rf"\g<1>{SERVED}", t.read_text(encoding="utf-8")), encoding="utf-8")
             _git(repo, "add", "-A")
             _git(repo, "commit", "-q", "-m", "digest only")
             r = _run(repo, binp, REPIN_CHECK_ONLY="1")
@@ -169,17 +169,17 @@ class TestRePinOperation(unittest.TestCase):
             (repo / "templates" / "github-workflows").mkdir(parents=True)
             (repo / "templates" / "github-workflows" / "spec-coherence.yml").write_text(
                 TEMPLATE_BODY.format(pin="0" * 40, image=IMAGE,
-                                     profile="linux-amd64-v1", digest=SERVED))
+                                     profile="linux-amd64-v1", digest=SERVED), encoding="utf-8")
             _git(repo, "init", "-q", "-b", "main")
             _git(repo, "add", "-A")
             _git(repo, "commit", "-q", "-m", "template before the record existed")
             c1 = _git(repo, "rev-parse", "HEAD").stdout.strip()
             (repo / "container").mkdir()
-            (repo / "container" / "execution-profiles.json").write_text(_record(SERVED))
+            (repo / "container" / "execution-profiles.json").write_text(_record(SERVED), encoding="utf-8")
             _git(repo, "add", "-A")
             _git(repo, "commit", "-q", "-m", "add the record")
             t = repo / "templates" / "github-workflows" / "spec-coherence.yml"
-            t.write_text(re.sub(r"DEVGATE_PIN: \S+", f"DEVGATE_PIN: {c1}", t.read_text()))
+            t.write_text(re.sub(r"DEVGATE_PIN: \S+", f"DEVGATE_PIN: {c1}", t.read_text(encoding="utf-8")), encoding="utf-8")
             _git(repo, "add", "-A")
             _git(repo, "commit", "-q", "-m", "pin at the pre-record commit")
 
@@ -217,10 +217,10 @@ class TestRePinOperation(unittest.TestCase):
             # The pin stays at the arm64-only commit; the template and the
             # working record move to amd64.
             (repo / "container" / "execution-profiles.json").write_text(
-                _record(SERVED, profile="linux-amd64-v1"))
+                _record(SERVED, profile="linux-amd64-v1"), encoding="utf-8")
             t = repo / "templates" / "github-workflows" / "spec-coherence.yml"
             t.write_text(re.sub(r"COHERENCE_PROFILE: \S+",
-                                "COHERENCE_PROFILE: linux-amd64-v1", t.read_text()))
+                                "COHERENCE_PROFILE: linux-amd64-v1", t.read_text(encoding="utf-8")), encoding="utf-8")
             _git(repo, "add", "-A")
             _git(repo, "commit", "-q", "-m", "move to the amd64 profile")
 
@@ -240,7 +240,7 @@ class TestRePinOperation(unittest.TestCase):
             repo, _ = _fixture(tmp, digest=SERVED)
             binp = _stub_bin(tmp)
             (repo / "container" / "execution-profiles.json").write_text(
-                _record("sha256:" + "e" * 64))
+                _record("sha256:" + "e" * 64), encoding="utf-8")
             _git(repo, "add", "-A")
             _git(repo, "commit", "-q", "-m", "drift the record")
 
@@ -261,7 +261,7 @@ class TestRePinOperation(unittest.TestCase):
             t = repo / "templates" / "github-workflows" / "spec-coherence.yml"
             t.write_text(re.sub(r"(COHERENCE_IMAGE: )\S+",
                                 r"\g<1>ghcr.io/someone-else/devgate-coherence",
-                                t.read_text()))
+                                t.read_text(encoding="utf-8")), encoding="utf-8")
             _git(repo, "add", "-A")
             _git(repo, "commit", "-q", "-m", "image only")
             r = _run(repo, binp, REPIN_CHECK_ONLY="1")
@@ -281,7 +281,7 @@ class TestRePinOperation(unittest.TestCase):
             binp = _stub_bin(tmp)
             t = repo / "templates" / "github-workflows" / "spec-coherence.yml"
             t.write_text(re.sub(r"^\s*COHERENCE_IMAGE_MANIFEST_DIGEST:.*\n", "",
-                                t.read_text(), flags=re.M))
+                                t.read_text(encoding="utf-8"), flags=re.M), encoding="utf-8")
             _git(repo, "add", "-A")
             _git(repo, "commit", "-q", "-m", "drop a literal")
             before = _git(repo, "rev-parse", "HEAD").stdout.strip()
@@ -321,13 +321,13 @@ class TestRePinOperation(unittest.TestCase):
             repo, _ = _fixture(tmp, digest=SERVED)
             binp = _stub_bin(tmp)
             _git(repo, "checkout", "-q", "-b", "side")
-            (repo / "side.txt").write_text("x\n")
+            (repo / "side.txt").write_text("x\n", encoding="utf-8")
             _git(repo, "add", "-A")
             _git(repo, "commit", "-q", "-m", "side work")
             side = _git(repo, "rev-parse", "HEAD").stdout.strip()
             _git(repo, "checkout", "-q", "main")
             t = repo / "templates" / "github-workflows" / "spec-coherence.yml"
-            t.write_text(re.sub(r"DEVGATE_PIN: \S+", f"DEVGATE_PIN: {side}", t.read_text()))
+            t.write_text(re.sub(r"DEVGATE_PIN: \S+", f"DEVGATE_PIN: {side}", t.read_text(encoding="utf-8")), encoding="utf-8")
             _git(repo, "add", "-A")
             _git(repo, "commit", "-q", "-m", "pin at unreachable commit")
 
@@ -369,7 +369,7 @@ class TestRePinOperation(unittest.TestCase):
             binp = _stub_bin(tmp)
             t = repo / "templates" / "github-workflows" / "spec-coherence.yml"
             t.write_text(re.sub(r"COHERENCE_PROFILE: \S+",
-                                "COHERENCE_PROFILE: linux-arm64-v1", t.read_text()))
+                                "COHERENCE_PROFILE: linux-arm64-v1", t.read_text(encoding="utf-8")), encoding="utf-8")
             _git(repo, "add", "-A")
             _git(repo, "commit", "-q", "-m", "profile the record lacks")
             before = _git(repo, "rev-parse", "HEAD").stdout.strip()
@@ -399,7 +399,7 @@ class TestRePinOperation(unittest.TestCase):
             hook.write_text(
                 "#!/usr/bin/env bash\n"
                 "sed -i 's/^      DEVGATE_PIN: .*/      DEVGATE_PIN: "
-                + "e" * 40 + "/' templates/github-workflows/spec-coherence.yml\n")
+                + "e" * 40 + "/' templates/github-workflows/spec-coherence.yml\n", encoding="utf-8")
             hook.chmod(0o755)
 
             r = _run(repo, binp)
@@ -432,7 +432,7 @@ class TestRePinOperation(unittest.TestCase):
             hooks = repo / ".git" / "hooks"
             hooks.mkdir(exist_ok=True)
             hook = hooks / "pre-commit"
-            hook.write_text("#!/usr/bin/env bash\nexit 1\n")
+            hook.write_text("#!/usr/bin/env bash\nexit 1\n", encoding="utf-8")
             hook.chmod(0o755)
 
             r = _run(repo, binp)
@@ -459,7 +459,7 @@ class TestRePinOperation(unittest.TestCase):
             repo, _ = _fixture(tmp, digest="sha256:" + "c" * 64)
             binp = _stub_bin(tmp)
             t = repo / "templates" / "github-workflows" / "spec-coherence.yml"
-            t.write_text(t.read_text() + f"      COHERENCE_IMAGE: {IMAGE}\n")
+            t.write_text(t.read_text(encoding="utf-8") + f"      COHERENCE_IMAGE: {IMAGE}\n", encoding="utf-8")
             _git(repo, "add", "-A")
             _git(repo, "commit", "-q", "-m", "duplicate a literal")
             before = _git(repo, "rev-parse", "HEAD").stdout.strip()
@@ -480,10 +480,10 @@ class TestRePinOperation(unittest.TestCase):
             repo, _ = _fixture(tmp, digest=SERVED)
             binp = _stub_bin(tmp)
             t = repo / "templates" / "github-workflows" / "spec-coherence.yml"
-            text = t.read_text()
+            text = t.read_text(encoding="utf-8")
             text = re.sub(r"(COHERENCE_IMAGE: )(\S+)", r'\1"\2"', text)
             text = re.sub(r"(COHERENCE_IMAGE_MANIFEST_DIGEST: )(\S+)", r'\1"\2"', text)
-            t.write_text(text)
+            t.write_text(text, encoding="utf-8")
             _git(repo, "add", "-A")
             _git(repo, "commit", "-q", "-m", "quote the literals")
 

@@ -36,7 +36,7 @@ def check_npm_audit(repo_root: Path) -> tuple[int, int, list[dict]]:
 
     try:
         result = subprocess.run(["npm", "audit", "--json"], capture_output=True,
-                                text=True, cwd=str(repo_root), timeout=120)
+                                text=True, encoding="utf-8", errors="replace", cwd=str(repo_root), timeout=120)
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return (0, 0, [])
 

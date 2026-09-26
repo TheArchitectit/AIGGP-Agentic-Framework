@@ -201,11 +201,11 @@ class Host:
         bindir = tmp_path / "bin"
         bindir.mkdir(exist_ok=True)
         self.log = tmp_path / "podman.jsonl"
-        self.log.write_text("")
+        self.log.write_text("", encoding="utf-8")
         self.state = tmp_path / "podman-state.json"
-        self.state.write_text("")
+        self.state.write_text("", encoding="utf-8")
         p = bindir / "podman"
-        p.write_text(PODMAN_STUB)
+        p.write_text(PODMAN_STUB, encoding="utf-8")
         p.chmod(0o755)
         self.bindir = bindir
         # A provisioned host's store is a MOUNT that exists before anything
@@ -229,11 +229,11 @@ class Host:
 
     # --- store -----------------------------------------------------------------
     def _state(self):
-        text = self.state.read_text()
+        text = self.state.read_text(encoding="utf-8")
         return json.loads(text) if text.strip() else {"present": []}
 
     def _save(self, state):
-        self.state.write_text(json.dumps(state))
+        self.state.write_text(json.dumps(state), encoding="utf-8")
 
     def attach(self, *refs):
         """Refs the store resolves. A digest-qualified ref carries the digest
@@ -267,7 +267,7 @@ class Host:
 
     # --- inspection ------------------------------------------------------------
     def calls(self):
-        return [json.loads(l) for l in self.log.read_text().splitlines() if l]
+        return [json.loads(l) for l in self.log.read_text(encoding="utf-8").splitlines() if l]
 
     def verbs(self):
         return [c["args"][0] for c in self.calls() if c["args"]]
@@ -290,5 +290,5 @@ class Host:
         if path_prefix is not None:
             env["PATH"] = path_prefix
         return subprocess.run([BASH, str(SCRIPT)], env=env,
-                              capture_output=True, text=True, timeout=60)
+                              capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
 

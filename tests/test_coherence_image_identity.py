@@ -54,7 +54,7 @@ class TestExecutionProfilesRegistry(unittest.TestCase):
 
     def test_registry_matches_its_frozen_schema(self):
         schema = json.loads(REGISTRY_SCHEMA.read_text(encoding="utf-8"))
-        errs = schemacheck.validate(json.loads(REGISTRY.read_text()), schema)
+        errs = schemacheck.validate(json.loads(REGISTRY.read_text(encoding="utf-8")), schema)
         self.assertEqual(errs, [], f"registry violates its schema: {errs}")
 
     def test_frozen_schema_is_strict(self):
@@ -227,7 +227,7 @@ class TestIdentityChainInCI(unittest.TestCase):
                 if body is None:
                     continue
                 path = sb / tool
-                path.write_text(body)
+                path.write_text(body, encoding="utf-8")
                 path.chmod(0o755)
             env = {**os.environ,
                    "PATH": f"{sb}:{os.environ['PATH']}",
@@ -237,7 +237,7 @@ class TestIdentityChainInCI(unittest.TestCase):
             env.update(env_extra or {})
             return subprocess.run(["/bin/bash", "-c", _step_body(self.text, name)],
                                   cwd=str(REPO), env=env, capture_output=True,
-                                  text=True, timeout=120)
+                                  text=True, encoding="utf-8", errors="replace", timeout=120)
 
     def test_the_identity_gate_decides_on_the_pull_alone(self):
         """Executed against a podman that will not report the requested digest.
@@ -311,7 +311,7 @@ def ensure_pinned_image(test) -> str:
                       capture_output=True).returncode == 0:
         return ref
     r = subprocess.run(["podman", "pull", "--quiet", ref],
-                       capture_output=True, text=True, timeout=900)
+                       capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900)
     if r.returncode != 0:
         test.skipTest(f"pinned image {ref} is not present and could not be "
                       f"pulled: {r.stderr.strip()[:200]}")
@@ -396,7 +396,7 @@ class TestImageSmoke(unittest.TestCase):
                 "--read-only", "--read-only-tmpfs",
                 "--cap-drop=ALL", "--security-opt=no-new-privileges",
                 "--network=none", self.IMAGE, "--help"]
-        r = subprocess.run(args, capture_output=True, text=True, timeout=120)
+        r = subprocess.run(args, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("usage: hub.coherence", r.stdout)
 

@@ -12,7 +12,7 @@ OUT = REPO / "tests" / "expected-counts.json"
 def collect():
     r = subprocess.run([sys.executable, "-m", "pytest", "tests/",
                         "--collect-only", "-q"], cwd=str(REPO),
-                       capture_output=True, text=True)
+                       capture_output=True, text=True, encoding="utf-8", errors="replace")
     if r.returncode != 0 or not r.stdout.strip():
         print("test-floor: FAIL — pytest collection produced nothing "
               f"(returncode {r.returncode}). Is pytest installed?",
@@ -28,7 +28,7 @@ def collect():
 
 def main() -> int:
     update = "--update" in sys.argv
-    doc = json.loads(OUT.read_text()) if OUT.exists() else {}
+    doc = json.loads(OUT.read_text(encoding="utf-8")) if OUT.exists() else {}
     counts = collect()
     problems = []
     for suite, floor in (doc.get("floors") or {}).items():
@@ -43,7 +43,7 @@ def main() -> int:
         floors = {k: max(1, int(v * 0.9)) for k, v in sorted(counts.items())}
         OUT.write_text(json.dumps(
             {"note": doc.get("note", ""), "floors": floors,
-             "total_floor": int(total * 0.9)}, indent=1) + "\n")
+             "total_floor": int(total * 0.9)}, indent=1) + "\n", encoding="utf-8")
         print(f"floors regenerated: {len(floors)} suites, total {total}")
         return 0
     if problems:

@@ -113,7 +113,7 @@ def git(repo: Path, *args, **env):
     full = dict(os.environ, **identity())
     full.update(env)
     return subprocess.run(["git", "-C", str(repo), *args],
-                          capture_output=True, text=True, env=full)
+                          capture_output=True, text=True, encoding="utf-8", errors="replace", env=full)
 
 
 def record(digest: str, image: str = IMAGE, profile: str = "linux-amd64-v1",
@@ -144,19 +144,19 @@ def fixture(tmp: Path, *, digest: str = "sha256:" + "c" * 64,
     (repo / "container").mkdir(parents=True)
     (repo / "templates" / "github-workflows").mkdir(parents=True)
     (repo / "container" / "execution-profiles.json").write_text(
-        record(digest, image, profile, built))
+        record(digest, image, profile, built), encoding="utf-8")
     (repo / "templates" / "github-workflows" / "spec-coherence.yml").write_text(
         TEMPLATE_BODY.format(pin=pin or "0" * 40, image=image,
-                             profile=profile, digest=digest))
+                             profile=profile, digest=digest), encoding="utf-8")
     if git(repo, "init", "-q", "-b", "main").returncode != 0:
         raise AssertionError("git init failed in fixture")
     git(repo, "add", "-A")
     git(repo, "commit", "-q", "-m", "fixture")
     head = git(repo, "rev-parse", "HEAD").stdout.strip()
     if pin is None:
-        text = (repo / "templates" / "github-workflows" / "spec-coherence.yml").read_text()
+        text = (repo / "templates" / "github-workflows" / "spec-coherence.yml").read_text(encoding="utf-8")
         text = re.sub(r"DEVGATE_PIN: \S+", f"DEVGATE_PIN: {head}", text)
-        (repo / "templates" / "github-workflows" / "spec-coherence.yml").write_text(text)
+        (repo / "templates" / "github-workflows" / "spec-coherence.yml").write_text(text, encoding="utf-8")
         git(repo, "add", "-A")
         git(repo, "commit", "-q", "-m", "pin to first commit")
         head = git(repo, "rev-parse", "HEAD").stdout.strip()
@@ -166,8 +166,8 @@ def fixture(tmp: Path, *, digest: str = "sha256:" + "c" * 64,
 def stub_bin(tmp: Path, *, served: str = SERVED, pull_rc: int = 0) -> Path:
     b = tmp / "bin"
     b.mkdir()
-    (b / "curl").write_text(CURL_STUB.replace("__SERVED__", served))
-    (b / "podman").write_text(PODMAN_STUB.replace("__LOCAL__", LOCAL))
+    (b / "curl").write_text(CURL_STUB.replace("__SERVED__", served), encoding="utf-8")
+    (b / "podman").write_text(PODMAN_STUB.replace("__LOCAL__", LOCAL), encoding="utf-8")
     for p in (b / "curl", b / "podman"):
         p.chmod(0o755)
     return b
@@ -184,15 +184,15 @@ def env(repo: Path, binp: Path, **extra) -> dict:
 
 
 def run(repo: Path, binp: Path, **extra):
-    return subprocess.run(["bash", str(SCRIPT)], capture_output=True, text=True,
+    return subprocess.run(["bash", str(SCRIPT)], capture_output=True, text=True, encoding="utf-8", errors="replace",
                           cwd=str(REPO), env=env(repo, binp, **extra))
 
 
 def tmpl(repo: Path) -> dict:
-    text = (repo / "templates" / "github-workflows" / "spec-coherence.yml").read_text()
+    text = (repo / "templates" / "github-workflows" / "spec-coherence.yml").read_text(encoding="utf-8")
     return {m.group(1): m.group(2)
             for m in re.finditer(r"^\s*([A-Z][A-Z0-9_]*):\s*(\S*)\s*$", text, re.M)}
 
 
 def rec(repo: Path) -> dict:
-    return json.loads((repo / "container" / "execution-profiles.json").read_text())
+    return json.loads((repo / "container" / "execution-profiles.json").read_text(encoding="utf-8"))

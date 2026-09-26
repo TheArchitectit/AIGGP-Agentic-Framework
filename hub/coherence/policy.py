@@ -165,7 +165,7 @@ def resolve(root: str, expected_digest: str, binding: dict = None,
         raise PolicyError(f"missing policy bundle: {bundle_path}")
 
     try:
-        bundle = json.loads(bundle_path.read_text())
+        bundle = json.loads(bundle_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as e:
         raise PolicyError(f"cannot read policy bundle {bundle_path}: {e}") from e
 
@@ -214,7 +214,7 @@ def load_adoption_sets(root: str) -> tuple:
 
 def _load_json_set(path: Path, label: str) -> list:
     try:
-        data = json.loads(path.read_text())
+        data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as e:
         # r3-indep item 4: malformed sets are policy errors (exit 31), not raw
         # tracebacks — overlay.json was already handled cleanly; the asymmetry
@@ -372,6 +372,6 @@ def load_overlay(root: str) -> dict:
     if not fp.exists():
         return {}
     try:
-        return json.loads(fp.read_text())
+        return json.loads(fp.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as e:
         raise PolicyError(f"cannot read overlay {fp}: {e}") from e

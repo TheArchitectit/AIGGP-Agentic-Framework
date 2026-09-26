@@ -38,7 +38,7 @@ def _mk_package(root: Path, approved_name="widget", with_assertions=True) -> Pat
         "finding_key": ["assertion_id", "subject_location", "violation_class"],
         "evidence": {"retention_days": 365},
     }
-    (specs / "product-identity.json").write_text(json.dumps(assertion))
+    (specs / "product-identity.json").write_text(json.dumps(assertion), encoding="utf-8")
     # Normative inventory with real digests.
     inv_entries = []
     for f in sorted(specs.glob("*.json")):
@@ -54,14 +54,14 @@ def _mk_package(root: Path, approved_name="widget", with_assertions=True) -> Pat
         "normative_inventory": inv_entries,
         "imports": [],
     }
-    (pkg / "package.json").write_text(json.dumps(manifest))
+    (pkg / "package.json").write_text(json.dumps(manifest), encoding="utf-8")
     return pkg
 
 
 def _mk_subject(root: Path, readme_text: str) -> Path:
     subj = root / "subject"
     subj.mkdir()
-    (subj / "README.md").write_text(readme_text)
+    (subj / "README.md").write_text(readme_text, encoding="utf-8")
     return subj
 
 
@@ -82,7 +82,7 @@ def _mk_context(root: Path, stage=1, semantics="fresh-promotion") -> Path:
         "supported_runners": ["linux-amd64-v1"],
         "issuance": {"issued_at": "2026-09-17T00:00:00Z", "issuer": "test-control-plane"},
     }
-    (cdir / "context.json").write_text(json.dumps(ctx))
+    (cdir / "context.json").write_text(json.dumps(ctx), encoding="utf-8")
     return cdir
 
 
@@ -129,9 +129,9 @@ class TestManifest(unittest.TestCase):
     def test_verify_read_detects_mutation(self):
         with tempfile.TemporaryDirectory() as td:
             fp = Path(td) / "f.txt"
-            fp.write_text("a")
+            fp.write_text("a", encoding="utf-8")
             d = canon.digest_bytes("file/v1", b"a")
-            fp.write_text("b")
+            fp.write_text("b", encoding="utf-8")
             with self.assertRaises(manifest.SubjectError):
                 manifest.verify_read(fp, d)
 
@@ -152,9 +152,9 @@ class TestPackage(unittest.TestCase):
     def test_inventory_digest_mismatch(self):
         with tempfile.TemporaryDirectory() as td:
             pkg = _mk_package(Path(td))
-            m = json.loads((pkg / "package.json").read_text())
+            m = json.loads((pkg / "package.json").read_text(encoding="utf-8"))
             m["normative_inventory"][0]["digest"] = "sha256:" + "0" * 64
-            (pkg / "package.json").write_text(json.dumps(m))
+            (pkg / "package.json").write_text(json.dumps(m), encoding="utf-8")
             with self.assertRaises(package.PackageError):
                 package.resolve(str(pkg))
 
@@ -170,18 +170,18 @@ class TestContext(unittest.TestCase):
     def test_no_issuer_rejected(self):
         with tempfile.TemporaryDirectory() as td:
             cdir = _mk_context(Path(td))
-            ctx = json.loads((cdir / "context.json").read_text())
+            ctx = json.loads((cdir / "context.json").read_text(encoding="utf-8"))
             ctx["issuance"] = {"issued_at": "2026-09-17T00:00:00Z"}
-            (cdir / "context.json").write_text(json.dumps(ctx))
+            (cdir / "context.json").write_text(json.dumps(ctx), encoding="utf-8")
             with self.assertRaises(context.ContextError):
                 context.load(str(cdir))
 
     def test_invalid_stage(self):
         with tempfile.TemporaryDirectory() as td:
             cdir = _mk_context(Path(td))
-            ctx = json.loads((cdir / "context.json").read_text())
+            ctx = json.loads((cdir / "context.json").read_text(encoding="utf-8"))
             ctx["stage"] = 9
-            (cdir / "context.json").write_text(json.dumps(ctx))
+            (cdir / "context.json").write_text(json.dumps(ctx), encoding="utf-8")
             with self.assertRaises(context.ContextError):
                 context.load(str(cdir))
 
@@ -228,7 +228,7 @@ class TestEvaluate(unittest.TestCase):
             pkg = _mk_package(root, approved_name="widget")
             _mk_subject(root, "# product: widget\n")
             p = package.resolve(str(pkg))
-            a = json.loads((pkg / "specs" / "product-identity.json").read_text())
+            a = json.loads((pkg / "specs" / "product-identity.json").read_text(encoding="utf-8"))
             fs = evaluators.identity_consistency(a, p, str(root / "subject"))
             self.assertEqual(fs, [])
 
@@ -241,7 +241,7 @@ class TestEvaluate(unittest.TestCase):
             pkg = _mk_package(root, approved_name="widget")
             _mk_subject(root, "# product: other\n")
             p = package.resolve(str(pkg))
-            a = json.loads((pkg / "specs" / "product-identity.json").read_text())
+            a = json.loads((pkg / "specs" / "product-identity.json").read_text(encoding="utf-8"))
             # Artifact metadata declares "other" (matches README, not the
             # approved "widget").
             a["subjects"][1]["selector"] = "product.identity.name"
@@ -257,7 +257,7 @@ class TestEvaluate(unittest.TestCase):
             pkg = _mk_package(root, approved_name="widget")
             _mk_subject(root, "# just a readme\n")
             p = package.resolve(str(pkg))
-            a = json.loads((pkg / "specs" / "product-identity.json").read_text())
+            a = json.loads((pkg / "specs" / "product-identity.json").read_text(encoding="utf-8"))
             with self.assertRaises(evaluators.Unresolved) as c:
                 evaluators.identity_consistency(a, p, str(root / "subject"))
             self.assertIn("selector-empty", str(c.exception))
@@ -269,7 +269,7 @@ class TestEvaluate(unittest.TestCase):
             pkg = _mk_package(root, approved_name="widget")
             _mk_subject(root, "# just a readme\n")
             p = package.resolve(str(pkg))
-            a = json.loads((pkg / "specs" / "product-identity.json").read_text())
+            a = json.loads((pkg / "specs" / "product-identity.json").read_text(encoding="utf-8"))
             out = evaluate.run([a], p, str(root / "subject"))
             e = out["ledger"][0]
             self.assertEqual(e["outcome"], "UNRESOLVED")
@@ -284,7 +284,7 @@ class TestEvaluate(unittest.TestCase):
             pkg = _mk_package(root, approved_name="widget")
             _mk_subject(root, "# product: widget\n")
             p = package.resolve(str(pkg))
-            a = json.loads((pkg / "specs" / "product-identity.json").read_text())
+            a = json.loads((pkg / "specs" / "product-identity.json").read_text(encoding="utf-8"))
             for sel in ("product.identity.missing", ""):
                 a["subjects"] = [{"kind": "artifact-metadata", "selector": sel}]
                 with self.assertRaises(evaluators.Unresolved) as c:
@@ -389,10 +389,10 @@ class TestEvidence(unittest.TestCase):
             # (one file per finding), so resolve the path from the manifest
             # rather than reconstructing it — a guessed name would silently
             # create a stray file and leave the real object untouched.
-            manifest = json.loads((Path(td) / "evidence-manifest.json").read_text())
+            manifest = json.loads((Path(td) / "evidence-manifest.json").read_text(encoding="utf-8"))
             p = Path(td) / manifest["objects"][0]["path"]
             self.assertTrue(p.is_file(), "manifest must point at a real object")
-            p.write_text('{"tampered":true}')
+            p.write_text('{"tampered":true}', encoding="utf-8")
             self.assertFalse(evidence.verify(td, digest))
 
 
@@ -408,12 +408,12 @@ class TestSubmodulePin(unittest.TestCase):
         keys are file names relative to the gitdir, values their content."""
         sub = root / "vendor"
         sub.mkdir(parents=True)
-        (sub / ".git").write_text("gitdir: ../.git/modules/vendor\n")
+        (sub / ".git").write_text("gitdir: ../.git/modules/vendor\n", encoding="utf-8")
         gd = root / ".git" / "modules" / "vendor"
         for name, content in gitdir_body.items():
             fp = gd / name
             fp.parent.mkdir(parents=True, exist_ok=True)
-            fp.write_text(content)
+            fp.write_text(content, encoding="utf-8")
         return root
 
     SHA_A = "a" * 40
@@ -452,8 +452,8 @@ class TestSubmodulePin(unittest.TestCase):
             sub.mkdir(parents=True)
             gd = Path(td) / "elsewhere" / "gitdir"
             gd.mkdir(parents=True)
-            (sub / ".git").write_text(f"gitdir: {gd}\n")
-            (gd / "HEAD").write_text(self.SHA_A + "\n")
+            (sub / ".git").write_text(f"gitdir: {gd}\n", encoding="utf-8")
+            (gd / "HEAD").write_text(self.SHA_A + "\n", encoding="utf-8")
             self.assertEqual(self._vendor_outcome(root),
                              f"submodule-pinned:{self.SHA_A}")
 
@@ -481,14 +481,14 @@ class TestSubmodulePin(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             upstream = Path(td) / "upstream"
             upstream.mkdir()
-            (upstream / "seed.txt").write_text("seed\n")
+            (upstream / "seed.txt").write_text("seed\n", encoding="utf-8")
             for args in (["init", "-q"], ["config", "user.email", "t@t"],
                          ["config", "user.name", "t"],
                          ["add", "-A"], ["commit", "-qm", "seed"]):
                 subprocess.run([git, "-C", str(upstream)] + args, check=True)
             subject = Path(td) / "subject"
             subject.mkdir()
-            (subject / "seed.txt").write_text("seed\n")
+            (subject / "seed.txt").write_text("seed\n", encoding="utf-8")
             for args in (["init", "-q"], ["config", "user.email", "t@t"],
                          ["config", "user.name", "t"],
                          ["add", "-A"], ["commit", "-qm", "seed"]):
@@ -498,7 +498,7 @@ class TestSubmodulePin(unittest.TestCase):
                             "-q", str(upstream), "vendor"], check=True)
             ls = subprocess.run(
                 [git, "-C", str(subject), "ls-files", "-s", "vendor"],
-                check=True, capture_output=True, text=True).stdout
+                check=True, capture_output=True, text=True, encoding="utf-8", errors="replace").stdout
             gitlink_sha = ls.split()[1]
             self.assertEqual(self._vendor_outcome(subject),
                              f"submodule-pinned:{gitlink_sha}")

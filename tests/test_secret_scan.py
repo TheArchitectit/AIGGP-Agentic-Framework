@@ -88,13 +88,13 @@ class Gate:
         bindir = tmp_path / "bin"
         bindir.mkdir(exist_ok=True)
         p = bindir / "gitleaks"
-        p.write_text(GITLEAKS_STUB)
+        p.write_text(GITLEAKS_STUB, encoding="utf-8")
         p.chmod(0o755)
         self.bindir = bindir
         self.log = tmp_path / "gitleaks.jsonl"
-        self.log.write_text("")
+        self.log.write_text("", encoding="utf-8")
         (tmp_path / "src").mkdir(exist_ok=True)
-        (tmp_path / "src" / "app.py").write_text("print('hi')\n")
+        (tmp_path / "src" / "app.py").write_text("print('hi')\n", encoding="utf-8")
         self.env = {
             **os.environ,
             "PATH": f"{bindir}:{os.environ['PATH']}",
@@ -107,21 +107,21 @@ class Gate:
     def allowlist(self, entries):
         d = self.root / ".guardrails"
         d.mkdir(exist_ok=True)
-        (d / "secret-allowlist.json").write_text(json.dumps({"entries": entries}))
+        (d / "secret-allowlist.json").write_text(json.dumps({"entries": entries}), encoding="utf-8")
 
     def allowlist_raw(self, text):
         d = self.root / ".guardrails"
         d.mkdir(exist_ok=True)
-        (d / "secret-allowlist.json").write_text(text)
+        (d / "secret-allowlist.json").write_text(text, encoding="utf-8")
 
     def _git(self, *args):
         res = subprocess.run([GIT, "-C", str(self.root), *args],
-                             capture_output=True, text=True, check=True)
+                             capture_output=True, text=True, encoding="utf-8", errors="replace", check=True)
         return res.stdout.strip()
 
     def git_repo(self):
         """A real repository, for the scopes that consult the commit history."""
-        (self.root / "src" / "app.py").write_text("print('hi')\n")
+        (self.root / "src" / "app.py").write_text("print('hi')\n", encoding="utf-8")
         self._git("init", "-q")
         self._git("config", "user.email", "t@example.com")
         self._git("config", "user.name", "t")
@@ -135,7 +135,7 @@ class Gate:
 
     # --- inspection -------------------------------------------------------------
     def calls(self):
-        return [json.loads(l) for l in self.log.read_text().splitlines() if l]
+        return [json.loads(l) for l in self.log.read_text(encoding="utf-8").splitlines() if l]
 
     def log_opts(self):
         """The history scope the gate asked for, from either argv spelling —
@@ -157,7 +157,7 @@ class Gate:
         env = dict(self.env if env is None else env)
         if path_prefix is not None:
             env["PATH"] = path_prefix
-        return subprocess.run(argv, env=env, capture_output=True, text=True, timeout=60)
+        return subprocess.run(argv, env=env, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
 
 
 # --- the scan runs, and says what it scanned (secret-scan-01) -------------------
@@ -289,7 +289,7 @@ def test_the_written_report_never_carries_the_value(tmp_path):
     out = tmp_path / "report.json"
     g.runs("--tree", report=out)
     assert out.exists(), "no report was written"
-    assert CANARY not in out.read_text(), "the gate's own report carried the value"
+    assert CANARY not in out.read_text(encoding="utf-8"), "the gate's own report carried the value"
 
 
 def test_the_scanner_is_always_invoked_with_redaction(tmp_path):

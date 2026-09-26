@@ -125,10 +125,10 @@ class Fleet:
         bindir = tmp_path / "bin"
         bindir.mkdir()
         stub = bindir / "gitleaks"
-        stub.write_text(GITLEAKS_STUB)
+        stub.write_text(GITLEAKS_STUB, encoding="utf-8")
         stub.chmod(0o755)
         self.log = tmp_path / "gitleaks.jsonl"
-        self.log.write_text("")
+        self.log.write_text("", encoding="utf-8")
         self.work = tmp_path / "work"
         self.env = {
             **os.environ,
@@ -142,18 +142,18 @@ class Fleet:
     # --- origins ------------------------------------------------------------
     def _git(self, root, *args):
         return subprocess.run([GIT, "-C", str(root), *args],
-                              capture_output=True, text=True, check=True).stdout
+                              capture_output=True, text=True, encoding="utf-8", errors="replace", check=True).stdout
 
     def repo(self, name, leaky=False, allowlist=None):
         """A real origin repository, cloneable over file://."""
         d = self.origins / name
         (d / "src").mkdir(parents=True)
-        (d / "src" / "app.py").write_text("print('hi')\n")
+        (d / "src" / "app.py").write_text("print('hi')\n", encoding="utf-8")
         if leaky:
-            (d / LEAK_MARKER).write_text("marker\n")
+            (d / LEAK_MARKER).write_text("marker\n", encoding="utf-8")
         if allowlist is not None:
             (d / ".guardrails").mkdir(exist_ok=True)
-            (d / ".guardrails" / "secret-allowlist.json").write_text(allowlist)
+            (d / ".guardrails" / "secret-allowlist.json").write_text(allowlist, encoding="utf-8")
         self._git(d, "init", "-q", "-b", "main")
         self._git(d, "config", "user.email", "t@example.com")
         self._git(d, "config", "user.name", "t")
@@ -170,22 +170,22 @@ class Fleet:
         f = self.root / "declared.txt"
         lines = ["# declared public repositories"] if comment else []
         lines += list(urls)
-        f.write_text("\n".join(lines) + "\n")
+        f.write_text("\n".join(lines) + "\n", encoding="utf-8")
         return f
 
     # --- inspection ---------------------------------------------------------
     def calls(self):
-        return [json.loads(l) for l in self.log.read_text().splitlines() if l]
+        return [json.loads(l) for l in self.log.read_text(encoding="utf-8").splitlines() if l]
 
     def run(self, declared, *args):
         argv = [BASH, str(SCRIPT), "--declared", str(declared), *args]
         return subprocess.run(argv, env=self.env, capture_output=True,
-                              text=True, timeout=120)
+                              text=True, encoding="utf-8", errors="replace", timeout=120)
 
     def run_report(self, declared, *args):
         report = self.root / "fleet-report.json"
         res = self.run(declared, "--report", str(report), *args)
-        return res, (json.loads(report.read_text()) if report.exists() else None)
+        return res, (json.loads(report.read_text(encoding="utf-8")) if report.exists() else None)
 
     @staticmethod
     def by_name(report):
@@ -283,12 +283,12 @@ def test_a_relative_report_path_is_written_where_the_caller_meant(tmp_path):
 
     res = subprocess.run([BASH, str(SCRIPT), "--declared", str(declared),
                           "--report", "relative-report.json"],
-                         cwd=workdir, env=f.env, capture_output=True, text=True,
+                         cwd=workdir, env=f.env, capture_output=True, text=True, encoding="utf-8", errors="replace",
                          timeout=120)
     assert res.returncode == 0, res.stderr
     written = workdir / "relative-report.json"
     assert written.exists(), f"no report at {written}: {res.stderr}"
-    assert json.loads(written.read_text())["repos"], "the report is empty"
+    assert json.loads(written.read_text(encoding="utf-8"))["repos"], "the report is empty"
     leftovers = [p.name for p in workdir.glob(".*secretscan*")]
     assert leftovers == [], leftovers
 
@@ -370,7 +370,7 @@ def test_a_directory_that_is_not_a_repository_is_unfetchable(tmp_path):
     f = Fleet(tmp_path)
     plain = tmp_path / "not-a-repo"
     plain.mkdir()
-    (plain / "README").write_text("not a repository\n")
+    (plain / "README").write_text("not a repository\n", encoding="utf-8")
     res, report = f.run_report(f.declare(plain.as_uri()))
     assert res.returncode == 4, res.returncode
     assert report["repos"][0]["state"] == STATE_UNFETCHABLE, report["repos"][0]
@@ -484,7 +484,7 @@ def test_the_declaration_may_carry_comments_and_blank_lines(tmp_path):
     f = Fleet(tmp_path)
     f.repo("alpha")
     d = tmp_path / "declared.txt"
-    d.write_text(f"# a comment\n\n   \n{f.url('alpha')}\n\n# another\n")
+    d.write_text(f"# a comment\n\n   \n{f.url('alpha')}\n\n# another\n", encoding="utf-8")
     res, report = f.run_report(d)
     assert res.returncode == 0, res.stderr
     assert [r["name"] for r in report["repos"]] == ["alpha"], report["repos"]
@@ -501,9 +501,9 @@ def test_no_secret_value_reaches_the_report_or_the_output(tmp_path):
     f.repo("leaky", leaky=True)
     report_path = tmp_path / "fleet-report.json"
     res = f.run(f.declare(f.url("leaky")), "--report", str(report_path))
-    for text in (res.stdout, res.stderr, report_path.read_text()):
+    for text in (res.stdout, res.stderr, report_path.read_text(encoding="utf-8")):
         assert CANARY not in text, "the sweep published the matched value"
-    repo = json.loads(report_path.read_text())["repos"][0]
+    repo = json.loads(report_path.read_text(encoding="utf-8"))["repos"][0]
     assert repo["state"] == STATE_FINDINGS
     assert repo["scope"], "a scanned repository did not report its scope"
     assert repo["scanned_at"], "a scanned repository did not report when"

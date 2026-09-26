@@ -42,7 +42,7 @@ def test_save_is_atomic_roundtrip(tmp_path):
 
 def test_missing_required_key_raises(tmp_path):
     path = tmp_path / "runners.json"
-    path.write_text(json.dumps({"version": 1}))  # no "runners" key
+    path.write_text(json.dumps({"version": 1}), encoding="utf-8")  # no "runners" key
     try:
         Registry(str(path), auto_init=False)
         raise AssertionError("expected RegistryError")
@@ -258,7 +258,7 @@ def test_a_registry_saved_before_the_scan_field_existed_still_loads(tmp_path):
                      "last_job_seen": None, "disk_ok": True, "podman_ok": True,
                      "image_digest": None, "image_reason": None,
                      "enrolled": True}],
-    }))
+    }), encoding="utf-8")
     reg = Registry(str(path), auto_init=False)
     from hub.registry import scan_state_unknown
     runner = reg.find_runner("r1")
@@ -285,7 +285,7 @@ def test_a_registry_saved_before_the_image_fields_existed_still_loads(tmp_path):
                      "heartbeat_token": "x", "last_heartbeat": None,
                      "last_job_seen": None, "disk_ok": True, "podman_ok": True,
                      "enrolled": True}],
-    }))
+    }), encoding="utf-8")
     reg = Registry(str(path), auto_init=False)
     runner = reg.find_runner("r1")
     assert runner["disk_ok"] is True
@@ -313,8 +313,8 @@ def test_every_field_the_registry_writes_is_declared_in_the_schema(tmp_path):
     keep here is the drift half (`written <= declared`), which is what catches
     a field shipping undeclared.
     """
-    schema = json.loads((SCHEMA_DIR / "runners.schema.json").read_text())
-    example = json.loads((SCHEMA_DIR / "runners.example.json").read_text())
+    schema = json.loads((SCHEMA_DIR / "runners.schema.json").read_text(encoding="utf-8"))
+    example = json.loads((SCHEMA_DIR / "runners.example.json").read_text(encoding="utf-8"))
 
     declared = set(schema["definitions"]["runner"]["properties"])
     root_declared = set(schema["properties"])

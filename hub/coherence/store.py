@@ -42,7 +42,7 @@ def artifacts(run_dir) -> list:
     found = [out / name for name in _BUNDLE_FILES if (out / name).is_file()]
     manifest_path = out / "evidence-manifest.json"
     if manifest_path.is_file():
-        manifest = json.loads(manifest_path.read_text())
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         for obj in manifest.get("objects", []):
             try:
                 fp = evidence.contained(out, obj.get("path"))
@@ -76,5 +76,5 @@ def upload(run_dir: str, transport) -> dict:
 
 def manifest_digest(run_dir: str) -> str:
     """Recompute the sealed evidence-manifest digest from disk."""
-    manifest = json.loads((Path(run_dir) / "evidence-manifest.json").read_text())
+    manifest = json.loads((Path(run_dir) / "evidence-manifest.json").read_text(encoding="utf-8"))
     return canon.digest_obj("evidence-manifest/v1", manifest)

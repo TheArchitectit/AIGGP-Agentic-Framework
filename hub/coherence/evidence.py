@@ -152,7 +152,7 @@ def verify(output_dir: str, expected_manifest_digest: str) -> bool:
     if not manifest_path.exists():
         return False
     try:
-        manifest = json.loads(manifest_path.read_text())
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return False
     for obj in manifest.get("objects", []):

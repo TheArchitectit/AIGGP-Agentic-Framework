@@ -90,7 +90,7 @@ def _copy_scripts(dest: Path) -> Path:
     for name in _PY_DEPS:
         src = SCRIPTS / name
         if src.exists():
-            (scripts / name).write_text(src.read_text())
+            (scripts / name).write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
     # The shared Python root contract (root-anchor-03) lives under scripts/lib
     # once it exists; copy the whole lib dir so the fixture stays valid against
     # both the pre-fix (import fails -> RED) and post-fix (import works) trees.
@@ -98,7 +98,7 @@ def _copy_scripts(dest: Path) -> Path:
     if lib_src.is_dir():
         for f in lib_src.iterdir():
             if f.suffix == ".py":
-                (scripts / "lib" / f.name).write_text(f.read_text())
+                (scripts / "lib" / f.name).write_text(f.read_text(encoding="utf-8"), encoding="utf-8")
     return scripts
 
 
@@ -107,14 +107,14 @@ def _resolve_roots(scripts: Path, cwd: Path) -> dict[str, str]:
         [sys.executable, "-c", _PROBE.format(scripts=str(scripts))],
         cwd=str(cwd),
         capture_output=True,
-        text=True,
+        text=True, encoding="utf-8", errors="replace",
     )
     assert res.returncode == 0, f"probe crashed: {res.stderr[:800]}"
     return _parse(res.stdout)
 
 
 def _plant_marker(d: Path) -> None:
-    (d / "package.json").write_text('{"name": "decoy-parent"}\n')
+    (d / "package.json").write_text('{"name": "decoy-parent"}\n', encoding="utf-8")
     (d / ".git").mkdir(exist_ok=True)
 
 
@@ -154,7 +154,7 @@ def test_root_is_independent_of_cwd(tmp_path):
     _plant_marker(parent)
     elsewhere = tmp_path / "elsewhere"
     elsewhere.mkdir()
-    (elsewhere / "package.json").write_text('{"name": "unrelated"}\n')
+    (elsewhere / "package.json").write_text('{"name": "unrelated"}\n', encoding="utf-8")
     a = _resolve_roots(scripts, repo)
     b = _resolve_roots(scripts, elsewhere)
     assert a.get("regression") == str(repo), a
@@ -204,7 +204,7 @@ def test_shared_single_implementation():
     # under scripts/, and that neither scanner defines find_project_root.
     lib = SCRIPTS / "lib"
     shared = list(lib.glob("*.py")) if lib.is_dir() else []
-    defining = [f for f in shared if "def project_root_for" in f.read_text()]
+    defining = [f for f in shared if "def project_root_for" in f.read_text(encoding="utf-8")]
     assert len(defining) == 1, f"expected one shared Python root module, found {defining}"
     # failure_registry_check is here because ci.yml actually invokes it, so it is
     # a scanner on the gate path like the other two, not an optional helper.
@@ -213,7 +213,7 @@ def test_shared_single_implementation():
     # a substring of "def _find_project_root" — checking one spelling would let
     # the other's walk-up survive this gate silently.
     for scanner in ("regression_check.py", "scene_inventory.py", "failure_registry_check.py"):
-        text = (SCRIPTS / scanner).read_text()
+        text = (SCRIPTS / scanner).read_text(encoding="utf-8")
         # Check for a DEFINITION, not the substring: the migration comments in
         # both files still name find_project_root() to explain what was removed,
         # and a bare substring assert would match its own documentation.
@@ -227,7 +227,7 @@ def test_contract_is_pure_function():
     # string alone and never touches the filesystem (a marker-based impl can't
     # pass a probe on a nonexistent path).
     lib = SCRIPTS / "lib"
-    shared = [f for f in lib.glob("*.py") if "def project_root_for" in f.read_text()]
+    shared = [f for f in lib.glob("*.py") if "def project_root_for" in f.read_text(encoding="utf-8")]
     assert shared, "no shared contract module to probe"
     mod = shared[0].stem
     probe = (
@@ -237,12 +237,16 @@ def test_contract_is_pure_function():
         "print(f('/x/.devgate'))\n"
         "print(f('/nonexistent-aaa/bbb'))\n"
     )
-    res = subprocess.run([sys.executable, "-c", probe], capture_output=True, text=True)
+    res = subprocess.run([sys.executable, "-c", probe], capture_output=True,
+                         text=True, encoding="utf-8", errors="replace")
     assert res.returncode == 0, res.stderr[:800]
     lines = res.stdout.split()
     # '/x/.devgate' -> '/x' (marker name stripped); never consulted the disk.
-    assert lines[0] == "/x", lines
-    assert lines[1] == "/nonexistent-aaa/bbb", lines
+    # Compare as PATHS, not strings: on Windows the contract correctly returns
+    # '\x', so asserting the literal "/x" is asserting a POSIX separator rather
+    # than the behaviour.
+    assert Path(lines[0]) == Path("/x"), lines
+    assert Path(lines[1]) == Path("/nonexistent-aaa/bbb"), lines
 
 
 if __name__ == "__main__":

@@ -101,7 +101,7 @@ def sign(decision_bytes: bytes, identities: dict,
 
 
 def _load_schema(name: str) -> dict:
-    return json.loads((SCHEMA_DIR / name).read_text())
+    return json.loads((SCHEMA_DIR / name).read_text(encoding="utf-8"))
 
 
 def verify(run_dir: str, signer_set: dict) -> tuple[bool, str]:
@@ -118,9 +118,9 @@ def verify(run_dir: str, signer_set: dict) -> tuple[bool, str]:
             or not manifest_path.exists():
         return False, "missing-artifact"
     try:
-        result_doc = json.loads(result_path.read_text())
-        attestation_doc = json.loads(attestation_path.read_text())
-        manifest_doc = json.loads(manifest_path.read_text())
+        result_doc = json.loads(result_path.read_text(encoding="utf-8"))
+        attestation_doc = json.loads(attestation_path.read_text(encoding="utf-8"))
+        manifest_doc = json.loads(manifest_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return False, "unparseable-artifact"
 
@@ -174,7 +174,7 @@ def verify_promotion(run_dir: str, signer_set: dict,
         return False, reason
     try:
         attestation = json.loads(
-            (Path(run_dir) / "attestation.json").read_text())
+            (Path(run_dir) / "attestation.json").read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return False, "unparseable-artifact"
     bound = attestation.get("bound", {})
@@ -255,7 +255,7 @@ def verify_run_cli(verify_dir: str, signer_set_path: str) -> int:
 def load_signer_set(path: str) -> dict:
     """Parse + validate a signer-set document against the frozen schema."""
     try:
-        doc = json.loads(Path(path).read_text())
+        doc = json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as e:
         raise AttestationError(f"cannot load signer set: {e}") from None
     errs = schemacheck.validate(doc, _load_schema("signer-set.schema.json"))

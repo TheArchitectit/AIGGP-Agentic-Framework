@@ -64,7 +64,7 @@ class TestEvidencePathIntegrity(unittest.TestCase):
                              "two findings of one assertion must be two files")
             # No overwrite: each object's bytes carry that finding's own
             # subject location, not the last-written one.
-            payloads = {json.loads(fp.read_text())["subject_locations"][0]
+            payloads = {json.loads(fp.read_text(encoding="utf-8"))["subject_locations"][0]
                         for fp in files}
             self.assertEqual(payloads, {"a.md", "b.md"})
             # Distinct refs, and the whole bundle verifies against its digest.
@@ -130,7 +130,7 @@ class TestEvidencePathIntegrity(unittest.TestCase):
             a3 = _finding("a3", "z", "e", "o")
             evidence.seal([a1, a2, a3], str(out),
                           retention_by_aid={"a1": 30, "a2": 0})
-            m = json.loads((out / "evidence-manifest.json").read_text())
+            m = json.loads((out / "evidence-manifest.json").read_text(encoding="utf-8"))
             by_aid = {obj["assertion_id"]: obj["retention_class"]
                       for obj in m["objects"]}
             self.assertEqual(by_aid["a1"], "retention:30d")
@@ -229,9 +229,9 @@ class TestEvidencePathEndToEnd(unittest.TestCase):
                            "b.md": "# product: widget\n"})
         r = subprocess.run(
             [sys.executable, "-m", "hub.coherence", "--request", str(req)],
-            capture_output=True, text=True, cwd=str(REPO),
+            capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO),
             env={**os.environ, **fx.cli_env()})
-        res = json.loads((out / "result.json").read_text())
+        res = json.loads((out / "result.json").read_text(encoding="utf-8"))
         self.assertEqual(res["decision"], "FAIL",
                          "two identity mismatches must be a FAIL")
         # A sealed FAIL run exits 20 and still produces a verifiable bundle —
@@ -244,7 +244,7 @@ class TestEvidencePathEndToEnd(unittest.TestCase):
         # retention_days (fx.assertion defaults to 365) into every object's
         # class — proving the derivation is exercised by a real run, not just
         # the unit test's synthetic dict.
-        m = json.loads((out / "evidence-manifest.json").read_text())
+        m = json.loads((out / "evidence-manifest.json").read_text(encoding="utf-8"))
         classes = {obj["retention_class"] for obj in m["objects"]}
         self.assertEqual(classes, {"retention:365d"},
                          "CLI must thread the declared retention_days to the manifest")
@@ -256,11 +256,11 @@ class TestEvidencePathEndToEnd(unittest.TestCase):
             ss = fx.signer_set("a" * 64, key_id="signer-1",
                                identity="pilot-signer", as_of=fx.FIXED_TIME)
             ssp = Path(td) / "signer-set.json"
-            ssp.write_text(json.dumps(ss))
+            ssp.write_text(json.dumps(ss), encoding="utf-8")
             r = subprocess.run(
                 [sys.executable, "-m", "hub.coherence",
                  "--verify-run", str(out), "--signer-set", str(ssp)],
-                capture_output=True, text=True, cwd=str(REPO))
+                capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO))
             self.assertEqual(r.returncode, 0,
                              f"verify-run must accept the bundle: {r.stderr}")
 

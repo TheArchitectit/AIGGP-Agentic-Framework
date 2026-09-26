@@ -27,7 +27,7 @@ def _run_watchdog(tmp_path: Path, health: str, *args: str) -> int:
     bindir = tmp_path / "bin"
     bindir.mkdir(exist_ok=True)
     stub = bindir / "curl"
-    stub.write_text('#!/usr/bin/env bash\necho "$STUB_HEALTH"\n')
+    stub.write_text('#!/usr/bin/env bash\necho "$STUB_HEALTH"\n', encoding="utf-8")
     stub.chmod(0o755)
 
     env = {
@@ -37,7 +37,7 @@ def _run_watchdog(tmp_path: Path, health: str, *args: str) -> int:
         "STUB_HEALTH": health,
     }
     proc = subprocess.run(["bash", str(SCRIPT), *args], env=env,
-                          capture_output=True, text=True, timeout=30)
+                          capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30)
     return proc.returncode
 
 
@@ -45,7 +45,7 @@ def test_missing_hub_url_is_a_config_error_not_a_pass(tmp_path):
     """A check that cannot run must not exit 0 — the whole point."""
     env = {k: v for k, v in os.environ.items() if k != "HUB_URL"}
     proc = subprocess.run(["bash", str(SCRIPT)], env=env,
-                          capture_output=True, text=True, timeout=30)
+                          capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30)
     assert proc.returncode == 2, proc.stderr
     assert "HUB_URL is not set" in proc.stderr
 

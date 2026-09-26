@@ -168,7 +168,7 @@ def _step_run(jobs: dict[str, list[dict]], job: str, name_contains: str) -> str:
 
 def _write_exec(path: Path, body: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(body)
+    path.write_text(body, encoding="utf-8")
     path.chmod(path.stat().st_mode | stat.S_IEXEC)
 
 
@@ -335,7 +335,7 @@ class TestSecretValidationTemplate(unittest.TestCase):
         with self._scratch() as tmp:
             self.assertEqual(self._bash(run, tmp).returncode, 0,
                              "the .env check fails on an empty tree")
-            (tmp / ".env").write_text("PLACEHOLDER=1\n")
+            (tmp / ".env").write_text("PLACEHOLDER=1\n", encoding="utf-8")
             r = self._bash(run, tmp)
             self.assertNotEqual(r.returncode, 0,
                                 "a committed .env no longer fails the build")
@@ -397,7 +397,7 @@ class TestSecretValidationTemplate(unittest.TestCase):
         env.pop("PR_HEAD", None)
         env["PATH"] = str(sandbox) if sandbox is not None else os.environ["PATH"]
         return subprocess.run([BASH, "-c", run], cwd=str(tmp), env=env,
-                              capture_output=True, text=True, timeout=60)
+                              capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
 
 
 if __name__ == "__main__":

@@ -226,9 +226,9 @@ class TestTimeToLive(unittest.TestCase):
             m = _material()
             cache.put(td, m, PAYLOAD, cached_at=FIXED)
             entry = Path(td) / "entries" / (cache.key(m) + ".json")
-            rec = json.loads(entry.read_text())
+            rec = json.loads(entry.read_text(encoding="utf-8"))
             rec["cached_at"] = 12345
-            entry.write_text(json.dumps(rec))
+            entry.write_text(json.dumps(rec), encoding="utf-8")
             res = cache.get(td, m, as_of=FIXED, ttl_seconds=TTL)
             self.assertFalse(res["hit"])
             self.assertIn("bad-time", res["reason"])
@@ -355,7 +355,7 @@ class TestStoreHygiene(unittest.TestCase):
             m = _material()
             cache.put(td, m, PAYLOAD, cached_at=FIXED)
             entry = Path(td) / "entries" / (cache.key(m) + ".json")
-            entry.write_text("{ this is not json")
+            entry.write_text("{ this is not json", encoding="utf-8")
             res = cache.get(td, m, as_of=FIXED, ttl_seconds=TTL)
             self.assertFalse(res["hit"])
             self.assertIn("unreadable", res["reason"])
@@ -380,10 +380,10 @@ class TestStoreHygiene(unittest.TestCase):
             cache.put(td, m, PAYLOAD, cached_at=FIXED)
             # Rewrite the record's stored material to claim a different subject.
             entry = Path(td) / "entries" / (cache.key(m) + ".json")
-            rec = json.loads(entry.read_text())
+            rec = json.loads(entry.read_text(encoding="utf-8"))
             rec["key_material"]["subject_digest"] = "sha256:" + "0" * 64
             rec["payload"] = base64.b64encode(PAYLOAD).decode()
-            entry.write_text(json.dumps(rec))
+            entry.write_text(json.dumps(rec), encoding="utf-8")
             res = cache.get(td, m, as_of=FIXED, ttl_seconds=TTL)
             self.assertFalse(res["hit"])
             self.assertIn("key-drift", res["reason"])

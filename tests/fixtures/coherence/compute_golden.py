@@ -41,7 +41,7 @@ def digest(role_tag: str, payload: bytes) -> str:
 def main() -> int:
     lf = (HERE / "hello_lf.txt").read_bytes()
     crlf = (HERE / "hello_crlf.txt").read_bytes()
-    decision_obj = json.loads((HERE / "canonical_sample.json").read_text())
+    decision_obj = json.loads((HERE / "canonical_sample.json").read_text(encoding="utf-8"))
 
     vectors = {
         "api_version": "devgate.spec-coherence.golden-vectors/v1",
@@ -67,7 +67,7 @@ def main() -> int:
     }
 
     out = json.dumps(vectors, indent=2, ensure_ascii=True) + "\n"
-    (HERE / "vectors.json").write_text(out)
+    (HERE / "vectors.json").write_text(out, encoding="utf-8")
     print(out)
     return 0
 

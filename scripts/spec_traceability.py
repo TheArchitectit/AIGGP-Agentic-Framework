@@ -44,7 +44,7 @@ def load_config(root: Path) -> dict:
     cfg_path = root / "openspec" / "gate-config.json"
     if not cfg_path.exists():
         return {"default_mode": "advisory", "specs": {}}
-    return json.loads(cfg_path.read_text())
+    return json.loads(cfg_path.read_text(encoding="utf-8"))
 
 
 def find_spec_files(root: Path) -> list[Path]:
@@ -70,7 +70,7 @@ def collect_requirements(root: Path) -> dict:
         # specs/<cap>/spec.md -> capability dir; flat change specs/<file>.md
         # -> file stem (DevGate's own change packages use that flat layout).
         capability = spec.parent.name if spec.name == "spec.md" else spec.stem
-        ids = REQ_ID.findall(spec.read_text())
+        ids = REQ_ID.findall(spec.read_text(encoding="utf-8"))
         out.setdefault(capability, {})
         for rid in ids:
             out[capability][rid] = spec
@@ -163,7 +163,7 @@ def main() -> int:
         # regression the advisory mode alone would wave through.
         ratchet_path = root / ".guardrails" / "traceability-ratchet.json"
         try:
-            recorded = json.loads(ratchet_path.read_text()) \
+            recorded = json.loads(ratchet_path.read_text(encoding="utf-8")) \
                 if ratchet_path.exists() else {}
         except (OSError, json.JSONDecodeError) as exc:
             print(f"spec-traceability: cannot read ratchet floor "
@@ -173,7 +173,7 @@ def main() -> int:
         if floor is None:
             ratchet_path.parent.mkdir(parents=True, exist_ok=True)
             ratchet_path.write_text(json.dumps(
-                {"min_covered": covered_count}, indent=1) + "\n")
+                {"min_covered": covered_count}, indent=1) + "\n", encoding="utf-8")
             print(f"spec-traceability: ratchet floor initialized at "
                   f"{covered_count} ({ratchet_path})")
         elif covered_count < floor:
@@ -184,7 +184,7 @@ def main() -> int:
         elif covered_count > floor:
             if args.update_ratchet:
                 ratchet_path.write_text(json.dumps(
-                    {"min_covered": covered_count}, indent=1) + "\n")
+                    {"min_covered": covered_count}, indent=1) + "\n", encoding="utf-8")
                 print(f"spec-traceability: ratchet floor raised to "
                       f"{covered_count}")
             else:

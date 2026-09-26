@@ -44,7 +44,7 @@ def _run(root: Path, *args):
     reg = root / ".guardrails" / "failure-registry.jsonl"
     return subprocess.run([sys.executable, str(SCRIPT), "--root", str(root),
                            "--registry", str(reg), *args],
-                          capture_output=True, text=True)
+                          capture_output=True, text=True, encoding="utf-8", errors="replace")
 
 
 def test_generates_traceable_ids(tmp_path=None):
@@ -55,7 +55,7 @@ def test_generates_traceable_ids(tmp_path=None):
         assert r.returncode == 0, r.stderr
         spec = root / "openspec" / "specs" / "save-system" / "spec.md"
         assert spec.exists(), "spec.md not written"
-        ids = spec_traceability.REQ_ID.findall(spec.read_text())
+        ids = spec_traceability.REQ_ID.findall(spec.read_text(encoding="utf-8"))
         assert len(ids) == 2, ids
         # every generated id must be kebab-case so the gate can parse it back
         for i in ids:
@@ -67,9 +67,9 @@ def test_second_run_is_idempotent(tmp_path=None):
     with tempfile.TemporaryDirectory() as d:
         root = _root(Path(d), [_entry("FAIL-A"), _entry("FAIL-B")])
         _run(root, "--capability", "gen")
-        first = (root / "openspec" / "specs" / "gen" / "spec.md").read_text()
+        first = (root / "openspec" / "specs" / "gen" / "spec.md").read_text(encoding="utf-8")
         r2 = _run(root, "--capability", "gen")
-        second = (root / "openspec" / "specs" / "gen" / "spec.md").read_text()
+        second = (root / "openspec" / "specs" / "gen" / "spec.md").read_text(encoding="utf-8")
         assert first == second, "second run must not change the spec"
         assert "in sync" in r2.stdout, r2.stdout
 
@@ -80,13 +80,18 @@ def test_new_finding_appends_existing_survives(tmp_path=None):
         root = _root(Path(d), [_entry("FAIL-A")])
         _run(root, "--capability", "gen")
         spec = root / "openspec" / "specs" / "gen" / "spec.md"
-        before = spec.read_text()
-        spec.write_text(before + "\n<!-- human note: keep me -->\n")
+        before = spec.read_text(encoding="utf-8")
+        # encoding= is load-bearing: `before` is a str that can carry an em-dash
+        # from the generated spec. write_text with no encoding re-encodes it as
+        # cp1252 on Windows, so the file the tool wrote as valid UTF-8 comes back
+        # corrupted -- and the test's own read_text then raises. Hand-edit must
+        # survive, so the round trip must not mangle the bytes.
+        spec.write_text(before + "\n<!-- human note: keep me -->\n", encoding="utf-8")
         # add a second finding
         (root / ".guardrails" / "failure-registry.jsonl").write_text(
             _entry("FAIL-A") + "\n" + _entry("FAIL-Z") + "\n", encoding="utf-8")
         _run(root, "--capability", "gen")
-        after = spec.read_text()
+        after = spec.read_text(encoding="utf-8")
         assert "keep me" in after, "hand edit must survive"
         assert len(spec_traceability.REQ_ID.findall(after)) == 2, after
 
@@ -97,11 +102,11 @@ def test_marker_makes_it_covered(tmp_path=None):
         root = _root(Path(d), [_entry("FAIL-SI-009")])
         _run(root, "--capability", "combat")
         spec = root / "openspec" / "specs" / "combat" / "spec.md"
-        rid = spec_traceability.REQ_ID.findall(spec.read_text())[0]
+        rid = spec_traceability.REQ_ID.findall(spec.read_text(encoding="utf-8"))[0]
         (root / "src" ).mkdir(exist_ok=True)
-        (root / "src" / "combat.rs").write_text(f"// spec: {rid}\nfn x() {{}}\n")
+        (root / "src" / "combat.rs").write_text(f"// spec: {rid}\nfn x() {{}}\n", encoding="utf-8")
         tr = subprocess.run([sys.executable, str(HERE.parent / "scripts" / "spec_traceability.py"),
-                             "--root", str(root), "--report"], capture_output=True, text=True)
+                             "--root", str(root), "--report"], capture_output=True, text=True, encoding="utf-8", errors="replace")
         assert f"{rid}: covered" in tr.stdout, tr.stdout
 
 
@@ -113,15 +118,19 @@ def test_stdin_scanner_findings_deduped(tmp_path=None):
             "[GUARDRAILS][warning] PREVENT-SI-002 src/save_load.rs:55 — serialization swallows\n"
             "[GUARDRAILS][warning] PREVENT-SI-002 src/save_load.rs:63 — serialization swallows\n"
         )
+        # encoding=utf-8 is not optional here: `text=True, encoding="utf-8", errors="replace"` alone encodes the
+        # INPUT with the platform default (cp1252 on Windows), so the em-dash in
+        # the sample becomes byte 0x97 and the script -- which rightly reads
+        # UTF-8 -- sees undecodable input. Producer and consumer must agree.
         r = subprocess.run([sys.executable, str(SCRIPT), "--root", str(root),
                             "--registry", str(root / ".guardrails" / "failure-registry.jsonl"),
                             "--stdin", "--capability", "save"],
-                           input=scan, capture_output=True, text=True)
+                           input=scan, capture_output=True, text=True, encoding="utf-8", errors="replace")
         assert r.returncode == 0, r.stderr
         spec = root / "openspec" / "specs" / "save" / "spec.md"
         assert spec.exists()
         # same rule+file across two lines -> ONE requirement
-        assert len(spec_traceability.REQ_ID.findall(spec.read_text())) == 1, spec.read_text()
+        assert len(spec_traceability.REQ_ID.findall(spec.read_text(encoding="utf-8"))) == 1, spec.read_text(encoding="utf-8")
 
 
 def _run_all() -> int:

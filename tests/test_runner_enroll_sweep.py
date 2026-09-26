@@ -58,7 +58,7 @@ def _provision(s, runner, declared):
     for the image cycle's variables."""
     env = s.env_file(runner)
     assert env.exists(), "the env file must exist before it can be provisioned"
-    env.write_text(env.read_text() + f"{DECLARED_KEY}={declared}\n")
+    env.write_text(env.read_text(encoding="utf-8") + f"{DECLARED_KEY}={declared}\n", encoding="utf-8")
     return s.enroll(runner)
 
 
@@ -119,7 +119,7 @@ def test_the_installed_sweep_can_actually_run(tmp_path):
                    cwd=origin, check=True)
 
     declared = tmp_path / "declared.txt"
-    declared.write_text(f"file://{origin}\n")
+    declared.write_text(f"file://{origin}\n", encoding="utf-8")
     work = tmp_path / "work"
     work.mkdir()
     res = s.run_fleet_helper("alpha", declared, "--work", str(work))
@@ -156,7 +156,7 @@ def test_the_declaration_path_is_expanded_by_systemd_not_by_enroll(tmp_path):
     s = Spoke(tmp_path)
     assert s.enroll("alpha").returncode == 0
     service, _ = s.fleet_units("alpha")
-    text = service.read_text()
+    text = service.read_text(encoding="utf-8")
 
     exec_lines = [l for l in text.splitlines() if l.startswith("ExecStart=")]
     assert len(exec_lines) == 1, text
@@ -194,14 +194,14 @@ def test_an_ambient_declaration_is_not_baked_into_the_unit(tmp_path):
     assert s.enroll("alpha").returncode == 0
 
     ambient = tmp_path / "ambient-declared.txt"
-    ambient.write_text("https://example.test/ambient/repo.git\n")
+    ambient.write_text("https://example.test/ambient/repo.git\n", encoding="utf-8")
     s.env[DECLARED_KEY] = str(ambient)
 
     res = s.enroll("alpha")
     assert res.returncode == 0, res.stderr
 
     service, _ = s.fleet_units("alpha")
-    exec_line = next(l for l in service.read_text().splitlines()
+    exec_line = next(l for l in service.read_text(encoding="utf-8").splitlines()
                      if l.startswith("ExecStart="))
     assert str(ambient) not in exec_line, (
         "the ambient declaration was baked into the unit at write time, where "
@@ -224,7 +224,7 @@ def test_the_sweep_reads_the_runner_s_own_environment_file(tmp_path):
     s = Spoke(tmp_path)
     assert s.enroll("alpha").returncode == 0
     service, _ = s.fleet_units("alpha")
-    text = service.read_text()
+    text = service.read_text(encoding="utf-8")
     assert f"EnvironmentFile={s.env_file('alpha')}" in text, text
 
 
@@ -251,8 +251,8 @@ def test_the_sweep_is_not_enabled_without_a_declaration(tmp_path):
     # The unit file IS the artifact here: `systemctl --user enable` on a timer
     # with no [Install] section is an error, and the systemctl stub exits 0 for
     # everything, so only reading the file pins it.
-    assert "[Install]" in timer.read_text() and \
-        "WantedBy=timers.target" in timer.read_text(), timer.read_text()
+    assert "[Install]" in timer.read_text(encoding="utf-8") and \
+        "WantedBy=timers.target" in timer.read_text(encoding="utf-8"), timer.read_text(encoding="utf-8")
 
 
 def test_the_sweep_is_enabled_once_a_declaration_is_provisioned(tmp_path):
@@ -260,7 +260,7 @@ def test_the_sweep_is_enabled_once_a_declaration_is_provisioned(tmp_path):
     assert s.enroll("alpha").returncode == 0
 
     declared = tmp_path / "declared.txt"
-    declared.write_text("https://example.test/owner/repo.git\n")
+    declared.write_text("https://example.test/owner/repo.git\n", encoding="utf-8")
     res = _provision(s, "alpha", str(declared))
     assert res.returncode == 0, res.stderr
 
@@ -310,17 +310,17 @@ def test_a_duplicated_declaration_resolves_to_the_last_one(tmp_path):
     assert s.enroll("alpha").returncode == 0
 
     good = tmp_path / "declared.txt"
-    good.write_text("https://example.test/owner/repo.git\n")
+    good.write_text("https://example.test/owner/repo.git\n", encoding="utf-8")
     env = s.env_file("alpha")
     # The stale line first, the corrected one second — systemd's order.
-    env.write_text(env.read_text()
+    env.write_text(env.read_text(encoding="utf-8")
                    + f"{DECLARED_KEY}={tmp_path / 'gone.txt'}\n"
-                   + f"{DECLARED_KEY}={good}\n")
+                   + f"{DECLARED_KEY}={good}\n", encoding="utf-8")
     res = s.enroll("alpha")
     assert res.returncode == 0, res.stderr
     assert "secretscan" in " ".join(s.systemctl_calls()), (
         "the sweep was judged on the stale first line while systemd would "
-        f"have used the corrected last one:\n{env.read_text()}")
+        f"have used the corrected last one:\n{env.read_text(encoding="utf-8")}")
 
 
 def test_a_declaration_naming_no_repository_does_not_enable_the_timer(tmp_path):
@@ -339,7 +339,7 @@ def test_a_declaration_naming_no_repository_does_not_enable_the_timer(tmp_path):
     assert s.enroll("alpha").returncode == 0
 
     empty_of_repos = tmp_path / "declared.txt"
-    empty_of_repos.write_text("# the fleet, to be filled in\n\n   \n# TODO\n")
+    empty_of_repos.write_text("# the fleet, to be filled in\n\n   \n# TODO\n", encoding="utf-8")
     res = _provision(s, "alpha", str(empty_of_repos))
     assert res.returncode == 0, res.stderr
 
@@ -347,7 +347,7 @@ def test_a_declaration_naming_no_repository_does_not_enable_the_timer(tmp_path):
         "the timer unit is absent, so 'it was not enabled' proves nothing"
     assert "secretscan" not in " ".join(s.systemctl_calls()), (
         "a declaration naming no repository was read as provisioning, so the "
-        f"sweep was enabled to exit 3 on every tick:\n{empty_of_repos.read_text()}")
+        f"sweep was enabled to exit 3 on every tick:\n{empty_of_repos.read_text(encoding="utf-8")}")
     assert "NOT enabled" in res.stdout, res.stdout
 
 
@@ -379,7 +379,7 @@ def test_an_indented_url_is_read_as_the_sweep_reads_it(tmp_path):
                    cwd=origin, check=True)
 
     declared = tmp_path / "declared.txt"
-    declared.write_text(f"   file://{origin}   # indented, with a trailing note\n")
+    declared.write_text(f"   file://{origin}   # indented, with a trailing note\n", encoding="utf-8")
 
     res = _provision(s, "alpha", str(declared))
     assert res.returncode == 0, res.stderr
@@ -387,7 +387,7 @@ def test_an_indented_url_is_read_as_the_sweep_reads_it(tmp_path):
         "the timer unit is absent, so 'it was not enabled' proves nothing"
     assert "secretscan" in " ".join(s.systemctl_calls()), (
         "enroll refused a declaration the sweep reads as one repository — the "
-        f"two readers disagree:\n{declared.read_text()}")
+        f"two readers disagree:\n{declared.read_text(encoding="utf-8")}")
 
     # The other reader, on the same file.
     work = tmp_path / "work"
@@ -417,13 +417,13 @@ def test_a_quoted_declaration_path_is_read_as_systemd_reads_it(tmp_path):
     spaced = tmp_path / "with space"
     spaced.mkdir()
     declared = spaced / "declared.txt"
-    declared.write_text("https://example.test/owner/repo.git\n")
+    declared.write_text("https://example.test/owner/repo.git\n", encoding="utf-8")
 
     s = Spoke(tmp_path)
     assert s.enroll("alpha").returncode == 0
     env = s.env_file("alpha")
-    env.write_text(env.read_text()
-                   + f'{DECLARED_KEY}="{declared}"\n')
+    env.write_text(env.read_text(encoding="utf-8")
+                   + f'{DECLARED_KEY}="{declared}"\n', encoding="utf-8")
     res = s.enroll("alpha")
     assert res.returncode == 0, res.stderr
 
@@ -432,7 +432,7 @@ def test_a_quoted_declaration_path_is_read_as_systemd_reads_it(tmp_path):
     assert "secretscan" in " ".join(s.systemctl_calls()), (
         "a quoted declaration path containing a space was read with its quotes "
         "still on it, so enroll saw a file that does not exist and left the "
-        f"sweep disabled — while systemd reads that line fine:\n{env.read_text()}")
+        f"sweep disabled — while systemd reads that line fine:\n{env.read_text(encoding="utf-8")}")
 
 
 def test_a_commented_out_declaration_does_not_enable_the_timer(tmp_path):
@@ -444,9 +444,9 @@ def test_a_commented_out_declaration_does_not_enable_the_timer(tmp_path):
     assert s.enroll("alpha").returncode == 0
 
     good = tmp_path / "declared.txt"
-    good.write_text("https://example.test/owner/repo.git\n")
+    good.write_text("https://example.test/owner/repo.git\n", encoding="utf-8")
     env = s.env_file("alpha")
-    env.write_text(env.read_text() + f"#{DECLARED_KEY}={good}\n")
+    env.write_text(env.read_text(encoding="utf-8") + f"#{DECLARED_KEY}={good}\n", encoding="utf-8")
     res = s.enroll("alpha")
     assert res.returncode == 0, res.stderr
     # Non-vacuity, as in the two tests above: without this, "no secretscan in
@@ -456,7 +456,7 @@ def test_a_commented_out_declaration_does_not_enable_the_timer(tmp_path):
         "the timer unit is absent, so 'it was not enabled' proves nothing"
     assert "secretscan" not in " ".join(s.systemctl_calls()), (
         "a commented-out declaration was read as a live one and enabled the "
-        f"sweep the operator had just turned off:\n{env.read_text()}")
+        f"sweep the operator had just turned off:\n{env.read_text(encoding="utf-8")}")
 
 
 def test_provisioning_the_sweep_survives_a_reenroll(tmp_path):
@@ -465,12 +465,12 @@ def test_provisioning_the_sweep_survives_a_reenroll(tmp_path):
     s = Spoke(tmp_path)
     assert s.enroll("alpha").returncode == 0
     declared = tmp_path / "declared.txt"
-    declared.write_text("https://example.test/owner/repo.git\n")
+    declared.write_text("https://example.test/owner/repo.git\n", encoding="utf-8")
     assert _provision(s, "alpha", str(declared)).returncode == 0
 
     res = s.enroll("alpha")
     assert res.returncode == 0, res.stderr
-    env = s.env_file("alpha").read_text()
+    env = s.env_file("alpha").read_text(encoding="utf-8")
     assert f"{DECLARED_KEY}={declared}" in env, (
         "re-enrolling dropped the declaration, so the next tick's timer would "
         f"be left enabled with nothing to sweep:\n{env}")

@@ -40,7 +40,7 @@ class TestVerificationCLI(unittest.TestCase):
                                  approved_name="widget", stage=stage)
         r = subprocess.run(
             [sys.executable, "-m", "hub.coherence", "--request", str(req)],
-            capture_output=True, text=True, cwd=str(REPO),
+            capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO),
             env={**os.environ, **fx.cli_env()})
         self.assertEqual(r.returncode, 0, r.stderr)
         return out
@@ -49,14 +49,14 @@ class TestVerificationCLI(unittest.TestCase):
         ss = fx.signer_set("a" * 64, key_id="signer-1",
                            identity="pilot-signer", as_of=fx.FIXED_TIME)
         p = Path(td) / "signer-set.json"
-        p.write_text(json.dumps(ss))
+        p.write_text(json.dumps(ss), encoding="utf-8")
         return p
 
     def _verify(self, out, ssp):
         return subprocess.run(
             [sys.executable, "-m", "hub.coherence",
              "--verify-run", str(out), "--signer-set", str(ssp)],
-            capture_output=True, text=True, cwd=str(REPO))
+            capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO))
 
     def test_intact_run_verifies_exit0(self):
         """Happy path: --verify-run on a sealed Stage 2 run returns 0.
@@ -96,18 +96,18 @@ class TestVerificationCLI(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             out = self._sealed_run(td)
             ap = out / "attestation.json"
-            att = json.loads(ap.read_text())
+            att = json.loads(ap.read_text(encoding="utf-8"))
             att["bound"]["subject_digest"] = "sha256:" + "9" * 64
             unsigned = dict(att)
             unsigned.pop("signature")
             att["signature"] = attest.SIGNATURE_PREFIX + hmac.new(
                 bytes.fromhex("a" * 64),
                 canon.canon(unsigned), hashlib.sha256).hexdigest()
-            ap.write_text(json.dumps(att))
+            ap.write_text(json.dumps(att), encoding="utf-8")
             # The result is untouched, so step 7 (statement digest) cannot
             # fire — only the bound-digest loop can reject this.
             res_digest = json.loads(
-                (out / "result.json").read_text())["subject_digest"]
+                (out / "result.json").read_text(encoding="utf-8"))["subject_digest"]
             self.assertNotEqual(res_digest, att["bound"]["subject_digest"])
             r = self._verify(out, self._signer_set_path(td))
             self.assertEqual(r.returncode, 1,
@@ -128,8 +128,8 @@ class TestVerificationCLI(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             out = self._sealed_run(td)
             ap = out / "attestation.json"
-            att = json.loads(ap.read_text())
-            res = json.loads((out / "result.json").read_text())
+            att = json.loads(ap.read_text(encoding="utf-8"))
+            res = json.loads((out / "result.json").read_text(encoding="utf-8"))
             # Every bound value still matches the result: step 8 is inert.
             for key in ("subject_digest", "openspec_digest", "policy_digest",
                         "context_digest", "evaluator_image_digest"):
@@ -141,7 +141,7 @@ class TestVerificationCLI(unittest.TestCase):
             att["signature"] = attest.SIGNATURE_PREFIX + hmac.new(
                 bytes.fromhex("a" * 64),
                 canon.canon(unsigned), hashlib.sha256).hexdigest()
-            ap.write_text(json.dumps(att))
+            ap.write_text(json.dumps(att), encoding="utf-8")
             r = self._verify(out, self._signer_set_path(td))
             self.assertEqual(r.returncode, 1,
                              "statement-digest mismatch must fail closed")
@@ -160,7 +160,7 @@ class TestVerificationCLI(unittest.TestCase):
             r = subprocess.run(
                 [sys.executable, "-m", "hub.coherence",
                  "--request", str(req)],
-                capture_output=True, text=True, cwd=str(REPO),
+                capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO),
                 env={**os.environ, **fx.cli_env()})
             ssp = self._signer_set_path(td)
             self.assertEqual(self._verify(out, ssp).returncode, 0)
@@ -178,7 +178,7 @@ class TestVerificationCLI(unittest.TestCase):
                                identity="pilot-signer", as_of=fx.FIXED_TIME,
                                revoked=True)
             p = Path(td) / "revoked.json"
-            p.write_text(json.dumps(ss))
+            p.write_text(json.dumps(ss), encoding="utf-8")
             r = self._verify(out, p)
             self.assertEqual(r.returncode, 1)
             self.assertIn("revoked", r.stderr)
@@ -191,7 +191,7 @@ class TestVerificationCLI(unittest.TestCase):
              "--signer-set", str(REPO / "openspec" / "changes"
                                   "devgate-spec-coherence-service"
                                   "schemas" / "signer-set.schema.json")],
-            capture_output=True, text=True, cwd=str(REPO))
+            capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO))
         self.assertEqual(r.returncode, 2)
 
     def test_malformed_signer_set_exit2(self):
@@ -202,7 +202,7 @@ class TestVerificationCLI(unittest.TestCase):
              "--signer-set", str(REPO / "openspec" / "changes"
                                   "devgate-spec-coherence-service"
                                   "schemas" / "attestation.schema.json")],
-            capture_output=True, text=True, cwd=str(REPO))
+            capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO))
         self.assertEqual(r.returncode, 2)
 
     def test_verify_run_requires_signer_set(self):
@@ -211,7 +211,7 @@ class TestVerificationCLI(unittest.TestCase):
             r = subprocess.run(
                 [sys.executable, "-m", "hub.coherence",
                  "--verify-run", str(Path(td))],
-                capture_output=True, text=True, cwd=str(REPO))
+                capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO))
             self.assertEqual(r.returncode, 2)
             self.assertIn("--signer-set is required", r.stderr)
 
@@ -235,7 +235,7 @@ class TestPromotionBinding(unittest.TestCase):
                                  approved_name=approved_name, stage=2)
         r = subprocess.run(
             [sys.executable, "-m", "hub.coherence", "--request", str(req)],
-            capture_output=True, text=True, cwd=str(REPO),
+            capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO),
             env={**os.environ, **fx.cli_env()})
         self.assertEqual(r.returncode, 0, r.stderr)
         return out
@@ -249,7 +249,7 @@ class TestPromotionBinding(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             out = self._sealed_run(td, declared_name="widget",
                                    approved_name="widget")
-            bound = json.loads((out / "attestation.json").read_text())["bound"]
+            bound = json.loads((out / "attestation.json").read_text(encoding="utf-8"))["bound"]
             ok, reason = attest.verify_promotion(
                 str(out), self._signer_set(), bound["subject_digest"])
             self.assertTrue(ok, reason)
@@ -263,9 +263,9 @@ class TestPromotionBinding(unittest.TestCase):
             d2 = self._sealed_run(td, declared_name="other",
                                   approved_name="other")
             d1_bound = json.loads(
-                (d1 / "attestation.json").read_text())["bound"]
+                (d1 / "attestation.json").read_text(encoding="utf-8"))["bound"]
             d2_bound = json.loads(
-                (d2 / "attestation.json").read_text())["bound"]
+                (d2 / "attestation.json").read_text(encoding="utf-8"))["bound"]
             self.assertNotEqual(d1_bound["subject_digest"],
                                 d2_bound["subject_digest"],
                                 "fixture defect: the two runs must differ")
@@ -289,7 +289,7 @@ class TestPromotionBinding(unittest.TestCase):
             out = self._sealed_run(td, declared_name="widget",
                                    approved_name="widget")
             bound = json.loads(
-                (out / "attestation.json").read_text())["bound"]
+                (out / "attestation.json").read_text(encoding="utf-8"))["bound"]
             (out / "result.json").write_bytes(b'{"decision": "PASS"}')
             ok, reason = attest.verify_promotion(
                 str(out), self._signer_set(), bound["subject_digest"])

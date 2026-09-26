@@ -25,14 +25,14 @@ SCHEMA_DIR = REPO / "openspec/changes/devgate-spec-coherence-service/schemas"
 
 
 def _load_schema(name: str) -> dict:
-    return json.loads((SCHEMA_DIR / name).read_text())
+    return json.loads((SCHEMA_DIR / name).read_text(encoding="utf-8"))
 
 
 def _run(req_path: Path, env=None):
     """Invoke the real CLI; return returncode."""
     r = subprocess.run(
         [sys.executable, "-m", "hub.coherence", "--request", str(req_path)],
-        capture_output=True, text=True, cwd=str(REPO),
+        capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO),
         env=env or {**os.environ, **fx.cli_env()})
     return r.returncode
 
@@ -180,7 +180,7 @@ class TestSealingOrder(unittest.TestCase):
             code = _run(req)
             att_path = out / "attestation.json"
             self.assertTrue(att_path.exists())
-            a = json.loads(att_path.read_text())
+            a = json.loads(att_path.read_text(encoding="utf-8"))
             self.assertEqual(a["api_version"],
                              "devgate.spec-coherence.attestation/v1")
             self.assertIn("statement_digest", a)
@@ -188,7 +188,7 @@ class TestSealingOrder(unittest.TestCase):
             self.assertIn("signature", a)
             env_path = out / "run-envelope.json"
             self.assertTrue(env_path.exists())
-            env = json.loads(env_path.read_text())
+            env = json.loads(env_path.read_text(encoding="utf-8"))
             self.assertTrue(env["signed"])
             self.assertEqual(env["artifacts"]["attestation"], "attestation.json")
 
@@ -197,7 +197,7 @@ class TestSealingOrder(unittest.TestCase):
             req, out = fx.build_root(Path(td), stage=1)
             code = _run(req)
             self.assertFalse((out / "attestation.json").exists())
-            env = json.loads((out / "run-envelope.json").read_text())
+            env = json.loads((out / "run-envelope.json").read_text(encoding="utf-8"))
             self.assertFalse(env["signed"])
             self.assertIsNone(env["artifacts"]["attestation"])
 
@@ -230,7 +230,7 @@ class TestSealingOrder(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             req, out = fx.build_root(Path(td), stage=2)
             _run(req)
-            env = json.loads((out / "run-envelope.json").read_text())
+            env = json.loads((out / "run-envelope.json").read_text(encoding="utf-8"))
             errs = schemacheck.validate(env, _load_schema("run-envelope.schema.json"))
             self.assertEqual(errs, [])
 
@@ -238,7 +238,7 @@ class TestSealingOrder(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             req, out = fx.build_root(Path(td), stage=1)
             _run(req)
-            env = json.loads((out / "run-envelope.json").read_text())
+            env = json.loads((out / "run-envelope.json").read_text(encoding="utf-8"))
             errs = schemacheck.validate(env, _load_schema("run-envelope.schema.json"))
             self.assertEqual(errs, [])
 
@@ -253,7 +253,7 @@ class TestFailClosed(unittest.TestCase):
                                      approved_name="widget", stage=2)
             code = _run(req, env=env)
             self.assertEqual(code, result.EXIT_EVIDENCE)
-            env_doc = json.loads((out / "result.json").read_text())
+            env_doc = json.loads((out / "result.json").read_text(encoding="utf-8"))
             self.assertEqual(env_doc["error"]["class"], "attestation")
 
     def test_stage2_local_derives_evaluator_digest_from_registry(self):
@@ -263,7 +263,7 @@ class TestFailClosed(unittest.TestCase):
                                      approved_name="widget", stage=2)
             code = _run(req)
             self.assertEqual(code, 0)
-            a = json.loads((out / "attestation.json").read_text())
+            a = json.loads((out / "attestation.json").read_text(encoding="utf-8"))
             self.assertTrue(a["bound"]["evaluator_image_digest"]
                             .startswith("sha256:"))
 
@@ -275,7 +275,7 @@ class TestFailClosed(unittest.TestCase):
                                      execution_profile="undeclared-label")
             code = _run(req)
             self.assertEqual(code, result.EXIT_INVALID_INPUT)
-            env_doc = json.loads((out / "result.json").read_text())
+            env_doc = json.loads((out / "result.json").read_text(encoding="utf-8"))
             self.assertIn("undeclared-profile", env_doc["error"]["reason"])
 
     def test_stage0_no_attestation_normal_exit(self):
@@ -284,7 +284,7 @@ class TestFailClosed(unittest.TestCase):
             req, out = fx.build_root(Path(td), stage=0)
             code = _run(req)
             self.assertFalse((out / "attestation.json").exists())
-            env = json.loads((out / "run-envelope.json").read_text())
+            env = json.loads((out / "run-envelope.json").read_text(encoding="utf-8"))
             self.assertFalse(env["signed"])
             self.assertFalse(env["attestation_required"])
 
@@ -294,7 +294,7 @@ class TestFailClosed(unittest.TestCase):
             req, out = fx.build_root(Path(td), stage=2, semantics="replay")
             code = _run(req)
             self.assertFalse((out / "attestation.json").exists())
-            env = json.loads((out / "run-envelope.json").read_text())
+            env = json.loads((out / "run-envelope.json").read_text(encoding="utf-8"))
             self.assertFalse(env["signed"])
 
     def test_blocked_attestation_write_fails_closed_not_traceback(self):
@@ -310,12 +310,12 @@ class TestFailClosed(unittest.TestCase):
             p = subprocess.run(
                 [sys.executable, "-m", "hub.coherence",
                  "--request", str(req)],
-                capture_output=True, text=True, cwd=str(REPO),
+                capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO),
                 env={**os.environ, **fx.cli_env()})
             self.assertNotIn("Traceback", p.stderr, "raw traceback")
             self.assertEqual(p.returncode, result.EXIT_EVIDENCE,
                              f"expected exit 33, got {p.returncode}")
-            env_doc = json.loads((out / "result.json").read_text()) \
+            env_doc = json.loads((out / "result.json").read_text(encoding="utf-8")) \
                 if (out / "result.json").exists() else None
             if env_doc is not None and "error" in env_doc:
                 self.assertEqual(env_doc["error"]["class"], "attestation")
@@ -332,7 +332,7 @@ class TestFailClosed(unittest.TestCase):
             p = subprocess.run(
                 [sys.executable, "-m", "hub.coherence",
                  "--request", str(req)],
-                capture_output=True, text=True, cwd=str(REPO),
+                capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO),
                 env={**os.environ, **fx.cli_env()})
             self.assertNotIn("Traceback", p.stderr, "raw traceback")
             self.assertEqual(p.returncode, result.EXIT_EVIDENCE,

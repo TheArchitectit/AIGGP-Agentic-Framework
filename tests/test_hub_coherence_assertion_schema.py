@@ -193,10 +193,10 @@ class TestCliRejectsAtPlanning(unittest.TestCase):
     def _cli(self, req, out):
         r = subprocess.run([sys.executable, "-m", "hub.coherence",
                             "--request", str(req)],
-                           capture_output=True, text=True, cwd=str(REPO),
+                           capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO),
                            env={**os.environ, **fx.cli_env()})
         rp = Path(out) / "result.json"
-        return r.returncode, json.loads(rp.read_text()) if rp.exists() else None
+        return r.returncode, json.loads(rp.read_text(encoding="utf-8")) if rp.exists() else None
 
     def _run(self, assertions, td):
         # build_root computes every digest from the files it writes, so a
@@ -218,19 +218,19 @@ class TestCliRejectsAtPlanning(unittest.TestCase):
             # consistent and planning is the ONLY thing left to reject it.
             from hub.coherence import canon, package as pkgmod
             spec = Path(td) / "openspec" / "specs" / "product.identity.json"
-            doc = json.loads(spec.read_text())
+            doc = json.loads(spec.read_text(encoding="utf-8"))
             doc["id"] = "../../../PWNED"
-            spec.write_text(json.dumps(doc))
+            spec.write_text(json.dumps(doc), encoding="utf-8")
             pman = Path(td) / "openspec" / "package.json"
-            pm = json.loads(pman.read_text())
+            pm = json.loads(pman.read_text(encoding="utf-8"))
             for e in pm["normative_inventory"]:
                 fp = Path(td) / "openspec" / e["path"]
                 e["digest"] = fx.digest_bytes(fp.read_bytes())
-            pman.write_text(json.dumps(pm))
+            pman.write_text(json.dumps(pm), encoding="utf-8")
             fresh = pkgmod.resolve(str(Path(td) / "openspec"))["package_digest"]
-            r = json.loads(req.read_text())
+            r = json.loads(req.read_text(encoding="utf-8"))
             r["openspec"]["expected_digest"] = fresh
-            req.write_text(json.dumps(r))
+            req.write_text(json.dumps(r), encoding="utf-8")
             code, res = self._cli(req, out)
             self.assertEqual(code, result.EXIT_INVALID_INPUT,
                              "schema-invalid id is invalid-input (30), not evidence (33)")

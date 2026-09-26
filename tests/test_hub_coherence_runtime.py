@@ -144,7 +144,7 @@ class TestCapturedFactContent(unittest.TestCase):
             "policy_binding": {"expected_digest": "sha256:" + "a" * 64,
                                "min_bundle_epoch": 0, "grandfathers": []},
             "captured_facts": [], "issuance": {
-                "issued_at": "2026-09-17T00:00:00Z", "issuer": "cp"}}))
+                "issued_at": "2026-09-17T00:00:00Z", "issuer": "cp"}}), encoding="utf-8")
 
     def tearDown(self):
         shutil.rmtree(self.tmp, ignore_errors=True)
@@ -152,12 +152,12 @@ class TestCapturedFactContent(unittest.TestCase):
     def _bind(self, fact_id, payload, digest=None):
         fp = self.tmp / "facts" / fact_id
         fp.write_bytes(payload)
-        ctx = json.loads((self.tmp / "context.json").read_text())
+        ctx = json.loads((self.tmp / "context.json").read_text(encoding="utf-8"))
         ctx["captured_facts"].append({
             "fact_id": fact_id,
             "digest": digest or canon.digest_bytes("file/v1", payload),
             "captured_at": "2026-09-17T00:00:00Z", "source": "registry"})
-        (self.tmp / "context.json").write_text(json.dumps(ctx))
+        (self.tmp / "context.json").write_text(json.dumps(ctx), encoding="utf-8")
 
     def test_verified_content_is_loaded(self):
         self._bind("fact.registry", _fact_payload("widget"))
@@ -175,22 +175,22 @@ class TestCapturedFactContent(unittest.TestCase):
 
     def test_missing_content_rejected(self):
         dig = canon.digest_bytes("file/v1", _fact_payload("widget"))
-        ctx = json.loads((self.tmp / "context.json").read_text())
+        ctx = json.loads((self.tmp / "context.json").read_text(encoding="utf-8"))
         ctx["captured_facts"].append({
             "fact_id": "fact.registry", "digest": dig,
             "captured_at": "2026-09-17T00:00:00Z", "source": "registry"})
-        (self.tmp / "context.json").write_text(json.dumps(ctx))
+        (self.tmp / "context.json").write_text(json.dumps(ctx), encoding="utf-8")
         ctx = context.load(str(self.tmp))
         with self.assertRaises(context.ContextError) as cm:
             context.load_captured_facts(str(self.tmp), ctx)
         self.assertIn("captured-fact-content-missing", str(cm.exception))
 
     def test_path_traversal_in_fact_id_rejected(self):
-        ctx = json.loads((self.tmp / "context.json").read_text())
+        ctx = json.loads((self.tmp / "context.json").read_text(encoding="utf-8"))
         ctx["captured_facts"].append({
             "fact_id": "../escape", "digest": "sha256:" + "a" * 64,
             "captured_at": "2026-09-17T00:00:00Z", "source": "x"})
-        (self.tmp / "context.json").write_text(json.dumps(ctx))
+        (self.tmp / "context.json").write_text(json.dumps(ctx), encoding="utf-8")
         ctx = context.load(str(self.tmp))
         with self.assertRaises(context.ContextError) as cm:
             context.load_captured_facts(str(self.tmp), ctx)
@@ -212,9 +212,9 @@ class TestSecretRedactionAtSeal(unittest.TestCase):
     def _sealed_object(self, td):
         """The single sealed evidence object's text, resolved through the
         manifest (object names are content-derived, not reconstructible)."""
-        m = json.loads((Path(td) / "evidence-manifest.json").read_text())
+        m = json.loads((Path(td) / "evidence-manifest.json").read_text(encoding="utf-8"))
         self.assertEqual(len(m["objects"]), 1)
-        return (Path(td) / m["objects"][0]["path"]).read_text()
+        return (Path(td) / m["objects"][0]["path"]).read_text(encoding="utf-8")
 
     def test_secret_scrubbed_before_sealing(self):
         with tempfile.TemporaryDirectory() as td:

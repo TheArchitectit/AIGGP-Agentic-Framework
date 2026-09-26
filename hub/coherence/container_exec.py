@@ -95,8 +95,8 @@ def run_containerized(request_path: str, launch_cfg_path: str,
                       registry_path: str) -> int:
     out_dir = str(Path(request_path).resolve().parent)
     try:
-        req = json.loads(Path(request_path).read_text())
-        cfg = json.loads(Path(launch_cfg_path).read_text())
+        req = json.loads(Path(request_path).read_text(encoding="utf-8"))
+        cfg = json.loads(Path(launch_cfg_path).read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError, ValueError) as e:
         return _fail(out_dir, "invalid-input",
                      f"malformed request or launch config: {e}", "invocation")
@@ -178,7 +178,7 @@ def run_containerized(request_path: str, launch_cfg_path: str,
     # signal, so the relay fails ERROR instead of passing a bare code on.
     try:
         parsed = json.loads(
-            (Path(host_out) / "result.json").read_text())
+            (Path(host_out) / "result.json").read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError, ValueError):
         parsed = None
     decision = parsed.get("decision") if isinstance(parsed, dict) else None

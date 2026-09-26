@@ -22,10 +22,10 @@ ZERO_DIGEST = "sha256:" + "0" * 64
 def _run(req_path: Path, out_dir: Path):
     """Invoke the real CLI; return (exit_code, parsed result or None)."""
     r = subprocess.run([sys.executable, "-m", "hub.coherence", "--request", str(req_path)],
-                       capture_output=True, text=True, cwd=str(REPO),
+                       capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO),
                        env={**os.environ, **fx.cli_env()})
     rp = out_dir / "result.json"
-    parsed = json.loads(rp.read_text()) if rp.exists() else None
+    parsed = json.loads(rp.read_text(encoding="utf-8")) if rp.exists() else None
     return r.returncode, parsed
 
 
@@ -155,9 +155,9 @@ class TestSubjectManifestPolicy(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td) / "s"
             (root / "node_modules").mkdir(parents=True)
-            (root / "node_modules" / "dep.js").write_text("x")
+            (root / "node_modules" / "dep.js").write_text("x", encoding="utf-8")
             (root / "src").mkdir()
-            (root / "src" / "main.py").write_text("y")
+            (root / "src" / "main.py").write_text("y", encoding="utf-8")
             m = manifest.build(str(root))
             by_path = {e["path"]: e for e in m["entries"]}
             self.assertIn("node_modules", by_path)
@@ -173,8 +173,8 @@ class TestSubjectManifestPolicy(unittest.TestCase):
             root = Path(td) / "s"
             sub = root / "vendor-lib"
             sub.mkdir(parents=True)
-            (sub / ".git").write_text("gitdir: ../.git/modules/vendor-lib")
-            (sub / "lib.py").write_text("z")
+            (sub / ".git").write_text("gitdir: ../.git/modules/vendor-lib", encoding="utf-8")
+            (sub / "lib.py").write_text("z", encoding="utf-8")
             m = manifest.build(str(root))
             by_path = {e["path"]: e for e in m["entries"]}
             self.assertIn("vendor-lib", by_path)
@@ -193,7 +193,7 @@ class TestSubjectManifestPolicy(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td) / "s"
             (root / "build").mkdir(parents=True)
-            (root / "build" / "out.bin").write_text("b")
+            (root / "build" / "out.bin").write_text("b", encoding="utf-8")
             m = manifest.build(str(root), excludes=())
             paths = [e["path"] for e in m["entries"]]
             self.assertIn("build/out.bin", paths,
@@ -295,18 +295,18 @@ class TestOverlayCannotWeaken(unittest.TestCase):
         """A real overlay file attempting a bypass must yield ERROR, never PASS."""
         with tempfile.TemporaryDirectory() as td:
             req, out = fx.build_root(Path(td), stage=1)
-            polroot = json.loads(req.read_text())["policy"]["root"]
+            polroot = json.loads(req.read_text(encoding="utf-8"))["policy"]["root"]
             # Central policy requires a2; overlay tries to disable it.
-            bundle = json.loads((Path(polroot) / "policy.json").read_text())
+            bundle = json.loads((Path(polroot) / "policy.json").read_text(encoding="utf-8"))
             bundle["required_assertions"] = ["a1"]
             bundle["assertion_severity_floor"] = {"a1": "high"}
             from hub.coherence import canon as C
-            (Path(polroot) / "policy.json").write_text(json.dumps(bundle))
-            r = json.loads(req.read_text())
+            (Path(polroot) / "policy.json").write_text(json.dumps(bundle), encoding="utf-8")
+            r = json.loads(req.read_text(encoding="utf-8"))
             r["policy"]["expected_digest"] = C.digest_obj("policy/v1", bundle)
-            req.write_text(json.dumps(r))
+            req.write_text(json.dumps(r), encoding="utf-8")
             (Path(polroot) / "overlay.json").write_text(json.dumps(
-                {"assertions": [{"id": "a1", "disabled": True}]}))
+                {"assertions": [{"id": "a1", "disabled": True}]}), encoding="utf-8")
             code, res = _run(req, out)
             self.assertEqual(code, result.EXIT_POLICY)
             self.assertEqual(res["decision"], "ERROR")
@@ -322,14 +322,14 @@ class TestFixtureE_Nondeterminism(unittest.TestCase):
             root = Path(td) / "s"
             root.mkdir()
             for n in ["z.txt", "a.txt", "m.txt", "b.txt"]:
-                (root / n).write_text(n)
+                (root / n).write_text(n, encoding="utf-8")
             d1 = manifest.build(str(root))["subject_digest"]
             d2 = manifest.build(str(root))["subject_digest"]
             self.assertEqual(d1, d2)
             root2 = Path(td) / "s2"
             root2.mkdir()
             for n in ["m.txt", "b.txt", "z.txt", "a.txt"]:
-                (root2 / n).write_text(n)
+                (root2 / n).write_text(n, encoding="utf-8")
             self.assertEqual(_digest_of(root2), _digest_of(root))
 
     def test_traversal_guard_layers_each_isolated(self):
@@ -339,7 +339,7 @@ class TestFixtureE_Nondeterminism(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td) / "s"
             root.mkdir()
-            (root / "ok.txt").write_text("x")
+            (root / "ok.txt").write_text("x", encoding="utf-8")
             with self.assertRaises(manifest.SubjectError) as c1:
                 manifest._check_safe("/etc/passwd", root)
             self.assertIn("absolute path", str(c1.exception))
@@ -348,7 +348,7 @@ class TestFixtureE_Nondeterminism(unittest.TestCase):
             self.assertIn("traversal", str(c2.exception))
             outside = Path(td) / "outside"
             outside.mkdir()
-            (outside / "secret.txt").write_text("s")
+            (outside / "secret.txt").write_text("s", encoding="utf-8")
             (root / "link").symlink_to(outside, target_is_directory=True)
             with self.assertRaises(manifest.SubjectError) as c3:
                 manifest._check_safe("link/secret.txt", root)
@@ -361,10 +361,10 @@ class TestFixtureE_Nondeterminism(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td) / "s"
             root.mkdir()
-            (root / "ok.txt").write_text("x")
+            (root / "ok.txt").write_text("x", encoding="utf-8")
             outside = Path(td) / "outside"
             outside.mkdir()
-            (outside / "secret.txt").write_text("s")
+            (outside / "secret.txt").write_text("s", encoding="utf-8")
             (root / "link").symlink_to(outside, target_is_directory=True)
             m = manifest.build(str(root))
             paths = [e["path"] for e in m["entries"]]
@@ -381,12 +381,12 @@ class TestFixtureE_Nondeterminism(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td) / "s"
             root.mkdir()
-            (root / "ok.txt").write_text("x")
+            (root / "ok.txt").write_text("x", encoding="utf-8")
             outside = Path(td) / "outside"
             outside.mkdir()
-            (outside / "secret.txt").write_text("s")
+            (outside / "secret.txt").write_text("s", encoding="utf-8")
             (root / "escape").symlink_to(outside, target_is_directory=True)
-            (root / "target.txt").write_text("t")
+            (root / "target.txt").write_text("t", encoding="utf-8")
             (root / "inside").symlink_to(root / "target.txt")
             m = manifest.build(str(root))
             by_path = {e["path"]: e for e in m["entries"]}
@@ -402,7 +402,7 @@ class TestFixtureE_Nondeterminism(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td) / "s"
             root.mkdir()
-            (root / "Alpha.txt").write_text("a")
+            (root / "Alpha.txt").write_text("a", encoding="utf-8")
             with self.assertRaises(manifest.SubjectError):
                 manifest._check_collision({"alpha.txt": "Alpha.txt"}, "ALPHA.txt")
 
@@ -431,8 +431,8 @@ class TestFixtureF_EvidenceTamper(unittest.TestCase):
                 "observed": "other", "evidence_refs": [],
             }]
             digest = evidence.seal(findings, td)
-            m = json.loads((Path(td) / "evidence-manifest.json").read_text())
-            (Path(td) / m["objects"][0]["path"]).write_text('{"tampered":1}')
+            m = json.loads((Path(td) / "evidence-manifest.json").read_text(encoding="utf-8"))
+            (Path(td) / m["objects"][0]["path"]).write_text('{"tampered":1}', encoding="utf-8")
             self.assertFalse(evidence.verify(td, digest))
 
     def test_manifest_tamper_fails_verification(self):
@@ -446,9 +446,9 @@ class TestFixtureF_EvidenceTamper(unittest.TestCase):
             }]
             digest = evidence.seal(findings, td)
             mp = Path(td) / "evidence-manifest.json"
-            m = json.loads(mp.read_text())
+            m = json.loads(mp.read_text(encoding="utf-8"))
             m["objects"][0]["digest"] = "sha256:" + "0" * 64
-            mp.write_text(json.dumps(m))
+            mp.write_text(json.dumps(m), encoding="utf-8")
             self.assertFalse(evidence.verify(td, digest))
 
 

@@ -178,9 +178,9 @@ class TestCliLedgerRow(unittest.TestCase):
                                "b.md": "# product: widget\n"})
             r = subprocess.run(
                 [sys.executable, "-m", "hub.coherence", "--request", str(req)],
-                capture_output=True, text=True, cwd=str(REPO),
+                capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO),
                 env={**os.environ, **fx.cli_env()})
-            res = json.loads((out / "result.json").read_text())
+            res = json.loads((out / "result.json").read_text(encoding="utf-8"))
             self.assertEqual(res["decision"], "FAIL", r.stderr)
             row = next(e for e in res["assertion_results"]
                        if e["outcome"] == "VIOLATED")

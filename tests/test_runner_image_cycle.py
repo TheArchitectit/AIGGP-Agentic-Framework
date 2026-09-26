@@ -223,7 +223,7 @@ def test_missing_env_is_a_refusal_not_a_crash(tmp_path):
     h = Host(tmp_path)
     for missing in ("COHERENCE_IMAGE", "COHERENCE_IMAGE_MANIFEST_DIGEST",
                     "COHERENCE_PODMAN_STORE"):
-        h.log.write_text("")  # each case judged on its own calls
+        h.log.write_text("", encoding="utf-8")  # each case judged on its own calls
         env = {k: v for k, v in h.env.items() if k != missing}
         res = h.runs(env=env)
         msg = res.stdout + res.stderr

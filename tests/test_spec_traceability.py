@@ -10,13 +10,13 @@ PYTHON = sys.executable
 
 def write(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text)
+    path.write_text(text, encoding="utf-8")
 
 
 def run(root: Path, *args: str) -> subprocess.CompletedProcess:
     return subprocess.run(
         [PYTHON, str(SCRIPT), "--root", str(root), *args],
-        capture_output=True, text=True,
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
     )
 
 

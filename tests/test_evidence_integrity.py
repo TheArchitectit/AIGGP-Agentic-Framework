@@ -238,9 +238,9 @@ class TestEvidenceBundlePlusClaim(unittest.TestCase):
             # object path is manifest-defined (digest-suffixed names), so
             # tamper the REAL member, not a guessed path:
             manifest = json.loads((Path(td) / "evidence-manifest.json")
-                                  .read_text())
+                                  .read_text(encoding="utf-8"))
             p = Path(td) / manifest["objects"][0]["path"]
-            p.write_text('{"tampered":true}')
+            p.write_text('{"tampered":true}', encoding="utf-8")
             self.assertFalse(evidence.verify(td, digest))
             # ...but re-observing the tree DOES — the claim goes stale:
             now_after = {"evidence-manifest": digest,

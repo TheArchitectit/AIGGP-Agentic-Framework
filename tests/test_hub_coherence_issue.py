@@ -27,7 +27,7 @@ REGISTRY = {
 
 def _registry_file(td: Path) -> Path:
     rp = td / "stage-registry.json"
-    rp.write_text(json.dumps(REGISTRY))
+    rp.write_text(json.dumps(REGISTRY), encoding="utf-8")
     return rp
 
 
@@ -40,7 +40,7 @@ def _policy_file(pdir: Path) -> Path:
         "policy_version": "1", "bundle_epoch": 1,
         "required_assertions": [], "approved_evaluators": [],
         "approved_signers": [],
-        "stages": {"max_advisory_age_days": 30}}))
+        "stages": {"max_advisory_age_days": 30}}), encoding="utf-8")
     return pdir
 
 
@@ -70,7 +70,7 @@ class TestStageRegistry(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             for bad in ({"r": {"stage": 9}}, {"r": {"owner": "x"}},
                         {"r": "string"}):
-                (Path(td) / "reg.json").write_text(json.dumps(bad))
+                (Path(td) / "reg.json").write_text(json.dumps(bad), encoding="utf-8")
                 with self.assertRaises(ValueError):
                     issue.load_stage_registry(str(Path(td) / "reg.json"))
 
@@ -88,7 +88,7 @@ class TestIssuance(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             out = self._issue(Path(td))
             self.assertEqual(out["stage"], 2)
-            ctx = json.loads((Path(td) / "ctx" / "context.json").read_text())
+            ctx = json.loads((Path(td) / "ctx" / "context.json").read_text(encoding="utf-8"))
             self.assertEqual(ctx["stage"], 2)
 
     def test_baseline_digest_binds_written_set(self):
@@ -120,9 +120,9 @@ class TestIssuance(unittest.TestCase):
             base = Path(td)
             ss_path = base / "signers.json"
             set_doc = fx.signer_set("a" * 64)
-            ss_path.write_text(json.dumps(set_doc))
+            ss_path.write_text(json.dumps(set_doc), encoding="utf-8")
             self._issue(base, signer_set=str(ss_path))
-            ctx = json.loads((base / "ctx" / "context.json").read_text())
+            ctx = json.loads((base / "ctx" / "context.json").read_text(encoding="utf-8"))
             self.assertEqual(ctx["signer_set_digest"],
                              attest.signer_set_digest(set_doc))
 
@@ -151,7 +151,7 @@ class TestIssuance(unittest.TestCase):
             # Rebuild subject to violate assertion-0 as named in baseline:
             # use the default product.identity assertion from the fixture
             # instead — simpler: issue against the fixture's own policy root.
-            pol_dir = Path(json.loads(req.read_text())["policy"]["root"])
+            pol_dir = Path(json.loads(req.read_text(encoding="utf-8"))["policy"]["root"])
             ctx_dir = base / "issued-ctx"
             res = issue.issue_context(
                 str(ctx_dir), str(pol_dir),
@@ -160,20 +160,20 @@ class TestIssuance(unittest.TestCase):
                 evaluation_time="2026-09-17T00:00:00Z",
                 baseline_set=baseline)
             # Point the request at the issued context.
-            r = json.loads(req.read_text())
-            ctx = json.loads((ctx_dir / "context.json").read_text())
+            r = json.loads(req.read_text(encoding="utf-8"))
+            ctx = json.loads((ctx_dir / "context.json").read_text(encoding="utf-8"))
             r["context"] = {"root": str(ctx_dir),
                             "expected_digest":
                                 context.load(str(ctx_dir))["context_digest"]}
-            req.write_text(json.dumps(r))
+            req.write_text(json.dumps(r), encoding="utf-8")
             # But the fixture's subject asserts product.identity, and the
             # baseline names assertion-0 — the violated product.identity is
             # NOT in the baseline, so it must BLOCK (regression).
             p = subprocess.run([sys.executable, "-m", "hub.coherence",
                                 "--request", str(req)],
-                               capture_output=True, text=True, cwd=str(REPO),
+                               capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO),
                                env={**os.environ, **fx.cli_env()})
-            env = json.loads((out / "result.json").read_text())
+            env = json.loads((out / "result.json").read_text(encoding="utf-8"))
             self.assertEqual(p.returncode, result.EXIT_FAIL,
                              f"regression (unbaselined violation) must block; "
                              f"got {p.returncode}: {env}")
@@ -186,7 +186,7 @@ class TestReplaySemantics(unittest.TestCase):
     def _run_cli(self, req):
         return subprocess.run([sys.executable, "-m", "hub.coherence",
                                "--request", str(req)],
-                              capture_output=True, text=True, cwd=str(REPO),
+                              capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO),
                               env={**os.environ, **fx.cli_env()})
 
     def test_replay_byte_identical_and_labeled(self):
@@ -209,19 +209,19 @@ class TestReplaySemantics(unittest.TestCase):
                              "replay of the same context must be byte-identical")
             # A replay-labeled context: same trusted stage/time/sets. The
             # decision payload matches; only labels differ.
-            pol_dir = Path(json.loads(req.read_text())["policy"]["root"])
+            pol_dir = Path(json.loads(req.read_text(encoding="utf-8"))["policy"]["root"])
             rctx = base / "replay-ctx"
             issue.issue_context(str(rctx), str(pol_dir),
                                 repo="com.test.widget",
                                 registry_path=str(_registry_file(base)),
                                 evaluation_time="2026-09-17T00:00:00Z",
                                 semantics="replay")
-            r = json.loads(req.read_text())
+            r = json.loads(req.read_text(encoding="utf-8"))
             r["semantics"] = "replay"
             r["context"] = {"root": str(rctx),
                             "expected_digest":
                                 context.load(str(rctx))["context_digest"]}
-            req.write_text(json.dumps(r))
+            req.write_text(json.dumps(r), encoding="utf-8")
             p2 = self._run_cli(req)
             replayed = json.loads((out / "result.json").read_bytes())
             fresh = json.loads(original)
@@ -259,13 +259,13 @@ class TestReplaySemantics(unittest.TestCase):
                 "stage": 1, "owner": "o",
                 "advisory_started": "2026-06-01T00:00:00Z",
                 "advisory_expiry": "2026-07-01T00:00:00Z", "next_stage": 2}}
-            (base / "reg.json").write_text(json.dumps(reg))
+            (base / "reg.json").write_text(json.dumps(reg), encoding="utf-8")
             _policy_file(base / "p")
             out = issue.issue_context(
                 str(base / "c"), str(base / "p"), repo="com.test.widget",
                 registry_path=str(base / "reg.json"),
                 evaluation_time="2026-09-17T00:00:00Z", semantics="replay")
-            ctx = json.loads((base / "c" / "context.json").read_text())
+            ctx = json.loads((base / "c" / "context.json").read_text(encoding="utf-8"))
             # A replay is still non-authorizing per report.summarize, and the
             # advisory is expired regardless of the replay label.
             self.assertEqual(out["stage"], 1)
@@ -291,7 +291,7 @@ class TestSigning(unittest.TestCase):
                     registry_path=str(_registry_file(base)),
                     evaluation_time="2026-09-17T00:00:00Z")
                 self.assertTrue(out["signed"])
-                ctx = json.loads((base / "ctx" / "context.json").read_text())
+                ctx = json.loads((base / "ctx" / "context.json").read_text(encoding="utf-8"))
                 self.assertTrue(issue.verify_signature(ctx))
                 # Tampering invalidates.
                 ctx["stage"] = 4
@@ -326,7 +326,7 @@ class TestBoundSetSwap(unittest.TestCase):
             # -> ADVISORY on the first run.
             req, out = fx.build_root(base / "f", declared_name="other",
                                      approved_name="widget", stage=2)
-            pol_dir = Path(json.loads(req.read_text())["policy"]["root"])
+            pol_dir = Path(json.loads(req.read_text(encoding="utf-8"))["policy"]["root"])
             ctx_dir = base / "issued-ctx"
             baseline = [fx.baseline_entry("product.identity", 1, "README.md",
                                           "identity-mismatch")]
@@ -336,14 +336,14 @@ class TestBoundSetSwap(unittest.TestCase):
                 registry_path=str(_registry_file(base)),
                 evaluation_time="2026-09-17T00:00:00Z",
                 baseline_set=baseline)
-            r = json.loads(req.read_text())
+            r = json.loads(req.read_text(encoding="utf-8"))
             r["context"] = {"root": str(ctx_dir),
                             "expected_digest":
                                 context.load(str(ctx_dir))["context_digest"]}
-            req.write_text(json.dumps(r))
+            req.write_text(json.dumps(r), encoding="utf-8")
             p1 = subprocess.run([sys.executable, "-m", "hub.coherence",
                                  "--request", str(req)],
-                                capture_output=True, text=True, cwd=str(REPO),
+                                capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO),
                                 env={**os.environ, **fx.cli_env()})
             self.assertEqual(p1.returncode, result.EXIT_ADVISORY,
                              "baselined debt is advisory at stage 2")
@@ -351,7 +351,7 @@ class TestBoundSetSwap(unittest.TestCase):
             (pol_dir / "baseline.json").write_bytes(b"[]")
             p2 = subprocess.run([sys.executable, "-m", "hub.coherence",
                                  "--request", str(req)],
-                                capture_output=True, text=True, cwd=str(REPO),
+                                capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO),
                                 env={**os.environ, **fx.cli_env()})
             self.assertEqual(p2.returncode, result.EXIT_POLICY,
                              "set/context digest mismatch must fail closed")

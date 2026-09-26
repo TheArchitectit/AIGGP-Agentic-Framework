@@ -22,10 +22,10 @@ ZERO_DIGEST = "sha256:" + "0" * 64
 def _run(req_path: Path, out_dir: Path, env=None):
     """Invoke the real CLI; return (exit_code, parsed result or None)."""
     r = subprocess.run([sys.executable, "-m", "hub.coherence", "--request", str(req_path)],
-                       capture_output=True, text=True, cwd=str(REPO),
+                       capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO),
                        env=env or {**os.environ, **fx.cli_env()})
     rp = out_dir / "result.json"
-    parsed = json.loads(rp.read_text()) if rp.exists() else None
+    parsed = json.loads(rp.read_text(encoding="utf-8")) if rp.exists() else None
     return r.returncode, parsed
 
 
@@ -33,9 +33,9 @@ class TestErrorEnvelopes(unittest.TestCase):
     def test_null_identities_not_fabricated(self):
         with tempfile.TemporaryDirectory() as td:
             req, out = fx.build_root(Path(td))
-            r = json.loads(req.read_text())
+            r = json.loads(req.read_text(encoding="utf-8"))
             r["subject"]["root"] = str(Path(td) / "nope")
-            req.write_text(json.dumps(r))
+            req.write_text(json.dumps(r), encoding="utf-8")
             code, res = _run(req, out)
             self.assertEqual(res["decision"], "ERROR")
             ids = res["identities"]
@@ -66,9 +66,9 @@ class TestErrorEnvelopes(unittest.TestCase):
                              ("context", "context")):
             with tempfile.TemporaryDirectory() as td:
                 req, out = fx.build_root(Path(td), stage=1)
-                r = json.loads(req.read_text())
+                r = json.loads(req.read_text(encoding="utf-8"))
                 r[field]["expected_digest"] = "sha256:" + "9" * 64
-                req.write_text(json.dumps(r))
+                req.write_text(json.dumps(r), encoding="utf-8")
                 code, res = _run(req, out)
                 self.assertNotEqual(code, 0, f"wrong {label} digest must not PASS")
                 self.assertEqual(res["decision"], "ERROR",
@@ -86,11 +86,11 @@ class TestErrorEnvelopes(unittest.TestCase):
         for i, (body, expect_in_reason) in enumerate(cases):
             with tempfile.TemporaryDirectory() as td:
                 rp = Path(td) / "request.json"
-                rp.write_text(body)
+                rp.write_text(body, encoding="utf-8")
                 out = Path(td) / "out"
                 r = subprocess.run([sys.executable, "-m", "hub.coherence",
                                     "--request", str(rp)],
-                                   capture_output=True, text=True, cwd=str(REPO))
+                                   capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO))
                 self.assertEqual(r.returncode, result.EXIT_INVALID_INPUT,
                                  f"case {i}: expected exit 30, got {r.returncode}")
                 self.assertNotIn("Traceback", r.stderr,
@@ -104,7 +104,7 @@ class TestErrorEnvelopes(unittest.TestCase):
                                 f"case {i}: no envelope written")
                 self.assertFalse((Path(REPO) / "result.json").exists(),
                                  f"case {i}: must not write into the repo cwd")
-                env = json.loads(env_path.read_text())
+                env = json.loads(env_path.read_text(encoding="utf-8"))
                 # Pin WHICH guard fired, so the field check cannot be deleted
                 # while a later KeyError still happens to yield exit 30.
                 self.assertIn(expect_in_reason, env["error"]["reason"],
@@ -115,17 +115,17 @@ class TestErrorEnvelopes(unittest.TestCase):
         KeyError (exit 1, no envelope) instead of exit 31."""
         with tempfile.TemporaryDirectory() as td:
             req, out = fx.build_root(Path(td), stage=1)
-            polroot = Path(json.loads(req.read_text())["policy"]["root"])
+            polroot = Path(json.loads(req.read_text(encoding="utf-8"))["policy"]["root"])
             from hub.coherence import canon as C
-            bundle = json.loads((polroot / "policy.json").read_text())
+            bundle = json.loads((polroot / "policy.json").read_text(encoding="utf-8"))
             bundle["required_assertions"] = ["product.identity"]
             bundle["assertion_severity_floor"] = {"product.identity": "high"}
-            (polroot / "policy.json").write_text(json.dumps(bundle))
-            r = json.loads(req.read_text())
+            (polroot / "policy.json").write_text(json.dumps(bundle), encoding="utf-8")
+            r = json.loads(req.read_text(encoding="utf-8"))
             r["policy"]["expected_digest"] = C.digest_obj("policy/v1", bundle)
-            req.write_text(json.dumps(r))
+            req.write_text(json.dumps(r), encoding="utf-8")
             (polroot / "overlay.json").write_text(json.dumps(
-                {"assertions": [{"id": "product.identity", "severity": "SEVERE"}]}))
+                {"assertions": [{"id": "product.identity", "severity": "SEVERE"}]}), encoding="utf-8")
             code, res = _run(req, out)
             self.assertEqual(code, result.EXIT_POLICY, "must be exit 31, not a crash")
             self.assertEqual(res["decision"], "ERROR")
@@ -191,14 +191,14 @@ class TestErrorEnvelopes(unittest.TestCase):
             with tempfile.TemporaryDirectory() as td:
                 req, _ = fx.build_root(Path(td), stage=3,
                                        declared_name="other", approved_name="widget")
-                r = json.loads(req.read_text())
+                r = json.loads(req.read_text(encoding="utf-8"))
                 r["outputs"] = val
-                req.write_text(json.dumps(r))
+                req.write_text(json.dumps(r), encoding="utf-8")
                 stray = Path(REPO) / "result.json"
                 had = stray.exists()
                 subprocess.run([sys.executable, "-m", "hub.coherence",
                                 "--request", str(req)],
-                               capture_output=True, text=True, cwd=str(REPO))
+                               capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO))
                 if stray.exists() and not had:
                     stray.unlink()
                     self.fail(f"{label}: wrote result.json into the caller's cwd")
@@ -249,7 +249,7 @@ class TestErrorEnvelopes(unittest.TestCase):
 
     def test_error_envelope_validates_against_frozen_schema(self):
         from hub.coherence import schemacheck
-        schema = json.loads((REPO / "openspec/changes/devgate-spec-coherence-service/schemas/error-envelope.schema.json").read_text())
+        schema = json.loads((REPO / "openspec/changes/devgate-spec-coherence-service/schemas/error-envelope.schema.json").read_text(encoding="utf-8"))
         with tempfile.TemporaryDirectory() as td:
             req, out = fx.build_root(Path(td), policy_digest_ok=False)
             _, res = _run(req, out)
@@ -263,7 +263,7 @@ class TestSchemaConformance(unittest.TestCase):
 
     def _schema(self, name):
         p = REPO / f"openspec/changes/devgate-spec-coherence-service/schemas/{name}"
-        return json.loads(p.read_text())
+        return json.loads(p.read_text(encoding="utf-8"))
 
     def test_pass_result_validates(self):
         from hub.coherence import schemacheck

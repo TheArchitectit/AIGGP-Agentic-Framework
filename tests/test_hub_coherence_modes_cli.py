@@ -40,7 +40,7 @@ TRACE = "devgate.builtin.traceability-completeness"
 def _run(req):
     return subprocess.run(
         [sys.executable, "-m", "hub.coherence", "--request", str(req)],
-        capture_output=True, text=True, cwd=str(REPO),
+        capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(REPO),
         env={**os.environ, **fx.cli_env()})
 
 
@@ -68,7 +68,7 @@ class TestCoreSetReachesTheLadder(unittest.TestCase):
             self.assertEqual(p.returncode, result.EXIT_ADVISORY,
                              f"bundle core set must reach the ladder; "
                              f"exit {p.returncode}: {p.stderr}")
-            res = json.loads((out / "result.json").read_text())
+            res = json.loads((out / "result.json").read_text(encoding="utf-8"))
             self.assertEqual(res["decision"], "ADVISORY")
             self.assertTrue(all(f["enforcement"] == "ADVISORY"
                                 for f in res["findings"]))
@@ -84,7 +84,7 @@ class TestCoreSetReachesTheLadder(unittest.TestCase):
             self.assertEqual(p.returncode, result.EXIT_FAIL,
                              f"Q2 default core must unshelter identity debt "
                              f"at stage 3; exit {p.returncode}: {p.stderr}")
-            res = json.loads((out / "result.json").read_text())
+            res = json.loads((out / "result.json").read_text(encoding="utf-8"))
             self.assertEqual(res["decision"], "FAIL")
             blocked = [f for f in res["findings"]
                        if f["enforcement"] == "BLOCK"]
@@ -119,7 +119,7 @@ class TestMalformedCoreSet(unittest.TestCase):
             self.assertEqual(p.returncode, result.EXIT_POLICY,
                              f"expected exit 31, got {p.returncode}: {p.stderr}")
             self.assertNotIn("Traceback", p.stderr)
-            env = json.loads((out / "result.json").read_text())
+            env = json.loads((out / "result.json").read_text(encoding="utf-8"))
             self.assertEqual(env["decision"], "ERROR")
             self.assertEqual(env["error"]["class"], "policy-resolution")
 

@@ -29,7 +29,7 @@ REGISTRY = REPO / "container" / "execution-profiles.json"
 
 
 def _text() -> str:
-    return TEMPLATE.read_text()
+    return TEMPLATE.read_text(encoding="utf-8")
 
 
 def _template_env() -> dict:
@@ -129,7 +129,7 @@ def test_the_pinned_commit_carries_the_pinned_identity():
     assert m, "template declares no 40-hex DEVGATE_PIN"
     shown = subprocess.run(["git", "-C", str(REPO), "show",
                             f"{m.group(1)}:container/execution-profiles.json"],
-                           capture_output=True, text=True)
+                           capture_output=True, text=True, encoding="utf-8", errors="replace")
     assert shown.returncode == 0, (
         f"the pinned commit {m.group(1)} does not carry "
         f"container/execution-profiles.json — either it is not in this clone "
