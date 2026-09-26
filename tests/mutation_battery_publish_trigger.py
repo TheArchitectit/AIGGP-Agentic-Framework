@@ -29,8 +29,9 @@ import mutation_harness  # noqa: E402  (sibling module, tests/ is sys.path[0])
 CI = ".github/workflows/ci.yml"
 T_TRIGGER = "tests/test_publish_trigger.py"
 
-DELIBERATE = "if: github.event_name == 'workflow_dispatch' && inputs.publish"
-PUSH_ONLY = "if: github.event_name == 'push' && github.ref == 'refs/heads/main'"
+DELIBERATE = ("if: (github.event_name == 'push' && github.ref == 'refs/heads/main') "
+              "|| (github.event_name == 'workflow_dispatch' && inputs.publish)")
+DISPATCH_ONLY = "if: github.event_name == 'workflow_dispatch' && inputs.publish"
 
 INPUT_DECL = """      publish:
         description: "Build and push the evaluator image to GHCR"
@@ -41,25 +42,28 @@ INPUT_STRING = """      publish:
         type: string
         default: "false\""""
 
-COMMENT_DELIBERATE = "Publishes ONLY on manual dispatch with inputs.publish=true"
-COMMENT_PUSH = "Publishes ONLY on main pushes and manual dispatch with publish=true"
+COMMENT_AUTO = ("# Publishes on EVERY push to main — the owner decided 2026-09-26 that CI")
+COMMENT_DISPATCH_ONLY = "# Publishes ONLY on manual dispatch with inputs.publish=true"
+COMMENT_DISPATCH_ONLY = "# Publishes ONLY on manual dispatch with inputs.publish=true"
 
 MUTATIONS = [
-    # P1 — the policy itself, reverted. The whole point of the change: a merge
-    # to main publishing again is the drift the proposal measured.
-    ("P1: the condition goes back to publishing on every push to main",
-     [(CI, DELIBERATE, PUSH_ONLY)], [T_TRIGGER], {}),
+    # P1 — the policy itself, reverted. The whole point of the flip: the owner
+    # made auto-publish-on-main the policy, so a condition that went back to
+    # dispatch-only must fail the suite.
+    ("P1: the condition goes back to publishing only on manual dispatch",
+     [(CI, DELIBERATE, DISPATCH_ONLY)], [T_TRIGGER], {}),
 
-    # P2 — the deliberate half dropped. Dispatch publishes whatever the input
-    # says, which is the unticked default.
-    ("P2: the publish input is dropped from the condition",
-     [(CI, DELIBERATE, "if: github.event_name == 'workflow_dispatch'")],
+    # P2 — the auto half dropped: a push to main stops publishing, while the
+    # comment still claims it does.
+    ("P2: the main-push half is dropped from the condition",
+     [(CI, DELIBERATE, "if: github.event_name == 'workflow_dispatch' && inputs.publish")],
      [T_TRIGGER], {}),
 
-    # P3 — the event half weakened from && to ||. Dispatch-without-the-input
-    # publishes, and so does anything whose event_name matches.
-    ("P3: the condition's `&&` weakens to `||`",
-     [(CI, DELIBERATE, "if: github.event_name == 'workflow_dispatch' || inputs.publish")],
+    # P3 — the main-push half weakened from && to ||. A branch push (or any
+    # push at all) then publishes, which is what the new policy must not do:
+    # auto-publish is scoped to main, not to every ref.
+    ("P3: the main-push half's `&&` weakens to `||`",
+     [(CI, DELIBERATE, "if: (github.event_name == 'push' || github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.publish)")],
      [T_TRIGGER], {}),
 
     # P4 — the input deleted. The condition then references an undeclared
@@ -79,12 +83,11 @@ MUTATIONS = [
      [(CI, INPUT_DECL, INPUT_DECL.replace("default: false", "default: true"))],
      [T_TRIGGER], {}),
 
-    # P7 — the comment's claim, restored to the one that did not exist. Pairs
-    # with P1 only in the direction that matters: here the condition is
-    # correct and the DOCUMENTATION is false, which is the requirement's own
-    # scenario and the state this change started from.
+    # P7 — the comment's claim, restored to the one the condition no longer
+    # has. The condition is correct and the DOCUMENTATION is false —
+    # img-cycle-06's scenario in the other direction.
     ("P7: the comment claims a trigger the condition does not have",
-     [(CI, COMMENT_DELIBERATE, COMMENT_PUSH)], [T_TRIGGER], {}),
+     [(CI, COMMENT_AUTO, COMMENT_DISPATCH_ONLY)], [T_TRIGGER], {}),
 ]
 
 # Must SURVIVE. The comment reworded to say the same thing: the guard that
@@ -94,8 +97,8 @@ MUTATIONS = [
 # battery was written to stop repeating.
 NEGATIVE_CONTROLS = [
     ("N1: the comment reworded, claiming exactly the same trigger",
-     [(CI, COMMENT_DELIBERATE,
-       "publishes ONLY when dispatched by hand with inputs.publish=true")],
+     [(CI, COMMENT_AUTO,
+       "# Publishes on EVERY push to main (the auto-publish policy the owner set 2026-09-26): CI")],
      [T_TRIGGER], {}),
 ]
 

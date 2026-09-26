@@ -435,18 +435,24 @@ jobs:
   # under the repository's own identity. Uses the workflow's own GITHUB_TOKEN
   # (packages: write) — no personal credentials anywhere.
   #
-  # Publishes ONLY on manual dispatch with inputs.publish=true — Actions → CI →
-  # Run workflow → tick "publish". It does NOT publish on a merge to main.
+  # Publishes on EVERY push to main — the owner decided 2026-09-26 that CI
+  # publishes without a human dispatching it, and "fully documented" is the
+  # contract for that: every merge to main builds the image and pushes it to
+  # ghcr, tagged :main and :sha-<12>. Manual dispatch with inputs.publish=true
+  # is still available as a deliberate re-publish (Actions → CI → Run workflow
+  # → tick "publish") without waiting for a merge.
   #
-  # That inversion is the fix, not a side effect (img-cycle-06). The comment
-  # here used to promise manual dispatch on a condition that fired only for a
-  # push to main, so the documented trigger did not exist and every merge
-  # published instead: the :main tag advanced past the recorded identity on
-  # consecutive hosted runs with nothing to notice it, because a tag that moves
-  # on its own is not a divergence anybody can act on. What the record in
-  # container/execution-profiles.json describes is a release, so what moves it
-  # has to be a deliberate act. Hosts converge on the RECORDED digest, never on
-  # :main, so nothing in the fleet depends on the tag moving by itself.
+  # What a merge-to-main publish is NOT: a release. The record in
+  # container/execution-profiles.json describes a release, and what moves it
+  # is still a deliberate act — the re-pin operation
+  # (scripts/re-pin-evaluator-identity.sh), never a push. Hosts converge on
+  # the RECORDED digest, never on :main, so an auto-published :main that has
+  # not been re-pinned changes nothing in the fleet except the divergence
+  # advisory (img-cycle-05) telling the owner a re-pin is due. History: the
+  # original design inverted this (img-cycle-06) because every merge
+  # publishing was then an undocumented accident; the owner has since made
+  # the accidental behavior the policy, with this comment as its document and
+  # the divergence advisory as its control.
   #
   # tests/test_publish_trigger.py evaluates this condition against event
   # payloads rather than reading it, so this comment and that `if:` disagreeing
@@ -457,7 +463,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-    if: github.event_name == 'workflow_dispatch' && inputs.publish
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.publish)
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - name: Build pinned image

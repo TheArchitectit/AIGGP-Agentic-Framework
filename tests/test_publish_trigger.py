@@ -144,11 +144,11 @@ def comment():
 def test_the_evaluator_agrees_with_a_condition_whose_meaning_is_known():
     """Without this, a broken evaluator would make every claim below vacuous.
 
-    The condition here is the one the job had before this change (push to main
-    only), whose truth table is not in question."""
-    old = "github.event_name == 'push' && github.ref == 'refs/heads/main'"
-    assert evaluate(old, MAIN_PUSH) is True
-    assert evaluate(old, DISPATCH_YES) is False
+    The condition here is the one the job had before the 2026-09-26 flip
+    (dispatch-with-input only), whose truth table is not in question."""
+    old = ("github.event_name == 'workflow_dispatch' && inputs.publish")
+    assert evaluate(old, MAIN_PUSH) is False
+    assert evaluate(old, DISPATCH_YES) is True
     assert evaluate(old, BRANCH_PUSH) is False
     assert evaluate(old, TAG_PUSH) is False
 
@@ -170,12 +170,15 @@ def test_the_evaluator_refuses_a_condition_it_cannot_read():
 # --- the condition ----------------------------------------------------------
 
 def test_publishing_is_deliberate(condition):
-    """The requirement's own word: publish ONLY on a deliberate trigger. A push
-    to main is not one — every merge is a publish, which is how the `:main` tag
-    advanced past the recorded identity on consecutive runs with nothing to
-    notice it (add-runner-image-cycling, proposal)."""
-    assert evaluate(condition, MAIN_PUSH) is False, \
-        "a push to main still publishes — the tag advances past the record on every merge"
+    """The owner's 2026-09-26 policy: CI publishes without a human dispatching
+    it, so a push to main publishes by design; manual dispatch with
+    publish=true stays available as a deliberate re-publish. What is still NOT
+    automatic is a release — moving the recorded identity in
+    container/execution-profiles.json remains the re-pin operation's job
+    (the divergence advisory, img-cycle-05, is the control that notices a
+    :main ahead of the record)."""
+    assert evaluate(condition, MAIN_PUSH) is True, \
+        "a push to main no longer publishes — the owner made auto-publish the policy"
     assert evaluate(condition, DISPATCH_YES) is True, \
         "manual dispatch with publish=true does not publish — the comment promises it does"
 
@@ -218,10 +221,9 @@ def test_the_publish_input_is_declared(workflow):
 # --- the documentation ------------------------------------------------------
 
 def test_the_comment_and_the_condition_agree(comment, condition):
-    """The requirement's scenario: a comment claiming manual dispatch while the
-    condition fires only on push. Each trigger the comment NAMES must actually
-    behave the way the comment says, so the claim is checked behaviourally
-    rather than by reading well."""
+    """The requirement's scenario, generalized: each trigger the comment NAMES
+    must actually behave the way the comment says, so the claim is checked
+    behaviourally rather than by reading well."""
     named = {
         "main push": (r"main push", MAIN_PUSH),
         "manual dispatch": (r"dispatch", DISPATCH_YES),
@@ -241,6 +243,8 @@ def test_the_comment_names_the_deliberate_trigger(comment, condition):
     """img-cycle-06's second half: the documentation SHALL name the trigger
     exactly. Silence about the trigger is how the previous comment came to
     describe one that did not exist."""
+    assert re.search(r"push to main", comment.lower()), \
+        f"the comment does not name the main-push trigger: {comment!r}"
     assert re.search(r"dispatch", comment.lower()), \
         f"the comment does not name manual dispatch: {comment!r}"
     assert re.search(r"inputs?\.publish|publish\s*=\s*true|publish:\s*true", comment.lower()), \

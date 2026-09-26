@@ -48,7 +48,7 @@
   "test_hub_watchdog": 7,
   "test_metamorphic": 21,
   "test_mutation_harness": 17,
-  "test_publish_trigger": 8,
+  "test_publish_trigger": 9,
   "test_python_root_anchor": 6,
   "test_quickstart_init": 3,
   "test_regression_check": 24,
