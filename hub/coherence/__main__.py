@@ -208,7 +208,7 @@ def run(request_path: str) -> int:
 
     try:
         eval_out = evaluate.run(planned, pkg, req["subject"]["root"],
-                                captured_facts=facts)
+                                captured_facts=facts, subject=subject)
     except evaluate.EvaluatorError as e:
         return _fail(out_dir, "execution", str(e), "evaluation", identities)
     ledger, findings = eval_out["ledger"], eval_out["findings"]

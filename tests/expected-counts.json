@@ -34,6 +34,7 @@
   "test_hub_coherence_report": 8,
   "test_hub_coherence_retention": 12,
   "test_hub_coherence_runtime": 15,
+  "test_hub_coherence_runtime_mutation": 11,
   "test_hub_coherence_schema": 21,
   "test_hub_coherence_store": 6,
   "test_hub_coherence_verify_cli": 10,

@@ -3,7 +3,7 @@
 limits/crash/dependency-block -> ERROR-execution, complete-outcome accounting.
 No repository executable code, no network, no secrets.
 """
-from . import evaluators
+from . import evaluators, manifest
 
 
 class EvaluatorError(RuntimeError):
@@ -19,13 +19,18 @@ def _mediated_call(fn, assertion, package, subject_root, facts):
 
 
 def run(planned: list, package: dict, subject_root: str, limits: dict = None,
-        captured_facts: dict = None) -> dict:
+        captured_facts: dict = None, subject: dict = None) -> dict:
     """Execute planned assertions. Returns ledger + findings.
 
     limits: {"max_evaluators": int} — a bound; exhaustion is ERROR.
     captured_facts: {fact_id: verified content} from the context loader. Each
     evaluator is exposed ONLY the facts its own subjects declared; a declared
     fact that is not bound is UNRESOLVED, never SATISFIED (coh-rt-03).
+    subject: the closed subject manifest built before evaluation began. When
+    given, the tree is re-verified after every evaluator call (coh-id-02:
+    "mutation mid-run is ERROR, never a mixed-content pass"); ANY drift —
+    replace, delete, plant, or an unbuildable mutation — downgrades that
+    assertion's row to UNRESOLVED and raises the ERROR-execution condition.
 
     The return carries `error` — set when an ERROR-execution condition
     occurred (frozen matrix: evaluator crash or dependency-blocked required
@@ -93,38 +98,44 @@ def run(planned: list, package: dict, subject_root: str, limits: dict = None,
             done[a["id"]] = "UNRESOLVED"
             continue
 
+        fs = []
         try:
             fs = _mediated_call(fn, a, package, subject_root, facts)
+            outcome = "VIOLATED" if fs else "SATISFIED"
+            reason = None
         except evaluators.Unresolved as e:
             # Unresolvable input (coh-assert-02) — distinct from a crash:
             # evaluation completed cleanly, so this stays FAIL-class.
-            ledger.append({
-                "assertion_id": a["id"], "version": a["version"],
-                "outcome": "UNRESOLVED", "reason": e.reason,
-                "enforcement": "BLOCK",
-            })
-            done[a["id"]] = "UNRESOLVED"
-            continue
+            outcome, reason = "UNRESOLVED", e.reason
         except Exception as e:  # evaluator crash -> ERROR-execution (matrix)
-            ledger.append({
-                "assertion_id": a["id"], "version": a["version"],
-                "outcome": "UNRESOLVED", "reason": f"evaluator-crash:{type(e).__name__}",
-                "enforcement": "BLOCK",
-            })
+            outcome = "UNRESOLVED"
+            reason = f"evaluator-crash:{type(e).__name__}"
             if error is None:
                 error = {"class": "execution",
                          "reason": f"evaluator-crash:{type(e).__name__}:{a['id']}"}
-            done[a["id"]] = "UNRESOLVED"
-            continue
 
-        if fs:
-            outcome = "VIOLATED"
+        if subject is not None:
+            # coh-id-02 (design §2): mutation mid-run is ERROR, never a
+            # mixed-content pass. Re-verify the CLOSED snapshot after this
+            # assertion's reads: if ANY path drifted, its result was computed
+            # against content the subject digest never committed to — the row
+            # is refused (UNRESOLVED), which also drops its findings at the
+            # extend gate below, and the run-level condition is execution
+            # ERROR. An already-recorded
+            # execution error (crash, dependency-blocked) keeps its reason —
+            # first condition wins; the decision is exit-32 either way.
+            mut = manifest.first_mutation(subject, subject_root)
+            if mut is not None:
+                outcome = "UNRESOLVED"
+                reason = f"input-mutation:{mut}"
+                if error is None:
+                    error = {"class": "execution", "reason": reason}
+
+        if outcome in ("SATISFIED", "VIOLATED"):
             findings.extend(fs)
-        else:
-            outcome = "SATISFIED"
         ledger.append({
             "assertion_id": a["id"], "version": a["version"],
-            "outcome": outcome, "reason": None,
+            "outcome": outcome, "reason": reason,
             "enforcement": "BLOCK" if outcome != "SATISFIED" else "ADVISORY",
         })
         done[a["id"]] = outcome

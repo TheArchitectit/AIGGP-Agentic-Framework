@@ -201,3 +201,34 @@ def verify_read(fp: Path, expected_digest: str) -> None:
         raise SubjectError(
             f"input mutated during evaluation: {fp.name} "
             f"expected {expected_digest}, read {actual}")
+
+
+def first_mutation(snapshot: dict, root: str):
+    """First path that drifted from a closed snapshot, or None (coh-id-02).
+
+    The snapshot is a manifest.build() result; `root` is re-walked under the
+    SAME rules, so replacement, deletion, and untracked additions all name a
+    path, while a mutation that makes the tree unbuildable (a collision the
+    original walk refused) cannot escape as a traceback — it names the tree.
+    Deterministic: entries are compared in walk order, so retries of the same
+    mutated tree yield the same reason string.
+    """
+    try:
+        current = build(root, snapshot.get("subject_kind", "source-tree"))
+    except SubjectError:
+        return "<tree-unbuildable>"
+    # The recorded tuple includes policy_outcome deliberately: symlink and
+    # submodule entries carry a null digest (coh-id-02's schema freezes
+    # that), so without the policy field a forbidden->escape flip or a
+    # submodule re-pin would diff clean.
+    fields = ("path", "kind", "digest", "policy_outcome")
+    key = lambda e: tuple(e.get(f) for f in fields)
+    old = {key(e) for e in snapshot["entries"]}
+    new = {key(e) for e in current["entries"]}
+    for e in snapshot["entries"]:
+        if key(e) not in new:
+            return e["path"]
+    for e in current["entries"]:
+        if key(e) not in old:
+            return e["path"]
+    return None
