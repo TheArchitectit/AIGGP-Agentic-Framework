@@ -944,6 +944,32 @@ sprints. Findings and dispositions:
       `DEFAULT_EXCLUDES`; a caller passing a custom `excludes` tuple to `build` would need the
       same tuple here — no such production caller exists today, noted rather than plumbed.
 - [ ] Compatibility + deprecation policy; schema versioning tests.
+      **Measured 2026-09-26.** Schema versioning was real but unpinned: every
+      normative schema carried a version and the wire schemas were validated
+      against emitted results, but nothing asserted that the family is
+      *uniformly* versioned, and nothing asserted the other half of
+      compatibility — that a FOREIGN or MISSING version is refused rather than
+      parsed under this version's rules and mis-judged (`policy.resolve`,
+      `context.load`, `package.resolve`, and the CLI's `api_version` gate all
+      refuse, and all four refusals now have tests). `test_hub_coherence_compat.py`:
+      15 tests, floor 13, parameterized over the 15-schema family, with
+      anti-vacuity guards (family-vs-disk count and set, plus a reader
+      round-trip) and a named stale-exemption check. Versions are read through
+      two roads — an in-document string `const` (`api_version` /
+      `schema_version`) or the `title` family string; the one schema with
+      neither (`execution-profiles`, whose `schema:` is a shape discriminator,
+      not a version) is annotated by name. **This is a test-only slice** — the
+      refusals it pins were already built. 14-mutant battery, no survivors;
+      two mutants survived the first cut (a vacuous glob, a reader that always
+      returned None) and are now killed by named tests, which is the honest
+      evidence that the anti-vacuity guards earn their place.
+      **Deprecation policy: still open, repo-side writable.** Nothing in the
+      codebase names a deprecation window, a supported-version range, or a
+      removal procedure — the version consts let a breaking change be
+      *named*, not *scheduled*. The shape is a policy doc + a supported-versions
+      table + a test that a retired version fails with a distinguishable reason
+      (not the generic "unsupported"); none of it needs owner input, so it is
+      queued rather than deferred.
 - [ ] SLOs: evaluation availability, maximum advisory age.
 - [ ] Runbooks: outage, rollback, policy recovery, key rotation, evaluator revocation.
 - [ ] Stage 3 readiness review before any enforced fleet rollout.
