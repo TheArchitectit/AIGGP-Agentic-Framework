@@ -82,6 +82,13 @@ while IFS= read -r line || [ -n "$line" ]; do
     line="${line%%#*}"
     line="$(printf '%s' "$line" | tr -d '[:space:]')"
     [ -n "$line" ] || continue
+    # A line starting with `-` reaches `git clone` as an OPTION, not a URL
+    # (--upload-pack=… selects an arbitrary transport command). Declarations
+    # are operator-authored, but the transport must not be steerable by text.
+    case "$line" in
+        -*) echo "[secret-scan-fleet] declared URL may not start with '-': $line" >&2
+            exit 1 ;;
+    esac
     URLS+=("$line")
 done < "$DECLARED"
 

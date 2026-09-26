@@ -274,13 +274,13 @@ def run_regression_check(registry_path: Path | None = None, rules_path: Path | N
                          staged: bool = True,
                          unstaged: bool = False,
                          verbose: bool = False,
-                         git_range: str | None = None) -> tuple[int, list[dict], int]:
+                         git_range: str | None = None, base: str | None = None) -> tuple[int, list[dict], int]:
     issues = []
     entries, _owner = gate_overlay.resolve_registry(PROJECT_ROOT, registry_path, statuses=SCANNED_STATUSES)
     failures = load_active_failures(entries)
     rules = load_prevention_rules(rules_path)
     changed_files = get_changed_files(run_git_command, staged=staged, unstaged=unstaged,
-                                      git_range=git_range)
+                                      git_range=git_range, base=base)
     if not changed_files:
         if verbose:
             print("No changed files to check")
@@ -290,7 +290,7 @@ def run_regression_check(registry_path: Path | None = None, rules_path: Path | N
         matching_failures = check_file_against_failures(file_path, failures)
         if matching_failures:
             file_issues["failures"] = matching_failures
-        diff = get_diff_content(run_git_command, file_path, staged=staged, git_range=git_range)
+        diff = get_diff_content(run_git_command, file_path, staged=staged, git_range=git_range, base=base)
         if diff:
             violations = check_diff_against_patterns(diff, rules_for_file(rules, file_path))
             if violations:
@@ -391,7 +391,7 @@ def main():
         registry_path=args.registry, rules_path=args.rules,
         staged=staged, unstaged=unstaged,
         verbose=args.verbose and not args.quiet,
-        git_range=args.range)
+        git_range=args.range, base=args.base)
 
     # Hunk-accurate ADDED lines drive the registry regression scan and tell the
     # file-size check which files this diff actually touches.

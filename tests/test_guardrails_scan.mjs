@@ -123,6 +123,24 @@ r = runScan(dir4);
 check("forbidden_context (Exception) suppresses PREVENT-007", !r.err.includes("PREVENT-007"));
 cleanup(dir4);
 
+// --- 4b. test-scope inversion: production is not silenced by context words --
+// PREVENT-003's forbidden_context is test VOCABULARY (example|…|test|sample|…).
+// With the empty-guard shape, the suppression ran unconditionally, so
+// `password = "sample_key"` in a PRODUCTION file was silenced by the word
+// "sample" — the case the guard's comment says must stand. The test file
+// keeps the exclusion.
+const dir4b = mkdtempSync(join(tmpdir(), "devgate-scan-"));
+makeProject(dir4b, {
+	"internal/conf/prod.py": "password = \"sample_key\"\n",
+	"tests/conf/fixture.py": "password = \"sample_key\"\n",
+});
+r = runScan(dir4b);
+check("4b: production line silenced only by context words still fires PREVENT-003",
+	r.err.includes("internal/conf/prod.py") && r.err.includes("PREVENT-003"));
+check("4b: the same line in a test file stays suppressed",
+	!r.err.includes("tests/conf/fixture.py"));
+cleanup(dir4b);
+
 // --- 5. .guardrailsignore scopes the walk -----------------------------------
 const dir5 = mkdtempSync(join(tmpdir(), "devgate-scan-"));
 makeProject(dir5, {

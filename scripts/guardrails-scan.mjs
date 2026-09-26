@@ -347,14 +347,21 @@ function main() {
 						// regression_check.py's check_diff_against_patterns. Without
 						// this, info rules like PREVENT-020 (TODO without ticket)
 						// fire on their own suppression examples.
-						if (rule.forbidden_context && new RegExp(rule.forbidden_context).test(scanLine)) continue;
-					// Test-scope inversion: when forbidden_context contains "test", the rule
-					// targets test-specific patterns. In production (non-test) files, only
-					// suppress if the line itself carries test context; otherwise the
-					// forbidden_context exclusion does not apply.
-					if (rule.forbidden_context && /(?:test|spec|mock|__tests__|bench)/i.test(rule.forbidden_context) && !testFile && !/(?:test|spec|mock|__tests__|bench)/i.test(scanLine)) {
-						// Production code — forbidden_context exclusion does not apply, let violation stand.
-					}
+						if (rule.forbidden_context && new RegExp(rule.forbidden_context).test(scanLine)) {
+							// Test-scope inversion: when forbidden_context is test
+							// vocabulary (test|spec|mock|…) the exclusion belongs to
+							// tests. In a production file a line that merely matches
+							// the context — `password = "sample_key"` against
+							// PREVENT-003's (example|placeholder|test|…) — must NOT
+							// silence the hit; it keeps the exclusion only when the
+							// file is a test file or the line itself carries the
+							// generic test words. (The earlier shape of this branch
+							// was an empty if: the suppression above always ran and
+							// production lines were silenced by their own context.)
+							const testScoped = /(?:test|spec|mock|__tests__|bench)/i.test(rule.forbidden_context);
+							const lineIsTest = /(?:test|spec|mock|__tests__|bench)/i.test(scanLine);
+							if (!testScoped || testFile || lineIsTest) continue;
+						}
 						console.error(`[GUARDRAILS][${rule.severity}] ${rule.rule_id} ${rel}:${i + 1} — ${rule.message}`);
 						if (rule.severity === "warning") {
 							warnings++;
