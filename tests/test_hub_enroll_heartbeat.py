@@ -274,6 +274,53 @@ def test_health_registered_runners_excludes_revoked(tmp_path):
         hub.close()
 
 
+def test_enroll_rejects_a_whitespace_wrapped_name(tmp_path):
+    """Hygiene: the duplicate window the hub-outage runbook warns about is
+    closed only against the EXACT name. The spoke derives RUNNER_NAME from
+    `hostname`; a copy-paste that carries a trailing space (or any stray
+    surrounding whitespace) produced a second live row for the same physical
+    host — both heartbeating, both counted by /health, and the monitor
+    alerting twice for one fault. Case is NOT rejected: the name is part of
+    the heartbeat credential pairing, and a case fold would silently merge
+    two hosts an operator named apart. The refusal is 400 rather than a
+    silent trim because the spoke freezes the name it sent into its env
+    file (runner-enroll.sh writes RUNNER_NAME= verbatim); a hub that
+    trimmed on ingest would store a name the helper keeps heartbeating
+    against — every heartbeat 401, forever. Bad names are refused where
+    they are cheap to fix: at enrollment, loudly, before anything persists."""
+    hub = HubFixture(tmp_path)
+    try:
+        code, body = hub.post("/enroll", {
+            "runner_name": "spoke-a ", "repo": "OWNER/REPO", "labels": ["devgate"],
+            "host_alias": "host-a", "enrollment_token": "test-enroll-token-PLACEHOLDER"})
+        assert code == 400 and body["error"] == "bad_request", (
+            f"a name with a trailing space enrolled (code {code}) — one host, "
+            "two spellings, duplicate live rows and double alerts")
+        # The clean spelling then enrolls fine, and nothing was half-written:
+        assert len(hub.state.registry.runners()) == 0
+        code, body = hub.post("/enroll", {
+            "runner_name": "spoke-a", "repo": "OWNER/REPO", "labels": ["devgate"],
+            "host_alias": "host-a", "enrollment_token": "test-enroll-token-PLACEHOLDER"})
+        assert code == 200, body
+    finally:
+        hub.close()
+
+
+def test_enroll_rejects_a_non_string_name_400_not_500(tmp_path):
+    """The whitespace guard calls .strip() on the name, and JSON lets a
+    buggy client send a number where a string belongs. The hub answers 400
+    for a malformed request; it must not answer with a traceback."""
+    hub = HubFixture(tmp_path)
+    try:
+        code, body = hub.post("/enroll", {
+            "runner_name": 123, "repo": "OWNER/REPO",
+            "enrollment_token": "test-enroll-token-PLACEHOLDER"})
+        assert code == 400 and body["error"] == "bad_request", (
+            f"non-string runner_name got {code} {body}")
+    finally:
+        hub.close()
+
+
 def test_health_reports_polling_state_for_watchdogs(tmp_path):
     """A spoke watchdog must not read "no PAT configured" as "hub is dead".
 

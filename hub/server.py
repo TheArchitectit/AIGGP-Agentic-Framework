@@ -139,9 +139,20 @@ class HubHandler(BaseHTTPRequestHandler):
         presented = data.get("enrollment_token")
         labels = data.get("labels") or []
         host_alias = data.get("host_alias") or ""
-        if not runner_name or not REPO_RE.match(repo or ""):
+        if not isinstance(runner_name, str) or not runner_name \
+                or not REPO_RE.match(repo or ""):
             self._send(400, {"ok": False, "error": "bad_request",
                              "detail": "runner_name and repo OWNER/REPO required"})
+            return
+        # Rejected before the token is consumed and before the 409 probe
+        # (both exact-name): a whitespace variant of a live name would enroll
+        # as a second live row for one physical host — double alerts, /health
+        # inflated. Trimming instead is worse: the spoke freezes the name it
+        # sent into its env file, so a trimmed row would 401 every heartbeat
+        # forever. Case is deliberately untouched — it is credential-bearing.
+        if runner_name != runner_name.strip():
+            self._send(400, {"ok": False, "error": "bad_request",
+                             "detail": "runner_name has surrounding whitespace"})
             return
         if state.registry.find_runner(runner_name) is not None:
             self._send(409, {"ok": False, "error": "already_enrolled"})
