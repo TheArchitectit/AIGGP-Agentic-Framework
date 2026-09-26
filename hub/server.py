@@ -102,7 +102,11 @@ class HubHandler(BaseHTTPRequestHandler):
                 "ok": True,
                 "last_poll_at": iso(state.last_poll_at),
                 "last_alert_at": iso(state.last_alert_at),
-                "registered_runners": len(state.registry.runners()),
+                # The LIVE set, like the monitor's per-cycle filter: revoked
+                # rows stay in the registry for audit but must not make
+                # /health promise monitoring the hub will never perform.
+                "registered_runners": sum(
+                    1 for r in state.registry.runners() if r.get("enrolled")),
                 "uptime_sec": uptime,
                 # Watchdogs need these to judge staleness without guessing:
                 # polling_enabled=false means last_poll_at is null by design.

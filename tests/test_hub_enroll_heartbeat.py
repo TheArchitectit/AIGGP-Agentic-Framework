@@ -242,6 +242,38 @@ def test_health_endpoint_shape(tmp_path):
         hub.close()
 
 
+def test_health_registered_runners_excludes_revoked(tmp_path):
+    """Hygiene: /health's count must agree with what the hub ACTS on. The
+    monitor skips rows where `enrolled` is falsy, so a revoked runner that
+    still counts in registered_runners makes the health page promise
+    monitoring the hub will never perform — an operator triaging an outage
+    sees a count of reporters that includes ghosts. (The registry keeps
+    revoked rows for audit; the count is the live set, like everywhere
+    else.)"""
+    hub = HubFixture(tmp_path)
+    try:
+        code, body = hub.post("/enroll", {
+            "runner_name": "r1", "repo": "OWNER/REPO", "labels": ["devgate"],
+            "host_alias": "monitor-hub", "enrollment_token": "test-enroll-token-PLACEHOLDER"})
+        assert code == 200, body
+        hb_token = body["heartbeat_token"]
+        code, body = hub.get("/health")
+        assert body["registered_runners"] == 1
+        code, body = hub.post("/revoke", {
+            "runner_name": "r1", "heartbeat_token": hb_token})
+        assert code == 200, body
+        _, body = hub.get("/health")
+        assert body["registered_runners"] == 0, \
+            "a revoked runner still counted — /health advertises monitors " \
+            "the hub does not run (the monitor filters enrolled)"
+        # the row survives for audit; only the count excludes it
+        rows = hub.state.registry.runners()
+        assert any(r.get("name") == "r1" and not r.get("enrolled") for r in rows), \
+            "revoke must keep the row (audit) while the count drops it"
+    finally:
+        hub.close()
+
+
 def test_health_reports_polling_state_for_watchdogs(tmp_path):
     """A spoke watchdog must not read "no PAT configured" as "hub is dead".
 
