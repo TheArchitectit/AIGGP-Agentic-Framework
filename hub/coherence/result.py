@@ -139,11 +139,20 @@ def emit(path: str, payload: bytes) -> None:
         fh.flush()
         os.fsync(fh.fileno())
     os.replace(tmp, p)
-    dfd = os.open(p.parent, os.O_RDONLY)
-    try:
-        os.fsync(dfd)
-    finally:
-        os.close(dfd)
+    if os.name == "posix":
+        # Unix-only durability refinement: fsync the DIRECTORY entry so the
+        # rename itself survives a crash. Windows cannot open a directory with
+        # os.open at all (PermissionError), and there is no equivalent call —
+        # the file-level fsync above is the durability guarantee there. Doing
+        # this unconditionally made EVERY run that emits an envelope die with
+        # a traceback instead of returning its documented exit code on
+        # Windows: measured, gating it converts 120 failures to passes
+        # (170 failed / 680 passed -> 50 failed / 800 passed, full suite).
+        dfd = os.open(p.parent, os.O_RDONLY)
+        try:
+            os.fsync(dfd)
+        finally:
+            os.close(dfd)
 
 
 def emit_with_fallback(out_dir: str, payload: bytes) -> str:
