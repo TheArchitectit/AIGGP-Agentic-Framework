@@ -755,7 +755,7 @@ sprints. Findings and dispositions:
 - [ ] Adapter default-deny: timeouts/unparseable results surface ERROR, never neutral/pass (coh-int-05).
 - [ ] Account for repo-scoped runners and multi-runner hosts: stock `runner-enroll.sh` is single-runner-per-host (fixed unit names); per-runner units (`devgate-hb-<name>.{service,timer}`) where a host runs multiple spokes (coh-int-07).
 - [ ] Outage, mirror, cached-attestation, protocol-mismatch behavior; migration guide + operator runbook.
-- [ ] Real pilots behind R9 provenance, now that fleet recon confirms the repos are real registered spokes: gamerepo01 (runner `dell-u2-game`), a LobsterWars-class repo, and one clean repo; capture lineage/13-violation facts from the real repos with owner approval before labeling fixtures non-synthetic; Stage 2 ratchet demo blocks a new violation while named debt remains advisory.
+- [ ] Real pilots behind R9 provenance, now that fleet recon confirms the repos are real registered spokes: gamerepo01 (runner `ucs03-game` — was `dell-u2-game` before the 2026-09-25 two-tier rebalance; both it and `u85-game` are now offline), gamerepo02/LobsterWars (`ucs03-gamerepo02`, registered + online since 2026-09-25 — this closes the earlier "no runner behind the label" gap), and one clean repo; capture lineage/13-violation facts from the real repos with owner approval before labeling fixtures non-synthetic; Stage 2 ratchet demo blocks a new violation while named debt remains advisory.
 
 **Gate:** Stage 3 readiness review inputs complete. **Blocks:** enforced rollout.
 

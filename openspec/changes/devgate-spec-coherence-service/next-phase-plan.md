@@ -5,7 +5,7 @@
 
 This is a planning document. It accepts no ADR, sets no policy, and authorizes no commit. Repo process (`docs/WRITE_AUDIT_REVIEW.md`) is Write → Audit → Lead Review → Commit & Push (lead only). The write step is complete; nothing has been committed.
 
-**Supersession note:** steps 1–3 below (contract amendments, Phase 0 scoping, thin-slice definition) have been executed and now live in `design.md` v2, the `specs/*` deltas, and `tasks.md` sprints S0–S8. This document remains as the grounding record; `tasks.md` is the operative plan. Fleet-integration specifics (hub check class, dell-u2, infra-repo provisioning) will be reconciled into `specs/integrations/spec.md` and design "Fleet integration notes" when the fleet reconnaissance completes.
+**Supersession note:** steps 1–3 below (contract amendments, Phase 0 scoping, thin-slice definition) have been executed and now live in `design.md` v2, the `specs/*` deltas, and `tasks.md` sprints S0–S8. This document remains as the grounding record; `tasks.md` is the operative plan. Fleet-integration specifics (hub check class, runner hosts, infra-repo provisioning) will be reconciled into `specs/integrations/spec.md` and design "Fleet integration notes" when the fleet reconnaissance completes — the 2026-09-25 two-tier rebalance (ucs03 CPU tier / dell-u2 GPU-only) is the latest such change and is recorded in that section, not here.
 
 ## Verified repository grounding
 

@@ -11,6 +11,17 @@ reporting. This package turns the settled product decisions (product tiers,
 Fleet Manager control plane, secret subsystem, onboarding, MissionControl
 integration) into one sequenced, dependency-locked change.
 
+> **Grounding note (2026-09-25).** The concentration this package argues against
+> has since been *manually* relieved, not managed: an owner-directed rebalance
+> moved all non-GPU CI off dell-u2 onto ucs03 (15 runners), leaving dell-u2
+> GPU-only with 2 runners. That narrows the "why" without delivering the
+> Fleet Manager — the move was host-by-host procedure, exactly the manual
+> growth path this package exists to replace, and it left the hub's own
+> monitoring gap in place (4 of ucs03's 15 lanes have heartbeat spokes).
+> The dell-u2 drain/failover work below therefore starts from a partly-drained
+> host, and Sprint 0's runner inventory must be re-measured rather than taken
+> from this document's 2026-09-17 figures.
+
 ## What Changes
 
 - Adds a hard dependency lock: nothing in this package starts until

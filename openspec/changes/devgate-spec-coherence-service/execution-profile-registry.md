@@ -18,7 +18,7 @@ Byte-equivalence is promised **within** a profile; cross-profile equivalence is 
 
 | Profile label | Architecture | Runner platform | Image manifest digest | Equivalence | Status |
 |---|---|---|---|---|---|
-| `linux-amd64-v1` | amd64 | actions-runner rootless Podman (dell-u2, ai01–ai03) | `sha256:5e73b5bd…7f2548` | byte-equivalent | proposed |
+| `linux-amd64-v1` | amd64 | actions-runner rootless Podman (ucs03 CPU tier + dell-u2 GPU tier, ai01–ai03) | `sha256:5e73b5bd…7f2548` | byte-equivalent | proposed |
 | `linux-arm64-v1` | arm64 | TBD — owner decision Q5 | `<pinned at build, S4>` | byte-equivalent | pending owner decision |
 
 ## Owner decision (Q5)

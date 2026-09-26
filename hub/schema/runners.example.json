@@ -33,7 +33,7 @@
       "name": "example-runner-no-image",
       "repo": "OWNER/REPO",
       "labels": ["devgate"],
-      "host_alias": "dell-u2",
+      "host_alias": "ucs03",
       "enrolled_at": "2026-09-13T00:00:00Z",
       "heartbeat_token": "example-heartbeat-token-PLACEHOLDER",
       "last_heartbeat": "2026-09-13T00:05:00Z",
