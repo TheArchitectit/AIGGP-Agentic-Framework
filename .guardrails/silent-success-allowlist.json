@@ -12096,6 +12096,62 @@
       "family": "go_return_nil_after_ignored_error",
       "reason": "Rollback error is dropped only on the non-commit path, where the function is already returning the failure that caused the rollback; on the commit path it is skipped entirely (guarded by `committed`). A commit failure is returned to the caller.",
       "removal": "n/a (correct as written - see comment at internal/admin/bootstrap.go)"
+    },
+    {
+      "file": "internal/testutil/db.go",
+      "marker": "\tdefer func() { _ = admin.Close() }()",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "Test-harness bookkeeping (internal/testutil DB template machinery): the discarded value is a cleanup/close/drop-best-effort error on a database the harness is tearing down or reclaiming \u2014 not a production success claim.",
+      "removal": "n/a (test-harness bookkeeping)"
+    },
+    {
+      "file": "internal/testutil/db.go",
+      "marker": "\t\t_, _ = admin.ExecContext(ctx, \"SELECT pg_advisory_unlock($1)\", lockKey)",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "Test-harness bookkeeping (internal/testutil DB template machinery): the discarded value is a cleanup/close/drop-best-effort error on a database the harness is tearing down or reclaiming \u2014 not a production success claim.",
+      "removal": "n/a (test-harness bookkeeping)"
+    },
+    {
+      "file": "internal/testutil/db.go",
+      "marker": "\t_, _ = admin.ExecContext(ctx,",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "Test-harness bookkeeping (internal/testutil DB template machinery): the discarded value is a cleanup/close/drop-best-effort error on a database the harness is tearing down or reclaiming \u2014 not a production success claim.",
+      "removal": "n/a (test-harness bookkeeping)"
+    },
+    {
+      "file": "internal/testutil/db.go",
+      "marker": "\tdefer func() { _ = probe.Close() }()",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "Test-harness bookkeeping (internal/testutil DB template machinery): the discarded value is a cleanup/close/drop-best-effort error on a database the harness is tearing down or reclaiming \u2014 not a production success claim.",
+      "removal": "n/a (test-harness bookkeeping)"
+    },
+    {
+      "file": "internal/testutil/db.go",
+      "marker": "\t\t_ = rows.Close()",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "Test-harness bookkeeping (internal/testutil DB template machinery): the discarded value is a cleanup/close/drop-best-effort error on a database the harness is tearing down or reclaiming \u2014 not a production success claim.",
+      "removal": "n/a (test-harness bookkeeping)"
+    },
+    {
+      "file": "internal/testutil/db.go",
+      "marker": "\t_ = rows.Close()",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "Test-harness bookkeeping (internal/testutil DB template machinery): the discarded value is a cleanup/close/drop-best-effort error on a database the harness is tearing down or reclaiming \u2014 not a production success claim.",
+      "removal": "n/a (test-harness bookkeeping)"
+    },
+    {
+      "file": "internal/testutil/db.go",
+      "marker": "\t\t_, _ = admin.ExecContext(context.Background(),",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "Test-harness bookkeeping (internal/testutil DB template machinery): the discarded value is a cleanup/close/drop-best-effort error on a database the harness is tearing down or reclaiming \u2014 not a production success claim.",
+      "removal": "n/a (test-harness bookkeeping)"
+    },
+    {
+      "file": "internal/testutil/db.go",
+      "marker": "\t\t_ = admin.Close()",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "Test-harness bookkeeping (internal/testutil DB template machinery): the discarded value is a cleanup/close/drop-best-effort error on a database the harness is tearing down or reclaiming \u2014 not a production success claim.",
+      "removal": "n/a (test-harness bookkeeping)"
     }
   ]
 }
