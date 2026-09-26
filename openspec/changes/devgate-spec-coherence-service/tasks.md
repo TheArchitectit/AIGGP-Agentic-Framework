@@ -846,7 +846,57 @@ sprints. Findings and dispositions:
       No new code: the requirement's artifacts existed, tested, and running four days before this
       checkbox read them. What the closure adds is the citation trail so the next reader does not
       re-open it.
-- [ ] Outage, mirror, cached-attestation, protocol-mismatch behavior; migration guide + operator runbook.
+- [x] Outage, mirror, cached-attestation, protocol-mismatch behavior; migration guide + operator runbook.
+      CLOSED 2026-09-26 with a split the evidence pass forced: **two of the four behaviors shipped
+      as docs before this window, two shipped only as code**, and the migration guide did not exist
+      at all. Pinning the reality per behavior, not the line's assumption:
+      **(outage)** shipped — `docs/runbooks/hub-outage.md` (watchdog exit-1 path, `/health` field
+      diagnosis, restart persistence), verified live by `scripts/fleet_drill.py` steps
+      `watchdog-dead-hub-exit-1` / `hub-restart-with-persisted-registry` / `registry-count-survives-restart`.
+      **(cached-attestation)** shipped — `docs/runbooks/evidence-and-attestation.md` covers cache
+      reuse (`decision_cache_key`, TTL **and** retention validity, expired-never-hits) over
+      `hub/coherence/cache.py`'s complete-key implementation (coh-ctx-05, 19 tests in
+      `tests/test_hub_coherence_cache.py` including the seven-component drift sweep and the
+      four-digest-collision probe).
+      **(mirror/pinned-image)** behavior shipped+pinned (template's host-side doctrine: never
+      pull-and-continue — absent image or pin/registry disagreement is `SKIPPED` with a named
+      reason, and the hub transports the skip class distinctly since the coh-int-05 fleet half,
+      `NON_PASSING_CONCLUSIONS` + `test_skipped_keeps_its_own_coherence_class`) — but documented
+      ONLY as template comments: **no operator could triage a drift event from the docs.** Fixed:
+      `docs/runbooks/image-pin-and-protocol.md` — what you see, root causes, drift triage table
+      (host-has/registry-agrees → action), the one-operation re-pin rule, and the exit-40 protocol
+      refusal (configuration, never a schema-edit "fix"; guard runs before deep validation,
+      pinned by `test_40_protocol`).
+      **(protocol-mismatch)** same shape as mirror: shipped+pinned (`SUPPORTED_API` guard in
+      `hub/coherence/__main__.py`, exit 40, `error.class: "protocol"`), documented in the same
+      new runbook.
+      **(operator runbook)** shipped — the README index + fast-triage table, now six files with
+      both halves of this line registered in the table.
+      **(migration guide)** genuinely missing → `docs/runbooks/migration-fixed-name-to-per-runner-units.md`:
+      before→after unit/env name table (`bfb7e99` fixed→per-runner layout), what re-enroll
+      automates (`remove_legacy_units`, owner-attribution refusal table — an unreadable owner
+      check never reads as permission to delete), the one manual step the sweep deliberately
+      refuses (`~/.devgate-heartbeat.env` token retention, verbatim from its code comment),
+      verification commands, and explicit non-scope (image re-pin is publish-gated S4; registry
+      and policy lifecycles are the sibling runbooks).
+      **(claim-pinning)** new `tests/test_runbook_claims.py` (4 tests) — the doc-truth layer the
+      six runbooks never had: every S6 behavior must keep a named HOME file+anchors; every cited
+      coherence exit code is compared to `result.py` **read live** (this is the only test that
+      checks docs-vs-code — `test_hub_coherence_exitcodes.py` compares the CLI to the same
+      constants and stays green under a renumber, which is exactly the drift this closes: battery
+      M3 proves it); every migration-guide anchor must exist verbatim in the scripts it names;
+      README must index exactly the on-disk runbook files, scenario column non-empty, both
+      directions. Anti-vacuity: anchors written out (never derived from the docs), the exit-code
+      test floors its own citation count so a doc rewrite that deletes all `exit NN` citations
+      fails instead of passing vacuously. Mutation battery
+      `tests/mutation_battery_runbook_claims.py`: **4/4 killed, 1/1 control survived** (a
+      prose-only edit that must NOT be caught — it wasn't); registered in the CI batteries step;
+      exec bit forced via `update-index --chmod=+x` (the `core.fileMode=false` trap, checked with
+      `git ls-files -s` before the commit, not after). Floor entry `test_runbook_claims: 3`
+      (90% of 4, targeted; `--update` not used). Gate battery at push: pytest 1005 passed
+      (1001 + the 4 new), all 10 mutation batteries green (the new one included, run individually
+      — every one reported "killed, no survivors"), `gen_floors.py` "floors hold" (68 suites,
+      1010 tests), openspec strict 36/36, silent-success OK, traceability unchanged 73/123.
 - [ ] Real pilots behind R9 provenance, now that fleet recon confirms the repos are real registered spokes: gamerepo01 (runner `ucs03-game` — was `dell-u2-game` before the 2026-09-25 two-tier rebalance; both it and `u85-game` are now offline), gamerepo02/LobsterWars (`ucs03-gamerepo02`, registered + online since 2026-09-25 — this closes the earlier "no runner behind the label" gap), and one clean repo; capture lineage/13-violation facts from the real repos with owner approval before labeling fixtures non-synthetic; Stage 2 ratchet demo blocks a new violation while named debt remains advisory.
 
 **Gate:** Stage 3 readiness review inputs complete. **Blocks:** enforced rollout.
