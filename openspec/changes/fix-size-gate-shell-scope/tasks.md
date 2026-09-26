@@ -86,6 +86,25 @@ Closes FAIL-8f9249ca (scope: the size gate did not size shell scripts) against
       exec-bit guard OK (67 shebang'd files), `--staged --pre-commit` exit 0
       with 0 over hard limit
 
+## Record — the anchors drifted once anyway (2026-09-26, `b4c1ec6`)
+
+`8c7556d` widened `SOURCE_EXTENSIONS` and `TEST_PREFIX_EXTENSIONS` with
+`.zig` — a legitimate scope change the battery should have flagged as
+anchor drift the moment it landed, and its own anchor-count assertion did
+report `appears 0 times` — but the batteries run only in the CI step
+(nothing in the pytest/node suites executes them; the harness test pins
+that the step *lists* them, not that they pass), and the author's local
+gates could not see it. `8c7556d` was the first red on that job, and
+every push since — including `a5a4d7b` — stayed red while local gates
+stayed green.
+
+The fix re-points S1/S2/N1 at the current literals (N1's added extension
+follows `.zig` now) and was verified before commit: 3/3 killed, 1/1
+control survives, exit 0. What this adds to the contract is the reading
+of "ANCHOR … appears 0 times" as **a broken battery, not a passing
+one** — a mutation that never applied proves nothing, which is exactly
+what the anchor assertion was written to say.
+
 ## Record — why the split, and where
 
 The gate's answer to an oversize file in this repository has been, three times
