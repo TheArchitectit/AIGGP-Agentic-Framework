@@ -350,7 +350,7 @@ class Spoke:
             "#!/usr/bin/env bash\n"
             'if [ "${1:-}" = "--root" ]; then store="${2:-}"; shift 2; fi\n'
             'case "${1:-}" in\n'
-            '  info, encoding="utf-8")\n'
+            '  info)\n'
             '    [ -z "${store:-}" ] || mkdir -p "$store"\n'
             '    rc="${STUB_INFO_RC:-0}"\n'
             '    [ "$rc" = "0" ] || exit "$rc"\n'

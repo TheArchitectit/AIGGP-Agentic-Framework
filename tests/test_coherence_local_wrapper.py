@@ -502,7 +502,7 @@ class DriverExitRelayTest(unittest.TestCase):
             (fake / "python3").write_text(
                 "#!/usr/bin/env bash\n"
                 "if [[ \"$*\" == *hub.coherence.invoke* ]]; then\n"
-                '  for a in "$@"; do case "$a" in */request.json|*/launch.json, encoding="utf-8") '
+                '  for a in "$@"; do case "$a" in */request.json|*/launch.json) '
                 "echo '{}' > \"$a\";; esac; done\n"
                 "  exit 0\n"
                 "fi\n"
