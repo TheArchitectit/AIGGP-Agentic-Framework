@@ -7,6 +7,87 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed (pre-existing)
+
+- **Mutation harness:** the hermetic env scrubbed `HOME` (git identity
+  isolation), which relocates Python's user base — on a `pip --user` host the
+  nested `python -m pytest` died with `No module named pytest` (exit 1) and
+  `run_entry` read that as a failing test, so **every mutant reported
+  "killed"** (4 verdict tests red; CI passed only because hosted pip installs
+  system-wide). `PYTHONUSERBASE` now survives the scrub, and a nested run
+  that cannot start raises `HarnessFailure` — reported as `HARNESS FAILURE`,
+  never as a verdict.
+- **Hub:** `/enroll` duplicate-name check moved inside the locked section
+  (the pre-check outside it let two concurrent enrolls with different valid
+  tokens both append — TOCTOU); request bodies capped at 64 KiB with a 413
+  before any read (unauthenticated `Content-Length` was an allocation lever);
+  the monitor now reads a locked deep copy of the registry instead of racing
+  in-place heartbeat writes; queue-stall alerts key on the runs API's real
+  `id` field (was `run_id`, so every stall deduped to one `"?"` issue);
+  `Retry-After` parsing can no longer raise out of the poll loop; `repo`
+  validation tightened to `[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\Z` in server and
+  schema; a failed recurrence comment drops the issue dedupe entry instead of
+  burning the cooldown.
+- **`runner-enroll.sh`:** revoke payload built with `json.dumps` like enroll
+  (string interpolation let a runner name smuggle JSON fields); `--interval`
+  validated as whole seconds before it reaches unit heredocs/arithmetic; the
+  installation window maps raw failures to the documented exit code 3 (`ERR`
+  trap under `set -E`) instead of leaking child codes as usage errors.
+- **`guardrails-scan.mjs`:** the test-scope inversion branch was an empty
+  `if` — production lines were silenced by their own forbidden-context words
+  (`password = "sample_key"` vs PREVENT-003). Suppression now applies only
+  when the file is a test file or the line carries the test vocabulary
+  itself; fixture 4b pins it.
+- **`regression_check.py --base`:** the flag advertised scanning committed
+  content but never fed the base-diff files into the known-bug and
+  pattern checks — on a clean pushed tree they evaluated nothing while the
+  gate printed a clean pass. `get_changed_files`/`get_diff_content` now take
+  `base` (11 files scanned where 0 before, proven against `HEAD~5`).
+- **`silent-success-scan.sh`:** project root by layout rule like every other
+  gate (the nearest-`.git` walk could select an outer repo and scan
+  siblings).
+- **`secret-scan-fleet.sh`:** declared URLs starting with `-` are rejected
+  before `git clone` (option injection through the declaration file).
+- **CI:** the specs job's `| tail` pipelines run under `set -o pipefail` —
+  a traceability regression used to be masked by tail's exit 0; the
+  framework's own template had the fix, its CI did not.
+
+### Changed
+
+- **Rule coverage is honest now** (rule-truth-01/rule-behavior-01, design
+  D1/D2/D7 from the archived `2026-09-13-rule-enforcement-gaps` change):
+  `extracted-rules.json` deleted — its ten agent-behavior rules live in the
+  skill templates (commit-validator gains the six git-safety laws, four-laws
+  the `rm -rf` and production-in-test prohibitions, scope-validator the
+  pre-work failure-registry check), with a README mapping table. Eight
+  semantic rules flipped to `enabled:false` / `status:"not-implemented"`,
+  and README counts corrected (37 pattern rules, seven workflow templates,
+  six skills).
+- **Templates:** `spec-coherence` bootstraps the pinned runtime *before*
+  verifying it (the gate could never pass on a fresh checkout) and takes
+  dispatch inputs via `env:` (shell-injection); `smoke-gate` fails on its
+  own failure sentinel (the old branch shape let every sentinel hit pass);
+  `guardrails-compliance` forbidden-files matches basenames as globs
+  (`.env` as an ERE failed `config/environment.yml`, which ci-match-01
+  explicitly protects) and its header/summary now say which checks are
+  advisory; template `drift-scan` fetches full history and installs
+  typescript@5 before the semantic arm; `file-size-check` fails on
+  *exceeding* the limit, not meeting it.
+
+### Added
+
+- **Rules hygiene gate** (`scripts/rules_check.py`, wired into CI): an
+  enabled rule with no registered checker, a rules file that fails its
+  schema, or an enabled rule missing message/severity now fails the build —
+  asked of the scanner itself via `semantic-scan.mjs --list-checkers`.
+- **SEMANTIC-005** (React `useEffect` missing dependencies) is actually
+  implemented in `semantic-scan.mjs` — no-deps arrays and omitted free
+  identifiers are reported (warning severity, `guardrails-allow
+  SEMANTIC-005` escape), closing the header's long-standing claim.
+- **CHECKSUMS.sha256** regenerated from the current tree (79 entries,
+  `verify` green; at audit time 9 digests were stale and 8 shipped files had
+  never been listed).
+
 ## [1.3.0] - 2026-09-23
 
 ### Highlights
