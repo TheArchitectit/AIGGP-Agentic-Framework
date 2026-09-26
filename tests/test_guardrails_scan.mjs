@@ -400,6 +400,32 @@ check("zig: finding names the rule and the file",
 check("zig: a clean zig file is not reported", !r.err.includes("clean.zig"));
 cleanup(dir13);
 
+// --- 15. ESM (.mjs/.cjs) source is scanned, AND rules fire ------------------
+// Same class as section 14's Zig gap, discovered 2026-09-26: every first-party
+// JS in DevGate itself is .mjs (8 tracked files), but SOURCE_EXTENSIONS listed
+// only .js/.jsx/.ts/.tsx — so the pattern gate reported "clean" while
+// evaluating NONE of the repo's own JavaScript. Probe before fixing: zero
+// findings attributable to .mjs across the whole rule bundle. Both halves
+// asserted like the Zig case: the extension is walked, and a rule fires.
+const dir15 = mkdtempSync(join(tmpdir(), "devgate-scan-"));
+makeProject(dir15, {
+	"src/bad.mjs": "export const y = eval(userInput);\n",
+	"src/bad.cjs": "module.exports = eval(what);\n",
+	"src/good.mjs": "export const z = Number.parseFloat(x);\n",
+});
+mkdirSync(join(dir15, ".guardrails", "prevention-rules"), { recursive: true });
+const rules15Path = join(dir15, ".guardrails", "prevention-rules", "pattern-rules.json");
+writeFileSync(rules15Path, JSON.stringify({
+	rules: [
+		{ rule_id: "PREVENT-TST-MJS", enabled: true, pattern: "eval\\(", severity: "error", file_glob: ["*.mjs", "*.cjs"], message: "eval", suggestion: "-" },
+	],
+}));
+r = runScan(dir15, { rulesEnv: rules15Path });
+check("mjs: violation in .mjs file is reported", r.code === 1 && r.err.includes("bad.mjs"));
+check("mjs: violation in .cjs file is reported", r.err.includes("bad.cjs"));
+check("mjs: a clean .mjs file is not reported", !r.err.includes("good.mjs"));
+cleanup(dir15);
+
 // --- 13. Python-side semantics agree: file_glob + allow + ignore -------------
 // (game_regression.py is exercised by tests/test_game_regression.py,
 //  gate_overlay.py by tests/test_gate_overlay.py)

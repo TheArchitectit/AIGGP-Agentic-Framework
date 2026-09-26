@@ -32,8 +32,12 @@ const projectRoot = projectRootFor(devgateRoot);
 const bundledRulesPath = join(devgateRoot, ".guardrails", "prevention-rules", "pattern-rules.json");
 const overlayRulesPath = join(projectRoot, ".guardrails", "prevention-rules", "pattern-rules.json");
 
-// Source file extensions to scan (language-agnostic)
-const SOURCE_EXTENSIONS = [".ts", ".js", ".py", ".rs", ".go", ".gd", ".java", ".kt", ".rb", ".php", ".jsx", ".tsx", ".svelte", ".zig"];
+// Source file extensions to scan (language-agnostic). .mjs/.cjs join 2026-09-26:
+// DevGate's own first-party JS is 100% .mjs (8 tracked files, zero .js), so
+// without these the pattern gate evaluated NONE of this repo's JavaScript and
+// reported "clean" — the same permanently-empty shape semantic-scan had (its
+// fix + pin: see tests/test_scanner_root_anchor.mjs section on the count 3→11).
+const SOURCE_EXTENSIONS = [".ts", ".js", ".py", ".rs", ".go", ".gd", ".java", ".kt", ".rb", ".php", ".jsx", ".tsx", ".svelte", ".zig", ".mjs", ".cjs"];
 
 // Directories to skip (DevGate's own dir + common non-source dirs)
 
@@ -282,7 +286,7 @@ function isCommentLine(line, ext) {
 		if (trimmed.startsWith("#")) return true;
 	} else if (ext === ".html" || ext === ".xml" || ext === ".svg") {
 		if (trimmed.startsWith("<!--")) return true;
-	} else if ([".ts", ".tsx", ".js", ".jsx", ".svelte", ".rs", ".go", ".java", ".kt", ".gd", ".php"].includes(ext)) {
+	} else if ([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".svelte", ".rs", ".go", ".java", ".kt", ".gd", ".php"].includes(ext)) {
 		if (trimmed.startsWith("//") || trimmed.startsWith("/*") || trimmed.startsWith("*")) return true;
 	}
 	// Inline trailing comments (// or # after code) — detect if the pattern
