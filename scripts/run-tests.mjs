@@ -38,23 +38,17 @@ const HARD_CAP_MS = PER_FILE_TIMEOUT_MS + 10_000;
 const SILENCE_MS = Number(process.env.DEVGATE_TEST_HANG_MS ?? 10_000);
 const POOL = Math.max(1, Math.min(Number(process.env.DEVGATE_TEST_POOL ?? os.cpus().length), 8));
 
-function findUp(rel) {
-  let dir = process.cwd();
-  for (let i = 0; i < 12; i++) {
-    const candidate = join(dir, rel);
-    if (existsSync(candidate)) return candidate;
-    const parent = dirname(dir);
-    if (parent === dir) return null;
-    dir = parent;
-  }
-  return null;
-}
-
-// Scope contract is DATA (fw-scope-01): .guardrails/scope.json, shared by all gates.
+// Scope contract is DATA (fw-scope-01): .guardrails/scope.json, shared by all
+// gates. Resolved from the LAYOUT ROOT, never by walking up from process.cwd()
+// — the old walk-up started at the invocation directory, so it (a) escaped to
+// ancestor trees, (b) crashed on the first step (dirname was never imported),
+// and (c) re-broke the very contract this file's root resolution just fixed.
 const SKIP_DIRS = (() => {
-  const scopePath = findUp(".guardrails/scope.json");
-  if (!scopePath) throw new Error("scope contract missing: .guardrails/scope.json");
-  return JSON.parse(readFileSync(scopePath, "utf8")).skip_dirs;
+  for (const candidate of [join(PROJECT_ROOT, ".guardrails", "scope.json"),
+                           join(DEVGATE_ROOT, ".guardrails", "scope.json")]) {
+    if (existsSync(candidate)) return JSON.parse(readFileSync(candidate, "utf8")).skip_dirs;
+  }
+  throw new Error("scope contract missing: .guardrails/scope.json (under the project root or .devgate/)");
 })();
 
 // Test file patterns by language

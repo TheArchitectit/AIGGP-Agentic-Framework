@@ -37,25 +37,18 @@ const SOURCE_EXTENSIONS = [".ts", ".js", ".py", ".rs", ".go", ".gd", ".java", ".
 
 // Directories to skip (DevGate's own dir + common non-source dirs)
 
+// Scope contract is DATA, single source of truth (fw-scope-01): one
+// definition in .guardrails/scope.json consumed by every gate. Resolved from
+// the LAYOUT ROOT (projectRoot / devgateRoot), never by walking up from
+// process.cwd() — a cwd walk can settle above the tree and reads scope from
+// a foreign checkout (the root-anchor-01 escape class, re-entering via data).
 function findScope() {
-  // Scope contract resolves for BOTH layouts: a standalone checkout
-  // (.guardrails/scope.json beside the scripts) and a consumer submodule
-  // (.devgate/.guardrails/scope.json below the project root).
-  let dir = process.cwd();
-  for (let i = 0; i < 12; i++) {
-    for (const rel of [".guardrails/scope.json",
-                       ".devgate/.guardrails/scope.json"]) {
-      const candidate = join(dir, rel);
-      if (existsSync(candidate)) return candidate;
-    }
-    const parent = dirname(dir);
-    if (parent === dir) return null;
-    dir = parent;
+  for (const candidate of [join(projectRoot, ".guardrails", "scope.json"),
+                           join(devgateRoot, ".guardrails", "scope.json")]) {
+    if (existsSync(candidate)) return candidate;
   }
   return null;
 }
-// Scope contract is DATA, single source of truth (fw-scope-01): one
-// definition in .guardrails/scope.json consumed by every gate.
 const SKIP_DIRS = (() => {
   const scopePath = findScope();
   if (!scopePath) throw new Error("scope contract missing: .guardrails/scope.json");

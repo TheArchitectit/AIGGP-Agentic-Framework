@@ -62,12 +62,20 @@ jobs:
         run: python3 -m pytest tests/ -v
       - name: guardrails scanner fixture suite
         run: node tests/test_guardrails_scan.mjs
-      # The .mjs root-anchor fixture was superseded by the python root
-      # contract suite (specs-gate-audit-remediation); it is collected by
-      # the full pytest run above — this explicit step keeps the contract
-      # visible by name in the job.
-      - name: scanner root-anchoring fixture suite
+      # The Python root-anchor suite pins the PYTHON scanners
+      # (regression_check / scene_inventory / failure_registry_check). It
+      # never superseded the Node fixture below — the comment that claimed
+      # otherwise was written when 9c19259 deleted that fixture, and left
+      # guardrails/semantic/run-tests' shared root contract pinned by nothing.
+      - name: python scanner root-anchoring fixture suite
         run: python3 -m pytest tests/test_python_root_anchor.py -q
+      # The Node sibling — deleted by 9c19259 under a container-only commit
+      # message, restored 2026-09-26. All three scanner headers name it as
+      # the fixture that locks their root contract; without it live here the
+      # claim was orphaned. Explicit step (not just runner-collected) keeps
+      # the contract visible by name, same as the Python step above.
+      - name: node scanner root-anchoring fixture suite
+        run: node tests/test_scanner_root_anchor.mjs
       - name: per-file runner (frameworks's own tests through its own runner)
         run: node scripts/run-tests.mjs
       # The runner above exits 0 when it finds nothing, so a broken discovery

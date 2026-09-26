@@ -34,19 +34,13 @@ const root = projectRootFor(devgateRoot);
 
 
 function findScope() {
-  // Scope contract resolves for BOTH layouts: a standalone checkout
-  // (.guardrails/scope.json beside the scripts) and a consumer submodule
-  // (.devgate/.guardrails/scope.json below the project root).
-  let dir = process.cwd();
-  for (let i = 0; i < 12; i++) {
-    for (const rel of [".guardrails/scope.json",
-                       ".devgate/.guardrails/scope.json"]) {
-      const candidate = join(dir, rel);
-      if (existsSync(candidate)) return candidate;
-    }
-    const parent = dirname(dir);
-    if (parent === dir) return null;
-    dir = parent;
+  // Scope contract resolves from the LAYOUT ROOT for BOTH layouts: a
+  // standalone checkout (.guardrails/scope.json at the root) and a consumer
+  // submodule (.devgate/.guardrails/scope.json). Never a walk-up from
+  // process.cwd() — that can settle above the tree (root-anchor-01 class).
+  for (const candidate of [join(root, ".guardrails", "scope.json"),
+                           join(devgateRoot, ".guardrails", "scope.json")]) {
+    if (existsSync(candidate)) return candidate;
   }
   return null;
 }
