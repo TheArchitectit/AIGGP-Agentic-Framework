@@ -132,6 +132,12 @@ jobs:
         run: bash scripts/silent-success-scan.sh
       - name: Failure-registry hygiene
         run: python3 scripts/failure_registry_check.py
+      # rule-truth-01 (design D7): an enabled rule with no executing checker
+      # is dead coverage presented as live. This gate fails on it, on rules
+      # files that no longer validate, and on enabled rules missing a message
+      # or severity — the check the 2026-09-13 audit found missing.
+      - name: Rules hygiene (enabled ⇒ enforced)
+        run: python3 scripts/rules_check.py
       # fw-prov-01 (R11): core.fileMode=false silently drops exec bits; a
       # shebang'd script committed 100644 breaks hosted checkouts.
       - name: Exec-bit integrity (shebang implies 100755 in the index)
@@ -270,6 +276,12 @@ jobs:
         run: bash scripts/specs-validate-negative-control.sh
       - name: Requirement-ID traceability
         run: |
+          # pipefail so a traceability failure is not masked by `tail`: under
+          # Actions' default `bash -e` a pipeline's status is the LAST
+          # command's (tail exits 0), so a ratchet regression would read green.
+          # The shipped template got this fix first (templates/github-workflows/
+          # specs.yml); the framework's own CI now carries it too.
+          set -o pipefail
           python3 scripts/spec_traceability.py --root . --report | tail -8
           python3 scripts/spec_traceability.py --root . | tail -2
 

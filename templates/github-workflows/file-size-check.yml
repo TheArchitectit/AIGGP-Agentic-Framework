@@ -61,7 +61,7 @@ jobs:
               fi
 
               lines=$(wc -l < "$file")
-              if [ "$lines" -ge "$SIZE_LIMIT" ]; then
+              if [ "$lines" -gt "$SIZE_LIMIT" ]; then
                 printf "VIOLATION: %s: %d lines (limit %d)\n" "$file" "$lines" "$SIZE_LIMIT"
                 VIOLATIONS=$((VIOLATIONS + 1))
               fi

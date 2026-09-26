@@ -83,6 +83,18 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: true
+          # ci-run-01: the regression arm diffs the real tag window
+          # (regression_check.py --all resolves the most recent tag), which a
+          # depth-1 clone cannot see — an undiffable ref must never read as
+          # "the scan found nothing".
+          fetch-depth: 0
+
+      - name: Install the semantic scanner's parser (typescript@5)
+        # ci-run-01: "WHEN the consumer has TS/JS files THEN the template
+        # installs typescript@5 before the semantic arm" — without the
+        # compiler API the scanner fails closed on any project that has
+        # TS/JS files (v7 dropped the root API, hence the pin).
+        run: npm install --no-save --no-audit --no-fund typescript@5
 
       - name: Run gate suite (full tree)
         run: |
