@@ -71,10 +71,16 @@ function installStandalone(parent, repoName) {
 	for (let i = 1; i <= 3; i++) {
 		writeFileSync(join(repo, "tests", `in_repo_${i}.test.mjs`), PASSING_TEST);
 	}
-	// Three TS/JS source files for semantic-scan to count (it walks the whole
-	// tree recursively, so placement anywhere under the repo is equivalent).
-	for (let i = 1; i <= 3; i++) {
-		writeFileSync(join(repo, "src", `mod_${i}.js`), "export const x = 1;\n");
+	// Four source files for semantic-scan to count (it walks the whole tree
+	// recursively, so placement anywhere under the repo is equivalent). Three
+	// .js plus one .mjs: DevGate's own first-party modules are .mjs, and this
+	// repo has zero .js/.ts — a walk that matches only the old extensions
+	// reports "no files, skipped" over an entire ESM codebase. The semantic
+	// count assertions expect 11 = these 4 + the 4 copied scripts/*.mjs +
+	// the 3 tests/in_repo_*.test.mjs (the walk excludes only .test.ts/.spec.ts,
+	// not .mjs tests), so any extension drift in the walk shows immediately.
+	for (const f of ["mod_1.js", "mod_2.js", "mod_3.js", "mod_4.mjs"]) {
+		writeFileSync(join(repo, "src", f), "export const x = 1;\n");
 	}
 	// guardrails-scan.mjs loads its bundled rules from <devgateRoot>/.guardrails/.
 	// Without them the scanner has zero rules, finds nothing, and reports a
@@ -183,8 +189,8 @@ function countFiles(out) {
 	const out = (res.stdout ?? "") + (res.stderr ?? "");
 	const m = out.match(/counted (\d+) TS\/JS file\(s\)/);
 	check("semantic-scan: standalone counts only the repo's own files, not the parent's decoys",
-		m && Number(m[1]) === 3,
-		`expected 3 counted, got: ${m ? m[1] : "no match"} :: ${JSON.stringify(out.slice(-200))}`);
+		m && Number(m[1]) === 11,
+		`expected 11 counted, got: ${m ? m[1] : "no match"} :: ${JSON.stringify(out.slice(-200))}`);
 }
 
 // --------------------------------------------------------------------------
@@ -288,8 +294,8 @@ function countFiles(out) {
 	const semOut = (sem.stdout ?? "") + (sem.stderr ?? "");
 	const sm = semOut.match(/counted (\d+) TS\/JS file\(s\)/);
 	check("semantic-scan: resolves its own tree when invoked from an unrelated cwd",
-		sm && Number(sm[1]) === 3,
-		`expected 3 counted, got: ${sm ? sm[1] : "no match"} :: ${JSON.stringify(semOut.slice(-200))}`);
+		sm && Number(sm[1]) === 11,
+		`expected 11 counted, got: ${sm ? sm[1] : "no match"} :: ${JSON.stringify(semOut.slice(-200))}`);
 }
 
 // --------------------------------------------------------------------------

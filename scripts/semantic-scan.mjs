@@ -106,7 +106,11 @@ function walk(dir, acc = []) {
 		const p = join(dir, name);
 		if (statSync(p).isDirectory()) {
 			if (!SKIP_DIRS.includes(name) && !isIgnored(p)) walk(p, acc);
-		} else if ((name.endsWith(".ts") || name.endsWith(".tsx") || name.endsWith(".js") || name.endsWith(".jsx")) && !name.endsWith(".d.ts") && !name.endsWith(".test.ts") && !name.endsWith(".spec.ts") && !isIgnored(p)) {
+		// .mjs/.cjs are load-bearing here, not an afterthought: DevGate's own
+		// first-party modules are .mjs (8 tracked files, zero .js/.ts), so a
+		// walk without them reported "no files, skipped" over the whole repo —
+		// a permanently-empty gate, the S0 carry-forward's other horn.
+		} else if ((name.endsWith(".ts") || name.endsWith(".tsx") || name.endsWith(".js") || name.endsWith(".jsx") || name.endsWith(".mjs") || name.endsWith(".cjs")) && !name.endsWith(".d.ts") && !name.endsWith(".test.ts") && !name.endsWith(".spec.ts") && !isIgnored(p)) {
 			acc.push(p);
 		}
 	}
