@@ -10,7 +10,7 @@
   "test_game_regression": 5,
   "test_gate_overlay": 6,
   "test_hub_alerts": 8,
-  "test_hub_coherence": 43,
+  "test_hub_coherence": 37,
   "test_hub_coherence_adoption_ledger": 9,
   "test_hub_coherence_adoption_policy": 27,
   "test_hub_coherence_allowlist": 3,
@@ -65,7 +65,8 @@
   "test_silent_success_gate": 3,
   "test_silent_success_overlay": 5,
   "test_spec_traceability": 10,
-  "test_workflow_read": 15
+  "test_workflow_read": 15,
+  "test_hub_coherence_traceability": 7
  },
  "total_floor": 896
 }
