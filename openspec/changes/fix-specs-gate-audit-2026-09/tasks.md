@@ -452,3 +452,37 @@ disposition rule this package set.
       fixed (files are now eligible for any glob that names them), the
       fixture proves eligibility with a custom rule, and the repo no longer
       prints "clean" on files it never read.
+
+## Post-close hygiene (queued from earlier-window audits, worked 2026-09-26)
+
+These are not external-audit findings; they are self-found defects that
+accumulated a queue with no written home. Each gets evidence-pass → fix →
+pin, in push order.
+
+- [x] **`/health` overcounts revoked runners** (hub/server.py). The endpoint
+      reported `len(registry.runners())`; `revoke()` keeps the row with
+      `enrolled: False` (audit trail), and the monitor filters that field every
+      cycle — so the health page advertised monitoring the hub would never
+      perform, exactly during an outage triage when an operator counts
+      reporters. Fix: count the live set (`enrolled` filter, same law as the
+      monitor), row retention unchanged. Pin (RED first):
+      `tests/test_hub_enroll_heartbeat.py::test_health_registered_runners_excludes_revoked`
+      — enroll → count 1 → revoke → count 0, plus the row-still-present
+      assertion so the fix cannot "pass" by deleting audit state.
+- [x] **A bulk edit can corrupt executable STRING payloads, not just code —
+      `bash -n` guard added.** When `88b74e9` (explicit-UTF-8 sweep, run on a
+      Windows box where the affected suites cannot execute) pasted
+      `, encoding="utf-8")` into two bash `case` arms inside `write_text`
+      literals (`tests/fixtures/runner_spoke.py` podman stub, `tests/`
+      `test_coherence_local_wrapper.py` fake-python relay), six tests broke by
+      SIDE EFFECT — a never-matching case arm looks like a wrong answer, not
+      like a syntax error. Repaired both literals; added the class guard:
+      `test_generated_shell_stubs_are_syntactically_valid_bash` AST-extracts
+      every maximal bash-shebang string literal under `tests/` (12 found,
+      floor asserted so the extractor cannot silently stop matching) and
+      lints each with `bash -n`. Mutation M5 in
+      `tests/mutation_battery_runbook_claims.py` reintroduces the corruption
+      verbatim and must be caught by the lint test — 5/5 killed, control
+      survived; suite floor entry `test_runbook_claims: 4` (90% of 5,
+      targeted). Honest boundary: the guard covers bash bodies only — a
+      corrupted python/heredoc payload is still side-effect-detected.
