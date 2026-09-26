@@ -917,6 +917,32 @@ sprints. Findings and dispositions:
 - [ ] Threat model + container escape review (evaluator boundary emphasis).
 - [ ] 100-repeat determinism suite per supported architecture per execution-profile equivalence promise.
 - [ ] Failure injection: missing specs, evaluator crash, denied egress, exhausted resources, bad signatures, evidence loss, input mutation mid-run.
+      **Measured 2026-09-26.** 7 scenarios; 6 already carried by shipped, named tests — missing
+      specs (`test_hub_coherence.py::…schema rejected`, container 44), evaluator crash →
+      ERROR/32 (`test_hub_coherence_decision.py`), denied egress (launcher `network-not-none`
+      refusal at launch + `test_hub_coherence_runtime.py::TestStaticDefaultDeny`), exhausted
+      resources (timeout/overflow → 32, container + launcher suites), bad signatures
+      (attestation/verify_cli/tamper suites), evidence loss
+      (`test_missing_result_bundle_is_error`, captured-fact-content-missing). Scenario 7 was
+      **not** shipped: design §2 and the exit-32 matrix both committed to "mutation mid-run is
+      ERROR, never a mixed-content pass", but `manifest.verify_read` had **zero production
+      callers** and a live probe showed an evaluator reading post-snapshot bytes and returning a
+      clean VIOLATED. Closed this sprint: `manifest.first_mutation` (whole-tree re-walk diffing
+      `(path, kind, digest, policy_outcome)` in walk order, deterministic first-drift name,
+      unbuildable mutation → `<tree-unbuildable>` sentinel) is re-verified after every evaluator
+      call from `evaluate.run(subject=…)`, wired at `__main__`; any drift → row UNRESOLVED +
+      run-level execution ERROR/32, and the outcome gate drops that row's findings from the
+      ledger entirely. 13 tests (`test_hub_coherence_runtime_mutation.py`, floor 11), 12-mutant
+      battery all killed incl. policy_outcome-dropped and determinism-broken.
+      **Boundaries, pinned not fixed:** (a) inside-tree symlink *retarget* is invisible to the
+      triple-diff **by design** — same path/kind/null-digest (schema freezes null), and the
+      target's content is bound by the subject digest at resolution; pinned both directions in
+      `test_symlink_boundary_is_pinned_both_directions` so a future "digest symlinks too" change
+      must re-litigate. A *policy-class* flip (forbidden ↔ escape) **is** caught — that is why
+      `policy_outcome` is in the compared tuple. (b) Excluded-dir content swaps are out of scope
+      (exclusions are recorded, never digested). (c) `first_mutation` re-walks under
+      `DEFAULT_EXCLUDES`; a caller passing a custom `excludes` tuple to `build` would need the
+      same tuple here — no such production caller exists today, noted rather than plumbed.
 - [ ] Compatibility + deprecation policy; schema versioning tests.
 - [ ] SLOs: evaluation availability, maximum advisory age.
 - [ ] Runbooks: outage, rollback, policy recovery, key rotation, evaluator revocation.
