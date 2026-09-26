@@ -390,7 +390,8 @@ jobs:
                    tests/mutation_battery_runner_sweep.py \
                    tests/mutation_battery_scan_report.py \
                    tests/mutation_battery_scan_view.py \
-                   tests/mutation_battery_monitor_default_deny.py; do
+                   tests/mutation_battery_monitor_default_deny.py \
+                   tests/mutation_battery_runbook_claims.py; do
             echo "::group::$b"
             python3 "$b" || exit 1
             echo "::endgroup::"
