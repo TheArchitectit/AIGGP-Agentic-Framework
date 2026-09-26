@@ -543,3 +543,22 @@ pin, in push order.
       `test_hub_enroll_heartbeat: 9→12` (90% of 14, targeted). Follow-up
       owner-side: restart the hub once to prune the live `$NEW` (and the
       standing token-rotation question covers it).
+- [ ] **Spoke coverage measured: ucs03 serves 17 GH runners, heartbeats 4.**
+      Evidence pass (2026-09-26, read-only on the live hub + ucs03): the hub's
+      registry has 13 rows — every `enrolled: true` row reports a heartbeat
+      within the last minutes (so the hb path itself is healthy; the
+      `inactive dead` unit state is normal for oneshot timer services), and
+      the six `enrolled: false` rows match GitHub-side offline/removed
+      dell-u2 runners (audit trail consistent, no ghost monitoring). The
+      gap is the other direction: ucs03's `systemctl --user` shows 17 active
+      `devgate-runner-*` units (biteclub, cad, da, game, gamerepo02, mc,
+      openrawflow, radgateway, radical, radical-code, redeye, rtp, zdf,
+      zombietoss, zx, + the default) while only four hub rows exist for
+      ucs03 (devgate, gamerepo02, openrawflow, radgateway). Thirteen labels
+      serve CI jobs with no disk/podman/image telemetry — exactly the
+      failure the fleet view exists to catch, invisible by omission.
+      **Disposition pending owner decision:** re-enrolling the missing spokes
+      is provisioning on a live host (and some runners may be deliberately
+      unmonitored under the two-tier label rule); the repo-side question —
+      whether the monitor should alert on a GH-online runner whose host row
+      is absent — needs a spec call before code. Recorded, not acted on.
