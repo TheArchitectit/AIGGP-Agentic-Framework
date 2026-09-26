@@ -22,7 +22,7 @@ shipped test, drill, or measured run — not prose intent.
 | 9 | CI, local, fleet adapters equivalent canonical results | **MET (identity, not yet fleet-measured)** | Byte-equivalence-by-identity: CI and local run the identical builder bytes (`hub.coherence.invoke` inside the pinned image); the fleet half (a hosted coherence run on an enrolled spoke against a real subject) has not yet been run against a real repo — pilots |
 | 10 | Six fixtures produce expected decisions | **synthetic MET; real-repo half BLOCKED (R9)** | Fixtures A–F shipped with expected decisions (synthetic, per R9); gamerepo01/LobsterWars-derived fixtures require R9 provenance capture + owner approval — the fixture set is honest about this (acceptance.md:87) |
 | 11 | Operator reproduces any finding from its evidence bundle without the original runner | **MET** | Sealed-bundle design: `--verify-run` offline chain + `store.artifacts()` (durability path, containment-pinned); evidence objects self-contained with bound digests |
-| 12 | Runbooks: outage, rollback, policy recovery, key rotation, evaluator revocation | **4/5 MET; evaluator revocation OPEN (owner decision)** | Outage/rollback/policy-recovery/key-rotation covered by drill/test-verified runbooks (:1031 measurement); evaluator revocation is a build gap needing an owner decision (new control-plane revocation record vs scoping to pinned-image lifecycle) — recorded at :1031, not improvised |
+| 12 | Runbooks: outage, rollback, policy recovery, key rotation, evaluator revocation | **5/5 MET** | Outage/rollback/policy-recovery/key-rotation covered by drill/test-verified runbooks (:1031 measurement); evaluator revocation DECIDED 2026-09-26 — owner scoped it to the pinned-image lifecycle (bad image retired by re-pinning; old attestations valid for what they proved at evaluation time; no new control-plane revocation record), so the runbook is the existing re-pin operation — recorded at :1031, not improvised |
 
 ## The ten owner-decision open questions (acceptance.md) — status
 
@@ -57,10 +57,12 @@ tests and measured runs. What still blocks Stage 3:
    8 (ratchet demo), 9 (fleet-half measurement), and 10 (real-fixture
    half). Runner availability is no longer a blocker: all 14 ucs03 spokes
    are enrolled + heartbeating as of 2026-09-25/26.
-3. **Evaluator revocation build gap** — either the control-plane
-   revocation record (coh-pol-02 machinery) or the owner's scoping to
-   pinned-image lifecycle; either way a decision, then build-or-runbook.
+3. ~~**Evaluator revocation build gap**~~ — **DECIDED 2026-09-26**: the
+   owner scoped it to the pinned-image lifecycle (bad image retired by
+   re-pinning; old attestations valid for what they proved at evaluation
+   time; no new control-plane revocation record). Criterion 12 is now 5/5;
+   the runbook is the existing re-pin operation.
 
 The review's honest headline, updated: **the gate is built, measured, and
 its policy decisions are made; what remains is real-repo pilot evidence
-and the evaluator-revocation scope call.**
+and the owner's sign-off act.**

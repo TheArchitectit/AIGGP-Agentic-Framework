@@ -82,6 +82,15 @@ fixture starts synthetic — normative identity is the package's declared
 identity, historical lineage is informative. Q6–Q8 and Q10 remain open
 and do not gate Stage 3 (see `stage3-readiness.md`).
 
+**Evaluator revocation — decided 2026-09-26 (separate question from the
+six):** scope to the **pinned-image lifecycle**. A bad evaluator image is
+retired by re-pinning (`scripts/re-pin-evaluator-identity.sh`); old
+attestations remain valid for what they proved at their evaluation time;
+no new control-plane revocation record is built. `verify()` checks the
+signer, not the evaluator's present-time standing — that separation of
+attestation-time validity from pin-time standing is the accepted
+semantics.
+
 ## Recommended first thin slice
 
 Use one synthetic repository plus a `gamerepo01`-derived identity fixture. Resolve one approved package, evaluate three deterministic assertions, emit canonical evidence, and run in advisory mode from the pinned container. Then enable Stage 2 ratchet for LobsterWars using its 13 named findings as the fixed baseline. Do not begin with broad AI interpretation, automatic repair, or full-fleet enforcement.

@@ -1158,8 +1158,9 @@ sprints. Findings and dispositions:
       post-pilot baseline measurement, sequenced AFTER the first real
       pilots (S8 line at :900); opening it now would invent a number without
       data. Revisit when pilots produce real duration/failure distributions.
-- [ ] Runbooks: outage, rollback, policy recovery, key rotation, evaluator revocation.
-      **Measured 2026-09-26.** Four of five scenarios are already covered by
+- [x] Runbooks: outage, rollback, policy recovery, key rotation, evaluator revocation.
+      **Measured 2026-09-26; DECIDED 2026-09-26 — all five scenarios covered.**
+      Four were already covered by
       shipped, drill- or test-verified runbooks: outage (`hub-outage.md` +
       `fleet_drill.py`, closed at :818), rollback
       (`policy-rollback-and-key-rotation.md` §policy-rollback, `nc-09`),
@@ -1168,22 +1169,20 @@ sprints. Findings and dispositions:
       with the "do NOT edit the binding" rule stated), and key rotation
       (planned + emergency paths, both with the cache-non-exposure
       argument, `nc-10` + attestation tests). The fifth, **evaluator
-      revocation, is a BUILD gap, not a doc gap** — recorded rather than
-      improvised into a runbook: the spec's revocation language (coh-ev-05)
-      covers signers only, and the approved evaluator set (coh-pol-02)
-      exists today as `evaluators.BUILTINS` (code, changes only with a new
-      pinned image) plus the image digest bound at attestation
-      (`attest.py` `evaluator_image_digest`). Nothing lets a promotion-time
-      consumer distinguish an evaluator image that was approved at
-      evaluation time from one retroactively found bad — `verify()` checks
-      the signer, not the evaluator's standing. Closing this needs either
-      an approved-evaluator-set revocation record the consumer can check
-      (a new control-plane trust root, coh-pol-02 machinery) or an owner
-      decision to scope "evaluator revocation" to the pinned-image lifecycle
-      (a bad image is retired by re-pinning; old attestations stay valid for
-      what they proved at the time). Owner input is genuinely required
-      here — recorded under the open-questions path rather than designed
-      unilaterally.
+      revocation, was a decision gap and the owner has now decided it**:
+      scope "evaluator revocation" to the **pinned-image lifecycle** — a bad
+      evaluator image is retired by re-pinning
+      (`scripts/re-pin-evaluator-identity.sh`, runbook
+      `docs/runbooks/image-pin-and-protocol.md`); old attestations remain
+      valid for what they proved at their evaluation time; no new
+      control-plane revocation record is built. The honest residual the
+      spec already names stands: a promotion-time consumer cannot
+      distinguish an evaluator image that was approved at evaluation time
+      from one retroactively found bad — `verify()` checks the signer, not
+      the evaluator's standing — and that is now the DOCUMENTED semantics,
+      not an open gap (attestation-time validity is what the evidence
+      chain claims; present-time standing is what the pin claims, and the
+      two artifacts stay separate by design). Criterion 12 is 5/5.
 - [ ] Stage 3 readiness review before any enforced fleet rollout.
       **Inputs assembled 2026-09-26** — `stage3-readiness.md`: the 12 release acceptance
       criteria dispositioned one by one with cited evidence (8 MET with named tests/measured
@@ -1193,6 +1192,35 @@ sprints. Findings and dispositions:
       enforced rollout — the gate is built and measured; the enforcement posture is waiting
       on humans, not code.** The review itself (the owner's sign-off act) remains open; this
       line now points at its complete input package instead of an empty promise.
+- [x] CI publishes the evaluator image automatically on push to main; the trigger
+      contract fully documented (owner directive 2026-09-26: "we need to allow ci to
+      publish because I am not doing it, we just need to have it fully documented").
+      **Shipped 2026-09-26.** `container-publish`'s `if:` is now
+      `(push && refs/heads/main) || (workflow_dispatch && inputs.publish)` — every
+      merge to main builds and pushes to ghcr (:main, :sha-<12>) with no human
+      dispatch; manual dispatch stays available as a deliberate re-publish. The
+      documented boundary survives the flip: a merge-to-main publish is NOT a
+      release — moving the recorded identity in `container/execution-profiles.json`
+      remains the re-pin operation's job, hosts converge on the recorded digest
+      (never on :main), and the divergence advisory (img-cycle-05) is the control
+      that notices an auto-published :main ahead of the record. That inverts
+      img-cycle-06's original resolution by owner decision: the original inversion
+      existed because merge-publishing was then an undocumented accident; the
+      accident is now the policy with the comment as its document and the advisory
+      as its control — the requirement's real contract ("a job's comment SHALL NOT
+      describe a trigger its `if:` contradicts; the documentation SHALL name the
+      trigger exactly") is unchanged and still enforced. Evidence:
+      `tests/test_publish_trigger.py` updated to evaluate the NEW condition
+      (main-push publishes, dispatch publishes, everything else does not — 9 tests,
+      floor 8→9 in `tests/expected-counts.json`); `test_the_comment_names_the_
+      deliberate_trigger` now requires BOTH "push to main" and the dispatch input
+      named; `tests/mutation_battery_publish_trigger.py` re-anchored to the new
+      condition — **7/7 killed, 1/1 negative control survived** (P1 reverts to
+      dispatch-only, P2 drops the main-push half, P3 weakens the main-push `&&`
+      to `||` — a branch push would publish, P4 undeclared input, P5 string-typed
+      input, P6 default inverted, P7 comment claims dispatch-only while the
+      condition auto-publishes; N1 rewords the comment keeping the same claim).
+      Full suite 1053 passed before push.
 
 **Gate:** all 12 release acceptance criteria in `acceptance.md` demonstrably met.
 
