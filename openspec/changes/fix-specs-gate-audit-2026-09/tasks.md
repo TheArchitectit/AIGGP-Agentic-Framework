@@ -486,3 +486,31 @@ pin, in push order.
       survived; suite floor entry `test_runbook_claims: 4` (90% of 5,
       targeted). Honest boundary: the guard covers bash bodies only — a
       corrupted python/heredoc payload is still side-effect-detected.
+- [x] **Registry accepts duplicate spellings of one host — enrollment now
+      refuses whitespace-wrapped names.** Evidence pass (measured, not reasoned):
+      enrolling `ucs03`, `UCS03`, and `"ucs03 "` through the live `Registry`
+      produced THREE rows, all `enrolled: True`, all counted by `/health` —
+      `find_runner` and the name half of `verify_heartbeat_token` match
+      byte-exactly and nothing normalizes on any path. The hub-outage runbook's
+      "the hub answers 409 for an already-enrolled name" claim is true only for
+      the exact string; the duplicate window it warns operators about was open
+      to anything a copy-paste smuggled. Disposition by vector: **whitespace**
+      → refused at enrollment with 400 (the spoke freezes `RUNNER_NAME=`
+      verbatim into its env file, so a hub-side trim would store a name the
+      helper never heartbeats against — 401 forever; bad names must die where
+      they are cheap to fix); **case** → deliberately untouched, the name is
+      credential-bearing (B's token verifies against `"UCS03"`, not `"ucs03"`),
+      a fold would silently merge hosts an operator named apart; **duplicate
+      labels inside one row** → inert, the only reader is a set comprehension
+      (`monitor.py` `registered_labels`), not a defect. Guard:
+      `test_enroll_rejects_a_whitespace_wrapped_name` (400, nothing persisted,
+      the one-time token survives the refusal — the clean spelling enrolls
+      with the SAME token) and `test_enroll_rejects_a_non_string_name_400_not_500`
+      (the `.strip()` call the guard adds would otherwise traceback on a JSON
+      number; verified load-bearing — deleting the isinstance check kills that
+      test, deleting the whitespace check kills the other). The refusal sits
+      before the 409 probe and before token consumption. Suite floor
+      `test_hub_enroll_heartbeat: 7→9` (90% of 11, targeted). Honest boundary:
+      this closes the MISTAKE window; an operator deliberately enrolling one
+      host twice under two names remains possible by design — identity is the
+      name, and the fleet has real multi-name hosts (coh-int-07).
