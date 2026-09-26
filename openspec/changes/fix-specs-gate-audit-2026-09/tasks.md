@@ -514,3 +514,32 @@ pin, in push order.
       this closes the MISTAKE window; an operator deliberately enrolling one
       host twice under two names remains possible by design — identity is the
       name, and the fleet has real multi-name hosts (coh-int-07).
+- [x] **`"$NEW"` enrollment token path — it was not hypothetical: the LIVE
+      hub carried it.** Evidence pass on dell-u2 (measured 2026-09-26, shape
+      only reported): the running hub's `/data/runners.json` had 3 enrollment
+      tokens, one of them literally `$NEW` — a shell variable pasted into
+      `HUB_ENROLLMENT_TOKENS` with single quotes somewhere in the operator's
+      minting path, loaded by `hub/main.py`'s startup loop, which accepted ANY
+      non-empty string as a credential. A placeholder in the enrollment list
+      is a predictable credential: anyone who has read the runbook's `<tok>`
+      shape could enroll a rogue runner. The value was never usable (no
+      enrollment against it appeared in the registry's runners — and one-time
+      consumption would have hidden it; the audit reports what remains
+      observable, not an absence-proof). Fix: the load moved out of `main()`
+      into `load_enrollment_tokens(registry, env_value)` (env value explicit —
+      testable without a subprocess), gated on a mint-shape regex
+      (`[A-Za-z0-9_-]{16,}` — both mint paths, `secrets.token_urlsafe` and
+      operator hex, match, so no real token can be rejected by alphabet);
+      refusals are loud (stderr) but VALUE-FREE (a near-miss may itself be a
+      secret). Registry gained `prune_enrollment_tokens(keep)` so a restart
+      HEALS a placeholder an older loader persisted — the env-path refusal
+      alone would leave the live `$NEW` riding the volume forever. The rule's
+      home is documented in the hub runbook with a concrete mint command, so
+      the refusal never surprises an operator. Pins: three tests — placeholder
+      refused (valid sibling in the same env still loads), valid shapes loaded
+      verbatim (control: the guard cannot eat real tokens), stored-placeholder
+      pruned on restart; mutation probes verified both guards are load-bearing
+      (accept-all regex kills 2, no-op prune kills 1). Suite floor
+      `test_hub_enroll_heartbeat: 9→12` (90% of 14, targeted). Follow-up
+      owner-side: restart the hub once to prune the live `$NEW` (and the
+      standing token-rotation question covers it).
