@@ -179,6 +179,19 @@ class Registry:
         if token not in self._data["enrollment_tokens"]:
             self._data["enrollment_tokens"].append(token)
 
+    def prune_enrollment_tokens(self, keep) -> int:
+        """Drop stored enrollment tokens `keep(token)` rejects; returns how
+        many. Startup calls it so a placeholder a previous load let in (the
+        unquoted-$NEW incident, 2026-09-26) is healed by the next restart
+        instead of riding the volume forever. `keep` is a caller predicate
+        because the shape policy belongs to the loader, not the storage."""
+        stored = self._data["enrollment_tokens"]
+        survivors = [t for t in stored if keep(t)]
+        removed = len(stored) - len(survivors)
+        if removed:
+            self._data["enrollment_tokens"] = survivors
+        return removed
+
     def consume_enrollment_token(self, presented: str) -> bool:
         """Verify AND consume a one-time enrollment token (mon-enroll-01)."""
         for candidate in list(self._data["enrollment_tokens"]):

@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import signal
 import sys
 import threading
@@ -42,6 +43,38 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+_TOKEN_SHAPE = re.compile(r"^[A-Za-z0-9_-]{16,}$")
+
+
+def load_enrollment_tokens(registry, env_value: str) -> list[str]:
+    """Load HUB_ENROLLMENT_TOKENS into the registry, refusing shapes that
+    cannot be minted. The env value is passed explicitly (not read from
+    os.environ) so the load rule is testable without a subprocess.
+
+    Also PRUNES already-stored non-mint-shaped tokens: this rule only
+    guarding the env path would leave a hub that loaded a placeholder under
+    the old code carrying it forever — the live registry measured
+    '$NEW' exactly so. Pruning happens on every startup, so a restart heals.
+    Refusals are loud but value-free (a near-miss may still be a secret).
+    """
+    accepted = []
+    for raw in filter(None, env_value.split(",")):
+        tok = raw.strip()
+        if not _TOKEN_SHAPE.match(tok):
+            print("[hub] REJECTED enrollment token: not mint-shaped "
+                  "(unexpanded $variable or placeholder?); refusing to make "
+                  "it a live credential", file=sys.stderr)
+            continue
+        registry.add_enrollment_token(tok)
+        accepted.append(tok)
+    pruned = registry.prune_enrollment_tokens(_TOKEN_SHAPE.match)
+    if pruned:
+        print(f"[hub] PRUNED {pruned} stored enrollment token(s) that are "
+              "not mint-shaped (placeholder loaded by an older hub?); they "
+              "were usable credentials", file=sys.stderr)
+    return accepted
+
+
 def main() -> int:
     args = parse_args(sys.argv[1:])
     config = Config.from_env()
@@ -55,12 +88,13 @@ def main() -> int:
     server = create_server(config)
     state = server.hub_state  # type: ignore[attr-defined]
 
-    # Load one-time enrollment tokens from the env drop-in (never committed).
+    # Load one-time enrollment tokens from the env drop-in (never committed),
+    # refusing unexpanded placeholders on the way in.
     # // spec: mon-monitor-hub-01 — the credential half of the requirement: hub
     # secrets are env-only, so no committed file carries a token. The runbook
     # half (machine duties documented off-repo) is docs/runner-monitor-monitor-hub.md.
-    for raw in filter(None, os.environ.get("HUB_ENROLLMENT_TOKENS", "").split(",")):
-        state.registry.add_enrollment_token(raw.strip())
+    load_enrollment_tokens(state.registry,
+                           os.environ.get("HUB_ENROLLMENT_TOKENS", ""))
     state.registry.save()
 
     stop = threading.Event()

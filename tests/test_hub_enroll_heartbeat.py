@@ -321,6 +321,67 @@ def test_enroll_rejects_a_non_string_name_400_not_500(tmp_path):
         hub.close()
 
 
+def test_load_enrollment_tokens_refuses_an_unexpanded_placeholder(tmp_path, capsys):
+    """The live hub's registry carried '$NEW' as a VALID enrollment token
+    (measured 2026-09-26): the operator's minting command was single-quoted
+    somewhere, the variable reached the env drop-in unexpanded, and
+    hub.main's startup loop loaded any non-empty string as a credential.
+    A placeholder is a PREDICTABLE enrollment token — anyone who has read
+    the runbook's <tok> shape can enroll. Refused at load with a loud log
+    (never the value: a near-miss token may be real); the valid tokens in
+    the same env still load — one typo must not cost the fleet monitoring."""
+    from hub.main import load_enrollment_tokens
+    from hub.registry import Registry
+
+    reg = Registry(str(tmp_path / "runners.json"))
+    accepted = load_enrollment_tokens(reg, "$NEW, real-token-aaaaaaaaaaaaaaaa")
+    stored = reg._data["enrollment_tokens"]
+    assert "$NEW" not in stored, "an unexpanded placeholder became a live credential"
+    assert "real-token-aaaaaaaaaaaaaaaa" in stored
+    assert accepted == ["real-token-aaaaaaaaaaaaaaaa"]
+    captured = capsys.readouterr()
+    noisy = captured.out + captured.err
+    assert "REJECTED" in noisy, "the refusal was silent — a typo'd token must be loud"
+    assert "$NEW" not in noisy, "the refused value must not be logged"
+
+
+def test_startup_prunes_a_placeholder_a_previous_load_let_in(tmp_path):
+    """The env-path refusal alone cannot heal a hub that already stored the
+    placeholder — the live registry measured '$NEW' in enrollment_tokens
+    under the old loader, and it would ride the volume across restarts.
+    Startup prunes stored tokens that are not mint-shaped, and stays quiet
+    (no spurious log) when there is nothing to prune."""
+    from hub.main import load_enrollment_tokens
+    from hub.registry import Registry
+
+    reg = Registry(str(tmp_path / "runners.json"))
+    reg.add_enrollment_token("$NEW")          # what the old loader persisted
+    reg.add_enrollment_token("keeper-token-aaaaaaaaa")
+    load_enrollment_tokens(reg, "")           # restart with nothing new
+    stored = reg._data["enrollment_tokens"]
+    assert "$NEW" not in stored, "the placeholder survived a restart"
+    assert "keeper-token-aaaaaaaaa" in stored
+    # nothing left to prune: a second startup must not re-log
+    assert load_enrollment_tokens(reg, "keeper-token-aaaaaaaaa") == \
+        ["keeper-token-aaaaaaaaa"]
+
+
+def test_load_enrollment_tokens_loads_valid_ones_verbatim(tmp_path):
+    """Negative control for the guard above: minted shapes (hex, urlsafe)
+    pass untouched, surrounding whitespace from line-wrapped drop-ins is
+    stripped, and empty entries from trailing commas are skipped — the
+    placeholder check must not eat real tokens."""
+    from hub.main import load_enrollment_tokens
+    from hub.registry import Registry
+    from hub import tokens
+
+    minted = tokens.mint_token()
+    reg = Registry(str(tmp_path / "runners.json"))
+    accepted = load_enrollment_tokens(reg, f" {minted} , , ")
+    assert accepted == [minted]
+    assert reg._data["enrollment_tokens"] == [minted]
+
+
 def test_health_reports_polling_state_for_watchdogs(tmp_path):
     """A spoke watchdog must not read "no PAT configured" as "hub is dead".
 

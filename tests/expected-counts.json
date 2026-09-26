@@ -37,7 +37,7 @@
   "test_hub_coherence_schema": 21,
   "test_hub_coherence_store": 6,
   "test_hub_coherence_verify_cli": 10,
-  "test_hub_enroll_heartbeat": 9,
+  "test_hub_enroll_heartbeat": 12,
   "test_hub_monitor": 15,
   "test_hub_registry": 18,
   "test_hub_scan_view": 10,

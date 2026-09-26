@@ -163,7 +163,17 @@ chmod 600 ~/.config/containers/systemd/devgate-hub.container.d/secrets.env
 ```
 
 `HUB_ENROLLMENT_TOKENS` is a comma-separated list; mint one per spoke you intend
-to enroll so each can be consumed independently and revoked by removal.
+to enroll so each can be consumed independently and revoked by removal:
+
+```bash
+python3 -c 'import secrets; print(secrets.token_hex(24))'   # one token per spoke
+```
+
+Mint, then replace `<tok1>`/`<tok2>` in the file above — the hub **refuses**
+entries that are not mint-shaped (16+ of `[A-Za-z0-9_-]`) and says so on stderr,
+because an unexpanded `$variable` or a pasted placeholder is a *predictable*
+credential anyone who has read this file could enroll with. A placeholder
+already stored by an older hub is pruned at the next restart.
 
 Without `GITHUB_TOKEN` the hub still serves heartbeats but every API check is
 skipped — it logs loudly rather than passing silently.
