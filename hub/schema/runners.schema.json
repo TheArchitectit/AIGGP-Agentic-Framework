@@ -29,7 +29,7 @@
       "properties": {
         "_comment": { "type": "array", "items": { "type": "string" } },
         "name": { "type": "string" },
-        "repo": { "type": "string", "pattern": "^[^/]+/[^/]+$" },
+        "repo": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" },
         "labels": { "type": "array", "items": { "type": "string" } },
         "host_alias": { "type": "string" },
         "enrolled_at": { "type": "string", "format": "date-time" },

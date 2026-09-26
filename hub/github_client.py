@@ -83,9 +83,20 @@ class GitHubClient:
             if status == 200:
                 return (status, body)
             if status in (403, 429):
-                # Rate limited — honor Retry-After header if present.
-                retry_after = body.get("retry_after") or body.get("X-Retry-After")
-                wait = min(int(retry_after) if retry_after else (2 ** attempt) * 10, self.backoff_max)
+                # Rate limited. GitHub carries Retry-After in the HEADERS (this
+                # transport returns only the parsed body, so a body field is a
+                # proxy convention); a non-numeric value must fall back to
+                # backoff instead of raising — an exception here skips the
+                # rest of that repo's checks for the cycle. `body` can also be
+                # a list on odd responses, hence the isinstance guard.
+                retry_after = body.get("retry_after") if isinstance(body, dict) else None
+                wait = (2 ** attempt) * 10
+                if retry_after:
+                    try:
+                        wait = int(retry_after)
+                    except (TypeError, ValueError):
+                        pass
+                wait = min(wait, self.backoff_max)
                 log.warning("rate limited on %s (attempt %d/%d), backing off %ds",
                             path, attempt + 1, max_retries, wait)
                 time.sleep(wait)

@@ -15,6 +15,7 @@ this handler stays thin.
 
 from __future__ import annotations
 
+import copy
 import json
 import re
 import threading
@@ -25,7 +26,28 @@ from . import tokens
 from .config import Config
 from .registry import UNREPORTED, Registry
 
-REPO_RE = re.compile(r"^[^/]+/[^/]+$")
+# A strict owner/name: the repo string flows into API paths
+# (f"/repos/{repo}/...") and the registry schema. The old `[^/]+` accepted
+# query strings, `..` segments, and trailing newlines — none of which are
+# valid in a repository name, all of which alter the request. `\Z`, not `$`:
+# Python's `$` tolerates exactly one trailing newline.
+REPO_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\Z")
+
+# Bodies are read before any auth check (/enroll authenticates via its token,
+# which lives IN the body), so trusting Content-Length hands any client an
+# unauthenticated allocation up to 2 GB — doubled again by decode(). Every
+# legitimate payload here is a small JSON object.
+MAX_BODY_BYTES = 64 * 1024
+
+# Returned by a locked enroll when the name is taken: the duplicate check must
+# run inside the critical section (a pre-check outside it let two concurrent
+# enrolls with different valid tokens both pass and both append), and the
+# caller still needs 409 distinct from 401.
+ALREADY_ENROLLED = object()
+
+
+class PayloadTooLarge(Exception):
+    """Content-Length over MAX_BODY_BYTES — raised before the body is read."""
 
 
 class HubState:
@@ -58,9 +80,22 @@ class HubState:
         """Run fn(registry) under the state lock, saving on success."""
         with self._lock:
             result = fn(self.registry)
-            if result is not False:
+            if result is not False and result is not ALREADY_ENROLLED:
                 self.registry.save()
             return result
+
+    def runners_snapshot(self):
+        """Deep copies of the runner records, taken under the lock.
+
+        HTTP threads mutate runner dicts in place (heartbeat writes
+        last_heartbeat, image_digest, image_reason and scan_state as separate
+        assignments) while the monitor thread reads them field by field. An
+        unlocked read can land between those assignments — a new digest with
+        the old reason — and the readiness checks that gate on the pair would
+        decide from a report that never existed.
+        """
+        with self._lock:
+            return copy.deepcopy(self.registry.runners())
 
 
 def _parse_ts(value: str | None) -> datetime | None:
@@ -83,6 +118,13 @@ class HubHandler(BaseHTTPRequestHandler):
     def _read_json(self) -> dict | None:
         try:
             length = int(self.headers.get("Content-Length", 0))
+        except ValueError:
+            return None
+        if length > MAX_BODY_BYTES:
+            # Refused BEFORE reading: the 413 is sent by do_POST, which owns
+            # the response so a handler never answers twice.
+            raise PayloadTooLarge()
+        try:
             return json.loads(self.rfile.read(length).decode()) if length else None
         except (ValueError, UnicodeDecodeError):
             return None
@@ -118,14 +160,20 @@ class HubHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):  # noqa: N802 (http.server API)
         state: HubState = self.server.hub_state
-        if self.path == "/enroll":
-            self._handle_enroll(state)
-        elif self.path == "/heartbeat":
-            self._handle_heartbeat(state)
-        elif self.path == "/revoke":
-            self._handle_revoke(state)
-        else:
-            self._send(404, {"ok": False, "error": "not_found"})
+        try:
+            if self.path == "/enroll":
+                self._handle_enroll(state)
+            elif self.path == "/heartbeat":
+                self._handle_heartbeat(state)
+            elif self.path == "/revoke":
+                self._handle_revoke(state)
+            else:
+                self._send(404, {"ok": False, "error": "not_found"})
+        except PayloadTooLarge:
+            # Raised before the body was read; the connection is HTTP/1.0 and
+            # closes on this response, so the unread body is discarded.
+            self._send(413, {"ok": False, "error": "payload_too_large",
+                             "max_bytes": MAX_BODY_BYTES})
 
     # --- /enroll (mon-enroll-01) ---------------------------------------------
 
@@ -154,11 +202,17 @@ class HubHandler(BaseHTTPRequestHandler):
             self._send(400, {"ok": False, "error": "bad_request",
                              "detail": "runner_name has surrounding whitespace"})
             return
-        if state.registry.find_runner(runner_name) is not None:
-            self._send(409, {"ok": False, "error": "already_enrolled"})
-            return
-        # One-time enrollment token: verify AND consume before recording identity.
+        # One-time enrollment token: verify AND consume before recording
+        # identity. The duplicate-name check runs inside the same locked
+        # section as the consume: the old pre-check sat outside the lock, so
+        # two concurrent enrolls with the same name and two different valid
+        # tokens both passed it and both appended — a duplicate registry entry
+        # whose second token keeps working while its twin's health goes stale.
+        # Checking before consuming also means a rejected duplicate spends no
+        # token.
         def do_enroll(reg):
+            if reg.find_runner(runner_name) is not None:
+                return ALREADY_ENROLLED
             if not reg.consume_enrollment_token(presented or ""):
                 return False
             runner = reg.enroll(runner_name, repo, labels, host_alias)
@@ -166,7 +220,9 @@ class HubHandler(BaseHTTPRequestHandler):
                     "heartbeat_token": runner["heartbeat_token"]}
 
         result = state.with_registry(do_enroll)
-        if result is False:
+        if result is ALREADY_ENROLLED:
+            self._send(409, {"ok": False, "error": "already_enrolled"})
+        elif result is False:
             self._send(401, {"ok": False, "error": "unknown_or_revoked_token"})
         else:
             self._send(200, result)

@@ -125,9 +125,22 @@ class GitHubIssueNotifier(AlertSink):
                         issue_number, repo,
                         self.comment_cooldown_sec - (now_mono - last))
                 else:
-                    self._comment_on_issue(repo, issue_number, body)
-                    self._last_comment[key] = now_mono
-                    log.info("ALERT recurrence commented on #%d in %s", issue_number, repo)
+                    if self._comment_on_issue(repo, issue_number, body):
+                        self._last_comment[key] = now_mono
+                        log.info("ALERT recurrence commented on #%d in %s",
+                                 issue_number, repo)
+                    else:
+                        # The cached issue is unusable (closed, deleted,
+                        # locked) or the comment failed. Drop the dedupe entry
+                        # so the next recurrence re-searches — an open issue is
+                        # found again, a closed one leads to a fresh issue —
+                        # and leave _last_comment alone so the failure is not
+                        # re-suppressed for a whole cooldown window.
+                        self._open_issues.pop(key, None)
+                        log.warning(
+                            "ALERT recurrence comment failed on #%d in %s — "
+                            "dedupe entry dropped, next recurrence re-searches",
+                            issue_number, repo)
             else:
                 # First occurrence: file a new issue.
                 issue_number = self._file_issue(repo, title, body)
@@ -197,16 +210,22 @@ class GitHubIssueNotifier(AlertSink):
             log.error("issue filing failed for %s: HTTP %d %s", repo, e.code, err_body[:200])
         return None
 
-    def _comment_on_issue(self, repo: str, issue_number: int, body: str) -> None:
-        """Post a comment on an existing issue (recurrence)."""
+    def _comment_on_issue(self, repo: str, issue_number: int, body: str) -> bool:
+        """Post a comment on an existing issue (recurrence). True when posted.
+
+        The caller needs the outcome: a swallowed failure used to advance the
+        cooldown anyway, which suppressed the next genuine attempt for an hour.
+        """
         url = f"{self.api_base}/repos/{repo}/issues/{issue_number}/comments"
         payload = json.dumps({"body": body}).encode()
         req = urllib.request.Request(url, data=payload, headers=self._headers(), method="POST")
         try:
             with urllib.request.urlopen(req, timeout=30) as resp:
                 resp.read()
+            return True
         except urllib.error.HTTPError as e:
             log.error("issue comment failed for %s#%d: HTTP %d", repo, issue_number, e.code)
+            return False
 
     def _format_body(self, repo: str, check_class: str, runner: str, detail: str) -> str:
         return (
