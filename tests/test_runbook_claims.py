@@ -147,6 +147,92 @@ def test_readme_indexes_every_runbook_with_a_scenario():
         assert scenario.strip(), f"{link} is indexed with an empty scenario"
 
 
+def _bash_bodies_from(path):
+    """Every string literal in `path` that resolves to a bash script body.
+
+    Parses with `ast` and folds adjacent/`+` string concatenation so a stub
+    written as a chain of literals (the fixture's style) is one body, then
+    keeps those starting with a bash shebang. f-strings are skipped: their
+    substitutions are not statically known, and no bash stub here uses one.
+    """
+    import ast
+
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+
+    def literal(node):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            return node.value
+        if isinstance(node, ast.JoinedStr):
+            return None
+        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+            left, right = literal(node.left), literal(node.right)
+            if left is not None and right is not None:
+                return left + right
+            return None
+        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mult):
+            # "e" * 40 — a stub body may repeat a character statically; if
+            # either side is not a plain literal, the body is not static and
+            # is skipped (returning None) rather than mis-sliced.
+            a, b = node.left, node.right
+            if (isinstance(a, ast.Constant) and isinstance(a.value, str)
+                    and isinstance(b, ast.Constant) and isinstance(b.value, int)):
+                return a.value * b.value
+            if (isinstance(b, ast.Constant) and isinstance(b.value, str)
+                    and isinstance(a, ast.Constant) and isinstance(a.value, int)):
+                return b.value * a.value
+            return None
+        return None
+
+    bodies = []
+
+    def visit(node):
+        # Only MAXIMAL string expressions get evaluated: the operand of a
+        # `+` is not independently a body, and linting a lone shebang
+        # fragment would flag a syntax error that names no real defect.
+        if isinstance(node, (ast.Constant, ast.BinOp)) and literal(node) is not None:
+            value = literal(node)
+            if value.startswith("#!/usr/bin/env bash"):
+                bodies.append(value)
+            return
+        for child in ast.iter_child_nodes(node):
+            visit(child)
+
+    visit(tree)
+    return bodies
+
+
+def test_generated_shell_stubs_are_syntactically_valid_bash():
+    """2026-09-26 class: an explicit-encoding sweep pasted `, encoding="utf-8")`
+    into bash `case` patterns INSIDE write_text string literals — the same
+    nested-encoding confusion its own commit message warns about, at the
+    string layer. The corruption broke six tests by SIDE EFFECT (a `case`
+    arm that never matches, so podman `info` produced nothing). It was
+    syntactic, so `bash -n` over every generated stub body catches the class
+    directly, not via a behavior that happens to notice. Scans the whole
+    tests/ tree, so a stub in any file is covered — the writers can move and
+    the lint still reaches them.
+    """
+    import subprocess
+    import tempfile
+
+    bodies = []
+    for f in sorted((REPO / "tests").rglob("*.py")):
+        bodies.extend((f, b) for b in _bash_bodies_from(f))
+    assert len(bodies) >= 6, \
+        f"only {len(bodies)} bash stub bodies found across tests/ — the " \
+        "writers moved or the extractor broke; this lint is vacuous"
+    with tempfile.TemporaryDirectory() as td:
+        for i, (src_file, body) in enumerate(bodies):
+            f = Path(td) / f"stub{i}.sh"
+            f.write_text(body, encoding="utf-8")
+            r = subprocess.run(["bash", "-n", str(f)],
+                               capture_output=True, text=True,
+                               encoding="utf-8", errors="replace", timeout=30)
+            assert r.returncode == 0, \
+                f"bash stub in {src_file.relative_to(REPO)} is not valid " \
+                f"bash: {r.stderr.strip()}"
+
+
 def main() -> int:
     import pytest
     sys.exit(pytest.main([__file__, "-q"]))

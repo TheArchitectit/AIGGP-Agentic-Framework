@@ -22,6 +22,11 @@ of the repo alone, and names the test that must notice:
                 pointing at a unit that no longer exists. (test_runner_enroll
                 shares this killer honestly: a real unit rename SHOULD break
                 both, and the mutation proves neither silently ignores it.)
+  M5 bash-lint: reintroduce the 2026-09-26 corruption verbatim — the encoding
+                sweep pasted `, encoding="utf-8")` into the podman stub's
+                case arm. Six tests caught it only by SIDE EFFECT; the stub
+                body is syntactically invalid bash, and the lint test names
+                the file directly.
 
 Negative control N1: a benign wording edit touching no anchor — the suite MUST
 survive it. A battery that reported a survivor here as a kill would be
@@ -38,11 +43,13 @@ BEHAVIOR = CLAIMS + "::test_each_s6_behavior_has_a_named_runbook_home"
 CODES = CLAIMS + "::test_cited_coherence_exit_codes_match_result_constants"
 INDEX = CLAIMS + "::test_readme_indexes_every_runbook_with_a_scenario"
 MIGRATION = CLAIMS + "::test_migration_guide_anchors_exist_in_the_scripts"
+BASH = CLAIMS + "::test_generated_shell_stubs_are_syntactically_valid_bash"
 
 DOC_OUTAGE = "docs/runbooks/hub-outage.md"
 DOC_README = "docs/runbooks/README.md"
 RES = "hub/coherence/result.py"
 LIB = "scripts/lib/runner-units.sh"
+SPOKE = "tests/fixtures/runner_spoke.py"
 
 MUTATIONS = [
     ("M1: outage behavior anchor edited out of its runbook",
@@ -60,6 +67,9 @@ MUTATIONS = [
      [(LIB, '"$STATE_DIR/devgate-heartbeat.service"',
        '"$STATE_DIR/devgate-heartbeat-X.service"')],
      [MIGRATION], {}),
+    ("M5: the 2026-09-26 encoding-sweep corruption reintroduced — a kwarg pasted into a bash case arm",
+     [(SPOKE, "'  info)\\n'", "'  info, encoding=\"utf-8\")\\n'")],
+     [BASH], {}),
 ]
 
 NEGATIVE_CONTROLS = [

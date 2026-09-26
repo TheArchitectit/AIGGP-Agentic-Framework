@@ -68,7 +68,7 @@
   "test_workflow_read": 15,
   "test_hub_coherence_traceability": 7,
   "test_hub_monitor_default_deny": 4,
-  "test_runbook_claims": 3
+  "test_runbook_claims": 4
  },
  "total_floor": 896
 }
