@@ -814,7 +814,38 @@ sprints. Findings and dispositions:
       used, per the relocation lesson. Full gate battery: pytest 1001/5-skipped, node runner green,
       openspec strict 36/36, silent-success scan OK, `regression_check --all` 0 hard,
       `git diff --check` clean, exec bit verified via `git ls-tree`.
-- [ ] Account for repo-scoped runners and multi-runner hosts: stock `runner-enroll.sh` is single-runner-per-host (fixed unit names); per-runner units (`devgate-hb-<name>.{service,timer}`) where a host runs multiple spokes (coh-int-07).
+- [x] Account for repo-scoped runners and multi-runner hosts: stock `runner-enroll.sh` is single-runner-per-host (fixed unit names); per-runner units (`devgate-hb-<name>.{service,timer}`) where a host runs multiple spokes (coh-int-07).
+      CLOSED 2026-09-26 as **ledger drift, not missing work** — the line described `runner-enroll.sh` as it
+      was before `bfb7e99` (2026-09-22, "fix(runner-enroll): per-runner units + a script-based ExecStart"),
+      which moved every unit and the env file to runner-scoped names (`devgate-hb-<name>`,
+      `devgate-watchdog-<name>`, `devgate-imgcycle-<name>`, `devgate-secretscan-<name>`,
+      `devgate-heartbeat-<name>.env`) with a `remove_legacy_units` migration. The premise text stayed;
+      the code moved. Both halves of the requirement are now pinned where they live:
+      **(spoke half)** `tests/test_runner_enroll.py` + `tests/test_runner_enroll_sweep.py` —
+      `test_second_enroll_does_not_clobber_the_first`, `test_units_started_are_named_for_the_runner`,
+      `test_legacy_units_are_retired_for_the_runner_being_reenrolled`,
+      `test_legacy_units_are_left_when_they_belong_to_another_runner`,
+      `test_colliding_runner_names_are_refused_not_merged`,
+      `test_revoke_does_not_delete_another_runners_units`, `test_the_sweep_units_are_named_for_the_runner`
+      (and the sentinel/slash/directory-name edge cases) — the multi-spoke claims each have a named pin.
+      **(fleet half, in the same repo where coh-int-07 lives)** the hub side was shipped in the
+      coh-int-01/06 branch-scoping slice: `hub/monitor.py` iterates registered repos and evaluates each
+      repo's own coherence workflow against that repo's watched branches, dedupe follows the existing
+      `(repo, check-class, runner)` key (`hub/alerts.py`), and "no watched branches configured" raises
+      the explicit `coherence_unconfigured` no-op rather than a silent pass — pinned by
+      `test_check_spec_coherence_ignores_runs_on_unwatched_branches`,
+      `test_check_spec_coherence_no_watched_branches_alerts_unconfigured`, and the matcher-independence
+      test in `tests/test_hub_spec_coherence.py`.
+      **(live-host confirmation, measured 2026-09-26 on ucs03)** `systemctl --user` shows 8
+      `devgate-hb-<name>` heartbeat units (the name form the line asked for, e.g.
+      `devgate-hb-ucs03-devgate`, `devgate-hb-ucs03-gamerepo02`, `devgate-hb-ucs03-radgateway`) with
+      matching `devgate-watchdog-<name>` units, alongside 12+ per-spoke runner daemon units
+      (`devgate-runner-<spoke>.service` — the runners themselves, provisioned by the 2026-09-25
+      two-tier rebalance, not by enroll). One host, many spokes, exactly the topology the line
+      demanded; zero fixed-name legacy units remain on disk.
+      No new code: the requirement's artifacts existed, tested, and running four days before this
+      checkbox read them. What the closure adds is the citation trail so the next reader does not
+      re-open it.
 - [ ] Outage, mirror, cached-attestation, protocol-mismatch behavior; migration guide + operator runbook.
 - [ ] Real pilots behind R9 provenance, now that fleet recon confirms the repos are real registered spokes: gamerepo01 (runner `ucs03-game` — was `dell-u2-game` before the 2026-09-25 two-tier rebalance; both it and `u85-game` are now offline), gamerepo02/LobsterWars (`ucs03-gamerepo02`, registered + online since 2026-09-25 — this closes the earlier "no runner behind the label" gap), and one clean repo; capture lineage/13-violation facts from the real repos with owner approval before labeling fixtures non-synthetic; Stage 2 ratchet demo blocks a new violation while named debt remains advisory.
 
