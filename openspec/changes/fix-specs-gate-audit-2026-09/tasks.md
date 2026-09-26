@@ -420,16 +420,35 @@ disposition rule this package set.
 - [x] Do not mark AIGGP-00/-09/-10 closed. They depend on the AIGGP program.
       This ledger tracks the *drift audit's* findings, not package acceptance.
 
-## Open note — the permanently-empty shape survives in `guardrails-scan` scoping
+## Closed note — the permanently-empty shape in `guardrails-scan` scoping (resolved 2026-09-26)
 
-- [ ] `semantic-scan`'s walk gained `.mjs`/`.cjs` on 2026-09-26 (closing the
+- [x] `semantic-scan`'s walk gained `.mjs`/`.cjs` on 2026-09-26 (closing the
       coherence package's S0 carry-forward), but `guardrails-scan.mjs`'s
-      `SOURCE_EXTENSIONS` still omits `.mjs` — and this repo's first-party JS
+      `SOURCE_EXTENSIONS` still omitted them — and this repo's first-party JS
       is 100% `.mjs`. The pattern-scan rules scoped by file_glob (`*.js`/`*.ts`
-      family globs) therefore evaluate none of this repo's own modules. Not a
-      root escape (the root is correct and pinned) — the *extension scoping* is
-      the hollow part. Decision owed: add `.mjs`/`.cjs` to `SOURCE_EXTENSIONS`
-      and re-baseline any new rule hits, or record the rules as bundle-only
-      (meant for consumers, not DevGate-itself) so the emptiness is declared,
-      not discovered. Left open deliberately: it changes what a shipped gate
-      evaluates and deserves its own evidence pass, not a ride-along commit.
+      family globs) therefore evaluated none of this repo's own modules. Not a
+      root escape (the root is correct and pinned) — the *extension scoping*
+      was the hollow part. Decision owed: add `.mjs`/`.cjs` to
+      `SOURCE_EXTENSIONS` and re-baseline any new rule hits, or record the
+      rules as bundle-only (meant for consumers, not DevGate-itself) so the
+      emptiness is declared, not discovered. Left open deliberately: it changes
+      what a shipped gate evaluates and deserves its own evidence pass, not a
+      ride-along commit.
+      **Disposition: scoped IN, evidence pass first.** Probe (fix applied to a
+      working copy, full repo scan): **zero new findings attributable to
+      `.mjs`/`.cjs`** — all 9 warnings were pre-existing `.py` PREVENT-024
+      hits, exit 0 — so no re-baseline was owed. Pin: section 15 of
+      `tests/test_guardrails_scan.mjs` (violating `.mjs`/`.cjs` files in a
+      synthetic project reported, clean `.mjs` not), verified RED before the
+      fix and green after. One consequence the probe surfaced that section 15
+      does not cover: with `.mjs` files now walked, `isCommentLine`'s extension list
+      also gained `.mjs`/`.cjs`, mirroring the Zig precedent — without it,
+      `scan_comments: true` rules (severity warning or error; this repo's
+      PREVENT-020 is severity `info` and never runs here, but a consumer's
+      retuned copy would) would treat a comment-only `// TODO` line in any
+      walked `.mjs` file as code. Caveat recorded honestly:
+      **no bundled rule yet carries a `*.mjs` glob**, so real bundled-rule
+      coverage of the walked files still awaits rule retuning — the walk is
+      fixed (files are now eligible for any glob that names them), the
+      fixture proves eligibility with a custom rule, and the repo no longer
+      prints "clean" on files it never read.
