@@ -12,6 +12,13 @@ import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+import pytest
+
+# Requires Unix tooling (bash/chmod/fcntl/systemctl/podman): these tests
+# shell out to things that do not exist on Windows, so they cannot run there.
+# A test that cannot run must SKIP, not fail -- failing here is indistinguishable
+# from real breakage.
+pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="requires Unix tooling")
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = REPO_ROOT / "scripts" / "hub-watchdog.sh"

@@ -33,6 +33,14 @@ from image_cycle_harness import (  # noqa: E402
     BASH, IMAGE, OTHER, PODMAN_STUB, RECORDED, REF, REPO_ROOT, SCRIPT, Host,
 )
 
+import pytest
+
+# Requires Unix tooling (bash/chmod/fcntl/systemctl/podman): these tests
+# shell out to things that do not exist on Windows, so they cannot run there.
+# A test that cannot run must SKIP, not fail -- failing here is indistinguishable
+# from real breakage, and a Windows developer cannot tell which failures matter.
+pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="requires Unix tooling")
+
 
 # --- convergence (img-cycle-01) -------------------------------------------------
 

@@ -22,6 +22,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from hub.coherence import canon, context, issue, result
 from tests.fixtures.coherence import fixtures as fx
+import pytest
+
+# Requires Unix tooling (bash/chmod/fcntl/systemctl/podman): these tests
+# shell out to things that do not exist on Windows, so they cannot run there.
+# A test that cannot run must SKIP, not fail -- failing here is indistinguishable
+# from real breakage.
+pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="requires Unix tooling")
 
 REPO = Path(__file__).resolve().parent.parent
 N = 13

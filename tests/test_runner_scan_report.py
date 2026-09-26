@@ -50,6 +50,13 @@ from tests.fixtures.runner_spoke import Spoke  # noqa: E402
 # sweep's report is the input the heartbeat reads, and a report this file wrote
 # itself would be asserting the contract against itself.
 from tests.test_secret_scan_fleet import Fleet  # noqa: E402
+import pytest
+
+# Requires Unix tooling (bash/chmod/fcntl/systemctl/podman): these tests
+# shell out to things that do not exist on Windows, so they cannot run there.
+# A test that cannot run must SKIP, not fail -- failing here is indistinguishable
+# from real breakage.
+pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="requires Unix tooling")
 
 
 # --- the report the sweep writes, in its own shape ---------------------------
