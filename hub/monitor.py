@@ -16,6 +16,8 @@ this module is the polling POLICY — what to check, and what to alert on.
 // spec: mon-channels-01, mon-online-01, mon-queue-01, mon-gates-01, mon-drift-01
 // spec: secret-scan-07 — the hub-side rendering of the fleet sweep's state, via
 // scan_view.scan_alerts (see hub/scan_view.py); this module only raises them.
+// spec: coh-int-05 — the monitor is the FLEET ADAPTER for the coherence gate's
+// CI conclusion; any non-passing conclusion must surface, never default-allow.
 """
 
 from __future__ import annotations
@@ -33,6 +35,19 @@ from .scan_view import scan_alerts
 from .server import HubState
 
 log = logging.getLogger("hub.monitor")
+
+# coh-int-05 (fleet half): the monitor TRANSPORTS the gate workflow's
+# conclusion — an adapter does not compute one — so EVERY conclusion GitHub
+# can attribute to a watched run except a pass must surface. Classifying only
+# `failure` leaves timed_out/cancelled/action_required/neutral/stale to fall
+# through to the recency window, where a FRESH such run reads healthy: the
+# default-allow the requirement forbids. The membership is GitHub's documented
+# run-conclusion enum minus `success` (a pass) and `skipped` — absent on
+# purpose because coh-int-06 gives the skip its own class (its presence is
+# pinned by tests/test_hub_monitor_default_deny.py, so deleting this line's
+# contract cannot pass the suite).
+NON_PASSING_CONCLUSIONS = frozenset(
+    {"failure", "timed_out", "cancelled", "action_required", "neutral", "stale"})
 
 
 class MonitorLoop:
@@ -279,7 +294,7 @@ class MonitorLoop:
 
             for check in body.get("check_runs", []):
                 conclusion = check.get("conclusion")
-                if conclusion in ("failure", "timed_out"):
+                if conclusion in NON_PASSING_CONCLUSIONS:
                     self._raise_alert(
                         repo, "gate_failure", check.get("name", "?"),
                         detail=f"conclusion={conclusion}, branch={branch}, sha={sha[:8]}")
@@ -323,11 +338,13 @@ class MonitorLoop:
             return
 
         latest = runs[0]
-        # Check if the latest run failed.
-        if latest.get("conclusion") == "failure":
+        # Any non-passing conclusion alerts (coh-int-05 fleet half).
+        if latest.get("conclusion") in NON_PASSING_CONCLUSIONS:
             self._raise_alert(
                 repo, "drift_failed", "?",
-                detail=f"latest drift scan failed: {latest.get('html_url', '')}")
+                detail=f"latest drift scan did not pass "
+                       f"(conclusion={latest.get('conclusion')}): "
+                       f"{latest.get('html_url', '')}")
             return
 
         # Check recency: must have completed within one period + grace.
@@ -418,10 +435,14 @@ class MonitorLoop:
                        f"branch ({', '.join(branches)})")
             return
 
-        if latest.get("conclusion") == "failure":
+        if latest.get("conclusion") in NON_PASSING_CONCLUSIONS:
+            # coh-int-05 fleet half: ANY non-passing conclusion is reported,
+            # not just `failure` — a fresh timed_out/cancelled/… run must not
+            # fall through to the recency window and read healthy.
             self._raise_alert(
                 repo, "coherence_failure", "?",
-                detail=f"latest coherence run failed: "
+                detail=f"latest coherence run did not pass "
+                       f"(conclusion={latest.get('conclusion')}): "
                        f"{latest.get('html_url', '')}")
             return
 
