@@ -81,6 +81,65 @@ box means the work landed on this branch; an unchecked box is open and says why.
       files. The comment now says thousands and names the moving figure, so the
       claim cannot rot into a falsehood.
 
+### Regression and restoration, five days on (2026-09-26)
+
+The contract above was **quietly undone on main** and its escape class
+re-entered through data. Recorded here rather than quietly corrected, per the
+disposition rule this package set.
+
+- [x] **The deletion.** `9c19259` ("fix(container): COPY the change-package
+      schema dir into the evaluator image") deleted all 395 lines of
+      `tests/test_scanner_root_anchor.mjs` under a container-only commit
+      message. Nothing else in CI ran it — `ci.yml` had replaced its explicit
+      step with a comment claiming the fixture was "superseded by the python
+      root contract suite", which is false: `test_python_root_anchor.py` pins
+      only the three Python scanners (its file names the .mjs fixture once, in
+      its own docstring). The 14-check Node battery went to zero, leaving
+      all three Node scanners' root contract pinned by nothing.
+- [x] **The escape re-entered via data.** `cf3f6e4` (fw-scope-01, scope.json as
+      the single skip_dirs source) resolved `.guardrails/scope.json` by walking
+      up from `process.cwd()` in all three scanners — the root-anchor-01
+      ancestor-escape class again, this time choosing *which scope file to
+      trust* rather than which tree to scan. In `run-tests.mjs` the walk-up was
+      also broken outright: it called `dirname` without importing it, so any
+      invocation whose cwd lacked the contract crashed with
+      `ReferenceError: dirname is not defined` (repro: `cd scripts &&
+      node run-tests.mjs`). Production CI never hit either shape only because
+      it happens to run from the repo root where the first candidate hits.
+- [x] **Restored and repaired.** Fixture reinstated from `9c19259^` (the
+      `f55da46`-era 14-check version), then repaired for the scope contract:
+      every synthetic repo layout now plants `.guardrails/` beside the root it
+      claims (checks 2/4/5/8), so no check can pass vacuously on a missing
+      contract. All scanners' `findScope`/`SKIP_DIRS` now resolve from the
+      LAYOUT roots only (`projectRoot`/`devgateRoot`), never `process.cwd()`;
+      `run-tests.mjs`'s `findUp` deleted outright.
+- [x] **CI re-wired.** `ci.yml` regains an explicit
+      `node tests/test_scanner_root_anchor.mjs` step (visible by name, same
+      treatment as the Python suite) and the false "superseded" comment is
+      corrected to say what the Python suite actually pins.
+- [x] **The restored fixture did not kill the regression.** Run against the
+      `cf3f6e4` cwd-walk-up scope lookup, all original 14 checks stayed green —
+      case 6's foreign cwd carries no scope contract (a walk-up there throws
+      for a different, visible reason) and case 7 spawns with `cwd == repo`,
+      where cwd and layout agree. Added check 7b: `guardrails-scan` spawned
+      from a parent whose `.guardrails/scope.json` skips `src/`; a walk-up
+      reads the foreign contract, suppresses the trip file, and prints
+      "pattern scan clean" for a tree it never scanned. Against the mutant 7b
+      is the ONLY failure (exit 1, precisely that line); after revert 15/15
+      green. Same lesson as the 2026-09-21 fresh-eyes round: a restored pin is
+      a candidate pin until a mutant proves it.
+- **Evidence (2026-09-26):** fixture 15/15 green standalone (14 restored +
+  mutant-killing 7b); `run-tests.mjs`
+  994 passed / 65 files from both repo root and `scripts/` cwd (the crash
+  repro now completes); full gates green (pytest 994+5s, openspec 36/36
+  --strict, all 8 mutation batteries, silent-success scan, regression_check
+  hard-limit 0, `git diff --check`).
+- **Follow-up owed:** none for the escape itself, but the deletion pattern — a
+  test file vanishing under an unrelated message — is invisible to every gate
+  except the one it deletes. The explicit CI step restores *run-visibility*
+  (deleting the fixture next time turns the step red instead of silent); it is
+  not a pin against untracked deletion, and no current gate claims otherwise.
+
 ## MEDIUM — same escape class in the Python scanners (found by the S1 audit, NOT the external audit)
 
 - [x] **CLOSED (S8).** Three Python scanners resolved their root by marker
