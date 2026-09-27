@@ -157,6 +157,12 @@ class Registry:
         for key in ("version", "enrollment_tokens", "runners"):
             if key not in self._data:
                 raise RegistryError(f"registry missing required key: {key}")
+        # Boundary: every runner must have a non-empty name; malformed
+        # entries would corrupt the monitor's scan-state mappings.
+        for r in self._data.get("runners", []):
+            if not isinstance(r.get("name"), str) or not r.get("name"):
+                raise RegistryError(f"registry boundary: runner missing 'name': {r}")
+
 
     def save(self) -> None:
         """Atomic write: tmp file in the same directory, then os.replace."""
