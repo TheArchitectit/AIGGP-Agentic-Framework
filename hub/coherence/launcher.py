@@ -296,8 +296,16 @@ def run(ctx: dict, *, output_dir: Path, container_args=None,
         buf += chunk
         if len(buf) > cap:
             status = "output-overflow"
-            break
     if status != "completed":
         proc.kill()
-    proc.wait()
+        proc.wait()
+        # Deferred P2 / coh-rt-05 hardening: attempt container-level kill
+        # when running under container context; never raises.
+        try:
+            if os.environ.get("PODMAN_RUN") == "1" and ctx.get("image"):
+                subprocess.run(["podman", "kill", ctx.get("image").split("@")[0]],
+                               capture_output=True, timeout=2)
+        except Exception:
+            pass
+
     return LaunchRun(proc.returncode, bytes(buf), status)
