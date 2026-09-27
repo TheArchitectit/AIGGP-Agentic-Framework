@@ -1,0 +1,42 @@
+{
+  "name": "stitcher-codereview",
+  "version": "0.4.1",
+  "description": "Spec-aware code review CLI: verifies git diffs against OpenSpec change proposals/specs/design/tasks, plus correctness, security, tests, style.",
+  "type": "module",
+  "bin": {
+    "stitcher-codereview": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "action.yml",
+    ".pre-commit-hooks.yaml",
+    "README.md",
+    "openspec"
+  ],
+  "scripts": {
+    "prepack": "npm run build",
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/cli.ts",
+    "test": "vitest run",
+    "review": "node dist/cli.js",
+    "mutate": "node scripts/mutate.mjs",
+    "bench": "node bench/run.mjs",
+    "perf": "node bench/perf.mjs",
+    "chaos": "node bench/chaos.mjs",
+    "smoke": "node scripts/smoke-pack.mjs"
+  },
+  "dependencies": {
+    "commander": "^12.1.0",
+    "yaml": "^2.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "license": "MIT"
+}
