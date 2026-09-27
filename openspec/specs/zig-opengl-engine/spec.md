@@ -1,37 +1,85 @@
 # Zig + OpenGL Engine Support
 
-Status: Proposed. Adds quality gates for Zig + OpenGL game projects.
+Status: Proposed. Adds quality gates for Zig + OpenGL game projects. Enforcement
+layer invoked by game-type-phase-matrix, alongside the Godot scanner.
 
-## Overview
+## Purpose
 
-This spec extends devgate-game-framework to support Zig + OpenGL game projects.
-It provides engine-specific scene inventory and regression scanning for Zig
-codebases, complementing the existing Godot scanner.
+Extend the game gates to Zig + OpenGL projects: detect the engine, inventory UI
+screens and their handler bindings, and scan Zig/OpenGL source for the regression
+classes a "finished-looking" tree can hide. Prior to this, the scanners understood
+Godot only; a Zig project with no `.tscn` files was reported as empty and passed.
 
-## Engine Detection
+## Requirements
+
+### Requirement: engine detection follows the manifest then project files
+
+The scanners SHALL detect the project engine from `game-manifest.json`'s `engine`
+field, falling back to project markers (`project.godot` → Godot, `build.zig` →
+Zig + OpenGL), and SHALL treat an unrecognized engine as `unknown` rather than
+guessing, so both game gates agree on which pattern set applies.
+
+#### Scenario: Zig project without a manifest
+
+- **WHEN** a project has `build.zig` and no `game-manifest.json`
+- **THEN** the scanners report engine `Zig + OpenGL` and apply the Zig pattern set
+
+### Requirement: Zig UI screens are inventoried under src/ui
+
+The scene inventory SHALL discover `.zig` screens under `src/ui/`, extract
+`.label = "..."` buttons with their adjacent `.handler = "..."` bindings, and
+treat a non-internal function that no button references as an orphaned handler
+that fails the gate.
+
+#### Scenario: handler with no connecting button
+
+- **WHEN** a `src/ui/` screen declares a function that no `.label` button binds
+- **THEN** the gate fails and names the screen and the orphaned handler
+
+### Requirement: scan scope is declared by the project manifest
+
+The regression scanner SHALL union the project's `scan.exclude_dirs` with its
+built-in defaults (a project may add exclusions, never remove them), match
+exclusions on whole path components, and SHALL treat a missing `scan` key as
+"defaults apply" rather than an error, so cached third-party trees do not report
+findings nobody can fix.
+
+#### Scenario: vendored cache excluded
+
+- **WHEN** a project excludes `zig-pkg/` in `game-manifest.json`
+- **THEN** findings inside the vendored package are not reported
+
+### Requirement: Zig + OpenGL regression classes block staged changes
+
+The regression scanner SHALL apply the Zig + OpenGL pattern classes
+(`ZIG_COMPILE`, `ZIG_MEMORY`, `OPENGL_CTX`, `SHADER_FAIL`, `INPUT_CAPTURE`) to
+scanned source and SHALL exit nonzero under `--pre-commit` when a change matches
+a blocking pattern, with the pattern named.
+
+#### Scenario: compile error pattern reintroduced
+
+- **WHEN** a staged `.zig` change matches a `ZIG_COMPILE` pattern
+- **THEN** the scanner exits nonzero and cites the match
+
+## Engine detection
 
 The framework detects Zig + OpenGL projects via:
 
 1. `game-manifest.json` with `"engine": "Zig + OpenGL"`
-2. Presence of `build.zig` file
+2. Presence of a `build.zig` file
 
-## Scene Inventory (Zig)
+## Scene inventory (Zig)
 
-### Discovery
-- Scans `.zig` files under `src/ui/` only (UI screens)
-- Each file is a screen with entity definitions and handler functions
+- Discovery: `.zig` files under `src/ui/` only (UI screens). A project may declare
+  `scan.non_screen_files` in its manifest for container/dispatch files that are
+  legitimately not button-connected.
+- Validation: buttons (`.label = "..."`) must bind a handler (`.handler = "..."`);
+  handler functions without a bound button are orphaned and fail the gate.
+- Excluded internal functions (never orphaned): `init`, `update`, `render`,
+  `handle_input`, `deinit`, `show`, `hide`, `updateHUD`, `checkWarnings`,
+  `showAnimation`, `initScreen`, `showScreen`, `hideScreen`.
 
-### Validation
-1. **Screen export** — each UI file should export `init()`, `update()`, `render()`, `handle_input()`
-2. **Button handler binding** — every button (`.label = "..."`) should have a connected handler (`.handler = "..."`)
-3. **Orphan detection** — handler functions without connected buttons are flagged
-
-### Excluded Functions
-These internal functions are not considered orphaned:
-- `init`, `update`, `render`, `handle_input`, `deinit`, `show`, `hide`
-- `updateHUD`, `checkWarnings`, `showAnimation`, `initScreen`, `showScreen`, `hideScreen`
-
-## Regression Patterns (Zig)
+## Regression patterns (Zig)
 
 | ID | Type | Pattern | Description |
 |---|---|---|---|
@@ -46,112 +94,29 @@ These internal functions are not considered orphaned:
 | Z009 | INPUT_CAPTURE | `glfwSetKeyCallback` | Input callback registration |
 | Z010 | WEB_GL | `emscripten_set_main_loop` | Emscripten main loop |
 
-### Skeleton regressions (Z011-Z021)
+Skeleton regressions (Z011-Z021) are seeded from the Zombie Diver audit; their
+patterns pin known defect call sites. A regex cannot express "this file is
+missing" or "this type has no such method" — the general class is enforced by the
+compiler, mirroring the deliberate deviation recorded for `PREVENT-024`.
 
-Seeded from the Zombie Diver audit. Each records a way a Zig + OpenGL source tree
-can look complete while executing nothing — the failure mode that let a "finished"
-tree sit unchecked without ever compiling or rendering.
-
-| ID | Type | Detects |
-|---|---|---|
-| Z011 | BUILD_ASSET_MISSING | `@embedFile` target absent from the tree |
-| Z012 | DEP_BLOCKER | `defer` on a value whose type defines no `deinit` |
-| Z013 | TYPE_UNDEFINED | enum member referenced but never declared |
-| Z014 | NO_DRAW | geometry built but never uploaded or drawn |
-| Z015 | SHADER_UNLINKED | program id returned without a compile/link status check |
-| Z016 | VIEWPORT_HARDCODED | fixed window dimensions, no `glViewport` |
-| Z017 | INPUT_UNPOLLED | GLFW polling/callbacks commented out |
-| Z018 | COPY_MUTATE | value mutated through `HashMap.get()` instead of `getPtr()` |
-| Z019 | HANDLER_UNRESOLVABLE | UI handler referenced as a string naming no real type |
-| Z020 | ANIMATION_GROWTH | deactivated list entries never removed |
-| Z021 | PLACEHOLDER_ROTATION | unconditional stand-in for real input |
-
-Note on Z011/Z012: a regex cannot express "this file is missing" or "this type has
-no such method". Their patterns pin the known defect *call sites*; the general class
-is enforced by the compiler. This mirrors the deliberate deviation recorded for
-`PREVENT-024` in radredeye — a regex cannot do a semantic check.
-
-## Scan Scope (manifest-driven)
-
-The scanner must not decide scope from a hardcoded directory list: it cannot know a
-project's build layout, so it either reports findings inside cached dependencies
-(which nobody can fix, so the gate gets ignored) or misses real source.
-
-Projects declare their own exclusions in `game-manifest.json`:
-
-```json
-"scan": {
-  "exclude_dirs": ["external", "zig-pkg", "zig-out", ".zig-cache", "spool"],
-  "include_extensions": [".zig"]
-}
-```
-
-Rules:
-1. The scanner **unions** `exclude_dirs` with its built-in defaults. A project may
-   add exclusions; it may not remove the defaults.
-2. Exclusion matches whole path **components**, so `build` does not also match
-   `build-system`.
-3. A missing `scan` key is not an error — defaults apply, so existing projects keep working.
-
-Without this, scanning Zombie Diver reports 14 findings inside
-`zig-pkg/zgl-*/src/binding.zig`, a cached third-party package, and 0 in project code.
-
-
-## Game-Class Patterns (shared)
-
-These patterns from the Godot scanner also apply to Zig projects:
-
-| ID | Type | Description |
-|---|---|---|
-| F008 | AIR_DEPLETE | Air resource drains unexpectedly |
-| F009 | LIGHT_FAIL | Light source fails |
-| F010 | STAMINA_BROKEN | Stamina system broken |
-| F011 | ZOMBIE_PATHFIND | Zombie AI pathfinding failure |
-| F012 | WATER_EFFECTS | Underwater effects broken |
-| F013 | DEPTH_AMBIENT | Depth/atmosphere effects broken |
-
-## Module Structure
+## Module structure
 
 ```
-devgate-game-framework/
-├── engines/
-│   ├── godot/                    # Godot engine support (existing)
-│   └── zig-opengl/               # Zig + OpenGL engine support
-│       ├── __init__.py
-│       ├── scanner.py            # Zig screen scanner
-│       ├── manifest.py           # Engine detection
-│       └── patterns.json         # Zig regression patterns
-├── scripts/
-│   ├── scene_inventory.py        # Engine-aware dispatcher
-│   └── game_regression.py        # Engine-aware dispatcher
-└── openspec/specs/
-    ├── zig-opengl-engine/        # This spec
-    ├── game-type-phase-matrix/   # (add zig-opengl game types)
-    ├── per-screen-tracking/      # (add zig screen tracking)
-    └── game-regression/          # (add zig patterns)
+engines/zig-opengl/
+├── __init__.py
+├── scanner.py      # Zig screen scanner
+├── manifest.py     # Engine detection + manifest reader
+└── patterns.json   # Zig regression patterns
+openspec/specs/
+└── zig-opengl-engine/   # This spec
 ```
 
-## Usage
+## Reference implementation
 
-```bash
-# Auto-detect engine and scan
-python scripts/scene_inventory.py --all
-python scripts/game_regression.py --all
+Zombie Diver (`TheArchitectit/Zombie-Diver`) is the reference Zig + OpenGL
+implementation; the scanners were tested against its skeleton codebase.
 
-# Pre-commit mode
-python scripts/scene_inventory.py --staged --pre-commit
-python scripts/game_regression.py --staged --pre-commit
-```
+## Provenance
 
-## Reference Implementation
-
-Zombie Diver (`TheArchitectit/Zombie-Diver`) is the reference implementation
-for Zig + OpenGL engine support. All scripts have been tested against its
-skeleton codebase.
-
-## Seeding
-
-Port from:
-- `scripts/scene_inventory_zig.py` — Zig-adapted scene inventory
-- `scripts/game_regression_zig.py` — Zig-adapted regression scanner
-- `.guardrails/failure-registry.jsonl` — Zig-specific patterns (Z001-Z010)
+Imported from the former `devgate-game-framework` repository (source head
+`4b69262`), merged into this repository 2026-09-26.
