@@ -44,8 +44,8 @@ class GitHubClient:
         self._last_request_time = 0.0
 
     def _request(self, method: str, path: str, body: dict | None = None,
-                 accept: str = "application/vnd.github+json") -> tuple[int, dict | list]:
-        """Make an authenticated GitHub API request. Returns (status, parsed_body)."""
+                 accept: str = "application/vnd.github+json") -> tuple[int, dict | list, dict]:
+        """Make an authenticated GitHub API request. Returns (status, parsed_body, headers)."""
         url = f"{self.api_base}{path}"
         headers = {
             "Authorization": f"Bearer {self.token}",
@@ -61,35 +61,36 @@ class GitHubClient:
         try:
             with urllib.request.urlopen(req, timeout=30) as resp:
                 raw = resp.read().decode()
-                return resp.status, json.loads(raw) if raw else {}
+                headers = dict(resp.headers)
+                return resp.status, json.loads(raw) if raw else {}, headers
         except urllib.error.HTTPError as e:
             body_raw = e.read().decode() if e.fp else ""
+            headers = dict(e.headers) if e.headers else {}
             try:
                 parsed = json.loads(body_raw) if body_raw else {}
             except json.JSONDecodeError:
                 parsed = {"message": body_raw[:200]}
-            return e.code, parsed
+            return e.code, parsed, headers
 
-    def get(self, path: str) -> tuple[int, dict | list]:
+    def get(self, path: str) -> tuple[int, dict | list, dict]:
         return self._request("GET", path)
 
-    def post(self, path: str, body: dict) -> tuple[int, dict | list]:
+    def post(self, path: str, body: dict) -> tuple[int, dict | list, dict]:
         return self._request("POST", path, body=body)
 
     def get_with_backoff(self, path: str, max_retries: int = 3) -> tuple[int, dict | list] | None:
         """GET with exponential backoff on 403/429. Returns None if all retries exhausted."""
         for attempt in range(max_retries):
-            status, body = self.get(path)
+            status, body, headers = self.get(path)
             if status == 200:
                 return (status, body)
             if status in (403, 429):
-                # Rate limited. GitHub carries Retry-After in the HEADERS (this
-                # transport returns only the parsed body, so a body field is a
-                # proxy convention); a non-numeric value must fall back to
-                # backoff instead of raising — an exception here skips the
-                # rest of that repo's checks for the cycle. `body` can also be
-                # a list on odd responses, hence the isinstance guard.
-                retry_after = body.get("retry_after") if isinstance(body, dict) else None
+                # Rate limited. GitHub carries Retry-After in the response
+                # HEADERS; the transport now returns them, so this reads the
+                # real value rather than a body proxy field. A non-numeric
+                # value falls back to backoff instead of raising — an exception
+                # here skips the rest of that repo's checks for the cycle.
+                retry_after = headers.get("Retry-After") if headers else None
                 wait = (2 ** attempt) * 10
                 if retry_after:
                     try:
