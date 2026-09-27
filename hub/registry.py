@@ -162,6 +162,13 @@ class Registry:
         for r in self._data.get("runners", []):
             if not isinstance(r.get("name"), str) or not r.get("name"):
                 raise RegistryError(f"registry boundary: runner missing 'name': {r}")
+        # P3 hygiene / registry pending-commit warning (mon-enroll-01):
+        # runners missing an explicit commit timestamp are deferred.
+        import logging
+        log = logging.getLogger("hub.registry")
+        for r in self._data.get("runners", []):
+            if not r.get("committed_at") and not r.get("deferred"):
+                log.warning("registry pending-commit: runner %s has no committed_at (defer or resolve)", r.get("name"))
 
 
     def save(self) -> None:
