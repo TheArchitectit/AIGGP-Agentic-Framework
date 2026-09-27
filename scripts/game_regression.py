@@ -159,7 +159,7 @@ def glob_matches(path, globs):
 
 def iter_source_files(root, ignore_patterns=()):
     """Walk the tree collecting scannable source files, skipping SKIP_DIRS and ignores."""
-    exts = {".gd", ".ts", ".js", ".py", ".rs", ".go"}
+    exts = {".gd", ".ts", ".js", ".py", ".rs", ".go", ".zig"}
     files = []
     for dirpath, dirnames, filenames in os.walk(root):
         dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]

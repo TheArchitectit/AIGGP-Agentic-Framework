@@ -255,7 +255,6 @@ class MonitorLoop:
 
         threshold_sec = self.config.queue_threshold_min * 60
         now = datetime.now(timezone.utc)
-        registered_labels = {lbl for r in runners for lbl in r.get("labels", [])}
 
         for run in body.get("workflow_runs", []):
             created = parse_iso(run.get("created_at"))

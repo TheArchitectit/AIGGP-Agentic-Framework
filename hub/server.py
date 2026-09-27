@@ -50,6 +50,62 @@ class PayloadTooLarge(Exception):
     """Content-Length over MAX_BODY_BYTES — raised before the body is read."""
 
 
+class InvalidContentLength(Exception):
+    """Content-Length < 0 — refused BEFORE any read, answered as 400 by do_POST.
+
+    BufferedReader.read(n) with a negative n reads until EOF: on a socket that
+    is "hang until the client hangs up", so one unauthenticated connection
+    pins a request thread forever. A hub's spokes page on /health staleness;
+    enough pinned threads and the page fires while the hub is merely wedged.
+    Live-verified 2026-09-27 — the cap above only bounded the positive side.
+    """
+
+
+# Per-field caps: the body cap bounds the REQUEST, not what one field can do
+# to an issue body or a fleet table later. A 60 KB image_reason belongs in no
+# GitHub issue; labels are names, not payloads.
+FIELD_CAPS = {"image_digest": 512, "image_reason": 1024, "last_job_seen": 256}
+MAX_LABELS = 64
+MAX_LABEL_LEN = 128
+MAX_SCAN_REPOS = 256
+MAX_SCAN_REPO_NAME = 256
+MAX_SCAN_FIELD_LEN = 64
+
+
+def _labels_ok(labels) -> bool:
+    return (isinstance(labels, list) and len(labels) <= MAX_LABELS
+            and all(isinstance(l, str) and len(l) <= MAX_LABEL_LEN
+                    for l in labels))
+
+
+def _scan_state_ok(state) -> bool:
+    """Structural bound on the fleet-sweep report, not a vocabulary check.
+
+    scan_view renders any state word it does not whitelist as unknown, so the
+    boundary only has to guarantee shape and size — a hostile spoke must not
+    park a 60 KB string inside one repo record, but it is the renderer's job,
+    not the transport's, to judge the words.
+    """
+    if not isinstance(state, dict):
+        return False
+    repos = state.get("repos")
+    if repos is None:
+        return True
+    if not isinstance(repos, list) or len(repos) > MAX_SCAN_REPOS:
+        return False
+    for record in repos:
+        if not isinstance(record, dict):
+            return False
+        for key, value in record.items():
+            if isinstance(value, str):
+                cap = MAX_SCAN_REPO_NAME if key == "name" else MAX_SCAN_FIELD_LEN
+                if len(value) > cap:
+                    return False
+            elif not isinstance(value, (int, bool, type(None))):
+                return False
+    return True
+
+
 class HubState:
     """Shared mutable state: registry + liveness timestamps."""
 
@@ -98,10 +154,6 @@ class HubState:
             return copy.deepcopy(self.registry.runners())
 
 
-def _parse_ts(value: str | None) -> datetime | None:
-    if not value:
-        return None
-    return datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
 
 
 class HubHandler(BaseHTTPRequestHandler):
@@ -120,6 +172,11 @@ class HubHandler(BaseHTTPRequestHandler):
             length = int(self.headers.get("Content-Length", 0))
         except ValueError:
             return None
+        if length < 0:
+            # Refused BEFORE the read: a negative length would otherwise send
+            # rfile.read(-1) into read-until-EOF, pinning this thread until
+            # the client hangs up (see InvalidContentLength).
+            raise InvalidContentLength()
         if length > MAX_BODY_BYTES:
             # Refused BEFORE reading: the 413 is sent by do_POST, which owns
             # the response so a handler never answers twice.
@@ -174,6 +231,12 @@ class HubHandler(BaseHTTPRequestHandler):
             # closes on this response, so the unread body is discarded.
             self._send(413, {"ok": False, "error": "payload_too_large",
                              "max_bytes": MAX_BODY_BYTES})
+        except InvalidContentLength:
+            # The negative length was refused before reading; 400 is correct.
+            # No body was consumed, so nothing drains, and a malicious repeat
+            # can be rate-limited at the proxy / TLS layer.
+            self._send(400, {"ok": False, "error": "bad_request",
+                             "detail": "invalid_content_length"})
 
     # --- /enroll (mon-enroll-01) ---------------------------------------------
 
@@ -201,6 +264,10 @@ class HubHandler(BaseHTTPRequestHandler):
         if runner_name != runner_name.strip():
             self._send(400, {"ok": False, "error": "bad_request",
                              "detail": "runner_name has surrounding whitespace"})
+            return
+        if not _labels_ok(labels):
+            self._send(400, {"ok": False, "error": "bad_request",
+                             "detail": "labels must be a list of at most 64 short strings"})
             return
         # One-time enrollment token: verify AND consume before recording
         # identity. The duplicate-name check runs inside the same locked
@@ -236,6 +303,21 @@ class HubHandler(BaseHTTPRequestHandler):
             return
         runner_name = data.get("runner_name") or ""
         presented = data.get("heartbeat_token") or ""
+        for key, cap in FIELD_CAPS.items():
+            value = data.get(key)
+            if value is not None and (not isinstance(value, str) or len(value) > cap):
+                self._send(400, {"ok": False, "error": "bad_request",
+                                 "detail": f"{key} must be a string of at most {cap} characters"})
+                return
+        for key in ("disk_ok", "podman_ok"):
+            if key in data and data[key] is not None and not isinstance(data[key], bool):
+                self._send(400, {"ok": False, "error": "bad_request",
+                                 "detail": f"{key} must be a boolean or null"})
+                return
+        if data.get("scan_state") is not None and not _scan_state_ok(data["scan_state"]):
+            self._send(400, {"ok": False, "error": "bad_request",
+                             "detail": "scan_state must be a bounded fleet-sweep report"})
+            return
 
         def do_heartbeat(reg):
             if not reg.verify_heartbeat_token(runner_name, presented):
