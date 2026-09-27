@@ -157,7 +157,7 @@ export function verifySignature(
   }
   const token = headers['x-gitlab-token'] as string | undefined;
   if (!token) return false;
-  return safeEqual(Buffer.from(token, 'utf8'), Buffer.from(secret, 'utf8'));
+  return safeEqual(Buffer.from(token, 'utf8'), Buffer.from(secret, 'utf8')); // guardrails-allow PREVENT-003: constant-time compare of a request header token against the configured secret; no hardcoded credential
 }
 
 const REVIEWABLE_ACTIONS = new Set([
