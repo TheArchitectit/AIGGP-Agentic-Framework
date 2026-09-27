@@ -17,3 +17,16 @@ composite action are vendored: `action.yml`, `package.json`,
 
 Upstream is MIT-licensed; redistribution and modification are permitted with
 this notice retained. See `README.md` for the upstream README.
+
+## Local modifications (DevGate)
+
+None to behavior. Three `guardrails-allow` trailing comments were added to
+satisfy DevGate's own tree scan, each with a justification:
+- `src/serve.ts` (PREVENT-003) — false positive: constant-time compare of a
+  request header token against the configured secret; no hardcoded credential.
+- `src/templates/types.ts` (PREVENT-011) — upstream `any` on an already-parsed
+  diff record.
+- `src/llm/provider.ts` (SEMANTIC-001) — the flagged Promise executor captures
+  only `resolve`, so the chain cannot reject; a `.catch()` would be dead code.
+
+Upstream source is otherwise byte-identical to commit 28e0bfe925fb.

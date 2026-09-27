@@ -293,7 +293,7 @@ export class Semaphore {
       this.permits--;
       return () => this.release();
     }
-    return new Promise<void>((resolve) => {
+    return new Promise<void>((resolve) => { // guardrails-allow SEMANTIC-001: the executor captures only `resolve` (no reject path), so this chain cannot reject; a .catch() would be unreachable dead code
       this.waiters.push(resolve);
     }).then(() => () => this.release());
   }
