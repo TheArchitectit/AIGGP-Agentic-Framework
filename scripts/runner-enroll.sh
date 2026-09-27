@@ -208,7 +208,9 @@ done
 if [[ "$MODE" == "enroll" ]]; then
     [[ -n "$HUB_URL" ]] || { usage; }
     [[ -n "$ENROLL_TOKEN" ]] || die "enrollment token required" 1
-    [[ -n "$REPO" ]] || die "--repo OWNER/REPO is required for enrollment" 1
+    [[ "$INTERVAL" =~ ^[0-9]+$ && "$INTERVAL" -ge 10 && "$INTERVAL" -le 3600 ]] || die "--interval must be integer 10-3600, got: $INTERVAL" 1
+    [[ "$REPO" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || die "--repo must be OWNER/REPO, got: $REPO" 1
+    [[ "$HUB_URL" =~ ^https?:// ]] || die "hub URL must start with http(s)://, got: $HUB_URL" 1
     set_unit_paths "$RUNNER_NAME"
 elif [[ "$MODE" == "revoke" ]]; then
     [[ -n "$HUB_URL" ]] || { usage; }
