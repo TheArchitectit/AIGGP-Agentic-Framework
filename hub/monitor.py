@@ -52,6 +52,86 @@ log = logging.getLogger("hub.monitor")
 NON_PASSING_CONCLUSIONS = frozenset(
     {"failure", "timed_out", "cancelled", "action_required", "neutral", "stale"})
 
+def _parse_iso(value: str | None) -> datetime | None:
+    """Parse an ISO-8601 timestamp; return None on failure."""
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+class GitHubClient:
+    """Minimal GitHub REST client (stdlib urllib). Backs off on 403/429."""
+
+    def __init__(self, api_base: str, token: str = "", token_file: str = "",
+                 backoff_max: int = 120) -> None:
+        self.api_base = api_base.rstrip("/")
+        self.token = token
+        self.token_file = token_file  # if set, re-read from file each cycle
+        self.backoff_max = backoff_max
+        self._last_request_time = 0.0
+
+    def refresh_token(self) -> None:
+        """Re-read token from file if token_file was configured."""
+        if self.token_file and os.path.isfile(self.token_file):
+            try:
+                self.token = Path(self.token_file).read_text().strip()
+            except OSError:
+                pass  # keep existing token
+
+    def _request(self, method: str, path: str, body: dict | None = None,
+                 accept: str = "application/vnd.github+json") -> tuple[int, dict | list]:
+        """Make an authenticated GitHub API request. Returns (status, parsed_body)."""
+        url = f"{self.api_base}{path}"
+        headers = {
+            "Authorization": f"Bearer {self.token}",
+            "Accept": accept,
+            "X-GitHub-Api-Version": "2022-11-28",
+        }
+        data = None
+        if body is not None:
+            data = json.dumps(body).encode()
+            headers["Content-Type"] = "application/json"
+
+        req = urllib.request.Request(url, data=data, headers=headers, method=method)
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                raw = resp.read().decode()
+                return resp.status, json.loads(raw) if raw else {}
+        except urllib.error.HTTPError as e:
+            body_raw = e.read().decode() if e.fp else ""
+            try:
+                parsed = json.loads(body_raw) if body_raw else {}
+            except json.JSONDecodeError:
+                parsed = {"message": body_raw[:200]}
+            return e.code, parsed
+
+    def get(self, path: str) -> tuple[int, dict | list]:
+        return self._request("GET", path)
+
+    def post(self, path: str, body: dict) -> tuple[int, dict | list]:
+        return self._request("POST", path, body=body)
+
+    def get_with_backoff(self, path: str, max_retries: int = 3) -> tuple[int, dict | list] | None:
+        """GET with exponential backoff on 403/429. Returns None if all retries exhausted."""
+        for attempt in range(max_retries):
+            status, body = self.get(path)
+            if status == 200:
+                return (status, body)
+            if status in (403, 429):
+                # Rate limited — honor Retry-After header if present.
+                retry_after = body.get("retry_after") or body.get("X-Retry-After")
+                wait = min(int(retry_after) if retry_after else (2 ** attempt) * 10, self.backoff_max)
+                log.warning("rate limited on %s (attempt %d/%d), backing off %ds",
+                            path, attempt + 1, max_retries, wait)
+                time.sleep(wait)
+                continue
+            # Other errors: return immediately.
+            return (status, body)
+        return None
+
 
 class MonitorLoop:
     """Polls GitHub for runner/queue/gate/drift status per registered repo.
@@ -72,9 +152,11 @@ class MonitorLoop:
     def __init__(self, state: HubState, alert_sink: "AlertSink | None" = None) -> None:
         self.state = state
         self.config = state.config
+        token_file = os.path.join(self.config.data_dir, "github_token.txt")
         self.client = GitHubClient(
             api_base=self.config.github_api_base,
             token=os.environ.get("GITHUB_TOKEN", ""),
+            token_file=token_file,
             backoff_max=self.config.api_backoff_max_sec,
         )
         self.alert_sink = alert_sink  # Sprint 4: AlertEngine with dedupe
@@ -100,10 +182,12 @@ class MonitorLoop:
 
     def poll_cycle(self) -> None:
         """One full monitoring cycle across all registered repos."""
-        # A locked deep copy: HTTP threads mutate these dicts in place
-        # (heartbeat writes digest/reason/scan_state as separate assignments),
-        # and the readiness checks below read fields across those writes.
-        runners = self.state.runners_snapshot()
+# Refresh token from file so rotations (revoke/re-enroll) take effect.
+self.client.refresh_token()
+# A locked deep copy: HTTP threads mutate these dicts in place
+# (heartbeat writes digest/reason/scan_state as separate assignments),
+# and the readiness checks below read fields across those writes.
+runners = self.state.runners_snapshot()
         # Group by repo to avoid redundant API calls.
         repos: dict[str, list[dict]] = {}
         for runner in runners:
@@ -172,8 +256,13 @@ class MonitorLoop:
             name = runner["name"]
             api_runner = api_runners.get(name)
 
-            # Check API status.
-            api_online = api_runner is not None and api_runner.get("status") == "online"
+            # Check API status. Distinguish "not found" from "found but offline".
+            if api_runner is None:
+                self._raise_alert(repo, "runner_missing", name,
+                                  detail="runner not found in GitHub API for this repo — "
+                                         "may be unregistered or assigned to a different repo")
+                continue
+            api_online = api_runner.get("status") == "online"
 
             # Check heartbeat freshness.
             last_hb = parse_iso(runner.get("last_heartbeat"))
@@ -185,7 +274,7 @@ class MonitorLoop:
             if not api_online or not hb_fresh:
                 reasons = []
                 if not api_online:
-                    reasons.append("API status not online")
+                    reasons.append(f"API status={api_runner.get('status', 'unknown')}")
                 if not hb_fresh:
                     age_str = f"{(now - last_hb).total_seconds() / 60:.1f}m" if last_hb else "never"
                     reasons.append(f"heartbeat stale ({age_str})")

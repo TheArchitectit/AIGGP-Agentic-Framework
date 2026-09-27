@@ -23,6 +23,8 @@
 # the pushed ref instead:
 #   podman pull --quiet "$IMAGE:main"
 #   podman image inspect --format '{{.Digest}}' "$IMAGE:main"
+# Publish (CI): podman push devgate-coherence \
+#   ghcr.io/thearchitectit/devgate-agentic-framework/devgate-coherence
 # `.containerignore` keeps the context to tracked source: untracked
 # __pycache__ in a working tree otherwise rides into the image (measured: 33
 # entries, config digest 8ca8ac95… — vs ef02f38a… for the same source built
