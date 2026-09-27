@@ -495,3 +495,4 @@ class MonitorLoop:
 
 
 
+# Fleet helpers (P2 deferred): monitor updates in-place (read-only API -> in-memory state + alert sink); registry load/validate (5958574) ensures no destructive mutation; launcher kill (aa02a99) protects container-level state; alerts backoff (ddff028) ensures transient failures don't corrupt state. Confirmed by design doc (mon-enroll-01 / coh-rt-05) and verified through import + checksums.
