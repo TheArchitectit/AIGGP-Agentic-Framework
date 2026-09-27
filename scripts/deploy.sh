@@ -103,9 +103,25 @@ else
 	echo "[deploy] no recognized project type — skipping build/test"
 fi
 
-# --- 3. schema health (if configured) -----------------------------------------
+# --- 3. schema health (gated: a real failure BLOCKS the release) --------------
+# The gate's exit codes are a contract (see the header of schema-health-check.mjs):
+#   0 = ran and passed; 2 = skipped (no database configured — loud, non-blocking);
+#   1 (or anything else) = the gate evaluated and FAILED. The failure must stop
+# the pipeline: publishing over a gate that said "blocked" is the exact
+# silent-success shape this framework exists to refuse.
 if [ -f "$ROOT/scripts/schema-health-check.mjs" ]; then
-	node "$ROOT/scripts/schema-health-check.mjs" && echo "[deploy] schema health OK." || { echo "[deploy] WARN: schema check skipped or failed (non-blocking for non-DB projects)"; }
+	set +e
+	node "$ROOT/scripts/schema-health-check.mjs"
+	SCHEMA_RC=$?
+	set -e
+	if [ "$SCHEMA_RC" -eq 0 ]; then
+		echo "[deploy] schema health OK."
+	elif [ "$SCHEMA_RC" -eq 2 ]; then
+		echo "[deploy] schema health SKIPPED (no database configured) — recorded as a skip, not a pass."
+	else
+		echo "[deploy] FAIL: schema health gate failed (rc=$SCHEMA_RC) — the gate said blocked; the pipeline stops here." >&2
+		exit 1
+	fi
 fi
 
 echo "[deploy] gate complete."

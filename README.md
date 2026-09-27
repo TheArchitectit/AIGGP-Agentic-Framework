@@ -79,8 +79,11 @@ fixture by calling the real function.
 
 ## Rules, and how to add yours
 
-The rules are data, not code: 32 pattern rules, 10 AST (semantic) checks, 9
-silent-success rules, and 10 rules extracted from past failures. Most pattern
+The rules are data, not code: 37 pattern rules, 9 silent-success rules, and 10
+AST (semantic) checks — 2 enabled with shipped checkers (Promise `.catch`,
+React `useEffect` dependencies) and 8 disabled pending their checkers.
+`scripts/rules_check.py` keeps that honest: an enabled rule with no registered
+checker fails CI (rule-truth-01). Most pattern
 rules are scoped to several extensions at once, so the useful statement is
 coverage rather than a per-language count: TypeScript / JSX / TSX / Svelte,
 Python, Go, Rust, GDScript (`.gd`, `.tscn`, `.tres`), Kotlin, Java, Ruby, PHP,
@@ -101,6 +104,19 @@ touching the baseline. `semantic-scan.mjs` is the exception — its checks are
 hardcoded AST logic, not data. Passing an explicit `--rules`/`--registry` path
 collapses everything to that single source.
 
+Agent-behavior rules live in skills, not in prevention-rules JSON that no file
+scanner can enforce (rule-behavior-01). The ten rules that shipped in
+`.guardrails/prevention-rules/extracted-rules.json` moved into the skill
+templates — one owner each:
+
+| Former rule | Now covered by |
+|---|---|
+| PREVENT-GIT-001 … 006 — no force push, no hard reset, no git-config edits, no amend without permission, no skipping hooks, no rebase on shared branches | `templates/skills/commit-validator` — Git Safety Rules |
+| PREVENT-SYS-001 — no dangerous `rm -rf` | `templates/skills/four-laws` — Law 2, Stay in Scope |
+| PREVENT-SEC-001 — no secrets in code or diffs | `templates/skills/commit-validator` — No Secrets in Diff |
+| PREVENT-SEC-002 — no production database in test code | `templates/skills/four-laws` — Law 4, Halt When Uncertain |
+| PREVENT-SCOPE-001 — pre-work failure-registry check before modifying files | `templates/skills/scope-validator` — Pre-work check |
+
 ## What's in the repository
 
 ```
@@ -109,10 +125,10 @@ collapses everything to that single source.
 ├── hub/                       runner-monitor hub (stdlib HTTP service + registry)
 ├── container/                 the coherence evaluator image and its recorded identity
 ├── templates/
-│   ├── github-workflows/      six drop-in CI workflows
+│   ├── github-workflows/      seven drop-in CI workflows
 │   ├── runner/                self-hosted runner standard (Podman quadlet)
 │   ├── runner-monitor/        the hub's own container
-│   └── skills/                five agent-behavior skills
+│   └── skills/                six agent-behavior skills
 ├── openspec/                  change packages and published specs
 ├── docs/                      runbooks, threat model, onboarding, QA records
 ├── tests/                     the suite that gates this repository
@@ -122,9 +138,10 @@ collapses everything to that single source.
 
 ## CI, runners, and agent skills
 
-Six workflow templates ship in `templates/github-workflows/`: guardrails
-compliance, secret validation, file size, smoke gate, scheduled drift scan, and
-the spec-coherence gate. Each carries a `SETUP` header and `CUSTOMIZE`
+Seven workflow templates ship in `templates/github-workflows/`: guardrails
+compliance, secret validation, file size, smoke gate, scheduled drift scan, the
+spec-coherence gate, and the specs-validation gate (`specs.yml`). Each carries a
+`SETUP` header and `CUSTOMIZE`
 placeholders. DevGate is host-repo aware — `detect-host-ci.py` reads your repo's
 own `runs-on:` labels so the templates bind to the infrastructure you declared
 instead of assuming `ubuntu-latest`.

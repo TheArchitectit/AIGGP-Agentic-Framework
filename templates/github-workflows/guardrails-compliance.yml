@@ -1,11 +1,14 @@
 # Guardrails Compliance Check — Reusable CI Template
 #
-# This workflow enforces process gates on every pull request:
-#   1. Change-scope boundaries — flags PRs touching >20 files
-#   2. Forbidden files — blocks .env, *.pem, *.key, credentials.json, secrets.json
-#   3. Commit-message format — warns on non-conventional-commit messages
-#   4. AI attribution — reminds about attribution when AI keywords appear
-#   5. Compliance summary — GitHub Step Summary table of all checks
+# This workflow runs process gates on every pull request. Only #2 FAILS the
+# job; #1, #3 and #4 are ADVISORY (they print findings and stay green):
+#   1. Change-scope boundaries — advisory warning on PRs touching >20 files
+#   2. Forbidden files — BLOCKING: fails on .env, *.pem, *.key,
+#      credentials.json, secrets.json (basename match; .env.example is fine)
+#   3. Commit-message format — advisory warning on non-conventional commits
+#   4. AI attribution — advisory reminder when AI keywords appear
+#   5. Compliance summary — GitHub Step Summary table of all checks, with
+#      each check labelled advisory or blocking
 #
 # SETUP:
 #   - Copy this file into your repo at .github/workflows/guardrails-compliance.yml
@@ -92,14 +95,24 @@ jobs:
             "secrets.json"
           )
 
+          # Basename glob matching, never `grep -E` over the path: as an ERE
+          # `.env` is "any char + env", so `config/environment.yml` failed
+          # this gate — the exact substring/metacharacter match ci-match-01
+          # forbids ("WHEN a PR adds config/environment.yml THEN the
+          # forbidden-file check does not fire"). Shell globs on the basename
+          # are anchored to the whole name: `.env` matches only `.env`
+          # (leaving `.env.example`, which the failure message recommends),
+          # and `*.pem` only names ending in `.pem`.
           VIOLATIONS=""
-
-          for pattern in "${FORBIDDEN_PATTERNS[@]}"; do
-            MATCHES=$(echo "$CHANGED_FILES" | grep -E "$pattern" || true)
-            if [ -n "$MATCHES" ]; then
-              VIOLATIONS="$VIOLATIONS$MATCHES"$'\n'
-            fi
-          done
+          while IFS= read -r file; do
+            [ -n "$file" ] || continue
+            base="${file##*/}"
+            for pattern in "${FORBIDDEN_PATTERNS[@]}"; do
+              case "$base" in
+                $pattern) VIOLATIONS="$VIOLATIONS$file"$'\n'; break ;;
+              esac
+            done
+          done <<< "$CHANGED_FILES"
 
           if [ -n "$VIOLATIONS" ]; then
             echo "FORBIDDEN FILES DETECTED:"
@@ -230,10 +243,10 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Scope Boundaries | ${{ needs.check-scope-boundaries.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Forbidden Files | ${{ needs.check-forbidden-files.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Commit Messages | ${{ needs.validate-commit-messages.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| AI Attribution | ${{ needs.check-ai-attribution.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Scope Boundaries (advisory) | ${{ needs.check-scope-boundaries.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Forbidden Files (blocking) | ${{ needs.check-forbidden-files.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit Messages (advisory) | ${{ needs.validate-commit-messages.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| AI Attribution (advisory) | ${{ needs.check-ai-attribution.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           # CUSTOMIZE: update the reference link to point to your project's guardrails docs
           echo "See guardrails documentation for compliance requirements." >> $GITHUB_STEP_SUMMARY

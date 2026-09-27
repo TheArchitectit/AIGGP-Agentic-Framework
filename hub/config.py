@@ -94,3 +94,19 @@ class Config:
         if v := os.environ.get("HUB_COMMENT_COOLDOWN_SEC"):
             cfg.comment_cooldown_sec = float(v)
         return cfg
+    def __post_init__(self):
+        # Boundary: the spec requires github_issue or null; a misspelling or a
+        # typo like "github_issues" (plural) is a silent misconfiguration
+        # that makes every alert vanish without error.
+        allowed_channels = ("github_issue",)
+        if self.alert_channel not in allowed_channels and self.alert_channel is not None:
+            raise ValueError(
+                f"HUB_ALERT_CHANNEL must be one of {allowed_channels} or null, "
+                f"got {self.alert_channel!r}")
+        for sec_name in ("heartbeat_interval_sec", "poll_interval_sec",
+                          "comment_cooldown_sec"):
+            sec = getattr(self, sec_name)
+            if sec < 0:
+                raise ValueError(f"{sec_name} must be non-negative, got {sec}")
+        if self.bind_port < 1 or self.bind_port > 65535:
+            raise ValueError("HUB_BIND_PORT must be 1-65535, got %d" % self.bind_port)

@@ -12,8 +12,12 @@
         "type": "CallExpression",
         "callee": {
           "type": "MemberExpression",
-          "object": { "type": "CallExpression" },
-          "property": { "name": "then" }
+          "object": {
+            "type": "CallExpression"
+          },
+          "property": {
+            "name": "then"
+          }
         },
         "missing": "catch"
       },
@@ -24,11 +28,14 @@
     {
       "rule_id": "SEMANTIC-002",
       "name": "Resource leak - unclosed file",
-      "enabled": true,
+      "enabled": false,
+      "status": "not-implemented",
       "language": "python",
       "ast_pattern": {
         "type": "CallExpression",
-        "callee": { "name": "open" },
+        "callee": {
+          "name": "open"
+        },
         "missing": "context_manager"
       },
       "message": "File opened without context manager (with statement)",
@@ -38,12 +45,17 @@
     {
       "rule_id": "SEMANTIC-003",
       "name": "Missing auth decorator",
-      "enabled": true,
+      "enabled": false,
+      "status": "not-implemented",
       "language": "python",
       "ast_pattern": {
         "type": "FunctionDefinition",
         "route_decorator": true,
-        "missing_decorators": ["login_required", "require_auth", "authenticated"]
+        "missing_decorators": [
+          "login_required",
+          "require_auth",
+          "authenticated"
+        ]
       },
       "message": "Route handler missing authentication decorator",
       "severity": "error",
@@ -52,7 +64,8 @@
     {
       "rule_id": "SEMANTIC-004",
       "name": "Godot: @onready reference to missing node",
-      "enabled": true,
+      "enabled": false,
+      "status": "not-implemented",
       "language": "gdscript",
       "ast_pattern": {
         "type": "OnreadyVar",
@@ -70,7 +83,9 @@
       "language": "typescript",
       "ast_pattern": {
         "type": "CallExpression",
-        "callee": { "name": "useEffect" },
+        "callee": {
+          "name": "useEffect"
+        },
         "check": "exhaustive_deps"
       },
       "message": "useEffect has missing or incorrect dependencies",
@@ -80,7 +95,8 @@
     {
       "rule_id": "SEMANTIC-006",
       "name": "Go: defer in loop",
-      "enabled": true,
+      "enabled": false,
+      "status": "not-implemented",
       "language": "go",
       "ast_pattern": {
         "type": "DeferStatement",
@@ -93,7 +109,8 @@
     {
       "rule_id": "SEMANTIC-007",
       "name": "Rust: unreachable pattern in match",
-      "enabled": true,
+      "enabled": false,
+      "status": "not-implemented",
       "language": "rust",
       "ast_pattern": {
         "type": "MatchExpression",
@@ -106,7 +123,8 @@
     {
       "rule_id": "SEMANTIC-008",
       "name": "Godot: Signal connection to non-existent method",
-      "enabled": true,
+      "enabled": false,
+      "status": "not-implemented",
       "language": "gdscript",
       "ast_pattern": {
         "type": "SignalConnection",
@@ -119,7 +137,8 @@
     {
       "rule_id": "SEMANTIC-009",
       "name": "Python: Function with too many arguments",
-      "enabled": true,
+      "enabled": false,
+      "status": "not-implemented",
       "language": "python",
       "ast_pattern": {
         "type": "FunctionDefinition",
@@ -132,11 +151,14 @@
     {
       "rule_id": "SEMANTIC-010",
       "name": "TypeScript: useState with any",
-      "enabled": true,
+      "enabled": false,
+      "status": "not-implemented",
       "language": "typescript",
       "ast_pattern": {
         "type": "CallExpression",
-        "callee": { "name": "useState" },
+        "callee": {
+          "name": "useState"
+        },
         "generic_type": "any"
       },
       "message": "useState<any>() defeats TypeScript's type checking",

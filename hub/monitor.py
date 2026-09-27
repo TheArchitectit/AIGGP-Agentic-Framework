@@ -100,7 +100,10 @@ class MonitorLoop:
 
     def poll_cycle(self) -> None:
         """One full monitoring cycle across all registered repos."""
-        runners = self.state.registry.runners()
+        # A locked deep copy: HTTP threads mutate these dicts in place
+        # (heartbeat writes digest/reason/scan_state as separate assignments),
+        # and the readiness checks below read fields across those writes.
+        runners = self.state.runners_snapshot()
         # Group by repo to avoid redundant API calls.
         repos: dict[str, list[dict]] = {}
         for runner in runners:
@@ -252,7 +255,6 @@ class MonitorLoop:
 
         threshold_sec = self.config.queue_threshold_min * 60
         now = datetime.now(timezone.utc)
-        registered_labels = {lbl for r in runners for lbl in r.get("labels", [])}
 
         for run in body.get("workflow_runs", []):
             created = parse_iso(run.get("created_at"))
@@ -266,8 +268,11 @@ class MonitorLoop:
             # The API doesn't expose labels directly on runs; we check the
             # run's runner group or just alert on any long-queued run for now.
             # (Refinement: match by run name or job labels in Sprint 4.)
+            # The runs API field is `id`, not `run_id`: the wrong key made
+            # every queue-stall alert runner="?" so all stalls deduped into
+            # one issue and the cooldown then hid distinct stalls for an hour.
             self._raise_alert(
-                repo, "queue_stall", run.get("run_id", "?"),
+                repo, "queue_stall", str(run.get("id", "?")),
                 detail=f"queued {age_sec / 60:.0f}m (threshold {self.config.queue_threshold_min:.0f}m), "
                        f"run: {run.get('name', '?')}")
 

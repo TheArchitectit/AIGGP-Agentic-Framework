@@ -201,15 +201,20 @@ def get_added_lines(run_git, staged: bool = True, unstaged: bool = False,
 
 
 def get_changed_files(run_git, staged: bool = True, unstaged: bool = False,
-                      git_range: str | None = None) -> list[str]:
+                      git_range: str | None = None,
+                      base: str | None = None) -> list[str]:
     """Names of files the requested scope's diff touches.
 
     Same fail-loud contract as get_added_lines (shared _collect_git_scope), so
     an unresolvable --range surfaces as an error, not as 'no changed files'.
+    `base` matters here for the same reason it exists at all: on a clean pushed
+    checkout the staged scope is empty, and without the base range in this
+    file set the known-bug and pattern checks would evaluate nothing while the
+    run still printed a clean pass.
     """
     names: set[str] = set()
     for blob in _collect_git_scope(run_git, staged=staged, unstaged=unstaged,
-                                   all_scope=False, base=None,
+                                   all_scope=False, base=base,
                                    git_range=git_range):
         for raw in blob.split("\n"):
             if raw.startswith("+++ "):
@@ -219,15 +224,48 @@ def get_changed_files(run_git, staged: bool = True, unstaged: bool = False,
     return sorted(names)
 
 
+def _diff_or_raise(run_git, cmd: list[str]) -> str:
+    """Run one git diff; rc 0 (no diff) and 1 (diff) are data, else raise.
+
+    The silent variant of this used to return "" on any other rc — lock
+    contention, corrupt index — so the pattern check scanned nothing while the
+    run reported success (gate-vacuous-01). A scope that cannot be read must
+    not read as an empty one.
+    """
+    rc, stdout, stderr = run_git(cmd)
+    if rc not in (0, 1):
+        raise RuntimeError(
+            f"git {' '.join(cmd)} failed (rc {rc}): "
+            f"{(stderr or stdout).strip()[:200]} — a diff scope that cannot "
+            "be read must not read as an empty one (gate-vacuous-01)"
+        )
+    return stdout
+
+
 def get_diff_content(run_git, file_path: str, staged: bool = True,
-                     git_range: str | None = None) -> str:
-    """One file's diff text for the selected scope ('' if it has none)."""
+                     unstaged: bool = False,
+                     git_range: str | None = None,
+                     base: str | None = None) -> str:
+    """One file's diff text for the selected scope ('' if it has none).
+
+    Scopes are additive, matching _collect_git_scope: with --base a file can
+    differ in the base range, the index, and the worktree, and the pattern
+    check must see every hunk. Under --all (staged=True AND unstaged=True)
+    both the index and the worktree hunks are collected — the old binary
+    choice (--cached OR worktree) let a file's unstaged violations pass the
+    per-file scan that its staged ones failed, in the same run.
+    """
+    blobs: list[str] = []
     if git_range:
-        cmd = ["diff", git_range]
+        blobs.append(_diff_or_raise(run_git, ["diff", git_range, "--", file_path]))
     else:
-        cmd = ["diff", "--cached"] if staged else ["diff"]
-    rc, stdout, _ = run_git(cmd + ["--", file_path])
-    return stdout if rc in (0, 1) else ""
+        if staged:
+            blobs.append(_diff_or_raise(run_git, ["diff", "--cached", "--", file_path]))
+        if unstaged or not staged:
+            blobs.append(_diff_or_raise(run_git, ["diff", "--", file_path]))
+    if base:
+        blobs.append(_diff_or_raise(run_git, ["diff", f"{base}...HEAD", "--", file_path]))
+    return "".join(blobs)
 
 
 def line_has_allow(line: str, *ids: str) -> bool:

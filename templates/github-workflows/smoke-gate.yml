@@ -79,9 +79,18 @@ jobs:
           VERDICT="PASS"
           if [ "$ERROR_COUNT" -gt 0 ]; then
             VERDICT="FAIL (error pattern in output)"
-          elif [ "$SENTINEL_OK" -eq 0 ] && [ "$SENTINEL_FAIL" -eq 0 ]; then
+          elif [ "$SENTINEL_FAIL" -gt 0 ]; then
+            # The failure sentinel is, by this file's own header, "the exact
+            # string that appears when the run fails by design": seeing it IS
+            # the failure regardless of the exit code. The old branch shape
+            # treated SENTINEL_FAIL > 0 as compatible with PASS in every arm,
+            # so an app that printed the failure sentinel and exited 0 walked
+            # straight through the gate.
+            VERDICT="FAIL (failure sentinel in output)"
+          elif [ "$SENTINEL_OK" -eq 0 ]; then
             VERDICT="FAIL (no completion sentinel in output — app may have crashed or hung)"
-          elif [ "$EXIT_CODE" -ne 0 ] && [ "$SENTINEL_FAIL" -eq 0 ]; then
+          elif [ "$EXIT_CODE" -ne 0 ]; then
+            # Reach implies SENTINEL_FAIL == 0 (the arm above took it).
             VERDICT="FAIL (non-zero exit without failure sentinel)"
           fi
 

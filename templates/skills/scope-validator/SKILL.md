@@ -32,7 +32,10 @@ Before ANY file modification:
 1. **Check the user request** — Did they list specific files?
 2. **Check the task description** — Are target files named?
 3. **Check for dependencies** — Will modifying file A break file B? If so, is file B in scope?
-4. **When in doubt, HALT** — Ask user to confirm scope
+4. **Check the failure registry** — Is this failure already recorded
+   (`.guardrails/failure-registry.jsonl`)? A known failure must be looked up,
+   not rediscovered (former `PREVENT-SCOPE-001`).
+5. **When in doubt, HALT** — Ask user to confirm scope
 
 ## Out-of-Scope Patterns
 

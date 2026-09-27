@@ -78,8 +78,14 @@ devgate_root = Path.cwd()
 # fail is decoration, not a gate).
 project_root = Path(os.environ["SILENT_SUCCESS_SCAN_ROOT"]) \
     if os.environ.get("SILENT_SUCCESS_SCAN_ROOT") \
-    else (devgate_root.parent if (devgate_root.parent / ".git").exists()
-          or (devgate_root.name == ".devgate") else devgate_root)
+    else (devgate_root.parent if devgate_root.name == ".devgate"
+          else devgate_root)
+# Layout-only rule (scripts/lib/project-root.mjs, root-anchor-01/-03): the
+# checkout is the scan target unless it sits in a `.devgate/` subdir of the
+# project. The old nearest-ancestor `.git` walk resolved a standalone
+# checkout inside another git tree to the OUTER repo and scanned siblings —
+# the exact marker-walk defect the shared contract replaced for every other
+# gate.
 
 try:
     rules_doc = json.loads((devgate_root / rules_path).read_text(encoding="utf-8"))

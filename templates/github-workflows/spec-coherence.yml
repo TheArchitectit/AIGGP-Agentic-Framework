@@ -138,6 +138,21 @@ jobs:
       # language runtime installed to run the check would be reimplementing
       # logic the service already owns.
 
+      - name: Bootstrap pinned scanners (in-tree at .devgate/)
+        run: |
+          set -euo pipefail
+          if [ -d .devgate ]; then
+            echo "runtime already provisioned at .devgate; leaving it in place"
+            exit 0
+          fi
+          git clone "$DEVGATE_REPO" .devgate
+          git -C .devgate checkout "$DEVGATE_PIN"
+          echo "cloned $DEVGATE_REPO at $DEVGATE_PIN"
+
+      # Runs AFTER the bootstrap: the old order verified `.devgate` exists
+      # before anything created it, so every fresh checkout hard-failed at the
+      # pin step and the bootstrap was dead code (ci-run-01: no template may
+      # ship a configuration under which a named gate cannot pass).
       - name: Resolve pinned runtime
         id: pin
         run: |
@@ -154,17 +169,6 @@ jobs:
             exit 1
           fi
           echo "pin=$PINNED" >> "$GITHUB_OUTPUT"
-
-      - name: Bootstrap pinned scanners (in-tree at .devgate/)
-        run: |
-          set -euo pipefail
-          if [ -d .devgate ]; then
-            echo "runtime already provisioned at .devgate; leaving it in place"
-            exit 0
-          fi
-          git clone "$DEVGATE_REPO" .devgate
-          git -C .devgate checkout "$DEVGATE_PIN"
-          echo "cloned $DEVGATE_REPO at $DEVGATE_PIN"
 
       - name: Doctor — can this host run the pinned image?
         id: doctor
@@ -214,11 +218,17 @@ jobs:
       # code and canonical result untouched (coh-rt-01/05/07, coh-dec-04).
       - name: Run coherence gate
         id: gate
+        # Inputs arrive as ENVIRONMENTS, never expanded into the script text:
+        # `${{ inputs.subjects }}` inline was workflow_dispatch shell-injection
+        # (dispatch rights can be broader than push rights on a consumer repo).
+        env:
+          SUBJECTS_INPUT: ${{ inputs.subjects }}
+          DOCTOR_INPUT: ${{ inputs.doctor }}
         run: |
           set -uo pipefail
 
           # Resolution order: explicit dispatch input, then the env default.
-          SUBJECTS="${{ inputs.subjects }}"
+          SUBJECTS="${SUBJECTS_INPUT:-}"
           SUBJECTS="${SUBJECTS:-$COHERENCE_SUBJECTS}"
 
           declare -A RES
@@ -257,7 +267,12 @@ jobs:
 
           if [ -n "${SUBJECTS// /}" ] && [ -n "$DIGEST" ] \
              && [ "$DIGEST" = "$COHERENCE_IMAGE_MANIFEST_DIGEST" ]; then
-            if [ "${{ inputs.doctor }}" = "true" ] \
+            # Same defaulting as the doctor step's `if:` (`inputs.doctor ||
+            # 'true'`): on a plain push the input is EMPTY, and the old
+            # `[ "${{ inputs.doctor }}" = "true" ]` was false there — the
+            # container phase proceeded on a host the doctor had just declared
+            # unable to run the image.
+            if [ "${DOCTOR_INPUT:-true}" = "true" ] \
                && [ "${{ steps.doctor.outputs.doctor }}" != "ok" ]; then
               note "(all)" "SKIPPED (host cannot run the pinned image: ${{ steps.doctor.outputs.doctor_reason }})"
               FAIL=1

@@ -44,6 +44,9 @@ These four laws are MANDATORY and NON-NEGOTIABLE for all AI agent operations.
 - Do not modify "nearby" or "related" code without permission
 - No feature creep or "while I'm here" changes
 - Each change must be traceable to a user request
+- No destructive commands (`rm -rf` and friends) against paths outside the
+  authorized scope — deletion without an authorized target is a scope
+  violation, not a cleanup (former `PREVENT-SYS-001`)
 
 ### Scope Determination:
 - Explicit file list from user
@@ -105,6 +108,8 @@ These four laws are MANDATORY and NON-NEGOTIABLE for all AI agent operations.
 - Unclear scope boundaries
 - Missing rollback procedure
 - Test/production separation unclear
+- Test code wired to a production system (database, endpoint, credentials) —
+  halt and ask; never "fix" it silently (former `PREVENT-SEC-002`)
 - Three failed attempts at a task
 - Any safety concern
 

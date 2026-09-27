@@ -36,6 +36,27 @@ Scan for API keys, tokens, passwords, private keys, .env contents, DB connection
 - No linting or formatting errors
 - Code has been self-reviewed
 
+### 5. Git Safety Rules (MUST NOT)
+
+Prohibitions carried from the former `extracted-rules.json` behavior rules
+(`PREVENT-GIT-001`…`006`): a file scanner cannot enforce agent behavior, so
+they live in this skill instead of dead JSON:
+
+- **No force push** — `git push --force` (anything short of
+  `--force-with-lease` on a branch you own alone) is prohibited; it can cause
+  data loss.
+- **No hard reset** — `git reset --hard` can destroy uncommitted work and is
+  prohibited on shared branches.
+- **No git-config changes** — modifying git config (identity, hooks path,
+  remotes) without explicit permission; it changes security and identity
+  behavior of every later command.
+- **No amend without permission** — amending a commit you did not create in
+  this session breaks collaborator history.
+- **No skipping hooks** — `--no-verify` and equivalent bypasses are
+  prohibited; the hooks are the safety checks.
+- **No rebase on shared branches** — rebasing a branch others build on
+  destroys their work.
+
 ## Commit Message Format
 
 ```

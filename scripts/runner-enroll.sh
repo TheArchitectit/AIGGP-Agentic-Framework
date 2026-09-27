@@ -49,7 +49,9 @@
 #   2 hub unreachable or enrollment failed
 #   3 systemd timer installation failed
 
-set -euo pipefail
+# -E: errtrace — the install-window ERR trap below must reach the unit-library
+# functions it calls; without it their inner failures escape with raw child codes.
+set -eEuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -215,6 +217,10 @@ elif [[ "$MODE" == "revoke" ]]; then
     set_unit_paths "$REVOKE_RUNNER"
 fi
 
+# Whole seconds: this lands verbatim in [Timer] heredocs and (( )) arithmetic,
+# and a bad value aborts mid-install — after the hub POST already succeeded.
+[[ "$INTERVAL" =~ ^[0-9]+$ ]] || die "--interval needs whole seconds, got: $INTERVAL" 1
+
 # --- helpers ------------------------------------------------------------------
 
 post_json() {
@@ -230,6 +236,11 @@ install_timer() {
     local hb_token="$1"
 
     log "Installing systemd user units for '$RUNNER_NAME' (interval=${INTERVAL}s)..."
+
+    # Installation window: a raw failure here (mkdir, chmod, unit write,
+    # systemctl, helper) exits 3, the header's contract — `set -e` alone would
+    # leak the child's own code. `die … N` exits directly and keeps its code.
+    trap 'die "systemd timer installation failed" 3' ERR
 
     remove_legacy_units "$RUNNER_NAME"
     mkdir -p "$STATE_DIR" "$ENV_DIR"
@@ -370,6 +381,8 @@ EOF
     install_fleet_sweep
 
     install_watchdog
+
+    trap - ERR  # success: must not mislabel a later failure as an install one
 }
 
 # --- enroll mode --------------------------------------------------------------
@@ -436,7 +449,9 @@ fi
 if [[ "$MODE" == "revoke" ]]; then
     log "Revoking runner '$REVOKE_RUNNER' from hub at $HUB_URL..."
 
-    PAYLOAD="{\"runner_name\":\"$REVOKE_RUNNER\",\"heartbeat_token\":\"$REVOKE_HB_TOKEN\"}"
+    # json.dumps like enroll: a quote in a name or token must stay data — the
+    # old string interpolation let a name smuggle extra JSON fields.
+    PAYLOAD="$(python3 -c 'import json,sys; print(json.dumps({"runner_name": sys.argv[1], "heartbeat_token": sys.argv[2]}))' "$REVOKE_RUNNER" "$REVOKE_HB_TOKEN")"
     RESPONSE="$(post_json "$HUB_URL/revoke" "$PAYLOAD")" || {
         die "hub revoke failed: $RESPONSE" 2
     }

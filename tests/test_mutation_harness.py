@@ -231,6 +231,49 @@ def test_a_clean_battery_exits_zero(repo):
                   "controls note", root=repo) == 0
 
 
+def test_the_hermetic_env_keeps_the_interpreters_user_base():
+    """HOME is scrubbed for git hermeticity — the user base must not travel
+    with it. On a `pip --user` host it does: the nested `python -m pytest`
+    cannot import pytest, exits 1, and run_entry reads that as a kill, so
+    every applicable mutant reports caught (four tests in this file went red
+    that way on 2026-09-26).
+    """
+    import site
+
+    child = subprocess.run(
+        [sys.executable, "-c", "import site; print(site.getuserbase())"],
+        env=h.ENV, capture_output=True, text=True, check=True)
+    assert child.stdout.strip() == site.getuserbase()
+
+
+def test_the_nested_pytest_starts_under_the_hermetic_env():
+    """The consumer-visible half of the same contract: the exact child the
+    battery runs must be able to run at all."""
+    res = subprocess.run([sys.executable, "-m", "pytest", "--version"],
+                         env=h.ENV, capture_output=True, text=True)
+    assert res.returncode == 0, res.stderr
+
+
+def test_a_nested_run_that_could_not_start_is_a_harness_failure(repo, capsys,
+                                                                monkeypatch):
+    """A missing module exits 1 exactly like a failing test does. Without the
+    guard the report claims the mutant was killed by a test that never ran —
+    the misreport class this harness's own docstring says it guards against.
+    """
+    def no_pytest(files, extra_env=None, root=None):
+        return subprocess.CompletedProcess([], 1, "", "No module named pytest")
+
+    monkeypatch.setattr(h, "run_tests", no_pytest)
+    code = h.main([("M1: supposed to be caught", [KILLS], ["test_widget.py"], {})],
+                  [], "controls note", root=repo)
+    out = capsys.readouterr().out
+    assert code == 1, out
+    assert "HARNESS FAILURE" in out, out
+    assert "did not start" in out, out
+    # The raise propagates through run_entry's finally: nothing left mutated.
+    assert (repo / "widget.py").read_text() == WIDGET
+
+
 def test_well_formed_reads_each_artifact_language(repo):
     """The batteries mutate shell scripts, the size gate's own Python, and the
     CI workflow, so a parse check that compiles only Python would call both a

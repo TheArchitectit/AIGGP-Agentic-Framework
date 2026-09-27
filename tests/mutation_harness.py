@@ -46,6 +46,7 @@ import hashlib
 import json
 import os
 import shutil
+import site
 import subprocess
 import sys
 import tempfile
@@ -57,10 +58,17 @@ REPO = Path(__file__).resolve().parent.parent
 
 # Hermetic: an ambient git identity or config could change how a test that
 # shells out to git behaves (this bit the re-pin suite once).
+#
+# PYTHONUSERBASE carries the parent's real user base across the HOME scrub:
+# `python -m pytest` in a nested run resolves modules from the user site only
+# when that base still points at it, and on a host where pytest was installed
+# with `pip --user` a hidden user site exits "No module named pytest" (1) —
+# which run_entry would read as a failing test, i.e. every mutant killed.
 ENV = dict(os.environ,
            HOME="/nonexistent-devgate-mutation",
            XDG_CONFIG_HOME="/nonexistent-devgate-mutation",
-           GIT_CONFIG_GLOBAL="/dev/null", GIT_CONFIG_SYSTEM="/dev/null")
+           GIT_CONFIG_GLOBAL="/dev/null", GIT_CONFIG_SYSTEM="/dev/null",
+           PYTHONUSERBASE=site.getuserbase())
 
 
 def well_formed(path):
@@ -111,6 +119,15 @@ def well_formed(path):
 
 class BatteryInProgress(RuntimeError):
     """Another battery holds this tree. Refused, not queued."""
+
+
+class HarnessFailure(RuntimeError):
+    """The harness could not run the tests at all — not a verdict.
+
+    A nested run that dies before collecting (missing pytest under the
+    hermetic env) exits non-zero exactly like a failing test does; filing it
+    as a kill would let a broken environment report every mutant caught.
+    """
 
 
 @contextlib.contextmanager
@@ -199,6 +216,10 @@ def run_entry(name, edits, tests, extra_env, expect_kill, root=None):
     — a distinction the caller needs: a stale anchor means the mutation was
     never applied, and reporting that as a kill would let a battery pass by
     never having run anything (which is what a moved file produces).
+
+    Raises HarnessFailure when the nested run could not start at all: there is
+    no verdict to return, and an environment failure that read as "killed"
+    would let a broken machine report every guard as holding.
     """
     root = root or REPO
     originals = {}
@@ -221,6 +242,11 @@ def run_entry(name, edits, tests, extra_env, expect_kill, root=None):
             print(f"  INVALID {name}: the mutation does not parse — not a kill")
             return False
         res = run_tests(tests, extra_env, root)
+        if "No module named pytest" in res.stderr:
+            raise HarnessFailure(
+                f"{name}: the nested pytest did not start "
+                f"(stderr: {res.stderr.strip().splitlines()[-1]!r}) — "
+                "no tests ran, so there is no kill or survivor to report")
         killed = res.returncode != 0
         if killed:
             tail = [l for l in res.stdout.splitlines() if l.startswith("FAILED")]
@@ -259,6 +285,9 @@ def main(mutations, controls, controls_note, root=None):
             return _run_battery(mutations, controls, controls_note, root, artifacts)
     except BatteryInProgress as exc:
         print(f"  REFUSED {exc}")
+        return 1
+    except HarnessFailure as exc:
+        print(f"  HARNESS FAILURE {exc}")
         return 1
 
 
