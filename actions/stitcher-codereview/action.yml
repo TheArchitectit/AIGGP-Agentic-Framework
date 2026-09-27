@@ -1,0 +1,217 @@
+name: 'OpenSpec Review'
+description: 'Spec-aware code review: verify the PR diff against an OpenSpec change (proposal/specs/design/tasks) plus correctness, security, tests, and style.'
+branding:
+  icon: 'check-square'
+  color: 'blue'
+
+inputs:
+  change:
+    description: 'OpenSpec change name under openspec/changes/<name>. Defaults to the PR head branch name.'
+    required: false
+    default: ''
+  base:
+    description: 'Git base ref for the diff range (base...HEAD). Defaults to the PR base branch.'
+    required: false
+    default: ''
+  root:
+    description: 'Project root containing openspec/ (relative to $GITHUB_WORKSPACE).'
+    required: false
+    default: '.'
+  format:
+    description: 'Report format: markdown or json.'
+    required: false
+    default: 'markdown'
+  only:
+    description: 'Comma list of check categories (default all).'
+    required: false
+    default: 'all'
+  fail-on:
+    description: 'Fail the step if findings at/above this severity exist.'
+    required: false
+    default: 'high'
+  llm:
+    description: 'LLM rescore: off | auto (fail-open) | require (fail-closed). Needs llm-* inputs or STITCHER_CODEREVIEW_LLM_* env.'
+    required: false
+    default: 'off'
+  llm-provider:
+    description: 'openai | anthropic | custom (OpenAI-compatible endpoint).'
+    required: false
+    default: ''
+  llm-model:
+    description: 'Model name override.'
+    required: false
+    default: ''
+  llm-base-url:
+    description: 'Custom OpenAI-compatible base URL.'
+    required: false
+    default: ''
+  llm-weight:
+    description: 'LLM weight in the blend, 0..1.'
+    required: false
+    default: '0.5'
+  llm-max-concurrency:
+    description: 'Max parallel LLM requests (default 3).'
+    required: false
+    default: '3'
+  llm-max-retries:
+    description: 'Max retries per LLM request (default 2).'
+    required: false
+    default: '2'
+  llm-api-key:
+    description: 'API key for the LLM provider. Prefer the STITCHER_CODEREVIEW_API_KEY secret.'
+    required: false
+    default: ''
+  template:
+    description: 'Project-type template: auto|generic|cli|web-service|game-2d-3d|library|<custom> (custom = openspec/review-templates/<id>.md).'
+    required: false
+    default: 'auto'
+  config:
+    description: 'Review policy file, relative to root (default auto: openspec/review.yaml if present). Explicit flags still win.'
+    required: false
+    default: 'auto'
+  sarif:
+    description: "'true' to also write a SARIF report and upload it as code scanning results (needs security-events: write)."
+    required: false
+    default: 'true'
+  sarif-file:
+    description: 'SARIF report filename (relative to $GITHUB_WORKSPACE).'
+    required: false
+    default: 'stitcher-codereview.sarif'
+  comment:
+    description: "'true' to post findings as inline PR review comments plus a summary review (needs pull-requests: write)."
+    required: false
+    default: 'true'
+  post:
+    description: "Post findings mode: none | github | gitlab | vcs (auto-detect). Defaults to vcs when comment is true."
+    required: false
+    default: ''
+  github-token:
+    description: 'Token used to post the PR comment.'
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  verdict:
+    description: 'PASS or CHANGES_REQUESTED.'
+    value: ${{ steps.review.outputs.verdict }}
+  report-path:
+    description: 'Path to the written report file.'
+    value: ${{ steps.review.outputs.report-path }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install stitcher-codereview
+      shell: bash
+      run: |
+        npm ci --prefer-offline --ignore-scripts --no-audit --no-fund --prefix "$GITHUB_ACTION_PATH" "$GITHUB_ACTION_PATH"
+        npm run build --prefix "$GITHUB_ACTION_PATH"
+    - id: review
+      name: Run spec-aware review
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        OPENAI_API_KEY: ${{ inputs.llm-api-key }}
+        ANTHROPIC_API_KEY: ${{ inputs.llm-api-key }}
+        # Every inputs.* / github.* context used in this bash step goes through
+        # env expansion only — never ${{ }} inline (script-injection hardening).
+        IN_CHANGE: ${{ inputs.change }}
+        IN_BASE: ${{ inputs.base }}
+        IN_ROOT: ${{ inputs.root }}
+        IN_FORMAT: ${{ inputs.format }}
+        IN_ONLY: ${{ inputs.only }}
+        IN_FAIL_ON: ${{ inputs.fail-on }}
+        IN_TEMPLATE: ${{ inputs.template }}
+        IN_LLM: ${{ inputs.llm }}
+        IN_LLM_PROVIDER: ${{ inputs.llm-provider }}
+        IN_LLM_MODEL: ${{ inputs.llm-model }}
+        IN_LLM_BASE_URL: ${{ inputs.llm-base-url }}
+        IN_LLM_WEIGHT: ${{ inputs.llm-weight }}
+        IN_LLM_MAX_CONCURRENCY: ${{ inputs.llm-max-concurrency }}
+        IN_LLM_MAX_RETRIES: ${{ inputs.llm-max-retries }}
+        IN_CONFIG: ${{ inputs.config }}
+        IN_SARIF: ${{ inputs.sarif }}
+        IN_SARIF_FILE: ${{ inputs.sarif-file }}
+        IN_POST: ${{ inputs.post }}
+        IN_COMMENT: ${{ inputs.comment }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        HEAD_REF: ${{ github.head_ref }}
+        BASE_REF: ${{ github.base_ref }}
+      run: |
+        set +e
+        CHANGE="${IN_CHANGE:-}"
+        BASE="${IN_BASE:-}"
+        if [ -z "$CHANGE" ] && [ -n "$PR_NUMBER" ] && [ -n "$HEAD_REF" ]; then CHANGE="$HEAD_REF"; fi
+        if [ -z "$BASE" ] && [ -n "$PR_NUMBER" ] && [ -n "$BASE_REF" ]; then BASE="$BASE_REF"; fi
+        if [ -z "$CHANGE" ]; then echo "::error::No change name: pass 'change' or run on pull_request."; exit 2; fi
+        if [ -z "$BASE" ]; then BASE="main"; fi
+        ROOT="$GITHUB_WORKSPACE/$IN_ROOT"
+        case "$IN_FORMAT" in
+          json) EXT="json" ;;
+          sarif) EXT="sarif" ;;
+          *) EXT="md" ;;
+        esac
+        REPORT="$GITHUB_WORKSPACE/stitcher-codereview-report.$EXT"
+        SARIF_ARGS=""
+        if [ "$IN_SARIF" = "true" ]; then
+          # Respect inputs.root for monorepos: CLI resolves relative to --root,
+          # so pass a root-relative path and check both locations below.
+          SARIF_ARGS="--sarif-out $IN_SARIF_FILE"
+        fi
+        POST_ARGS=""
+        # Auto-detect the VCS provider from the GitHub event, or use explicit --post
+        if [ -n "$IN_POST" ]; then
+          POST_ARGS="--post $IN_POST"
+        elif [ "$IN_COMMENT" = "true" ] && [ -n "$PR_NUMBER" ]; then
+          POST_ARGS="--post vcs --no-user-config"
+        fi
+        node "$GITHUB_ACTION_PATH/dist/cli.js" \
+          --change "$CHANGE" --root "$ROOT" --base "$BASE" \
+          --format "$IN_FORMAT" --only "$IN_ONLY" \
+          --fail-on "$IN_FAIL_ON" --template "$IN_TEMPLATE" --llm "$IN_LLM" \
+          --llm-provider "$IN_LLM_PROVIDER" --llm-model "$IN_LLM_MODEL" \
+          --llm-base-url "$IN_LLM_BASE_URL" --llm-weight "$IN_LLM_WEIGHT" \
+          --llm-max-concurrency "$IN_LLM_MAX_CONCURRENCY" --llm-max-retries "$IN_LLM_MAX_RETRIES" \
+          --config "$IN_CONFIG" --no-user-config \
+          $SARIF_ARGS $POST_ARGS \
+          | tee "$REPORT"
+        CODE=${PIPESTATUS[0]}
+        if [ "$IN_FORMAT" = "markdown" ]; then
+          VERDICT=$(grep -oE 'stitcher-codereview: (PASS|CHANGES_REQUESTED)' "$REPORT" | head -1 | awk '{print $2}')
+        else
+          VERDICT=$(grep -oE '"verdict": "(PASS|CHANGES_REQUESTED)"' "$REPORT" | head -1 | cut -d'"' -f4)
+        fi
+        if [ -z "$VERDICT" ]; then VERDICT="CHANGES_REQUESTED"; fi
+        echo "verdict=$VERDICT" >> "$GITHUB_OUTPUT"
+        echo "report-path=$REPORT" >> "$GITHUB_OUTPUT"
+        exit $CODE
+    - id: sarif-check
+      name: Check SARIF report exists
+      # always(): failing reviews need annotations most — upload whenever the
+      # file was written, regardless of the review step outcome.
+      if: always() && inputs.sarif == 'true'
+      shell: bash
+      env:
+        IN_ROOT: ${{ inputs.root }}
+        IN_SARIF_FILE: ${{ inputs.sarif-file }}
+      run: |
+        if [ -s "$GITHUB_WORKSPACE/$IN_SARIF_FILE" ]; then
+          echo "present=true" >> "$GITHUB_OUTPUT"
+        elif [ -s "$GITHUB_WORKSPACE/$IN_ROOT/$IN_SARIF_FILE" ]; then
+          echo "present=true" >> "$GITHUB_OUTPUT"
+          echo "path=$GITHUB_WORKSPACE/$IN_ROOT/$IN_SARIF_FILE" >> "$GITHUB_OUTPUT"
+        else
+          echo "present=false" >> "$GITHUB_OUTPUT"
+        fi
+    - name: Upload SARIF to code scanning
+      if: steps.sarif-check.outputs.present == 'true'
+      # Best-effort: the review verdict (above) is authoritative. Upload fails
+      # where code scanning is unavailable (e.g. private repos without GHAS) —
+      # that must not red the job. See the step log for the cause.
+      continue-on-error: true
+      # SHA-pinned: github/codeql-action v4.38.1. Bump deliberately, never via a
+      # moving major tag, to keep the composite action supply-chain reproducible.
+      uses: github/codeql-action/upload-sarif@c23de5a82f64bb08c6d9f28844551440ca298e76
+      with:
+        sarif_file: ${{ steps.sarif-check.outputs.path || format('{0}/{1}', github.workspace, inputs.sarif-file) }}
+        category: stitcher-codereview
