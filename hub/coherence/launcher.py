@@ -302,7 +302,8 @@ def run(ctx: dict, *, output_dir: Path, container_args=None,
         # Deferred P2 / coh-rt-05 hardening: attempt container-level kill
         # when running under container context; never raises.
         try:
-            if os.environ.get("PODMAN_RUN") == "1" and ctx.get("image"):
+            env_ctx = (env or {}) if env is not None else (ctx.get("env") or {})
+            if env_ctx.get("PODMAN_RUN") == "1" and ctx.get("image"):
                 subprocess.run(["podman", "kill", ctx.get("image").split("@")[0]],
                                capture_output=True, timeout=2)
         except Exception:

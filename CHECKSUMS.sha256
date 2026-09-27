@@ -1,4 +1,4 @@
-# DevGate release checksums — generated 2026-09-27T09:44:51Z
+# DevGate release checksums — generated 2026-09-27T09:48:07Z
 # Verify before use: python3 scripts/gen-checksums.py verify
 3ba50bc8b31743b05c2d11a2fe8156c44477548600ac9c2e1b4fa8f78e09c378  hub/__init__.py
 ee9d420de2f1a6dd228e9166b508e106f753dace985884ec6355581cabdbeb91  hub/alerts.py
@@ -17,7 +17,7 @@ e9dc0d010aa709a75469bbf9a81494f6232ecdb361343fdb189497ac52397fc5  hub/coherence/
 0ff2a420f21a78f478a9ec01c301936aee24c91070c11c2182bc2a5b87b5cc7a  hub/coherence/evidence.py
 3ba1457e5e4d3da2223e2a6302b315aed40644e4ac29efaa5a5f7a59b5e95587  hub/coherence/invoke.py
 5f9262c4a8fba07af604988f1c4d5bbf9e16c18076015f05e9caca698dcc8514  hub/coherence/issue.py
-6df27eea9609fc795ed0f72984e1fdd86656a7647b9bc5982591944bc63085f1  hub/coherence/launcher.py
+28e264c099d5225edf02dafd5ff70274c6236adc9328899346e0ca097db8a7f3  hub/coherence/launcher.py
 eb66369aac9bd8f54df4bb51f1ffcb582de369e3782b55ae9afe9b7b805914de  hub/coherence/manifest.py
 d3ff4bd7aecee3213dec9c64b0a447108c1dfea4771d28ee6bbd760245f5601b  hub/coherence/package.py
 22b0989b84082127295e68fd083d07f0515a8afab84276c054c5041b86af5dc4  hub/coherence/plan.py
@@ -33,8 +33,8 @@ f492708fb286040e133f5349ea004aefc0eaa6d0e99d1262eb36d837264a8f69  hub/coherence/
 2f948366c86f2b3e904f1a24b271486e8e7f6e47d6362b33cfea065068c41b40  hub/config.py
 b4dc6acd7a31aee8108baf50090ff5a8fe805b471b6a7be8611a59d741389617  hub/github_client.py
 7cb24ea63cb4b6d9567689c84b0cdb15756ca59501f1a27d9077c02dd321f7d5  hub/main.py
-54fb7598a3096eb93a926c286f9a27bd51752ce7efa4f196d4892e4a008b4e4d  hub/monitor.py
-57315b2a2dd3989ae0c0c49fa81f25cefe92fa4587c38875d4f14ffe586c04b5  hub/registry.py
+497bfa3e35abe19739ab2c72ec5d2216ecdfb9c4f93884af1e9908b4d5f30ed5  hub/monitor.py
+502b1f5e3ec4d56e3f4953756a9fe2264ecb432f5e7d34c6d69f6172e104a485  hub/registry.py
 f9af81f795c083066849fe2e05b1f0b229c68c46ac16b53be3011e7f02d656d5  hub/scan_view.py
 d7b45b73f7fca2640e3ca9505fc19de3e24fbe826e3e9b2ca52c95e9ca393fdd  hub/server.py
 20e02b80dd91fe4e87634505bac86394b03b11ddcbe717881b85873dd66c5e1b  hub/tokens.py
