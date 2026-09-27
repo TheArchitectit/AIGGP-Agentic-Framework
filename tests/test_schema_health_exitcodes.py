@@ -146,6 +146,8 @@ class TestDeployDispatch(unittest.TestCase):
         for args in (("init", "-q", "-b", "main"),
                      ("config", "user.email", "t@t"),
                      ("config", "user.name", "t"),
+                     ("config", "maintenance.auto", "false"),
+                     ("config", "gc.auto", "0"),
                      ("add", "."), ("commit", "-qm", "init"),
                      # Tag the base: deploy's regression gate runs --all
                      # (changes since the last tag), and without a tag it

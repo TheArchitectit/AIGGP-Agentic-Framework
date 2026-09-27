@@ -1,6 +1,6 @@
 {
   "schema": "execution-profiles",
-  "image": "ghcr.io/thearchitectit/devgate-agentic-framework/devgate-coherence",
+  "image": "ghcr.io/thearchitectit/aiggp-agentic-framework/devgate-coherence",
   "profiles": [
     {
       "label": "linux-amd64-v1",

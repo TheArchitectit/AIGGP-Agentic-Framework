@@ -25,10 +25,14 @@ this module is the polling POLICY — what to check, and what to alert on.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import time
+import urllib.error
+import urllib.request
 from datetime import datetime, timezone
+from pathlib import Path
 
 from . import registry
 from .alerts import AlertSink
@@ -182,12 +186,12 @@ class MonitorLoop:
 
     def poll_cycle(self) -> None:
         """One full monitoring cycle across all registered repos."""
-# Refresh token from file so rotations (revoke/re-enroll) take effect.
-self.client.refresh_token()
-# A locked deep copy: HTTP threads mutate these dicts in place
-# (heartbeat writes digest/reason/scan_state as separate assignments),
-# and the readiness checks below read fields across those writes.
-runners = self.state.runners_snapshot()
+        # Refresh token from file so rotations (revoke/re-enroll) take effect.
+        self.client.refresh_token()
+        # A locked deep copy: HTTP threads mutate these dicts in place
+        # (heartbeat writes digest/reason/scan_state as separate assignments),
+        # and the readiness checks below read fields across those writes.
+        runners = self.state.runners_snapshot()
         # Group by repo to avoid redundant API calls.
         repos: dict[str, list[dict]] = {}
         for runner in runners:

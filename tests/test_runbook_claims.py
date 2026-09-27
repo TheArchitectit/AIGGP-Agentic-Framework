@@ -193,6 +193,14 @@ def _bash_bodies_from(path):
         # Only MAXIMAL string expressions get evaluated: the operand of a
         # `+` is not independently a body, and linting a lone shebang
         # fragment would flag a syntax error that names no real defect.
+        if isinstance(node, ast.JoinedStr):
+            # An f-string makes the whole concatenated body non-static
+            # (its substitution is runtime-only), so it is skipped WHOLE.
+            # Recursing into its children would emit the leading literal
+            # fragment as a "body" — a truncated script that fails bash -n
+            # for a defect that exists only in the extractor's slicing
+            # (measured on the schema-health stub: "...exec \"" → EOF error).
+            return
         if isinstance(node, (ast.Constant, ast.BinOp)) and literal(node) is not None:
             value = literal(node)
             if value.startswith("#!/usr/bin/env bash"):
