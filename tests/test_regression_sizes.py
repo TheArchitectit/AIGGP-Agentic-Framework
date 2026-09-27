@@ -61,6 +61,17 @@ def _write_zig_fixture(root: Path, rel_path: str, line_count: int) -> Path:
     return path
 
 
+def _write_html_fixture(root: Path, rel_path: str, line_count: int) -> Path:
+    """An HTML fixture. The gate counts lines and never parses the language, but
+    a fixture claiming to be HTML should be HTML -- a reader checking "does this
+    really exercise .html?" should get a yes."""
+    path = root / rel_path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    body = "\n".join(f"  <p>line {i}</p>" for i in range(line_count - 3))
+    path.write_text(f"<!DOCTYPE html>\n<html>\n{body}\n</html>\n", encoding="utf-8")
+    return path
+
+
 def test_oversize_test_file_is_flagged_at_test_hard():
     """MUST-flag: a TEST_HARD+1-line pytest file is a blocking violation."""
     with tempfile.TemporaryDirectory() as td:
@@ -205,6 +216,47 @@ def test_a_zig_test_file_is_judged_at_the_test_limit():
         issues = check_file_sizes(root, ["src"])
         assert [i["file"] for i in issues] == ["src/giant_test.zig"], (
             f"test_*.zig judged as source, not as a test: {issues}")
+
+
+def test_oversize_html_file_is_flagged_at_src_hard():
+    """MUST-flag. `.html` was absent from SOURCE_EXTENSIONS, so a single-file
+    HTML game -- the whole artifact, in one file -- was never sized while this
+    gate reported "0 over hard limit". Same shape as the `.zig` and `.sh` gaps
+    (FAIL-8f9249ca, gate-vacuous-01): the scope list omitted the one extension
+    the project was actually written in, and a clean report meant nothing.
+
+    Found 2026-09-27 onboarding TheArchitectit/zombie-hero-match, whose entire
+    game is one 1683-line index.html.
+
+    NOTE the boundary this does NOT cover: this gate walks SOURCE_DIRS, built
+    from a fixed candidate list that does not include the repo ROOT. A game at
+    <root>/index.html is therefore still unsized even with `.html` in scope.
+    The fixture sits in `src/` because that is what the extension change
+    governs; widening the walk to the root is a separate change with its own
+    blast radius."""
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        _write_html_fixture(root, "src/giant.html", SRC_HARD + 1)
+        issues = check_file_sizes(root, ["src"])
+        hard = [i for i in issues if i["kind"] == "hard"]
+        assert len(hard) == 1, f"oversize html file not flagged: {issues}"
+        v = hard[0]
+        assert v["file"] == "src/giant.html", v
+        assert v["lines"] == SRC_HARD + 1, v
+        assert v["hard"] == SRC_HARD, (
+            f"evaluated at hard={v['hard']}, not SRC_HARD: {v}")
+        assert v["severity"] == "error", v
+
+
+def test_a_small_html_file_is_not_flagged():
+    """The other arm. Adding an extension must not make ordinary files noisy --
+    a 200-line HTML page is well under SRC_HARD and must stay silent, or the
+    rule trains people to ignore it."""
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        _write_html_fixture(root, "src/page.html", 200)
+        issues = check_file_sizes(root, ["src"])
+        assert issues == [], f"under-limit html flagged: {issues}"
 
 
 def test_source_dirs_include_test_directories():

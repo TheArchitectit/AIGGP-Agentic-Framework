@@ -455,6 +455,34 @@ check("mjs: violation in .cjs file is reported", r.err.includes("bad.cjs"));
 check("mjs: a clean .mjs file is not reported", !r.err.includes("good.mjs"));
 cleanup(dir15);
 
+// --- 17. HTML is a scanned source extension --------------------------------
+// Found 2026-09-27 onboarding TheArchitectit/zombie-hero-match, whose entire
+// game is ONE 1683-line index.html. `.html` was absent from SOURCE_EXTENSIONS,
+// so the artifact -- all of it -- was never pattern-scanned while the gate
+// reported "pattern scan clean". Same root shape as the `.zig` and `.sh` gaps
+// and as the vacuous-green bug above: the scope list omitted the extension the
+// project is written in, so a clean report carried no information.
+//
+// The comment-syntax half was already correct (isCommentLine has listed .html
+// since before this change), so unlike `.zig` this is extension-only -- but
+// both directions are asserted anyway, because "extension added, language
+// semantics not" is exactly how the `.zig` fix went wrong the first time.
+const dir17 = mkdtempSync(join(tmpdir(), "devgate-scan-"));
+makeProject(dir17, {
+	"src/page.html": "<html><body><script>const api_key = 'AKIAIOSFODNN7EXAMPLE1234';</script></body></html>\n",
+	"src/comment.html": "<html>\n<body>\n<!-- this used to hold a hardcoded api_key = 'AKIAIOSFODNN7EXAMPLE1234' -->\n</body>\n</html>\n",
+	"src/clean.html": "<html><body><p>nothing to see</p></body></html>\n",
+});
+r = runScan(dir17);
+check("html: a violation in a .html file is reported", r.code === 1 && r.err.includes("page.html"));
+check("html: a clean .html file is not reported", !r.err.includes("clean.html"));
+// Full-line comment, not an inline trailing one: only full-line comments are
+// skipped by contract, and an inline one on a code line is still a code line.
+const htmlCommentReported = r.err.includes("comment.html");
+check("html: a full-line HTML comment mentioning the pattern is NOT reported", !htmlCommentReported,
+	htmlCommentReported ? "isCommentLine does not cover .html -- the .zig mistake" : "");
+cleanup(dir17);
+
 // --- 13. Python-side semantics agree: file_glob + allow + ignore -------------
 // (game_regression.py is exercised by tests/test_game_regression.py,
 //  gate_overlay.py by tests/test_gate_overlay.py)
