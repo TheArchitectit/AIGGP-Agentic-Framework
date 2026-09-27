@@ -7,6 +7,7 @@ seeded per family keeps *_test.go out of THAT family only — scope-not-mute.
 import json
 import os
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -32,6 +33,37 @@ class TestSingleScopeContract(unittest.TestCase):
         for required in ("node_modules", "vendor", "__pycache__", ".venv",
                          ".git", ".sandbox-home"):
             self.assertIn(required, scope["skip_dirs"])
+
+    def test_size_gate_consumes_the_scope_contract(self):
+        """Every gate must CONSUME .guardrails/scope.json, not merely avoid
+        re-declaring it. test_exactly_one_skip_dirs_definition only proves the
+        latter, so the size gate passed while consuming nothing: its walk
+        entered vendored and cache trees that guardrails-scan, semantic-scan and
+        silent-success all skip, so a planted cache copy of a source file was
+        sized by this gate alone. That is the divergence fw-scope-01 exists to
+        prevent -- and it was invisible because no test asserted consumption.
+        """
+        sys.path.insert(0, str(REPO / "scripts"))
+        from regression_sizes import SKIP_DIRS, SRC_HARD, check_file_sizes
+
+        self.assertTrue(SKIP_DIRS, "the size gate must consume .guardrails/scope.json")
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            # A planted cache INSIDE a scanned source dir: the walk must prune it.
+            cache = root / "src" / "node_modules" / "pkg"
+            cache.mkdir(parents=True)
+            (cache / "huge.js").write_text(
+                "\n".join("x" for _ in range(SRC_HARD + 50)), encoding="utf-8")
+            # First-party source in the same run must still be sized, or the
+            # prune has muted the gate instead of scoping it.
+            (root / "src" / "huge.js").write_text(
+                "\n".join("x" for _ in range(SRC_HARD + 50)), encoding="utf-8")
+
+            files = [i["file"] for i in check_file_sizes(root, ["src"])]
+            self.assertNotIn("src/node_modules/pkg/huge.js", files,
+                             "the size gate sized a tree every other gate skips")
+            self.assertIn("src/huge.js", files,
+                          "the gate must still size first-party source in the same run")
 
     def test_gates_skip_planted_cache_trees(self):
         """A fake module cache with planted markers must not appear in any
