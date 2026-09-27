@@ -13,7 +13,9 @@ What lives here:
   * compile_registry_patterns / check_added_against_registry — compile each
     failure-registry entry's `regression_pattern` and match it against added
     lines, honouring the entry's optional `file_glob` scoping. DevGate has
-    always STORED regression_pattern; this is what reads it.
+    always STORED regression_pattern; this is what reads it. An entry with no
+    `file_glob` does not scan prose (PROSE_GLOBS) — a document quoting a pattern
+    is describing the failure, not re-adding it.
   * load_failure_registry / load_active_failures — registry loading split by
     status: patterns are enforced for active AND resolved entries (a resolved
     bug is exactly the one that must not come back), while the affected-files
@@ -36,6 +38,28 @@ SELF_REFERENTIAL = (
     ".guardrails/failure-registry.jsonl",
     ".guardrails/prevention-rules/pattern-rules.json",
 )
+
+# Prose is not a re-introduction of a bug. A registry entry whose pattern a
+# document QUOTES — to describe the failure, or to record the fix — is the
+# opposite of a regression. An entry that scopes itself with `file_glob` gets
+# exactly that scope, including docs if it names them; an entry with no scope
+# would otherwise fire on every audit and postmortem that mentions the bug,
+# which makes the failure impossible to write down honestly.
+#
+# Observed in the wild: a spec quoting its own registry entry verbatim failed
+# the gate on that quote, and the first write-up of the resulting false
+# positive then failed the gate on ITSELF for the same reason.
+#
+# DELIBERATELY NOT INCLUDED: *.txt. `glob_matches` tests the basename, so a
+# `*.txt` entry here would silently exempt requirements.txt, constraints.txt
+# and similar dependency/config manifests — files that are not prose and are
+# exactly where a banned pin or a re-added secret should still be caught. A
+# project that wants .txt matched can name it explicitly in a file_glob.
+PROSE_GLOBS = ("*.md", "*.markdown", "*.mdx", "*.rst")
+
+# Opting an entry back into prose means naming the extension in `file_glob`.
+# To scope an entry to "everything, including docs", use ("*",) — a bare "*"
+# matches both the basename and the repo-relative path (see glob_matches).
 
 # Registry statuses whose regression_pattern is compiled and enforced.
 SCANNED_STATUSES = ("active", "resolved")
@@ -280,22 +304,41 @@ def compile_registry_patterns(entries: list[dict]) -> tuple[list[dict], list[str
 
 
 def check_added_against_registry(added: list[tuple[str, int, str]],
-                                 compiled: list[dict]) -> list[dict]:
+                                 compiled: list[dict],
+                                 skipped_prose: dict[str, int] | None = None) -> list[dict]:
     """Match compiled registry patterns against ADDED lines.
 
     A hit means a previously fixed bug's signature is being re-added. Entries
     scoped with a `file_glob` only fire for matching files, so a doc or helper
-    script may quote a pattern without tripping the gate. A line carrying a
-    `guardrails-allow <failure_id|prevention_rule>:` annotation is skipped —
-    the same escape hatch game_regression.py honours, so a comment asserting
-    the anti-pattern is ABSENT doesn't read as a re-add.
+    script may quote a pattern without tripping the gate. An entry with NO
+    scope skips prose entirely (see PROSE_GLOBS) for the same reason — naming
+    `*.md` in a `file_glob` opts a pattern back into documentation. A line
+    carrying a `guardrails-allow <failure_id|prevention_rule>:` annotation is
+    skipped — the same escape hatch game_regression.py honours, so a comment
+    asserting the anti-pattern is ABSENT doesn't read as a re-add.
+
+    `skipped_prose` is an optional accumulator: when supplied, it records the
+    number of added lines the prose exclusion suppressed, keyed by path. Counted
+    once per line, and only when at least one unscoped entry actually exists —
+    otherwise no coverage was lost and there is nothing to report. A gate that
+    silently narrows its own coverage is the thing this framework exists to
+    catch, so callers should report this rather than dropping it.
     """
     violations: list[dict] = []
+    # Only unscoped entries can be suppressed by the prose exclusion, so their
+    # absence means a prose line skipped nothing and must not be counted.
+    unscoped_exists = any(not item["file_glob"] for item in compiled)
     for path, lineno, text in added:
         if path in SELF_REFERENTIAL:
             continue
+        prose_here = unscoped_exists and glob_matches(path, PROSE_GLOBS)
+        if prose_here and skipped_prose is not None:
+            skipped_prose[path] = skipped_prose.get(path, 0) + 1
         for item in compiled:
-            if item["file_glob"] and not glob_matches(path, item["file_glob"]):
+            if item["file_glob"]:
+                if not glob_matches(path, item["file_glob"]):
+                    continue
+            elif prose_here:
                 continue
             if item["exclude_glob"] and glob_matches(path, item["exclude_glob"]):
                 continue
