@@ -32,6 +32,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
 from regression_diff import (  # noqa: E402
     EMPTY_TREE,
+    PROSE_GLOBS,
     SELF_REFERENTIAL,
     check_added_against_registry,
     compile_registry_patterns,
@@ -146,6 +147,94 @@ def test_glob_matches_basename_and_relpath():
     assert glob_matches("scripts/guardrails-scan.mjs", ["*.mjs"])
     assert glob_matches("scripts/guardrails-scan.mjs", ["scripts/*.mjs"])
     assert not glob_matches("scripts/guardrails-scan.mjs", ["*.py"])
+
+
+def test_unscoped_entry_does_not_fire_on_prose():
+    """A document QUOTING a pattern is describing the failure, not re-adding it.
+
+    The live bug this covers: a spec that quoted its own registry entry
+    verbatim failed the gate on that quote, and the first write-up of the
+    resulting false positive then failed the gate on ITSELF for the same
+    reason — an audit of the defect was itself blocked by the defect.
+    """
+    added = [("openspec/changes/p-01/proposal.md", 38,
+              'pattern: "TS6133 unused import / TS2353 unknown property"')]
+    violations, _ = _check(added, [_entry(regression_pattern=r"TS6133 unused import.*TS2353")])
+    assert violations == [], f"prose quoting a pattern was flagged: {violations}"
+
+
+def test_unscoped_entry_still_fires_on_code():
+    """The prose exclusion must not weaken the gate where the bug actually lives."""
+    added = [("src/store.test.ts", 7,
+              "// TS6133 unused import / TS2353 unknown property reintroduced")]
+    violations, _ = _check(added, [_entry(regression_pattern=r"TS6133 unused import.*TS2353")])
+    assert len(violations) == 1, f"prose exclusion leaked into code: {violations}"
+
+
+def test_file_glob_opts_back_into_prose():
+    """Naming *.md in a file_glob restores documentation matching deliberately."""
+    entries = [_entry(regression_pattern=r"dangerous_call\(", file_glob=["*.md"])]
+    md_hit, _ = _check([("docs/policy.md", 3, "dangerous_call(x) is banned")], entries)
+    py_hit, _ = _check([("src/app.py", 3, "dangerous_call(x)")], entries)
+    assert len(md_hit) == 1, "explicit *.md scope did not opt back into prose"
+    assert py_hit == [], "an *.md-scoped entry leaked into code"
+
+
+def test_every_prose_extension_is_excluded():
+    """Each declared PROSE_GLOBS extension is actually skipped, not just *.md.
+
+    Guards against a glob that silently stops applying — e.g. a typo turning
+    '*.markdown' into a pattern nothing ever matches.
+    """
+    entries = [_entry(regression_pattern=r"dangerous_call\(")]
+    for ext in PROSE_GLOBS:
+        hits, _ = _check([(f"docs/note{ext[1:]}", 1, "dangerous_call(x)")], entries)
+        assert hits == [], f"{ext} was not excluded from the unscoped scan"
+
+
+def test_dependency_manifests_are_not_treated_as_prose():
+    """*.txt must NOT be excluded — requirements/config manifests are not prose.
+
+    glob_matches tests the basename, so a '*.txt' entry in PROSE_GLOBS would
+    silently exempt requirements.txt / constraints.txt everywhere, which is
+    exactly where a re-added banned pin or leaked secret must still be caught.
+    """
+    entries = [_entry(regression_pattern=r"^some-banned-package==")]
+    hits, _ = _check([("requirements.txt", 4, "some-banned-package==1.2.3")], entries)
+    assert len(hits) == 1, (
+        "a dependency manifest was treated as prose — a .txt exclusion would "
+        f"silently disable this class of detection: {hits}"
+    )
+
+
+def test_star_glob_opts_into_everything_including_docs():
+    """('*',) is the documented way to scope an entry to all files AND prose."""
+    entries = [_entry(regression_pattern=r"dangerous_call\(", file_glob=["*"])]
+    md_hit, _ = _check([("docs/notes.md", 1, "dangerous_call(x)")], entries)
+    py_hit, _ = _check([("src/app.py", 1, "dangerous_call(x)")], entries)
+    assert len(md_hit) == 1, "('*',) did not opt back into prose"
+    assert len(py_hit) == 1, "('*',) stopped matching code"
+
+
+def test_exclude_glob_still_narrows_a_scoped_entry():
+    """exclude_glob keeps working alongside the new prose branch."""
+    entries = [_entry(regression_pattern=r"dangerous_call\(",
+                      file_glob=["*"], exclude_glob=["docs/*"])]
+    hits, _ = _check([("docs/notes.md", 1, "dangerous_call(x)")], entries)
+    assert hits == [], f"exclude_glob was bypassed: {hits}"
+
+
+def test_prose_skips_are_counted_not_silent():
+    """Narrowed coverage must be reportable, never silent."""
+    added = [("docs/a.md", 1, "dangerous_call(x)"),
+             ("docs/b.rst", 2, "dangerous_call(y)")]
+    skipped: dict[str, int] = {}
+    compiled, _ = compile_registry_patterns([_entry(regression_pattern=r"dangerous_call\(")])
+    violations = check_added_against_registry(added, compiled, skipped)
+    assert violations == [], f"prose was not excluded: {violations}"
+    assert skipped == {"docs/a.md": 1, "docs/b.rst": 1}, (
+        f"skipped-prose accounting is wrong or absent: {skipped}"
+    )
 
 
 def test_self_referential_files_are_excluded():

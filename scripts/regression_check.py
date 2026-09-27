@@ -38,9 +38,12 @@ Diff scanning semantics:
     Each failure-registry entry may carry a `regression_pattern` (a regex that
     must not reappear in added code) and an optional `file_glob` scoping it to
     matching files, so docs and helper scripts can quote a pattern without
-    tripping the gate. The two files that DEFINE the patterns — the registry and
-    pattern-rules.json — are excluded from the added-line scan, since every
-    pattern trivially matches its own definition.
+    tripping the gate. An entry with NO `file_glob` does not scan prose at all
+    (PROSE_GLOBS: *.md, *.markdown, *.mdx, *.rst); name an extension in
+    `file_glob` to opt back in, or ("*",) for everything including docs. The two
+    files that DEFINE the patterns — the registry and pattern-rules.json — are
+    excluded from the added-line scan, since every pattern trivially matches its
+    own definition.
 """
 
 import argparse
@@ -402,7 +405,8 @@ def main():
     all_entries, _owner = gate_overlay.resolve_registry(
         PROJECT_ROOT, args.registry, statuses=SCANNED_STATUSES)
     compiled, pattern_warnings = compile_registry_patterns(all_entries)
-    registry_violations = check_added_against_registry(added, compiled)
+    prose_skipped: dict[str, int] = {}
+    registry_violations = check_added_against_registry(added, compiled, prose_skipped)
 
     size_issues: list[dict] = []
     size_hard_count = 0
@@ -460,6 +464,14 @@ def main():
         elif not args.quiet or count > 0:
             print_report(issues, verbose=args.verbose)
         print_registry_regression_report(registry_violations)
+        if prose_skipped:
+            total = sum(prose_skipped.values())
+            print(f"\nRegistry scan: {total} added line(s) in prose were not "
+                  f"scanned by unscoped patterns (docs quote patterns to "
+                  f"describe them). {len(prose_skipped)} file(s).")
+            if args.verbose:
+                for path in sorted(prose_skipped):
+                    print(f"    {path}: {prose_skipped[path]}")
         if size_issues and (not args.quiet or size_hard_count > 0):
             print_file_size_report(size_issues)
         if not args.no_audit and (not args.quiet or audit_blocking > 0):
