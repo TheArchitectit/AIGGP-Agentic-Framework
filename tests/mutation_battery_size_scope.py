@@ -52,9 +52,9 @@ CHECK = "scripts/regression_check.py"
 T_SIZES = "tests/test_regression_sizes.py"
 
 EXTENSIONS_WITH_SH = '''                     ".rb", ".php", ".js", ".jsx", ".swift", ".c", ".cpp", ".h", ".cs",
-                     ".sh", ".zig")'''
+                     ".sh", ".zig", ".html")'''
 EXTENSIONS_WITHOUT_SH = '''                     ".rb", ".php", ".js", ".jsx", ".swift", ".c", ".cpp", ".h", ".cs",
-                     ".zig")'''
+                     ".zig", ".html")'''
 
 TEST_PREFIX_WITH_SH = 'TEST_PREFIX_EXTENSIONS = (".py", ".sh", ".zig")'
 TEST_PREFIX_WITHOUT_SH = 'TEST_PREFIX_EXTENSIONS = (".py", ".zig")'
@@ -89,7 +89,7 @@ MUTATIONS = [
 # not a fixture property.
 NEGATIVE_CONTROLS = [
     ("N1: an extension nothing in the tree uses — must change no outcome",
-     [(SIZES, EXTENSIONS_WITH_SH, EXTENSIONS_WITH_SH.replace('".sh", ".zig")', '".sh", ".zig", ".bak")'))],
+     [(SIZES, EXTENSIONS_WITH_SH, EXTENSIONS_WITH_SH.replace('".sh", ".zig", ".html")', '".sh", ".zig", ".html", ".bak")'))],
      [T_SIZES], {}),
 ]
 
