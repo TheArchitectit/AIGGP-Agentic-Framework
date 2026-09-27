@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Game-class regression scanner.
+"""Game-class regression scanner (engine-aware).
 
 Ported from Sword of Hope's regression_check.py + failure-registry.jsonl patterns.
 Adds game-specific failure classes beyond DevGate's generic scanner:
@@ -11,6 +11,12 @@ Adds game-specific failure classes beyond DevGate's generic scanner:
   ORPHAN_SIGNAL    — button/signal with no handler
   DETERMINISM_BREAK — seeded run diverges
   PERF_REGRESSION  — frame time / memory exceeds budget
+
+The engine is detected from game-manifest.json (else project files) and the
+matching pattern table is applied; unknown engines fall back to the Godot set.
+Zig + OpenGL classes (ZIG_COMPILE, ZIG_MEMORY, OPENGL_CTX, SHADER_FAIL,
+INPUT_CAPTURE) were imported from the former devgate-game-framework repository
+(merged 2026-09-26).
 
 Reads .guardrails/failure-registry.jsonl and scans staged/unstaged changes
 against known game-class patterns. Exit 1 on hard violations with --pre-commit.
@@ -44,6 +50,53 @@ GAME_PATTERNS = {
         r'\.connect\("pressed"',                   # signal connect without method check
     ],
 }
+
+# Zig + OpenGL engine patterns — imported from the former devgate-game-framework
+# repository (merged 2026-09-26). Selected by detect_engine().
+ZIG_PATTERNS = {
+    "ZIG_COMPILE": [
+        r"error:.*unexpected",
+        r"compile error",
+    ],
+    "ZIG_MEMORY": [
+        r"std\.mem\.alloc\(",
+    ],
+    "OPENGL_CTX": [
+        r"glGetError\(\)",
+    ],
+    "SHADER_FAIL": [
+        r"glCompileShader",
+    ],
+    "INPUT_CAPTURE": [
+        r"glfwSetKeyCallback",
+    ],
+}
+
+# Engine -> pattern table. Unknown engines fall back to the Godot/game set.
+ENGINE_PATTERNS = {
+    "Godot": GAME_PATTERNS,
+    "Zig + OpenGL": ZIG_PATTERNS,
+}
+
+def detect_engine(root):
+    """Detect the project engine from game-manifest.json, else by project files.
+
+    Mirrors the detection in scene_inventory.py so both game gates agree on the
+    engine. A manifest `engine` value wins; otherwise project/build markers are
+    consulted; anything else is `unknown` (callers fall back to Godot patterns).
+    """
+    root = Path(root)
+    manifest_path = root / "game-manifest.json"
+    if manifest_path.exists():
+        try:
+            return json.loads(manifest_path.read_text()).get("engine", "unknown")
+        except Exception:
+            pass
+    if (root / "project.godot").exists():
+        return "Godot"
+    if (root / "build.zig").exists():
+        return "Zig + OpenGL"
+    return "unknown"
 
 def find_project_root():
     """Project root = the directory CONTAINING .devgate/, by layout contract.
@@ -222,10 +275,14 @@ def main():
     args = parser.parse_args()
 
     root = find_project_root()
+    engine = detect_engine(root)
     print(f"[game-regression] project root: {root}")
+    print(f"[game-regression] detected engine: {engine}")
 
     registry = load_failure_registry(root)
     print(f"[game-regression] failure registry: {len(registry)} entries")
+
+    active_patterns = ENGINE_PATTERNS.get(engine, GAME_PATTERNS)
 
     ignore_patterns = load_ignore_patterns(root)
     if ignore_patterns:
@@ -246,8 +303,8 @@ def main():
     all_issues = []
 
     for f in files:
-        # Built-in game-class patterns
-        issues = scan_file_for_patterns(f, GAME_PATTERNS)
+        # Built-in game-class patterns (engine-selected)
+        issues = scan_file_for_patterns(f, active_patterns)
         # Failure-registry patterns
         issues.extend(scan_failure_registry_patterns(f, registry, root))
         all_issues.extend(issues)

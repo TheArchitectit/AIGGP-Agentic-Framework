@@ -1,6 +1,6 @@
 # Game-Type Phase Matrix
 
-Status: Proposed. Keystone spec — drives all other devgate-game-framework gates. Defines the
+Status: Proposed. Keystone spec — drives all other game gates. Defines the
 minimum required features, screens, and verification per game type × phase.
 
 ## Purpose

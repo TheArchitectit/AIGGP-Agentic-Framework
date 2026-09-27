@@ -1,0 +1,57 @@
+{
+  "engine": "zig-opengl",
+  "version": "1.0.0",
+  "description": "Zig + OpenGL regression patterns for devgate-game-framework",
+  "patterns": {
+    "ZIG_COMPILE": {
+      "regex": ["error:.*unexpected", "error\\[E", "compile error"],
+      "severity": "hard",
+      "description": "Zig compile-time error"
+    },
+    "ZIG_UNWRAP": {
+      "regex": ["\\?\\s*$", "\\?\\.\\s*\\w+"],
+      "severity": "hard",
+      "description": "Zig unsafe unwrap - potential null dereference"
+    },
+    "ZIG_MEMORY": {
+      "regex": ["std\\.mem", "std\\.heap"],
+      "severity": "medium",
+      "description": "Zig memory misuse - potential leak or overflow"
+    },
+    "OPENGL_CTX": {
+      "regex": ["glGetError"],
+      "severity": "hard",
+      "description": "OpenGL context error"
+    },
+    "SHADER_FAIL": {
+      "regex": ["glShaderSource", "glCompileShader", "glGetShaderiv.*COMPILE_STATUS"],
+      "severity": "hard",
+      "description": "Shader compilation failure"
+    },
+    "WASM_SIZE": {
+      "regex": ["wasm"],
+      "severity": "medium",
+      "description": "Web build exceeds size limit (50MB)"
+    },
+    "ENTITY_LEAK": {
+      "regex": ["destroy", "deinit"],
+      "severity": "medium",
+      "description": "Entity not destroyed on zone transition"
+    },
+    "AUDIO_DEV": {
+      "regex": ["miniaudio", "ma_engine"],
+      "severity": "hard",
+      "description": "Audio device initialization failure"
+    },
+    "INPUT_CAPTURE": {
+      "regex": ["glfwGetKey", "glfwPollEvent", "glfwWaitEvents"],
+      "severity": "medium",
+      "description": "Input not properly captured"
+    },
+    "WEB_GL": {
+      "regex": ["emscripten"],
+      "severity": "hard",
+      "description": "WebAssembly build issue"
+    }
+  }
+}

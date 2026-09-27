@@ -1,12 +1,17 @@
 #!/usr/bin/env python3
 """Scene inventory + button handler validation scanner.
 
-Ported from Sword of Hope's scene_load_check.gd, generalized to be engine-agnostic.
+Engine-aware: detects the project engine (game-manifest.json, else project
+files) and dispatches to the matching scanner.
 
-For Godot projects: discovers all .tscn files under src/, parses each for
-Button nodes and their pressed signal connections, reports orphaned signals.
+  Godot        — discovers .tscn files under src/, parses Button nodes and their
+                 'pressed' signal connections, reports orphaned signals.
+  Zig + OpenGL — discovers .zig UI screens under src/ui/, validates handler
+                 bindings declared alongside .label buttons.
 
-For non-Godot projects: reads a scene manifest (game-manifest.json) if present.
+Ported from Sword of Hope's scene_load_check.gd, generalized to be
+engine-agnostic. Zig + OpenGL support imported from the former
+devgate-game-framework repository (merged 2026-09-26).
 
 Exit codes: 0 = all scenes pass, 1 = any scene/button failure.
 """
@@ -22,6 +27,27 @@ sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
 from project_root import project_root_for  # noqa: E402  # guardrails-allow PREVENT-024: shared root-contract module defined in scripts/lib/project_root.py, not an external package
 
 PROJECT_ROOT = project_root_for(Path(__file__).resolve().parent.parent)
+
+def detect_engine(root):
+    """Detect the project engine from game-manifest.json, else project files.
+
+    Manifest `engine` wins; otherwise project/build markers are consulted. Kept
+    in parity with game_regression.detect_engine so both game gates agree.
+    """
+    root = Path(root)
+    manifest_path = root / "game-manifest.json"
+    if manifest_path.exists():
+        try:
+            return json.loads(manifest_path.read_text()).get("engine", "unknown")
+        except Exception:
+            pass
+    if (root / "project.godot").exists():
+        return "Godot"
+    if (root / "build.zig").exists():
+        return "Zig + OpenGL"
+    return "unknown"
+
+# === GODOT SCANNER ===
 
 def discover_scenes_godot(root):
     """Find all .tscn files under src/ — mirrors SoH's _discover_scenes()."""
@@ -69,18 +95,12 @@ def parse_tscn_buttons(scene_path):
 
     return buttons, connections, orphaned
 
-def scan_project(root):
+def scan_godot(root):
     root = Path(root)
     scenes = discover_scenes_godot(root)
 
     if not scenes:
-        # Check for non-Godot manifest
-        manifest = root / "game-manifest.json"
-        if manifest.exists():
-            print(f"[scene-inventory] non-Godot project, manifest found — skipping scene scan")
-            return 0
-
-        print(f"[scene-inventory] no scenes found under src/ — nothing to scan")
+        print(f"[scene-inventory] no .tscn scenes found under src/ — nothing to scan")
         return 0
 
     print(f"[scene-inventory] discovered {len(scenes)} scene(s) under src/")
@@ -115,6 +135,123 @@ def scan_project(root):
     print(f"=== Scene Inventory Summary ===")
     print(f"Scenes: {len(scenes)}, Failures: {failures}, Orphaned buttons: {orphan_count}")
     return 1 if failures > 0 else 0
+
+# === ZIG + OPENGL SCANNER ===
+
+def load_non_screen_files(root):
+    """Read `scan.non_screen_files` from game-manifest.json.
+
+    The scanner's premise is that every `.zig` under `src/ui/` is a screen. That
+    holds for screens and fails for a *container* — a file that owns the screen
+    instances and the dispatch switch, whose methods are legitimately not
+    button-connected. Reported as orphans, such a file fails the gate for being
+    infrastructure rather than a screen.
+
+    A project cannot fix this from its side without deforming its layout, so it
+    declares the exception instead. Paths are project-root-relative.
+    """
+    manifest_path = root / "game-manifest.json"
+    if not manifest_path.exists():
+        return set()
+    try:
+        manifest = json.loads(manifest_path.read_text())
+    except Exception:
+        return set()
+    scan = manifest.get("scan") or {}
+    return {str(f).replace("\\", "/") for f in (scan.get("non_screen_files") or [])}
+
+def discover_zig_screens(root):
+    """Find .zig files under src/ui/ — Zig project UI screens."""
+    screens = []
+    ui_dir = root / "src" / "ui"
+    if not ui_dir.is_dir():
+        return screens
+    non_screen = load_non_screen_files(root)
+    for p in sorted(ui_dir.rglob("*.zig")):
+        rel = str(p.relative_to(root)).replace("\\", "/")
+        if rel in non_screen:
+            continue
+        screens.append(str(p.relative_to(root)))
+    return screens
+
+def parse_zig_handlers(screen_path):
+    """Parse a .zig file for UI handler functions and entity definitions."""
+    text = Path(screen_path).read_text(errors="replace")
+
+    buttons = []
+    for m in re.finditer(r'\.label\s*=\s*"([^"]+)"', text):
+        label = m.group(1)
+        label_pos = m.start()
+        nearby = text[label_pos:label_pos + 500]
+        handler_match = re.search(r'\.handler\s*=\s*"([^"]+)"', nearby)
+        if handler_match:
+            buttons.append({"label": label, "handler": handler_match.group(1)})
+
+    internal_fns = {
+        "init", "update", "render", "handle_input", "deinit",
+        "show", "hide", "updateHUD", "checkWarnings", "showAnimation",
+        "initScreen", "showScreen", "hideScreen",
+    }
+    handlers = []
+    for m in re.finditer(r'(?:pub\s+)?fn\s+(\w+)\s*\(', text):
+        fn = m.group(1)
+        if fn not in internal_fns:
+            handlers.append(fn)
+
+    button_handlers = {b["handler"] for b in buttons}
+    orphans = [h for h in handlers if h not in button_handlers]
+    return buttons, handlers, orphans
+
+def scan_zig(root):
+    screens = discover_zig_screens(root)
+    if not screens:
+        print("[scene-inventory] no Zig UI screens found under src/ui/")
+        return 0
+
+    print(f"[scene-inventory] discovered {len(screens)} Zig screen(s) under src/ui/")
+    failures = 0
+    orphan_count = 0
+
+    for screen in screens:
+        full = root / screen
+        buttons, handlers, orphans = parse_zig_handlers(str(full))
+
+        if not buttons and not handlers:
+            print(f"  SKIP {screen} — no UI definitions found")
+            continue
+
+        status = "OK"
+        if orphans:
+            status = f"ORPHANED: {len(orphans)} handler(s) without button connection"
+            orphan_count += len(orphans)
+            failures += 1
+
+        print(f"  {'FAIL' if orphans else 'OK'} {screen} — {len(buttons)} button(s), {len(handlers)} handler(s){' — ' + status if orphans else ''}")
+        for o in orphans:
+            print(f"    ORPHAN: Handler '{o}' has no connected button/entity")
+
+    print(f"\n=== Scene Inventory Summary ===")
+    print(f"Screens: {len(screens)}, Failures: {failures}, Orphaned handlers: {orphan_count}")
+    return 1 if failures > 0 else 0
+
+# === MAIN DISPATCH ===
+
+def scan_project(root):
+    root = Path(root)
+    engine = detect_engine(root)
+    print(f"[scene-inventory] detected engine: {engine}")
+
+    if engine == "Zig + OpenGL":
+        return scan_zig(root)
+    if engine == "Godot":
+        return scan_godot(root)
+    # Fall back to markers when the manifest is absent or names an unknown engine.
+    if (root / "project.godot").exists():
+        return scan_godot(root)
+    if (root / "build.zig").exists():
+        return scan_zig(root)
+    print(f"[scene-inventory] unknown engine — no scenes to scan")
+    return 0
 
 if __name__ == "__main__":
     print(f"[scene-inventory] project root: {PROJECT_ROOT}")
