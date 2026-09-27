@@ -26,7 +26,7 @@ def detect_engine(root: Path) -> str:
     try:
         manifest = json.loads(manifest_path.read_text())
         return manifest.get("engine", "unknown")
-    except:
+    except (json.JSONDecodeError, OSError):
         return "unknown"
 
 
