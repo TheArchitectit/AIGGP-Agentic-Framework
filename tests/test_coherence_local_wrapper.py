@@ -372,6 +372,27 @@ class ProfileIdentityTest(unittest.TestCase):
             capture_output=True, text=True, encoding="utf-8", errors="replace",
             env={**os.environ, **env_extra})
 
+    def _scenario(self, mutate, env_extra=None):
+        """Build a fixture, let `mutate` rewrite the registry, run the wrapper.
+
+        Every case here is the same three steps — fresh tmp root, an edited
+        copy of the REAL registry written to DEVGATE_EXECUTION_PROFILES, and
+        the wrapper under that env — so the ceremony lives here once and each
+        test states only which drift it is about. `mutate(real)` returns the
+        wrapper's extra argv; `env_extra` layers on any additional env a case
+        needs (e.g. a conflicting digest pin).
+        """
+        tmp = Path(tempfile.mkdtemp(prefix="dg-prof-"))
+        self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
+        fx.build_root(tmp, binding=True)
+        real = json.loads((REPO / "container/execution-profiles.json").read_text(encoding="utf-8"))
+        extra = mutate(real) or ()
+        prof_file = tmp / "profiles.json"
+        prof_file.write_text(json.dumps(real), encoding="utf-8")
+        out = tmp / "out"
+        env = {"DEVGATE_EXECUTION_PROFILES": str(prof_file), **(env_extra or {})}
+        return out, self._wrapper(out, tmp, env, extra=extra)
+
     def test_head_inserted_registry_profile_does_not_become_default(self):
         """A new profile at the head of the registry must not silently become
         'the' local identity while CI still pins the old label — the
@@ -379,55 +400,41 @@ class ProfileIdentityTest(unittest.TestCase):
         request for different bytes than CI with no signal at all. Asserted
         on the emitted request/launch: the CI-pinned digest must be the one
         that went in."""
-        tmp = Path(tempfile.mkdtemp(prefix="dg-prof-"))
-        try:
-            fx.build_root(tmp, binding=True)
-            real = json.loads((REPO / "container/execution-profiles.json").read_text(encoding="utf-8"))
-            ci_digest = real["profiles"][0]["image_manifest_digest"]
+        pinned = {}
+
+        def mutate(real):
+            pinned["digest"] = real["profiles"][0]["image_manifest_digest"]
             real["profiles"].insert(0, {
                 "label": "znew-v9", "platform": "linux/z",
                 "image_manifest_digest": "sha256:" + "d" * 64,
                 "base_image": "example@sha256:" + "e" * 64,
                 "semantic_equivalence_group": "default", "built": "2099-01-01"})
-            prof_file = tmp / "profiles.json"
-            prof_file.write_text(json.dumps(real), encoding="utf-8")
-            out = tmp / "out"
-            w = self._wrapper(out, tmp,
-                              {"DEVGATE_EXECUTION_PROFILES": str(prof_file)})
-            self.assertEqual(w.returncode, 0,
-                             f"the CI-pinned profile is still in the registry "
-                             f"(just not first) — the default identity must "
-                             f"still resolve to it: {w.stderr}")
-            launch = (out / "launch.json").read_text(encoding="utf-8")
-            self.assertIn(ci_digest, launch,
-                          "launch config does not name the CI-pinned digest")
-            self.assertNotIn("znew-v9", launch,
-                             "head-inserted profile hijacked the local "
-                             "identity — local ran bytes CI never pinned")
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
+
+        out, w = self._scenario(mutate)
+        self.assertEqual(w.returncode, 0,
+                         f"the CI-pinned profile is still in the registry "
+                         f"(just not first) — the default identity must "
+                         f"still resolve to it: {w.stderr}")
+        launch = (out / "launch.json").read_text(encoding="utf-8")
+        self.assertIn(pinned["digest"], launch,
+                      "launch config does not name the CI-pinned digest")
+        self.assertNotIn("znew-v9", launch,
+                         "head-inserted profile hijacked the local "
+                         "identity — local ran bytes CI never pinned")
 
     def test_pinned_digest_not_in_registry_fails_closed(self):
         """CI refuses to run when its pinned digest is absent from the
         registry; so must the local command — under the DEFAULT identity, so
         the template's own label/digest pair is what's checked."""
-        tmp = Path(tempfile.mkdtemp(prefix="dg-prof-"))
-        try:
-            fx.build_root(tmp, binding=True)
-            reg = json.loads((REPO / "container/execution-profiles.json").read_text(encoding="utf-8"))
+        def mutate(reg):
             for p in reg["profiles"]:
                 p["image_manifest_digest"] = "sha256:" + "f" * 64
-            prof_file = tmp / "profiles.json"
-            prof_file.write_text(json.dumps(reg), encoding="utf-8")
-            out = tmp / "out"
-            w = self._wrapper(out, tmp, {"DEVGATE_EXECUTION_PROFILES":
-                                         str(prof_file)})
-            self.assertNotEqual(w.returncode, 0,
-                                "registry drifted off the template's pin — "
-                                "a green local run here executes bytes CI "
-                                "excludes")
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
+
+        _, w = self._scenario(mutate)
+        self.assertNotEqual(w.returncode, 0,
+                            "registry drifted off the template's pin — "
+                            "a green local run here executes bytes CI "
+                            "excludes")
 
     def test_explicit_override_other_label_warns_and_runs(self):
         """--profile naming a label the template does NOT pin is a deliberate
@@ -437,50 +444,35 @@ class ProfileIdentityTest(unittest.TestCase):
         can match one pin), but running bytes CI never pinned must be said
         out loud, on stderr, and the emitted launch config must carry the
         registry's digest for the requested label."""
-        tmp = Path(tempfile.mkdtemp(prefix="dg-prof-"))
-        try:
-            fx.build_root(tmp, binding=True)
-            real = json.loads((REPO / "container/execution-profiles.json").read_text(encoding="utf-8"))
-            other = dict(real["profiles"][0], label="linux-arm64-v9",
-                         image_manifest_digest="sha256:" + "a" * 64,
-                         platform="linux/arm64")
-            real["profiles"].append(other)
-            prof_file = tmp / "profiles.json"
-            prof_file.write_text(json.dumps(real), encoding="utf-8")
-            out = tmp / "out"
-            w = self._wrapper(out, tmp,
-                              {"DEVGATE_EXECUTION_PROFILES": str(prof_file)},
-                              extra=("--profile", "linux-arm64-v9"))
-            self.assertEqual(w.returncode, 0,
-                             f"an explicit override must run (warn, not "
-                             f"refuse — the refusal path for a disagreement "
-                             f"on the template's OWN label is tested "
-                             f"elsewhere): {w.stderr}")
-            self.assertIn("no comparable ci pin", w.stderr.lower(),
-                          "running bytes CI never pinned must be announced, "
-                          "not silent")
-            self.assertIn("sha256:" + "a" * 64, (out / "launch.json").read_text(encoding="utf-8"))
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
+        def mutate(real):
+            real["profiles"].append(
+                dict(real["profiles"][0], label="linux-arm64-v9",
+                     image_manifest_digest="sha256:" + "a" * 64,
+                     platform="linux/arm64"))
+            return ("--profile", "linux-arm64-v9")
+
+        out, w = self._scenario(mutate)
+        self.assertEqual(w.returncode, 0,
+                         f"an explicit override must run (warn, not "
+                         f"refuse — the refusal path for a disagreement "
+                         f"on the template's OWN label is tested "
+                         f"elsewhere): {w.stderr}")
+        self.assertIn("no comparable ci pin", w.stderr.lower(),
+                      "running bytes CI never pinned must be announced, "
+                      "not silent")
+        self.assertIn("sha256:" + "a" * 64, (out / "launch.json").read_text(encoding="utf-8"))
 
     def test_explicit_profile_pin_conflict_fails_closed(self):
         """--profile naming the SAME label the template pins, with a
         conflicting env digest — the disagreement must refuse, not prefer
         the env silently."""
-        tmp = Path(tempfile.mkdtemp(prefix="dg-prof-"))
-        try:
-            fx.build_root(tmp, binding=True)
-            out = tmp / "out"
-            w = self._wrapper(out, tmp,
-                              {"COHERENCE_IMAGE_MANIFEST_DIGEST":
-                               "sha256:" + "1" * 64},
-                              extra=("--profile", "linux-amd64-v1"))
-            self.assertNotEqual(w.returncode, 0,
-                                "explicit pin conflict must fail closed")
-            self.assertIn("disagree", w.stderr + w.stdout.lower(),
-                          "the refusal must name the registry-vs-pin conflict")
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
+        _, w = self._scenario(
+            lambda real: ("--profile", "linux-amd64-v1"),
+            env_extra={"COHERENCE_IMAGE_MANIFEST_DIGEST": "sha256:" + "1" * 64})
+        self.assertNotEqual(w.returncode, 0,
+                            "explicit pin conflict must fail closed")
+        self.assertIn("disagree", w.stderr + w.stdout.lower(),
+                      "the refusal must name the registry-vs-pin conflict")
 
 
 class DriverExitRelayTest(unittest.TestCase):
