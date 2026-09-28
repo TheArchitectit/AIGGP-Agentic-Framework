@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Silent-success scan: two Zig families.** The baseline globbed `*.go`, `*.py`,
+  `hub/**/*` and `scripts/**/*`, so a Zig consumer was scanned by none of its
+  enabled families — its source tree was never read while the gate reported OK.
+  `zig_swallowed_error_continue` catches `else |_| {}` (an error discarded and
+  the flow continuing as if the work happened) and `zig_ignored_error_catch`
+  catches `catch {};`. Both target the shapes a Zig project kept producing by
+  hand: a swallowed file load, and a `pipe.resize(...) catch {}` that leaves a
+  viewport wrong with no diagnostic. Test files are excluded at the family
+  level. Validated against dead-air (2026-09-27): 15 pre-existing markers
+  allowlisted there with reasons, 4 excluded, and a planted `else |_| {}` is
+  reported as `[NEW/unlisted]` and fails the scan.
+
+
 ### Fixed (pre-existing)
 
 - **Mutation harness:** the hermetic env scrubbed `HOME` (git identity
