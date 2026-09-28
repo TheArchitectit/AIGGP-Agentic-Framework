@@ -139,8 +139,10 @@ class MonitorLoop:
         (Measured — placed last, a closed port silences both.)
         """
         owner = repo.split("/")[0]
-        # --- 3.5 image readiness (img-cycle-03), 3.6 scan state (secret-scan-07)
+        # --- 3.5 image readiness (img-cycle-03)
         self._check_image_readiness(repo, runners)
+
+        # --- 3.6 Fleet scan state (secret-scan-07)
         self._check_scan_state(repo, runners)
         # --- 3.1 runner status + queued-run age (mon-online-01, mon-queue-01)
         self._check_runner_status(repo, runners)
