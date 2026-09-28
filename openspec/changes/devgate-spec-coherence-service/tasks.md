@@ -279,6 +279,25 @@ Sprint work:
   → `dadfd1d8…` in two ordered commits. The gate's mechanism is unchanged and was re-run against the new record:
   anonymous pull by digest, schemas loaded from the fetched bytes. Detail and the ordering constraint are in
   `openspec/changes/add-runner-image-cycling/tasks.md` sprint 5, where the re-pin operation lives.
+  **SWEEP RESIDUE CLOSED 2026-09-28 — one survivor of the same rename, in a file no guard reads.** The
+  anomalies carried since round-19 named three surfaces; re-measured, they do not disagree at all. The
+  registry (`container/execution-profiles.json:3`), the template's `COHERENCE_IMAGE` *and* its
+  `COHERENCE_IMAGE_MANIFEST_DIGEST` (`templates/github-workflows/spec-coherence.yml:111,113`), the runner
+  README, the repin fixture, and the heartbeat test all say `aiggp-agentic-framework` and pin `d798dc48…` —
+  verified live: an anonymous `GET /v2/thearchitectit/aiggp-agentic-framework/devgate-coherence/manifests/main`
+  returns 200. CI never carried a literal at all: `ci.yml:494` builds the path from `${GITHUB_REPOSITORY,,}`,
+  which is why the rename could not desync the publish/pull pair. The single genuine survivor was
+  `container/Containerfile`, whose *publish comment* still said `devgate-agentic-framework` — a path no
+  workflow has ever pushed to. It is a comment, so no test could read it and `test_coherence_image_identity.py`
+  (which resolves the image through `reg['image']`, deliberately, never a literal) structurally cannot catch
+  it. Corrected to the real path with the provenance named inline. **Not corrected, deliberately:**
+  `CHANGELOG.md:114`'s `[1.3.0]` entry names the same package. That line was written in `7a57515`, *before*
+  the rename `dadfd1d`, so it records what was genuinely published on 2026-09-23 — it is a historical fact
+  about a superseded release, not a live pointer, and rewriting a shipped release note to match today's
+  registry would falsify it. The distinction is the disposition: live pointers get corrected, dated release
+  notes do not. No test added for the comment class — a guard that greps prose for an image path would pin
+  the prose, not the behavior; the load-bearing invariant (publish path ≡ pull path) is already held by CI
+  deriving one and the registry supplying the other.
   **S4 PUBLISH + RE-PIN EXECUTED 2026-09-26** (owner-authorized: "publish + re-pin now"). The S4 publish
   dispatch (CI run 36276335042 @ a4ada9c, `workflow_dispatch` `publish=true`) built with `--timestamp 0`
   and pushed `:main` + `:sha-a4ada9c01b3f` to ghcr; the publish job's own registry check read the SERVED
