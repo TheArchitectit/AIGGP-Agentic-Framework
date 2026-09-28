@@ -988,7 +988,19 @@ sprints. Findings and dispositions:
       (1001 + the 4 new), all 10 mutation batteries green (the new one included, run individually
       — every one reported "killed, no survivors"), `gen_floors.py` "floors hold" (68 suites,
       1010 tests), openspec strict 36/36, silent-success OK, traceability unchanged 73/123.
-- [ ] Real pilots behind R9 provenance, now that fleet recon confirms the repos are real registered spokes: gamerepo01 (runner `ucs03-game` — was `dell-u2-game` before the 2026-09-25 two-tier rebalance; both it and `u85-game` are now offline), gamerepo02/LobsterWars (`ucs03-gamerepo02`, registered + online since 2026-09-25 — this closes the earlier "no runner behind the label" gap), and one clean repo; capture lineage/13-violation facts from the real repos with owner approval before labeling fixtures non-synthetic; Stage 2 ratchet demo blocks a new violation while named debt remains advisory.
+- [~] Real pilots behind R9 provenance — **capture DONE 2026-09-28, pilots not yet run.**
+      `r9-provenance-capture.md` records both subjects. **LobsterWars: COMPLETE** — SHA
+      `f5b48a30a7113217742f0754ffe1cc6357ac9416`, run `36405534067` (`drift-scan.yml`, schedule),
+      capture 2026-09-28T09:45:37Z, digest `sha256:8c19f2f1a2482f6852c562939b00e1fb81e8aa25c886601a1e8a300c9dba558f`
+      over the 13 violations in emitted order (12×PREVENT-011 + 1×PREVENT-029; 16 PREVENT-012 advisories
+      excluded), count independently reproduced from the run log rather than taken from the narrative.
+      Its baseline may now be labeled non-synthetic. **gamerepo01: INCOMPLETE by measurement** — the repo
+      has no `.guardrails/` at all (`.guardrails/`, `scope.json`, `product.json`, `identity.json` all 404),
+      so the "lineage mismatch" narrative has no declared identity to mismatch; the fixture stays synthetic
+      and there is no report digest to record because no gate report made that claim.
+      **Still outstanding:** the ratchet demo run (criterion 8) and the fleet-half hosted coherence run on an
+      enrolled spoke (criterion 9) — both need runner time, neither needs a decision. gamerepo01 runner
+      `ucs03-game`; LobsterWars runner `ucs03-gamerepo02`; all 14 ucs03 spokes heartbeating since 2026-09-26.
       **(all 14 ucs03 spokes now heartbeating, 2026-09-26)** the "registered + online" state this line
       describes for gamerepo02 now holds fleet-wide: `ucs03-game` enrolled + heartbeating too, alongside
       da/mc/radical/radical-code/redeye/rtp/zdf/zombietoss/zxp (see the coh-int-07 closure above). The
@@ -1152,8 +1164,10 @@ sprints. Findings and dispositions:
       `duration_sec`, which nothing surfaces — no metrics in the result, no
       report view, no fleet export. Building the metrics surface BEFORE an
       SLO number would put the cart first: the SLO definition needs measured
-      baseline data from real fleet runs, which do not exist yet (the pilot
-      fixtures are still synthetic under R9). Disposition: the availability
+      baseline data from real fleet runs, which do not exist yet (LobsterWars'
+      baseline is now captured under R9 as of 2026-09-28, but no coherence run
+      has yet executed against it, so there is still no measured fleet data).
+      Disposition: the availability
       half is properly an S6/S7-adjacent observability build + a
       post-pilot baseline measurement, sequenced AFTER the first real
       pilots (S8 line at :900); opening it now would invent a number without
@@ -1186,8 +1200,11 @@ sprints. Findings and dispositions:
 - [ ] Stage 3 readiness review before any enforced fleet rollout.
       **Inputs assembled 2026-09-26** — `stage3-readiness.md`: the 12 release acceptance
       criteria dispositioned one by one with cited evidence (8 MET with named tests/measured
-      runs, criterion 8's ratchet-demo half + 9's fleet-half + 10's real-repo half OPEN on R9
-      pilots, criterion 12's evaluator-revocation leg OPEN on an owner decision), the ten
+      runs; criterion 12's evaluator-revocation leg was OPEN on an owner decision, **decided
+      2026-09-26 → 5/5**). **Updated 2026-09-28:** the R9 provenance capture ran, so criteria
+      8 and 10 now have their real subject available and criterion 10's gamerepo01 half is
+      closed as measured-synthetic; what remains OPEN on criteria 8 and 9 is a *run* (ratchet
+      demo; fleet-half hosted coherence run), not a capture or a decision. The ten
       owner-decision open questions tabulated with status, and the verdict: **not ready for
       enforced rollout — the gate is built and measured; the enforcement posture is waiting
       on humans, not code.** The review itself (the owner's sign-off act) remains open; this

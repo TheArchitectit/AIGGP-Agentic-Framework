@@ -18,9 +18,9 @@ shipped test, drill, or measured run — not prose intent.
 | 5 | Local policy cannot weaken central policy | **MET** | `TestOverlayCannotWeaken` (A10); anti-rollback nc-09; grandfather windows |
 | 6 | Container: non-root, read-only, caps, sockets, resources, redaction, default-deny egress | **MET** | Launcher 34-test suite + container suite; escape review (995afc1) enumerates all ten vectors with pinned controls; rootless podman measured on both hosts |
 | 7 | Signed attestation detects bound-digest substitution | **MET** | `--verify-run` nine-step fail-closed chain; `test_bound_digest_tamper_is_detected` + `test_statement_digest_check_is_independently_load_bearing` mutate one bound at a time; nc-10 |
-| 8 | Adoption ladder enforces advisory expiry + Stage 2 no-regression | **advisory-expiry MET; no-regression OPEN** | advisory escalation model ratified 8bf51d8, `adoption.evaluate` enforcement built; the **ratchet demo against a real repo's named-debt baseline (LobsterWars 13 findings) is not yet run** — that demo is the criterion's live proof, sequenced with the pilots (R9 owner approval outstanding) |
+| 8 | Adoption ladder enforces advisory expiry + Stage 2 no-regression | **advisory-expiry MET; no-regression OPEN (baseline now captured)** | advisory escalation model ratified 8bf51d8, `adoption.evaluate` enforcement built; the ratchet demo's subject — LobsterWars' named-debt baseline — is now **captured** (`r9-provenance-capture.md`: SHA `f5b48a30…`, run `36405534067`, digest `sha256:8c19f2f1…`, 12×PREVENT-011 + 1×PREVENT-029), so the demo can run against pinned facts instead of a re-counted log; **the demo run itself is still outstanding**, and it needs runner time against the enrolled spoke |
 | 9 | CI, local, fleet adapters equivalent canonical results | **MET (identity, not yet fleet-measured)** | Byte-equivalence-by-identity: CI and local run the identical builder bytes (`hub.coherence.invoke` inside the pinned image); the fleet half (a hosted coherence run on an enrolled spoke against a real subject) has not yet been run against a real repo — pilots |
-| 10 | Six fixtures produce expected decisions | **synthetic MET; real-repo half BLOCKED (R9)** | Fixtures A–F shipped with expected decisions (synthetic, per R9); gamerepo01/LobsterWars-derived fixtures require R9 provenance capture + owner approval — the fixture set is honest about this (acceptance.md:87) |
+| 10 | Six fixtures produce expected decisions | **synthetic MET; LobsterWars half UNBLOCKED; gamerepo01 stays synthetic (measured)** | Fixtures A–F shipped with expected decisions (synthetic, per R9). R9 capture ran 2026-09-28 (`r9-provenance-capture.md`): LobsterWars' 13-violation baseline carries all four ADR-019 fields (SHA/run/digest/capture time) and may be relabeled a captured production baseline. gamerepo01's record is **INCOMPLETE because the subject has no declared identity** — no `.guardrails/` exists (all probes 404), so a lineage-mismatch fixture has nothing to mismatch against. That subject stays synthetic, and the reason is now a measurement rather than a default (acceptance.md:87) |
 | 11 | Operator reproduces any finding from its evidence bundle without the original runner | **MET** | Sealed-bundle design: `--verify-run` offline chain + `store.artifacts()` (durability path, containment-pinned); evidence objects self-contained with bound digests |
 | 12 | Runbooks: outage, rollback, policy recovery, key rotation, evaluator revocation | **5/5 MET** | Outage/rollback/policy-recovery/key-rotation covered by drill/test-verified runbooks (:1031 measurement); evaluator revocation DECIDED 2026-09-26 — owner scoped it to the pinned-image lifecycle (bad image retired by re-pinning; old attestations valid for what they proved at evaluation time; no new control-plane revocation record), so the runbook is the existing re-pin operation — recorded at :1031, not improvised |
 
@@ -52,17 +52,23 @@ tests and measured runs. What still blocks Stage 3:
 1. ~~**Owner decisions**~~ — Q1–Q5, Q9 **answered 2026-09-26**; the
    remaining open questions (Q6–Q8, Q10) do not gate enforcement posture
    per the criteria matrix above.
-2. **Real pilots** — the R9 provenance capture + owner approval for real
-   repo facts (gamerepo01 lineage, LobsterWars 13 findings) gates criteria
-   8 (ratchet demo), 9 (fleet-half measurement), and 10 (real-fixture
-   half). Runner availability is no longer a blocker: all 14 ucs03 spokes
-   are enrolled + heartbeating as of 2026-09-25/26.
+2. ~~**R9 provenance capture**~~ — **CAPTURED 2026-09-28**
+   (`r9-provenance-capture.md`). LobsterWars' 13-finding baseline is pinned
+   (SHA/run/digest/capture time), so criteria 8 and 10 have their real
+   subject available. The capture also **closed the gamerepo01 question by
+   measurement**: the repo declares no identity (no `.guardrails/`), so its
+   fixture is synthetic by fact, not by default. What remains is not a
+   decision but a **run**: the ratchet demo (criterion 8) and the
+   fleet-half hosted coherence run on an enrolled spoke (criterion 9) each
+   need runner time. Runner availability is not a blocker: all 14 ucs03
+   spokes are enrolled + heartbeating as of 2026-09-25/26.
 3. ~~**Evaluator revocation build gap**~~ — **DECIDED 2026-09-26**: the
    owner scoped it to the pinned-image lifecycle (bad image retired by
    re-pinning; old attestations valid for what they proved at evaluation
    time; no new control-plane revocation record). Criterion 12 is now 5/5;
    the runbook is the existing re-pin operation.
 
-The review's honest headline, updated: **the gate is built, measured, and
-its policy decisions are made; what remains is real-repo pilot evidence
-and the owner's sign-off act.**
+The review's honest headline, updated: **the gate is built, measured, its
+policy decisions are made, and its real-repo facts are now captured; what
+remains is running the two pilot demonstrations against those facts, and
+the owner's sign-off act.**
