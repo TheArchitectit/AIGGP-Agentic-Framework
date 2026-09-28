@@ -51,7 +51,13 @@ from the log yields exactly 13, splitting 12 × `PREVENT-011` (error, "Usage of
 warnings are separate and non-blocking.
 
 The 13, by location — this is the named-debt baseline the Stage 2 ratchet demo
-(criterion 8) and the real-fixture half (criterion 10) need:
+(criterion 8) and the real-fixture half (criterion 10) need. **Criterion 8 has
+since consumed this shape**: `scripts/ratchet_demo.py` (2026-09-28) drives the
+real service at stage 2 over it and demonstrates both ladder obligations
+(in-window ADVISORY, aged-out BLOCK, new location BLOCK). Note the shape is
+what it consumes — the run is synthetic, so nothing in this record is
+discharged by it, and the table below remains the provenance for a real run
+when a spoke executes one.
 
 | # | Severity | Rule | Location |
 |---|---|---|---|

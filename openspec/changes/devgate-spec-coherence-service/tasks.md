@@ -1020,6 +1020,24 @@ sprints. Findings and dispositions:
       **Still outstanding:** the ratchet demo run (criterion 8) and the fleet-half hosted coherence run on an
       enrolled spoke (criterion 9) — both need runner time, neither needs a decision. gamerepo01 runner
       `ucs03-game`; LobsterWars runner `ucs03-gamerepo02`; all 14 ucs03 spokes heartbeating since 2026-09-26.
+      **Update 2026-09-28: the ratchet demo half is DONE, and it did need runner time after all.** Running it
+      against a locally-invoked service promptly exposed two things a hosted run would have hidden behind
+      "the fixture failed". (1) The demo first read `result["assertion_results"]` for per-location
+      cardinality and reported "1 of 13" forever: the ledger carries ONE ROW PER ASSERTION (`evaluate.run`
+      appends one per planned assertion), while the evaluator's per-subject findings are `extend`ed into a
+      separate list and sealed into `evidence/findings/`. A single assertion over 14 files is 1 ledger row
+      and 14 sealed findings — reading the ledger for cardinality is a broken reading, not a broken ratchet.
+      (2) The baseline was fingerprinted with the captured class (`pattern-violation:prevent-011`) while the
+      identity evaluator emits `identity-mismatch`; `adoption._vclass` reads `violation_class` directly, so
+      NOTHING matched and all 13 blocked. The first drill passed anyway — a non-sheltering baseline also
+      blocks — which is exactly why the direction control (drill 3) exists; without it the expiry drill
+      would have "passed" against a ladder that never sheltered anything. Both errors are recorded here
+      rather than quietly fixed: they are the two ways this demo can pass or fail for the wrong reason, and
+      the second one is the load-bearing argument for a both-directions control on any ratchet evidence.
+      Result: `scripts/ratchet_demo.py` (10/10 steps, exit 0), `tests/test_ratchet_demo.py` (7 tests),
+      both ladder mutations killed by the drill that owns them. **The baseline shape is captured; the run
+      stays synthetic** — this discharges criterion 8's demonstration, NOT the real-subject run, which
+      criterion 9 still owes against an enrolled spoke.
       **(all 14 ucs03 spokes now heartbeating, 2026-09-26)** the "registered + online" state this line
       describes for gamerepo02 now holds fleet-wide: `ucs03-game` enrolled + heartbeating too, alongside
       da/mc/radical/radical-code/redeye/rtp/zdf/zombietoss/zxp (see the coh-int-07 closure above). The
