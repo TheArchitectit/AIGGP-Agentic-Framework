@@ -25,18 +25,13 @@ this module is the polling POLICY — what to check, and what to alert on.
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 import time
-import urllib.error
-import urllib.request
 from datetime import datetime, timezone
-from pathlib import Path
 
 from . import registry
 from .alerts import AlertSink
-from .config import Config
 from .github_client import GitHubClient, parse_iso
 from .scan_view import scan_alerts
 from .server import HubState
@@ -56,85 +51,10 @@ log = logging.getLogger("hub.monitor")
 NON_PASSING_CONCLUSIONS = frozenset(
     {"failure", "timed_out", "cancelled", "action_required", "neutral", "stale"})
 
-def _parse_iso(value: str | None) -> datetime | None:
-    """Parse an ISO-8601 timestamp; return None on failure."""
-    if not value:
-        return None
-    try:
-        return datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError:
-        return None
-
-
-class GitHubClient:
-    """Minimal GitHub REST client (stdlib urllib). Backs off on 403/429."""
-
-    def __init__(self, api_base: str, token: str = "", token_file: str = "",
-                 backoff_max: int = 120) -> None:
-        self.api_base = api_base.rstrip("/")
-        self.token = token
-        self.token_file = token_file  # if set, re-read from file each cycle
-        self.backoff_max = backoff_max
-        self._last_request_time = 0.0
-
-    def refresh_token(self) -> None:
-        """Re-read token from file if token_file was configured."""
-        if self.token_file and os.path.isfile(self.token_file):
-            try:
-                self.token = Path(self.token_file).read_text().strip()
-            except OSError:
-                pass  # keep existing token
-
-    def _request(self, method: str, path: str, body: dict | None = None,
-                 accept: str = "application/vnd.github+json") -> tuple[int, dict | list]:
-        """Make an authenticated GitHub API request. Returns (status, parsed_body)."""
-        url = f"{self.api_base}{path}"
-        headers = {
-            "Authorization": f"Bearer {self.token}",
-            "Accept": accept,
-            "X-GitHub-Api-Version": "2022-11-28",
-        }
-        data = None
-        if body is not None:
-            data = json.dumps(body).encode()
-            headers["Content-Type"] = "application/json"
-
-        req = urllib.request.Request(url, data=data, headers=headers, method=method)
-        try:
-            with urllib.request.urlopen(req, timeout=30) as resp:
-                raw = resp.read().decode()
-                return resp.status, json.loads(raw) if raw else {}
-        except urllib.error.HTTPError as e:
-            body_raw = e.read().decode() if e.fp else ""
-            try:
-                parsed = json.loads(body_raw) if body_raw else {}
-            except json.JSONDecodeError:
-                parsed = {"message": body_raw[:200]}
-            return e.code, parsed
-
-    def get(self, path: str) -> tuple[int, dict | list]:
-        return self._request("GET", path)
-
-    def post(self, path: str, body: dict) -> tuple[int, dict | list]:
-        return self._request("POST", path, body=body)
-
-    def get_with_backoff(self, path: str, max_retries: int = 3) -> tuple[int, dict | list] | None:
-        """GET with exponential backoff on 403/429. Returns None if all retries exhausted."""
-        for attempt in range(max_retries):
-            status, body = self.get(path)
-            if status == 200:
-                return (status, body)
-            if status in (403, 429):
-                # Rate limited — honor Retry-After header if present.
-                retry_after = body.get("retry_after") or body.get("X-Retry-After")
-                wait = min(int(retry_after) if retry_after else (2 ** attempt) * 10, self.backoff_max)
-                log.warning("rate limited on %s (attempt %d/%d), backing off %ds",
-                            path, attempt + 1, max_retries, wait)
-                time.sleep(wait)
-                continue
-            # Other errors: return immediately.
-            return (status, body)
-        return None
+# The transport (`GitHubClient`, `parse_iso`) arrives from hub/github_client.py,
+# which exists because this file reached the 500-line limit regression_sizes.py
+# enforces. A second copy was briefly inlined here, shadowing the import: the
+# class the tests pinned was not the class the monitor ran.
 
 
 class MonitorLoop:
@@ -219,30 +139,21 @@ class MonitorLoop:
         (Measured — placed last, a closed port silences both.)
         """
         owner = repo.split("/")[0]
-
-        # --- 3.5 Evaluator-image readiness (img-cycle-03)
+        # --- 3.5 image readiness (img-cycle-03), 3.6 scan state (secret-scan-07)
         self._check_image_readiness(repo, runners)
-
-        # --- 3.6 Fleet scan state (secret-scan-07)
         self._check_scan_state(repo, runners)
-
-        # --- 3.1 Runner status + queued-run age (mon-online-01, mon-queue-01)
+        # --- 3.1 runner status + queued-run age (mon-online-01, mon-queue-01)
         self._check_runner_status(repo, runners)
         self._check_queue_drain(repo, runners)
-
-        # --- 3.2 Check-run conclusions on watched branches (mon-gates-01)
+        # --- 3.2 gate conclusions (mon-gates-01), 3.3 drift (mon-drift-01),
+        # --- 3.4 spec coherence (coh-int-02, coh-int-07)
         self._check_gate_results(repo, owner)
-
-        # --- 3.3 Drift-scan presence/recency (mon-drift-01)
         self._check_drift_scan(repo, owner)
-
-        # --- 3.4 Spec-coherence presence/recency (coh-int-02, coh-int-07)
         self._check_spec_coherence(repo, owner)
 
     def _check_runner_status(self, repo: str, runners: list[dict]) -> None:
         """Check GitHub API runner status + heartbeat freshness (mon-online-01)."""
         owner = repo.split("/")[0]
-        # Get the runner group for this repo.
         result = self.client.get_with_backoff(f"/repos/{repo}/actions/runners")
         if result is None:
             log.warning("could not fetch runners for %s (rate limited)", repo)
@@ -584,6 +495,3 @@ class MonitorLoop:
         else:
             # No alert sink configured (Sprint 3 stub): log loudly.
             log.warning("ALERT [%s/%s/%s] %s", repo, check_class, runner, detail)
-
-
-
