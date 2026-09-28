@@ -12152,6 +12152,41 @@
       "family": "go_return_nil_after_ignored_error",
       "reason": "Test-harness bookkeeping (internal/testutil DB template machinery): the discarded value is a cleanup/close/drop-best-effort error on a database the harness is tearing down or reclaiming \u2014 not a production success claim.",
       "removal": "n/a (test-harness bookkeeping)"
+    },
+    {
+      "file": "internal/streaming/anthropic_codec.go",
+      "marker": "prepared.Messages, _ = PrepareForDialect(\"anthropic\", req.Messages)",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "Deliberate discard: MarshalCanonical is the measurement surface (count_tokens, CC-2), not a dispatch \u2014 dropped blocks are simply not measured. The dispatching path (EncodeRequest) reports the same PrepareForDialect outcome. Reason documented inline at the site.",
+      "removal": "forge/file-size-soft-limit burn-down review / next CC-2 audit"
+    },
+    {
+      "file": "internal/streaming/openai_responses_codec.go",
+      "marker": "params, _ := json.Marshal(tool.Parameters)",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "json.Marshal of a json.RawMessage decoded from the wire \u2014 re-marshaling already-serializable bytes cannot fail; PREVENT-009 annotated inline.",
+      "removal": "PREVENT-009 family review"
+    },
+    {
+      "file": "internal/shadow/breaker.go",
+      "marker": "raw, _ := json.Marshal(breakerState{Tripped: b.tripped})",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "json.Marshal of a one-field locally-built struct \u2014 the error branch is unreachable; PREVENT-009 annotated inline.",
+      "removal": "PREVENT-009 family review"
+    },
+    {
+      "file": "internal/pipeline/shadow.go",
+      "marker": "activeMsgs, _ := streaming.PrepareForDialect(activeDialect, req.Messages)",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "Deliberate discard: the shadow diffs what each dialect's projection retains; a block dropped by both projections yields no diff by construction. The active dialect's drops are reported on the dispatching path (EncodeRequest loss policy). Reason documented inline.",
+      "removal": "Q16 3.2 retirement review"
+    },
+    {
+      "file": "internal/pipeline/shadow.go",
+      "marker": "shadowMsgs, _ := streaming.PrepareForDialect(shadowDialect, req.Messages)",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "Same as activeMsgs \u2014 shadow projection discards the loss report deliberately; diffing, not dispatching.",
+      "removal": "Q16 3.2 retirement review"
     }
   ]
 }
