@@ -171,6 +171,13 @@ class BuilderByteEquivalenceTest(unittest.TestCase):
             "$COHERENCE_IMAGE": reg["image"],
             "$COHERENCE_PROFILE": prof["label"],
             "$DIGEST": prof["image_manifest_digest"],
+            # The tr_p block's cp_* aliases (template 78731f7): with
+            # DEVGATE_HOST_WORK_ROOT unset they equal their COHERENCE_*
+            # sources, which is the case this native replay exercises.
+            "$cp_ro": str(self.roots["openspec"]),
+            "$cp_po": str(self.roots["policy"]),
+            "$cp_ct": str(self.roots["context"]),
+            "$cp_out": str(out_dir),
         }
         cmd = []
         for a in argv:
