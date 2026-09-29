@@ -187,6 +187,13 @@ Supports inline annotations:
 fetch("https://api.example.com/data");
 ```
 
+The annotation form is `guardrails-allow RULE-ID: <reason>` — **reason text is
+required** in every scanner (the shared `line_has_allow` / `lineHasAllow`
+matcher). A bare `guardrails-allow PREVENT-029:` with no justification is not
+an exemption; the rule still fires. File-scope `//! guardrails-allow-file
+RULE-ID: <reason>` (guardrails-scan only) holds the same reason-required
+contract.
+
 ### Semantic Scanner (`scripts/semantic-scan.mjs`)
 
 AST-based scanner using the TypeScript compiler API. If your project has no TypeScript/JavaScript files, it exits 0 with "no matching files found."
