@@ -394,10 +394,48 @@ a literal staying correct in two places.
 
 ## Sprint 4 — Divergence reporting
 
-- [ ] 4.1 Compare served `:main` digest against the record on the tick and
+- [x] 4.1 Compare served `:main` digest against the record on the tick and
   raise an advisory (mon-alert-01) naming both digests; never fail the host's
-  tick for it (img-cycle-05)
-- [ ] 4.2 Replace the publish job's `::notice::`-only divergence report with
+  tick for it (img-cycle-05). Coded both halves 2026-09-29:
+  - **Host (the tick):** `scripts/runner-image-cycle.sh` sources
+    `scripts/lib/registry-digest.sh` (the one curl dance — sibling
+    resolution: in-repo `lib/`, installed copy beside the helper; missing
+    lib is exit 1, a sibling-resolution scar). When
+    `IMAGE_CYCLE_SKIP_ADVISORY` is unset/0 it asks the registry for the
+    published tag's `Docker-Content-Digest` and, on mismatch, prints an
+    ADVISORY naming both digests and "a re-pin is due. Not failing this
+    host." — the tick's exit code is unchanged. An empty served digest is
+    "could not resolve … divergence not checked this tick (this is not a
+    clean bill of health)", never silence. Test seams:
+    `STUB_SERVED_DIGEST` / `STUB_REGISTRY_UNREACHABLE` / `STUB_TOKEN_FAIL`;
+    the Host harness defaults `IMAGE_CYCLE_SKIP_ADVISORY=1` so the
+    convergence tests stay off the network.
+  - **Host → hub:** the heartbeat reports `image_pin_divergence`
+    (string-or-null) through the same presence-aware rule as
+    `image_digest`/`image_reason` — null = checked-and-agree OR
+    could-not-check; a key left out = older helper, the last report stands.
+    Schema, registry, server cap (1024), enroll default `None` all carry
+    it. Free text from an untrusted-as-input host: consumers render, never
+    match (P7).
+  - **Hub (the alert):** `MonitorLoop._check_image_pin_divergence` files
+    mon-alert-01 once per repo as runner `"?"` (D6: a repository fact, not
+    a host fault) with the host's own string as detail.
+  - Mutations: `tests/mutation_battery_image_state.py` P1–P7 (drop the
+    field, omit-when-empty, UNREPORTED→None, forget the sentinel, never
+    call the check, raise per-host, match instead of render) and
+    `tests/mutation_battery_image_cycle.py` K7–K9 (fail the tick, drop the
+    recorded digest from the advisory, drop the could-not-check branch).
+    **41/41 and 10/10 killed after the survivors found here were closed:**
+    P5 survived until a test drove `poll_cycle()` and asserted the class
+    arrived as `"?"` (a direct-method test cannot see wiring that is never
+    called); K8 survived because `RECORDED in stdout` was already satisfied
+    by `converged: $REF` — the assertion now requires both digests on the
+    ADVISORY line itself.
+    Empty-PATH contract kept: both scripts resolve their own directory
+    with bash parameter expansion only (`dirname` is a PATH dependency —
+    `test_podman_missing_is_a_failure_not_a_skip` and the heartbeat's twin
+    empty PATH and still require a named podman fault).
+- [x] 4.2 Replace the publish job's `::notice::`-only divergence report with
   the same advisory path
   - FIXED 2026-09-24 (commit `413167e`), and the finding was bigger than this
     item: the same wrong-axis read was in the HARD GATE too, which went red on
@@ -421,6 +459,19 @@ a literal staying correct in two places.
     registry's own `Docker-Content-Digest` (or `skopeo inspect`), never
     `podman image inspect` on either axis. Recording a re-pin from that line
     is exactly how the S4 pin was recorded unpullable once already
+  - ADVISORY HALF CODED 2026-09-29. "The same advisory path" is taken as
+    mon-alert-01 end-to-end: the publish job now sources
+    `scripts/lib/registry-digest.sh` (one recipe) and, on served≠record,
+    raises through `hub.alerts.GitHubIssueNotifier` with check_class
+    `image_pin_divergence` and runner `"?"` — the same key the hub monitor
+    files, so the two raisers dedupe on (repo, check_class, runner) and one
+    re-pin is one ticket. A run with no resolvable served digest is an
+    error (`::error::` + exit 1), not a silent pass: an unpostable identity
+    must not be recorded as one.
+    **Permission change, called out here because it is a grant:**
+    `container-publish` now needs `issues: write` (alongside its existing
+    `contents: read, packages: write`). The comment in `ci.yml` names
+    mon-alert-01 / img-cycle-05 as the reason.
 
 ## Sprint 5 — The deliberate re-pin
 
@@ -672,6 +723,24 @@ a literal staying correct in two places.
 
 ## Sprint 7 — Fleet evidence
 
-- [ ] 7.1 Run the cycle on a real enrolled host and capture the log; confirm
+- [x] 7.1 Run the cycle on a real enrolled host and capture the log; confirm
   the gate on that host resolves the pinned ref without pulling
-- [ ] 7.2 Record which storage shape the host uses (design D3 a or b)
+  (HOST/OWNER-GATED NOT_RUN 2026-09-29 — same class as arm64 and ai01 7.5.
+  This fleet cannot run it: the unit is installed beside the heartbeat on an
+  enrolled host and is ENABLED only once the host carries
+  `COHERENCE_IMAGE` / `COHERENCE_IMAGE_MANIFEST_DIGEST` /
+  `COHERENCE_PODMAN_STORE` in its EnvironmentFile (design D3, Sprint 2.2's
+  provisioning path). Closed as NOT_RUN, not as verified. Owner checklist
+  when a host is provisioned: `systemctl --user status
+  devgate-imgcycle-<slug>.timer` is active/wanted; the unit's log shows
+  `converged:` last (not an ADVISORY and not an exit 4); and the template's
+  coherence phase on that host resolves the pinned ref without a pull.)
+- [x] 7.2 Record which storage shape the host uses (design D3 a or b)
+  (HOST/OWNER-GATED NOT_RUN 2026-09-29 — the shape is a property of how the
+  runner container is unit-file'd (podman inside vs the host socket bound
+  in), which equals the same host provisioning this backlog cannot reach.
+  Closed as NOT_RUN. Owner checklist when a host is provisioned: read
+  `templates/runner/self-hosted-runner.container` on that host, record (a)
+  or (b) next to the chosen `COHERENCE_PODMAN_STORE`, and keep the cycle's
+  store equal to the job's store — the docs section
+  "The evaluator image on a runner host" is the contract.)
