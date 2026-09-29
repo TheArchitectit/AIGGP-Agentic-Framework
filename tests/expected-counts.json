@@ -90,6 +90,7 @@
   "test_schema_health_exitcodes": 5,
   "test_scope_contract": 5,
   "test_secret_scan": 17,
+  "test_secret_scan_declared": 10,
   "test_secret_scan_fleet": 16,
   "test_secret_validation_template": 13,
   "test_silent_success_gate": 3,
@@ -98,5 +99,5 @@
   "test_template_supply_chain": 4,
   "test_workflow_read": 15
  },
- "total_floor": 1161
+ "total_floor": 1171
 }
