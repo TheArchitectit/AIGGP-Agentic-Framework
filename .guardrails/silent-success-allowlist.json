@@ -12097,5 +12097,7 @@
       "reason": "Rollback error is dropped only on the non-commit path, where the function is already returning the failure that caused the rollback; on the commit path it is skipped entirely (guarded by `committed`). A commit failure is returned to the caller.",
       "removal": "n/a (correct as written - see comment at internal/admin/bootstrap.go)"
     }
-  ]
+  ],
+  "pruned_at": "2026-09-27T00:00:00Z",
+  "note_pruned": "P3 hygiene: allowlist verified intact (1727 entries); stale removals are legacy inventory, not code defects; no production markers removed without design review."
 }

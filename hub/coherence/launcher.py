@@ -241,8 +241,12 @@ def podman_args(ctx: dict, *, output_dir: Path) -> list:
     flags before the image arg.
     """
     lim = ctx["limits"]
+    # --cidfile records the real container id on the HOST side. The failure
+    # path in run() must kill that id: `podman kill` takes a container, and
+    # an image name is not one — the old image-name kill was a silent no-op.
     args = [
         "podman", "run", "--rm",
+        "--cidfile", str(output_dir) + ".cid",
         "--read-only", "--read-only-tmpfs",
         f"--user={ctx['user']}",
         "--cap-drop=ALL",
@@ -275,6 +279,12 @@ def run(ctx: dict, *, output_dir: Path, container_args=None,
     """
     args = podman_args({**ctx, "env": env or {}}, output_dir=output_dir) \
         + list(container_args or [])
+    # podman --cidfile refuses a pre-existing path; a stale one from a prior
+    # run must not veto this launch.
+    try:
+        Path(str(output_dir) + ".cid").unlink()
+    except OSError:
+        pass
     cap = ctx["limits"]["output_bytes"]
     deadline = time.monotonic() + ctx["limits"]["time_s"]
     proc = subprocess.Popen(args, stdout=subprocess.PIPE,
@@ -296,8 +306,27 @@ def run(ctx: dict, *, output_dir: Path, container_args=None,
         buf += chunk
         if len(buf) > cap:
             status = "output-overflow"
-            break
+            break  # the cap is a limit, not a label: stop consuming
     if status != "completed":
         proc.kill()
+        # Deferred P2 / coh-rt-05 hardening: kill the CONTAINER, not just the
+        # podman client. proc.kill() stops the client; the container can
+        # outlive it. `podman kill` takes a container id/name — an image
+        # name is not resolvable and the kill silently no-ops, which is the
+        # silent-success anti-pattern this gate exists to catch. The real id
+        # comes from the --cidfile podman_args wrote. Never raises.
+        try:
+            env_ctx = (env or {}) if env is not None else (ctx.get("env") or {})
+            if env_ctx.get("PODMAN_RUN") == "1" and ctx.get("image"):
+                cid = Path(str(output_dir) + ".cid")
+                cid_s = cid.read_text(encoding="utf-8", errors="replace").strip() \
+                    if cid.is_file() else ""
+                if cid_s:
+                    subprocess.run(["podman", "kill", cid_s],
+                                   capture_output=True, timeout=2)
+        except Exception:
+            pass
+    # Unconditional: a completed run must still reap the process, or
+    # returncode stays None and the exit-relay contract breaks (32 not 30).
     proc.wait()
     return LaunchRun(proc.returncode, bytes(buf), status)

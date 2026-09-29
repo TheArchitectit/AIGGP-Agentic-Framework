@@ -459,6 +459,13 @@ live-tested, 6/6 mutations killed). Findings and dispositions:
   `--ulimit nofile=n:n`.
 - [MEDIUM] `time_s`/`output_bytes` validated but never enforced (no orchestrator existed) → **FIXED `e9e200b`**:
   `run()` enforces both (select deadline + cap; kill on exhaustion; status never a truncated pass).
+  Container-kill target FIXED `aff499a`+ (P2 hardening follow-up): the deferred kill call was
+  `podman kill <image-name>` — podman resolves CONTAINERS, so that call was a silent no-op and
+  a limit-killed run could leave its container running. `--cidfile` now records the container id
+  beside the output dir (`<output_dir>.cid`, cleared before launch so a stale one cannot veto a
+  new run), and the kill path reads it and passes `podman kill <cid>`. Covered by
+  `test_timeout_kills_by_cid_not_image` (asserts the cidfile argv anchor first so a silent
+  no-op of the substitution cannot fake a pass) and `test_cidfile_pins_container_identity`.
 - [MEDIUM/LOW] coh-id-04 manifest digest optional → **FIXED `e9e200b`**: `image_manifest_digest` required;
   index digest stays optional per spec grammar.
 - [LOW] `_check_declared` reconciles only 5 fields → **ACKNOWLEDGED, no change**: declared
