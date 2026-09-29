@@ -1118,8 +1118,16 @@ sprints. Findings and dispositions:
       100999), the driver relayed exit 10 ADVISORY, the gate read the
       decision back from `result.json`, found agreement, recorded
       ADVISORY, and exited 0 — all six job steps success. PR LobsterWars#2
-      merged at 00:08:56Z; the master push-triggered run is the standing
-      confirmation. Criterion 9's fleet half is now measured.
+      merged at 00:08:56Z. One enrollment regression surfaced from the
+      merge itself: PR #2's branch copy carried the template's `[main]`
+      push trigger back onto master, undoing PR #1's `master` wiring
+      (ci-run-01 again — the template's defaults live in the PR-branch
+      copy, and a merge silently re-installs them) — fixed at `826c076`
+      on master. **The standing confirmation measured green: run
+      `36501737785`, event `push`, branch `master`, workflow "Spec
+      Coherence", success** — the push-triggered path the promotion flow
+      will actually use is now operational. Criterion 9's fleet half is
+      now measured.
       **(all 14 ucs03 spokes now heartbeating, 2026-09-26)** the "registered + online" state this line
       describes for gamerepo02 now holds fleet-wide: `ucs03-game` enrolled + heartbeating too, alongside
       da/mc/radical/radical-code/redeye/rtp/zdf/zombietoss/zxp (see the coh-int-07 closure above). The
