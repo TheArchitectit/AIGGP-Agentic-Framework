@@ -1,4 +1,4 @@
-# DevGate release checksums — generated 2026-09-29T02:08:50Z
+# DevGate release checksums — generated 2026-09-29T02:15:52Z
 # Verify before use: python3 scripts/gen-checksums.py verify
 3ba50bc8b31743b05c2d11a2fe8156c44477548600ac9c2e1b4fa8f78e09c378  hub/__init__.py
 ee9d420de2f1a6dd228e9166b508e106f753dace985884ec6355581cabdbeb91  hub/alerts.py
@@ -6,7 +6,7 @@ ee9d420de2f1a6dd228e9166b508e106f753dace985884ec6355581cabdbeb91  hub/alerts.py
 b73236d55dd42befbfb3369db5ab02403c8b68b16c4122088deed74b8f70a397  hub/coherence/__init__.py
 0aa6f46157df01ab970a90ca938b619f396bcfe10124dc548fed0bf1ff895cf5  hub/coherence/__main__.py
 1e377e29f5bdc80bb329cdc0c8e3d96c7d994b3321c6b2ed5b66b8ea74e2b107  hub/coherence/adoption.py
-7dd75c833724ad2564f5a03d92f1aa3697fd4f0dd547c5bad2b4f1b2c037dd37  hub/coherence/attest.py
+597f542afcc47ff4f61738b876eaa6e7bc1f69b7ef197c70059b98489d0ee8aa  hub/coherence/attest.py
 1196d6adffc5878985e8e948e978b56d5c5f84ba8b118a1281a6442874dc87e2  hub/coherence/attest_base.py
 179e7d54ad635537649dd4524507f323b2a860535623a11a57c34a72ff96ef59  hub/coherence/attest_detached.py
 f25c2c2b7c442c20090fafb4ec989ca9009ab95339be585b5e65e89a6aa1b688  hub/coherence/cache.py
@@ -81,7 +81,7 @@ d940d5c5b1a0d7d5c92b3746bc3b3d2338b3ddb851d911feb755926ff7c8b9bc  scripts/runner
 e09c3fd0c59e1c1266c530a2533dda812bc31c1d102235fc86ce570b9afcf91f  scripts/scene_inventory.py
 32e16e51f07494860743ef55a1cf662f12c4b6fa70d452318dc862e143d3e67c  scripts/schema-health-check.mjs
 a9128550cdee1d09307e2984d25153eaa2d41a6998720417fe40031903eb3c82  scripts/secret-scan-fleet.sh
-7bfb1eb2f7f180f40897252c56e835e48f0e6cadd15d96d559399782a1352e70  scripts/secret-scan.sh
+3fe86be54d63af5511fc136538b0ee209aebb791b64d9029bd43c4ceef2051c0  scripts/secret-scan.sh
 8119f09054228144c7ca801ee029b5df227dada1933b575b31fc34cd83922e44  scripts/semantic-scan.mjs
 280317dc7fc5d5421c4839252fe4aa8b8410bed144d4c252d3d4b4fde558a69f  scripts/silent-success-scan.sh
 ab95115cef763eb167b4bc7090dbfdc284689c481eea0f4ff4ec10c033b54fa9  scripts/spec_traceability.py

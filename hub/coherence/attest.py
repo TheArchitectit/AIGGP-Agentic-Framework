@@ -29,6 +29,7 @@ from .attest_base import (
     SIGNER_KEY_ENV,
     SIGNER_KEY_ID_ENV,
     SIGNER_IDENTITY_ENV,
+    EVALUATOR_IMAGE_ENV,
     SIGNATURE_PREFIX,
     AttestationError,
     key_id_for,
@@ -45,7 +46,8 @@ from .attest_detached import (
 
 __all__ = [
     "AttestationError", "SIGNER_KEYS_ENV", "SIGNER_KEY_ENV",
-    "SIGNER_KEY_ID_ENV", "SIGNER_IDENTITY_ENV", "SIGNATURE_PREFIX",
+    "SIGNER_KEY_ID_ENV", "SIGNER_IDENTITY_ENV", "EVALUATOR_IMAGE_ENV",
+    "SIGNATURE_PREFIX",
     "attest", "check_anti_rollback", "emit_envelope",
     "key_id_for", "load_signer_set", "required", "seal_run", "sign",
     "signer_identity", "signer_set_digest", "verify", "verify_attestation",
