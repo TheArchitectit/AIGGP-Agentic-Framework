@@ -1,0 +1,31 @@
+# fleet-sweep-include.txt — URLs that live outside `gh repo list TheArchitectit`
+# and are still ours to sweep.
+#
+# Loaded by scripts/secret-scan-declared.sh (same directory as this file's
+# parent). One full https URL per line. The generator unions this onto the
+# generated owner-scope list before exclusions apply, so an entry here can
+# still be dropped by fleet-sweep-exclude.txt.
+#
+# Content rule: the drwhofan2k18-pixel/* counterparts of TheArchitectit repos
+# — same code under a second owner account. These are the "two-owner
+# problem" repos: a finding on one remote implies the other until both are
+# swept (see docs/qa/<date>-secret-adoption.md for the per-repo note).
+#
+# Upstream mirrors under drwhofan2k18-pixel (bun, redis, sqlite, react, ...)
+# are the same noise class as llama.cpp and are NOT listed here. Listing them
+# would route 50+ upstream histories into a nightly full-history sweep for
+# returns none of ours. The selection rule is name-matched to a
+# TheArchitectit repo, plus the two explicit cases (stitcher-codereview is
+# named in 15-per-repo-notes.md; DevGate-Agentic-Framework is the AIGGP
+# fork).
+#
+# Recorded as a stated assumption in docs/qa/<date>-fleet-sweep-live.md: if
+# the wider farm should be swept, add the URLs here — the list is one file,
+# reviewable and reversible by editing it.
+https://github.com/drwhofan2k18-pixel/DevGate-Agentic-Framework
+https://github.com/drwhofan2k18-pixel/RADICAL-CODE
+https://github.com/drwhofan2k18-pixel/radcode
+https://github.com/drwhofan2k18-pixel/rad-gateway
+https://github.com/drwhofan2k18-pixel/stitcher-codereview
+https://github.com/drwhofan2k18-pixel/zombie-hero-match
+https://github.com/drwhofan2k18-pixel/pi-ithacus-agent-framework

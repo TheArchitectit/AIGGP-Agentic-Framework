@@ -156,9 +156,9 @@ do not re-derive private topology here):
   `docs/`.
 
 **Consequence:** Sprint 1.1 (commercial boundary + license manifest + changed-
-path license gate) has nothing to extract yet. OD-001 (exact commercial license
-text) and OD-002 (`enterprise/` vs `fleet-manager/` root) are **owner
-decisions** and are still open (see §8).
+path license gate) has nothing to extract yet. OD-001 and OD-002 were decided
+2026-09-29 (see §8): no commercial split in Phase 1, and the package boundary
+root is `fleet-manager/`. Sprint 1.1 therefore starts that root under BSD only.
 
 ## 6. Secret classes and entry points
 
@@ -198,20 +198,21 @@ only); container binds are tailnet/loopback by house rule.
 | 0.2 DEP-003 fresh audit + baseline doc | **This document.** |
 | 0.3 Predecessor identity imported; no contract redefined here | **Imported** in §2 and §4: sealed identity cited; `coh-*` consumed not redefined; this package's stage-3 envelope surface is a hub `ctx-*` well-formedness extension only. |
 | 0.4 Overlaps reconciled | **Recorded** in §4 with consumer-vs-mutator dispositions per package. |
-| 0.5 OD-001 / OD-002 | **OPEN — owner decisions.** Not ticked. |
+| 0.5 OD-001 / OD-002 | **DECIDED 2026-09-29.** OD-001: drop the commercial split (Phase 1 stays BSD 3-Clause). OD-002: `fleet-manager/`. Tick against the decision record below. |
 
-### 0.5 staged as owner questions (architect)
+### 0.5 owner decisions (decided 2026-09-29)
+
+Staged here as architect questions and answered the same day:
 
 1. **OD-001 — commercial license text and contribution policy split.**
-   - (A) Propose a specific commercial text now (needs owner redlines).
-   - (B) Ship Sprint 1.1 as a *boundary + manifest* only, with a marked
-     placeholder, and land text in a later package.
-   - (C) Drop the commercial split for Phase 1; keep BSD 3-Clause and gate only
-     path boundaries.
+   **DECIDED: (C) drop the commercial split for Phase 1.** Keep BSD 3-Clause
+   everywhere. Sprint 1.1 enforces path/package boundaries, dependency
+   direction, and an extraction rehearsal only — no entitlement license gate,
+   no second LICENSE grant. A future commercial split can reuse `fleet-manager/`
+   and the rehearsal evidence; it is not Phase 1 scope.
 2. **OD-002 — commercial root directory name.**
-   - (A) `enterprise/` (proposal's current preference).
-   - (B) `fleet-manager/`.
-   - (C) A third root (name it).
+   **DECIDED: (B) `fleet-manager/`.** That is the package boundary root Sprint
+   1.1 starts, and it is what the extraction rehearsal names.
 
 ## 9. Findings (severity-ranked) and uncertainties
 
@@ -235,11 +236,14 @@ Uncertainties (not findings, not asserted):
 | U4 | Whether host Podman stores are actually the ones the runner container mounts | Declared by the unit, checked by the cycle tick against `COHERENCE_PODMAN_STORE`; 7.1/7.2 of image-cycling remain on a host checklist (NOT_RUN). |
 | U5 | Arms race with mutable image tags vs sealed acceptance digest | Publish/re-pin and img-cycle-05 track divergence; product-tiers signed configuration must land on the same record, not on `:main` (TBD Sprint 3). |
 
-## 10. What Sprint 0 does next (after OD-001/OD-002)
+## 10. What Sprint 0 does next
 
-1. Land OD-001 / OD-002 answers.
-2. Freeze v1 contracts (`contracts/v1`) and the commercial boundary per the
-   chosen root.
+Sprint 0 is complete (0.1–0.5). Sprint 1 proceeds under the OD answers:
+
+1. Package boundary + dependency-direction + changed-path gates under
+   `fleet-manager/`, BSD 3-Clause only (OD-001 / OD-002).
+2. Freeze v1 contracts (`contracts/v1`) and the extraction rehearsal that
+   names that root.
 3. Dependency-review record fixture that fails if `openspec/specs/**` gained a
    product-tiers-owned `Requirement` under a `coh-*` / `mon-*` / `fleet-*`
    ID this package did not own before.

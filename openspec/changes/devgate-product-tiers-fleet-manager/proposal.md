@@ -51,7 +51,7 @@ integration) into one sequenced, dependency-locked change.
 Full OpenSpec package
 Date: 2026-09-18
 Working change ID: devgate-product-tiers-fleet-manager
-Status: PROPOSED - DEP-001 EVIDENCED; DEP-003 AUDIT PUBLISHED 2026-09-29; Sprint 1+ held on OD-001/OD-002
+Status: PROPOSED - SPRINT 0 DONE; OD-001 (no commercial split) / OD-002 (fleet-manager/) DECIDED 2026-09-29; Sprint 1 unblocked
 Repository: TheArchitectit/AIGGP-Agentic-Framework
 Repository snapshot audited for structure: e9ea400c5bf6a6fcacf55264b82c16ebf5f1c7b0
 Predecessor package: devgate-spec-coherence-service
@@ -399,10 +399,16 @@ organizational separation.
 
 Requirement REPO-002: visible open/commercial split
 
+**OD-001 (decided 2026-09-29) descales the split.** Phase 1 ships BSD 3-Clause
+across the tree. What Sprint 1.1 still has to enforce is a visible **package
+boundary** (dependency direction + changed-path gate + extraction rehearsal),
+not a second LICENSE grant. **OD-002 (decided 2026-09-29) names that boundary
+`fleet-manager/`.** A future commercial split can reuse the same root and the
+rehearsal evidence; it is not part of Phase 1.
+
 The root and existing DevGate core remain under the repository's approved
-open-core license. Commercial code SHALL live only under one top-level
-boundary selected during Sprint 0, with `enterprise/` preferred unless the
-audit proves `fleet-manager/` is the clearer single commercial root.
+open-core license. Product-tiers code SHALL live only under the top-level
+`fleet-manager/` boundary.
 
 Proposed structure:
 
@@ -1583,8 +1589,12 @@ not document review:
 
 - OD-001, Sprint 0: approve the exact commercial license text and contribution
   policy. "GitLab-style" defines architecture, not a reusable license grant.
+  **DECIDED 2026-09-29 (owner): Drop the commercial split for Phase 1.**
+  Keep BSD 3-Clause everywhere. Sprint 1.1 enforces path/package boundaries
+  only — no entitlement license gate.
 - OD-002, Sprint 0: choose `enterprise/` or `fleet-manager/` as the single
   commercial root after the dependency audit.
+  **DECIDED 2026-09-29 (owner): `fleet-manager/`.**
 - OD-003, Sprint 5: select the Phase 1 secret provider from the audited
   home-lab environment.
 - OD-004, Sprint 3: choose the initial Fleet Manager deployment host and

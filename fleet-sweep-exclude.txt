@@ -1,0 +1,21 @@
+# fleet-sweep-exclude.txt — deliberate non-sweep entries.
+#
+# Loaded by scripts/secret-scan-declared.sh (same directory as this file's
+# parent). One entry per line. The rest of the line after the first '#' is the
+# reason, and the reason is load-bearing: the generator warns when an entry
+# has none, because exclusions without a reason are what turns this file into
+# a quiet hole.
+#
+# Matching:
+#   a full https URL        — that URL only
+#   owner/name              — that pair (case-insensitive)
+#   name                    — any repository with that name
+#
+# Sweeping upstream history is noise (and is not our leak surface). The
+# profile/org config repos carry no code to sweep. Revisit if either gains a
+# binary, a script, or a secret-shaped string.
+llama.cpp  # upstream fork; sweeping upstream history is noise
+awesome-cline-skills  # curated list mirror; content, not code we own
+awesome-opencode-skills  # curated list mirror; content, not code we own
+TheArchitectit  # profile/org config repo; no code to sweep
+.github  # profile/org config repo; no code to sweep
