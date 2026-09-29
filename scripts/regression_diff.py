@@ -27,10 +27,18 @@ flagged — only new introductions.
 
 from __future__ import annotations
 
-import fnmatch
 import json
 import re
+import sys
 from pathlib import Path
+
+# Shared primitives — one implementation (scripts/gate_common.py). The old
+# local line_has_allow / glob_matches / _expand_globstars lived here and in
+# game_regression.py with two tolerances for the annotation colon; the shared
+# form requires reason text (FAIL-9231181d).
+if str(Path(__file__).resolve().parent) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+from gate_common import glob_matches, line_has_allow, read_jsonl_registry  # noqa: E402
 
 # Files that DEFINE the regression patterns. Scanning their own added lines
 # would self-match every pattern they declare, so they are skipped.
@@ -268,53 +276,6 @@ def get_diff_content(run_git, file_path: str, staged: bool = True,
     return "".join(blobs)
 
 
-def line_has_allow(line: str, *ids: str) -> bool:
-    """True when the line carries a guardrails-allow for any of the given ids.
-
-    Mirrors guardrails-scan.mjs and game_regression.py, which key the annotation
-    on the rule/failure id: a substring-only check would let one id's allow
-    silence every other pattern.
-    """
-    return any(
-        re.search(rf"guardrails-allow\s+{re.escape(i)}\s*:", line)
-        for i in ids if i
-    )
-
-
-def glob_matches(path: str, globs: list[str]) -> bool:
-    """True when the basename OR the repo-relative path matches any glob.
-
-    Supports the ** globstar in two forms:
-      a/**/b   → matches a/b  (the zero-segment case)  and  a/*/b  (fnmatch handles intermediates)
-      a/**     → matches a/*  (fnmatch handles the trailing segment)
-    Both forms are tried alongside the original pattern so the function
-    stays backwards-compatible and agrees with guardrails-scan.mjs globMatch.
-    """
-    base = path.rsplit("/", 1)[-1]
-    expanded = _expand_globstars(globs or [])
-    return any(
-        fnmatch.fnmatch(base, g) or fnmatch.fnmatch(path, g)
-        for g in expanded
-    )
-
-
-def _expand_globstars(globs: list[str]) -> list[str]:
-    """Yield each glob and any stripped-** variants needed for fnmatch compatibility."""
-    for g in globs:
-        yield g
-        # a/**  → also try a/*
-        if g.endswith("/**"):
-            yield g[:-3] + "*"
-        # a/**/b  (and a/**/b/**, etc.) → strip the leading **/ and yield a/b
-        if "/**/" in g:
-            yield g.replace("/**/", "/", 1)
-        # Also strip a trailing /** from the stripped form for double-wildcard segments
-        if g.endswith("/**"):
-            stripped = g[:-3]
-            if "/**/" in stripped:
-                yield stripped.replace("/**/", "/", 1)
-
-
 def compile_registry_patterns(entries: list[dict]) -> tuple[list[dict], list[str]]:
     """Compile each entry's `regression_pattern` into a matcher.
 
@@ -403,22 +364,11 @@ def load_failure_registry(registry_path: Path) -> list[dict]:
     """Load registry entries whose status is scanned (active or resolved).
 
     A RESOLVED entry is exactly the one whose pattern must not come back, so
-    both statuses are loaded.
+    both statuses are loaded. Parse goes through gate_common so a corrupted
+    line behaves the same here as in the hygiene gate.
     """
-    if not registry_path.exists():
-        return []
-    entries = []
-    with open(registry_path, encoding="utf-8", errors="replace") as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith("#"):
-                try:
-                    entry = json.loads(line)
-                    if entry.get("status") in SCANNED_STATUSES:
-                        entries.append(entry)
-                except json.JSONDecodeError:
-                    continue
-    return entries
+    entries, _errors = read_jsonl_registry(registry_path)
+    return [e for e in entries if e.get("status") in SCANNED_STATUSES]
 
 
 def load_active_failures(entries: list[dict]) -> list[dict]:
