@@ -21,7 +21,6 @@ INPUT_CAPTURE) were imported from the former devgate-game-framework repository
 Reads .guardrails/failure-registry.jsonl and scans staged/unstaged changes
 against known game-class patterns. Exit 1 on hard violations with --pre-commit.
 """
-import fnmatch
 import json, os, re, sys, subprocess
 from pathlib import Path
 
@@ -30,7 +29,9 @@ import gate_overlay  # noqa: E402
 # Shared primitives — one implementation (scripts/gate_common.py).
 from gate_common import (  # noqa: E402
     glob_matches,
+    is_ignored,
     line_has_allow,
+    load_ignore_patterns,
     load_skip_dirs,
     project_root,
     nothing_scanned,
@@ -117,40 +118,8 @@ def find_project_root():
 # fw-scope-01: single scope contract — loaded, never redeclared here.
 SKIP_DIRS = load_skip_dirs()
 
-def load_ignore_patterns(root):
-    """Read <root>/.guardrailsignore — per-project scoping the gate can't know.
-
-    One fnmatch glob per line ('*' crosses '/', same as the rule globs); a
-    trailing '/' marks a directory prefix. Blank lines and '#' comments ignored.
-    """
-    path = Path(root) / ".guardrailsignore"
-    patterns = []
-    if not path.exists():
-        return patterns
-    for line in path.read_text(errors="replace").splitlines():
-        line = line.strip()
-        if line and not line.startswith("#"):
-            patterns.append(line)
-    return patterns
-
-def is_ignored(file_path, root, patterns):
-    """True when the file matches a .guardrailsignore entry (relpath, basename, or dir prefix)."""
-    if not patterns:
-        return False
-    try:
-        rel = os.path.relpath(file_path, root)
-    except ValueError:
-        rel = str(file_path)
-    base = os.path.basename(file_path)
-    for pat in patterns:
-        if pat.endswith("/"):
-            if rel.replace("\\", "/").startswith(pat) or (rel + "/").replace("\\", "/").startswith(pat):
-                return True
-        elif fnmatch.fnmatch(rel, pat) or fnmatch.fnmatch(base, pat):
-            return True
-    return False
-
-# glob_matches and line_has_allow are re-exported from gate_common (shared).
+# glob_matches / line_has_allow / load_ignore_patterns / is_ignored are
+# re-exported from gate_common (shared).
 
 def iter_source_files(root, ignore_patterns=()):
     """Walk the tree collecting scannable source files, skipping SKIP_DIRS and ignores."""

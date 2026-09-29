@@ -49,6 +49,22 @@ RULES_REL = ".guardrails/prevention-rules/silent-success-rules.json"
 ALLOWLIST_REL = ".guardrails/silent-success-allowlist.json"
 
 
+def _stage_script(dest_scripts: Path) -> None:
+    """Copy the scanner and its import closure into a synthetic scripts/ dir."""
+    dest_scripts.mkdir(parents=True, exist_ok=True)
+    (dest_scripts / "lib").mkdir(exist_ok=True)
+    for rel in (
+        "silent-success-scan.sh",
+        "gate_overlay.py",
+        "gate_common.py",
+        "lib/project_root.py",
+    ):
+        src = REPO_ROOT / "scripts" / rel
+        target = dest_scripts / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+
+
 def _family(name: str, regex: str, *, enabled: bool, file_glob, exclude=None) -> dict:
     rule = {
         "family": name,
@@ -87,10 +103,10 @@ def _mk_project(tmp: Path, *, bundled_rules: dict, overlay_rules: dict | None,
     (dg / ".guardrails" / "scope.json").write_text(
         (REPO_ROOT / ".guardrails" / "scope.json").read_text(encoding="utf-8"),
         encoding="utf-8")
-    # copy the script + its one import (gate_overlay.py) into the fixture root
-    for name in ("silent-success-scan.sh", "gate_overlay.py"):
-        (dg / "scripts" / name).write_text(
-            (REPO_ROOT / "scripts" / name).read_text(encoding="utf-8"), encoding="utf-8")
+    # copy the script + its import closure (gate_overlay.py, gate_common.py,
+    # lib/project_root.py) into the fixture root — the scanner dies at import
+    # without them.
+    _stage_script(dg / "scripts")
     if overlay_rules is not None:
         target = tmp / RULES_REL
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -170,6 +186,25 @@ def test_exclude_globs_scopes_not_mutes():
             f"exclusion leaked to non-test file: {out}"
 
 
+def test_guardrailsignore_scopes_the_walk():
+    """QA M2's other half: .guardrailsignore drops files from the walk entirely
+    (unlike exclude_globs, which reports an [excluded] hit). A newline-and-comment
+    tolerant loader, shared with every other gate."""
+    with tempfile.TemporaryDirectory() as d:
+        tmp = _mk_project(Path(d),
+                          bundled_rules=_rules(GO_CLOSE),
+                          overlay_rules=None,
+                          files={"archive/old.go": "_ = f.Close()\n",
+                                 "pkg/keep.py": "x = 1\n"})
+        (tmp / ".guardrailsignore").write_text(
+            "# frozen legacy\n\narchive/\n", encoding="utf-8")
+        p = _run(tmp)
+        out = _out(p)
+        assert p.returncode == 0, f"ignored tree must not be scanned: {out}"
+        assert "archive/old.go" not in out, out
+        assert ".guardrailsignore" in out, f"loader must report the ignore file: {out}"
+
+
 def test_exclusion_is_per_family_not_whole_file():
     with tempfile.TemporaryDirectory() as d:
         py = _family("go_py", r"_\s*=\s*f\.Close\(\)", enabled=True, file_glob=["*"])
@@ -208,9 +243,7 @@ def test_standalone_checkout_same_path_guard():
         (tmp / RULES_REL).write_text(json.dumps(_rules(GO_CLOSE)), encoding="utf-8")
         (tmp / ALLOWLIST_REL).write_text(json.dumps({"entries": []}), encoding="utf-8")
         (tmp / "scripts").mkdir()
-        for name in ("silent-success-scan.sh", "gate_overlay.py"):
-            (tmp / "scripts" / name).write_text(
-                (REPO_ROOT / "scripts" / name).read_text(encoding="utf-8"), encoding="utf-8")
+        _stage_script(tmp / "scripts")
         (tmp / ".guardrails" / "scope.json").parent.mkdir(parents=True, exist_ok=True)
         (tmp / ".guardrails" / "scope.json").write_text(
             (REPO_ROOT / ".guardrails" / "scope.json").read_text(encoding="utf-8"),

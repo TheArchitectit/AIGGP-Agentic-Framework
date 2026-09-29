@@ -7,6 +7,7 @@ Locks one behaviour per historical divergence:
   * JSONL parse errors are reported, missing file is an error not []
   * line_has_allow requires reason text and keys on the id
   * glob_matches covers basename, path, **, and zero-directory /**
+  * load_ignore_patterns / is_ignored share one .guardrailsignore contract
   * nothing_scanned is a report + exit code, never a bare green
   * detect_package_manager covers go and godot
 """
@@ -148,3 +149,22 @@ def test_detect_package_manager_includes_go_and_godot(tmp_path):
     empty = tmp_path / "empty"
     empty.mkdir()
     assert gate_common.detect_package_manager(empty) is None
+
+
+def test_load_ignore_patterns_skips_blanks_and_comments(tmp_path):
+    (tmp_path / ".guardrailsignore").write_text(
+        "# frozen legacy\n\narchive/\n*.snap\n", encoding="utf-8")
+    assert gate_common.load_ignore_patterns(tmp_path) == ["archive/", "*.snap"]
+
+
+def test_load_ignore_patterns_missing_file_is_empty(tmp_path):
+    assert gate_common.load_ignore_patterns(tmp_path) == []
+
+
+def test_is_ignored_relpath_basename_and_dir_prefix(tmp_path):
+    pats = ["archive/", "*.snap"]
+    assert gate_common.is_ignored(str(tmp_path / "archive" / "old.py"), tmp_path, pats)
+    assert gate_common.is_ignored(str(tmp_path / "x.snap"), tmp_path, pats)
+    assert gate_common.is_ignored(str(tmp_path / "src" / "y.snap"), tmp_path, pats)
+    assert not gate_common.is_ignored(str(tmp_path / "src" / "keep.py"), tmp_path, pats)
+    assert not gate_common.is_ignored(str(tmp_path / "src" / "keep.py"), tmp_path, [])

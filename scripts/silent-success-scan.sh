@@ -60,12 +60,23 @@ if [ ! -f "$ALLOWLIST" ]; then
 fi
 
 python3 - "$RULES" "$ALLOWLIST" <<'PY'
-import fnmatch
 import json
 import os
 import re
 import sys
 from pathlib import Path
+
+# Shared primitives (scripts/gate_common.py) — SKIP_DIRS, .guardrailsignore,
+# and the glob engine come from one home, not a fourth local copy.
+_scripts = Path.cwd() / "scripts"
+if str(_scripts) not in sys.path:
+    sys.path.insert(0, str(_scripts))
+from gate_common import (  # noqa: E402
+    glob_matches,
+    is_ignored,
+    load_ignore_patterns,
+    load_skip_dirs,
+)
 
 rules_path, allowlist_path = sys.argv[1], sys.argv[2]
 
@@ -169,20 +180,16 @@ for rule in enabled:
         sys.exit(1)
     compiled.append((family, rx, rule.get("file_glob") or [], excludes))
 
-SKIP_DIRS = set(json.loads((devgate_root / ".guardrails/scope.json")
-                         .read_text(encoding="utf-8"))["skip_dirs"])  # fw-scope-01: single scope contract
+SKIP_DIRS = set(load_skip_dirs(devgate_root))  # fw-scope-01: one loader, never redeclared
+
+# .guardrailsignore joins the same contract every other gate honors (QA M2's
+# other half — the overlay merge landed earlier in this script).
+ignore_patterns = load_ignore_patterns(project_root)
 
 
 def matches_glob(rel: str, globs) -> bool:
     """True when the repo-relative path OR its basename matches any glob."""
-    base = rel.rsplit("/", 1)[-1]
-    for g in globs:
-        if fnmatch.fnmatch(rel, g) or fnmatch.fnmatch(base, g):
-            return True
-        # Allow 'src/**/*' to match 'src/a.rs' as well as 'src/a/b.rs'.
-        if g.endswith("/**/*") and (rel == g[:-5] or rel.startswith(g[:-4])):
-            return True
-    return False
+    return glob_matches(rel, globs)
 
 
 def iter_files(root: Path):
@@ -195,11 +202,15 @@ def iter_files(root: Path):
             continue
         if any(part in SKIP_DIRS for part in rel_parts):
             continue
+        if is_ignored(str(path), root, ignore_patterns):
+            continue
         yield path
 
 
 print(f"silent-success-scan: {len(compiled)} enabled family(ies); scanning "
       f"{project_root}")
+if ignore_patterns:
+    print(f"silent-success-scan: honoring {len(ignore_patterns)} .guardrailsignore entr(y/ies)")
 
 files = list(iter_files(project_root))
 uncovered = []

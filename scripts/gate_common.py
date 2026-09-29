@@ -16,6 +16,8 @@ Public surface (stdlib-only; safe to `import gate_common` after putting
     project_root([devgate])         layout-contract project root
     load_skip_dirs([devgate])       canonical SKIP_DIRS from .guardrails/scope.json
     read_jsonl_registry(path)       (entries, parse_errors)
+    load_ignore_patterns(root)      .guardrailsignore
+    is_ignored(file, root, pats)    relpath / basename / dir-prefix match
     line_has_allow(line, *ids)      guardrails-allow <ID>: <reason>
     glob_matches(path, globs)       basename OR relpath, with ** globstar
     nothing_scanned(gate, reason)   vacuous-scan report (never a green pass)
@@ -147,6 +149,47 @@ def read_jsonl_registry(path: Path | str) -> tuple[list[dict], list[str]]:
             except json.JSONDecodeError as exc:
                 errors.append(f"line {lineno}: JSON parse error — {exc}")
     return entries, errors
+
+
+def load_ignore_patterns(root: Path | str) -> list[str]:
+    """Read ``<root>/.guardrailsignore`` — per-project scoping.
+
+    One fnmatch glob per line (``*`` crosses ``/``, same as the rule globs);
+    a trailing ``/`` marks a directory prefix. Blank lines and ``#`` comments
+    ignored. Shared home for the loader game_regression and the Node scanners
+    each carried.
+    """
+    path = Path(root) / ".guardrailsignore"
+    if not path.exists():
+        return []
+    patterns: list[str] = []
+    for raw in path.read_text(errors="replace").splitlines():
+        line = raw.strip()
+        if line and not line.startswith("#"):
+            patterns.append(line)
+    return patterns
+
+
+def is_ignored(file_path: str, root: Path | str, patterns: list[str] | tuple[str, ...]) -> bool:
+    """True when the file matches a ``.guardrailsignore`` entry.
+
+    Matches the repo-relative path, the basename, or a directory prefix.
+    """
+    if not patterns:
+        return False
+    try:
+        rel = os.path.relpath(str(file_path), str(root))
+    except ValueError:
+        rel = str(file_path)
+    rel = rel.replace("\\", "/")
+    base = os.path.basename(str(file_path))
+    for pat in patterns:
+        if pat.endswith("/"):
+            if rel == pat[:-1] or rel.startswith(pat):
+                return True
+        elif fnmatch.fnmatch(rel, pat) or fnmatch.fnmatch(base, pat):
+            return True
+    return False
 
 
 def line_has_allow(line: str, *ids: str) -> bool:
