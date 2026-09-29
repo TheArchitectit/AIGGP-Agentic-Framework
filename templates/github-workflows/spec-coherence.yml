@@ -105,7 +105,7 @@ jobs:
       # the forced order and refuses to finish unless this file and the pin's
       # tree agree (`REPIN_CHECK_ONLY=1` re-checks it alone).
       DEVGATE_REPO: https://github.com/TheArchitectit/AIGGP-Agentic-Framework.git
-      DEVGATE_PIN: ab88905c66848ba0c80c1e8cc463746770d1176c
+      DEVGATE_PIN: 9fd87ee8f3d4154f7e8b8de097c94f7eba96243d
       # CUSTOMIZE (2/4): the pinned evaluator image. What is pinned is the
       # DIGEST, not the tag — the driver refuses a ref/digest disagreement, so
       # a stale copy of these two lines fails closed in the summary rather
@@ -118,7 +118,7 @@ jobs:
       # resolves, i.e. the one `podman pull image@digest` can fetch).
       COHERENCE_IMAGE: ghcr.io/thearchitectit/aiggp-agentic-framework/devgate-coherence
       COHERENCE_PROFILE: linux-amd64-v1
-      COHERENCE_IMAGE_MANIFEST_DIGEST: sha256:d798dc48d1cec73446bbc77459f8a3f1f32008b034bca172ea7ef59f155cc6a4
+      COHERENCE_IMAGE_MANIFEST_DIGEST: sha256:66190f5a04cd9be31f5de688f0814c0470b29ae775315601503951f087178c2d
       # CUSTOMIZE (3/4): what to gate. Subjects are directories in THIS repo
       # that declare a coherence package. An EMPTY list is not a pass.
       COHERENCE_SUBJECTS: ""
