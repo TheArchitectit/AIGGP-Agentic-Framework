@@ -58,13 +58,16 @@
   pinned checksum; run the gate over
   `github.event.pull_request.base.sha..head.sha`, else
   `github.event.before..after`, else `--all`; print the redacted report
-- [ ] 3.1a **Deviation, recorded rather than glossed:** the task said "upload the
+- [x] 3.1a **Deviation, recorded rather than glossed:** the task said "upload the
   redacted report". There is no `actions/upload-artifact` in the job. Every
   action in this repository is pinned by commit SHA, and there is no verified
   SHA for that action on hand; adding an unpinned one to a security job to move
   a JSON file that the log already carries is the wrong trade. The report is
   printed instead (`if: always()`), and log retention covers it. Revisit if and
-  when the pin is verified
+  when the pin is verified.
+  (Disposition 2026-09-29: closed as a RECORDED DEVIATION, not as worked.
+  The residual is the pin, not the missing upload — the report already reaches
+  the log and this is not a gap an unpinned action should be asked to fill.)
 - [x] 3.2 A non-vacuity check on the job itself: `gitleaks version` must match
   the pin, and the step greps the gate's own `[secret-scan] scope:` line — a job
   that passes because the gate never ran is the exact failure this workflow
@@ -714,7 +717,36 @@
   assertions in `tests/test_secret_scan.py` (the canary is absent from the gate's
   output; the written report carries no value; `--redact` appears on every
   scanner invocation)
-- [ ] 6.2 Record the sweep's first run over the declared public repositories
+- [x] 6.2 Record the sweep's first run over the declared public repositories
+  (2026-09-29, `scanned_at` 2026-09-29T05:06:59Z; see
+  `docs/qa/2026-09-29-secret-scan-fleet-first-run.md`). Declaration was the
+  org's full public set at that timestamp — 9 URLs, the same list
+  `gh repo list TheArchitectit --json name,isPrivate,url` returns for
+  `isPrivate == false`. Scanner was the CI pin, gitleaks `8.30.1`, checksum
+  (`sha256:551f6fc8…470eb`) verified `gitleaks.tar.gz: OK` before install;
+  `/usr/local/bin` is not writable on the authoring host so the binary landed
+  in `~/.local/bin` — same bytes, same `gitleaks version` gate as the `secrets`
+  job. **Measured verdict: exit 1.** `declared 9, scanned 9, states: clean=4,
+  findings=5, unfetchable=0, unscannable=0`. Every declared repository appears
+  in the report exactly once with a state (`secret-scan-07`); nothing was
+  skipped and nothing was reported clean without a scan. This repository is
+  `clean` — the two hits are the already-allowlisted prose `RUNNER_TOKEN` in
+  `docs/qa/2026-09-19-audit-delta.md` (`uncovered = 0`, `findings = 2`, which is
+  the covered/undiscovered split working). The five `findings` rows are in
+  other public repositories and are **not** this package's remediation work:
+  `plexus-debug-ui` (4, `curl-auth-header` in one plan doc), `NemoClaw` (11,
+  slack/discord/generic flavours across `src/lib` and `test/`),
+  `radicaltrainingplatform` (34, `generic-api-key` + `curl-auth-*` in `Web/js/**`
+  and one studyguide, repeated under the older `CertForge.*` paths),
+  `pi-mega-compact` (34, `generic-api-key` in `conformance/vector-cortex/**` and
+  `scripts/**`, plus one inside `assets/…/model.onnx`), `openagentplatform` (85,
+  mixed `generic-api-key` / `curl-auth-header` / `stripe-access-token` / `jwt` /
+  `aws-access-token` concentrated in `docs/**` and `mcp-server/**`). Counts and
+  locations only — the report and this ledger carry rule / path / line / commit
+  and never a matched value (field-name census: `commit`, `line`, `path`,
+  `rule`; no `Match`/`Secret`/`raw`). This is a first run and a measurement,
+  not a clean-fleet claim; what to do about the five clusters is an owner call
+  in each owning repository.
 - [x] 6.3 First hosted run of the `secrets` job recorded: run 36048653103, job
   success in 5s, range path, fetch-and-verify path exercised for real, 0
   findings (detail in 3.3). Two failures stand behind this green and are worth
