@@ -5,10 +5,10 @@
     {
       "label": "linux-amd64-v1",
       "platform": "linux/amd64",
-      "image_manifest_digest": "sha256:d798dc48d1cec73446bbc77459f8a3f1f32008b034bca172ea7ef59f155cc6a4",
+      "image_manifest_digest": "sha256:66190f5a04cd9be31f5de688f0814c0470b29ae775315601503951f087178c2d",
       "base_image": "docker.io/library/python@sha256:78387bc3881b8273120a12ebe6c1ab22b018ccc2c9adf565ae1ac9b536e184ea",
       "semantic_equivalence_group": "default",
-      "built": "2026-09-26"
+      "built": "2026-09-28"
     }
   ]
 }
