@@ -234,7 +234,7 @@ Sprint work:
 - [x] Decide `openspec/gate-config.json` posture for `coh-*` IDs: **no gate-config yet — coherence stays advisory** until the S3 ladder demo is lead-reviewed AND S4's container closes (coh-rt-02/06 tests), then flip `spec-coherence-service` (or finer capabilities) to blocking in a dedicated review-gated commit. Decision rationale: a blocking posture before the runtime boundary exists would gate on a slice the spec itself calls incomplete (coh-dec-04 ERROR semantics demand launcher-validated execution); advisory + ratchet demonstrates enforcement where it counts (baseline ceilings), per ADR-006.
 
 **Gate:** ladder demo reviewed by lead; published spec traceable. **Blocks:** fleet-facing sprints.
-**Gate disposition (2026-09-17, lead; updated 2026-09-18):** demo delivered and self-reviewed, awaiting architect sign-off — full review package in `s3-delivery.md`; the "published spec traceable" clause is **moved to S8 archive** (GD-3 double-count measured, runner-monitor precedent). **Round-5 independent audit: APPROVE at pin 0db45ed** (fresh agent session; 6/6 falsification experiments confirmed; 2 minor findings remediated same-day, see s3-delivery.md). Status: **DELIVERED, not ACCEPTED** — remaining clause is architect sign-off on the demo. S4 may start in parallel on the container; fleet-facing sprints remain blocked.
+**Gate disposition (2026-09-17, lead; updated 2026-09-18; CLOSED 2026-09-28):** demo delivered and self-reviewed — full review package in `s3-delivery.md`; the "published spec traceable" clause is **moved to S8 archive** (GD-3 double-count measured, runner-monitor precedent). **Round-5 independent audit: APPROVE at pin 0db45ed** (fresh agent session; 6/6 falsification experiments confirmed; 2 minor findings remediated same-day, see s3-delivery.md). **ACCEPTED 2026-09-28 (owner, in-session).** The code and fixture halves are complete; fleet-facing sprints unblocked where the rest of the package's later sprints already landed them.
 
 ## Sprint S4 — container and evaluator boundary (submitted Phase 2)
 
@@ -375,11 +375,7 @@ Sprint work:
   not inert either: the CI template pins it (`COHERENCE_IMAGE`) and `scripts/coherence-local` follows it. The
   unrelated hazard nearby was checked and does not exist: `_validate_image` rejects a ref with no `@`, so the
   `rsplit("@", 1)[1]` in `container_exec` cannot raise an uncaught `IndexError` past the exit-30 mapping.
-- [ ] arm64 execution profile + manifest entry in the registry (coh-id-04). NOT materializable on this host (2026-09-18,
-  verified: no qemu user-mode emulation, and the Containerfile's `RUN groupadd/useradd` needs target-arch execution, so a
-  cross-arch build dies 125/exec-format). Unblock paths, both needing lead action: (a) install `qemu-user-static` +
-  register binfmt, or (b) build on an arm64 runner with `--timestamp 0` and append its manifest digest. The machinery is
-  already built — a second platform appends without further code.
+- [ ] arm64 execution profile + manifest entry in the registry (coh-id-04). **GATED ON HARDWARE, 2026-09-28 (owner: "we don't have arm to test with").** No arm64 host exists in this fleet, so neither unblock path in scope: qemu-user-static is an unavailable target, and there is no arm64 runner to build on. Q5 already froze this posture (amd64-only byte-equivalence at launch). The machinery accepts a second platform entry without further code; reopen this line only when an arm64 host is actually provisioned. Do not treat it as a pending lead action.
 - [x] Launcher-validated isolation: non-root, read-only root/inputs, dropped capabilities, no host sockets/network; launcher rejects violating configs; self-report not trusted (coh-rt-01, coh-rt-02).
   PROGRESS 2026-09-18: `hub/coherence/launcher.py` (271 lines) validates every rejection class, requires the
   platform manifest digest, and `run()` executes the derived invocation under the time/output limits.
@@ -1183,16 +1179,16 @@ sprints. Findings and dispositions:
 
 **Gate:** Stage 3 readiness review inputs complete. **Blocks:** enforced rollout.
 
-## Sprint S7 — 3D vertical slice (submitted Phase 6)
+## Sprint S7 — 3D vertical slice (submitted Phase 6) — **CARVED OUT 2026-09-28 (owner)**
 
-- [ ] 3D composite subject manifest: world IR, GLB assets, engine scene, executable build, captures, evaluation records; part-digest composition (coh-3d-01).
-- [ ] Map first room's normative requirements to stable assertion IDs under the operational assertion schema.
-- [ ] Capture pipeline under pinned configuration; captures as declared inputs, evaluators never render (coh-3d-04).
-- [ ] Gate one Godot build and one bounded repair through the same contract; no pipeline-specific branching (coh-3d-03).
-- [ ] Prove repaired digest invalidates earlier attestation; new PASS binds repaired digest (coh-3d-02, acceptance Fixture G).
-- [ ] Vision observations advisory-only until reproducibility criteria met (coh-assert-05).
+Implementation checklist moved to `openspec/changes/add-3d-vertical-slice/`.
+The spec requirements (`coh-3d-01..04`, `coh-assert-05`) stay in this package's
+`specs/subjects-3d/` and `specs/assertions-and-evaluators/` — they are part of
+the frozen contract and this package's acceptance covers them as *specified*,
+not as implemented. Do not re-add the six checkpoints here.
 
-**Gate:** evidence-backed promotion + deterministic halt demonstrated. **Blocks:** 3D enforcement.
+**Acceptance scope for 3D:** specified. Not implemented. Stated in
+`docs/qa/2026-09-28-spec-coherence-service-acceptance.md` as a named limit.
 
 ## Sprint S8 — hardening and release (submitted Phase 7)
 
