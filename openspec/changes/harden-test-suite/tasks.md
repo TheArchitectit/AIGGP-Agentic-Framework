@@ -7,10 +7,12 @@
       cross-check mode).
 - [x] 2 Root-skip guards on the two chmod-based exit-33 tests (and any other
       euid-sensitive assertions), with a skip reason naming the cause.
-- [ ] 3 Clock seams: DEFERRED with rationale — the monitor/alerts wall-clock
+- [x] 3 Clock seams: DEFERRED with rationale — the monitor/alerts wall-clock
       offsets all carry wide margins (16 min vs 10-min thresholds) and the
       real-fake-server tests they live in already pass deterministically in
       CI; revisit only if a flake is observed.
+      (Disposition complete 2026-09-28: closed as DEFERRED, not as worked.
+      No clock seam is scheduled.)
 - [x] 4 Launcher synthetic-digest test: the output-overflow/timeout suites
       mock launcher.run at the sandbox boundary (no podman, no pull); the
       only digest-dependent tests are the real-container classes, which skip
@@ -19,13 +21,26 @@
 - [x] 5 tmp-dir fixtures for test_regression_check's in-tree writes
       (`tests/_tmp_registry.jsonl`, `tests/_tmp_sizes/`) — repo tree stays
       byte-identical across a test run (add a git-status-clean assertion).
-- [ ] 6 New behavioral coverage: `test_hub_main.py` (env wiring, no-token
+- [x] 6 New behavioral coverage: `test_hub_main.py` (env wiring, no-token
       branch, signal shutdown — pairs with harden-security-boundaries 2.1),
       `test_failure_registry_check.py`, `test_log_failure.py`,
       `test_regression_audit.py`, `test_detect_host_ci.py` (incl. redaction),
       `test_runner_enroll.sh` harness (stub curl, assert payload escaping +
       no token on stdout), `test_schema_health_check.mjs`, silent-success
       smoke.
+      (Already in tree when this item was re-read 2026-09-28:
+      `test_failure_registry_check.py`, `test_log_failure.py`,
+      `test_regression_audit.py`, `test_detect_host_ci.py`,
+      `test_runner_enroll.sh`, silent-success smoke
+      (`test_silent_success_gate.py` + `test_silent_success_overlay.py`).)
+      Remaining gap closed now: `tests/test_hub_main.py` (10 tests — Config
+      env wiring + CLI override, mock-anchored placeholder refusal on
+      `load_enrollment_tokens` and startup prune, no-token branch naming
+      mon-channels-01, CLI `--bind-port` beating `HUB_BIND_PORT`, SIGINT
+      clean exit-0). `test_schema_health_check.mjs` is covered under its
+      shipped names rather than that filename: `test_schema_health_config.mjs`
+      (project-overlay configuration, half-configured must fail) and
+      `test_schema_health_exitcodes.py` (0/1/2 contract + deploy.sh dispatch).)
 - [x] 7 deploy.sh harness: covered where it matters most — the twine
       precedence + layout detection logic is shell-reviewed with bash -n and
       the ROOT/PROJECT_ROOT contract is exercised by
