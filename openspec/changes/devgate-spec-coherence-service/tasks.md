@@ -48,11 +48,11 @@ Dependency-ordered sprint plan for the full program. Sprint S0–S1 gate everyth
       remaining open decisions (Q6–Q8, Q10) do not gate Stage 3 per the readiness matrix.
 - [x] Package committed — `eac440a`. (Committed without the review gate; recorded as process debt.)
 
-**Gate:** NOT CLOSED — pending independent audit and lead review. **Blocks:** retroactive; S2+ proceed at risk recorded in `s2-remediation.md`.
+**Gate:** **CLOSED 2026-09-28.** Independent audit landed 2026-09-22 (`s0-independent-audit.md`, 1 MAJOR + 2 MINOR, all dispositioned). Lead review of R1–R9 + ADR disposition landed 2026-09-28 (lines above). The retroactive risk S2+ carried is discharged.
 
 ## Sprint S1 — contract freeze
 
-- [x] Freeze design.md v2 as the contract — `s1-freeze-record.md` §1. **Not lead-reviewed** (process debt, see S0).
+- [x] Freeze design.md v2 as the contract — `s1-freeze-record.md` §1. Lead-reviewed 2026-09-28 with the S0 R1–R9 pass (the process debt this line once named).
 - [x] Publish versioned JSON schemas (12) — `schemas/`. (Result schema amended 2026-09-17 to permit explicit nulls per coh-dec-02.)
       COUNT NOW SUPERSEDED — do not read "12" as the directory's size. The freeze shipped exactly 12
       (`git log --diff-filter=A` shows 12 files added 2026-09-17); three more were added after the freeze
@@ -65,9 +65,9 @@ Dependency-ordered sprint plan for the full program. Sprint S0–S1 gate everyth
 - [x] Define the execution-profile registry — `execution-profile-registry.md`.
 - [x] Map coherence result against hub check-class shapes — `s1-freeze-record.md` §6.
 - [x] Record R8/R9 decisions in design and specs.
-- [ ] Lead review of the frozen contract — not performed.
+- [x] Lead review of the frozen contract — **CLOSED 2026-09-28** by the S0 line above (`.1` lead review of `review.md` findings R1–R9 and the design v2 amendment log, owner-approved in-session). The S1 freeze artifacts were the subject of that review: design.md v2 is the frozen contract and its amendment log is what was checked against shipped code. Q1–Q5/Q9 were confirmed 2026-09-26 (see the S0 decision record). No separate freeze-artifact act remains.
 
-**Gate:** artifacts produced and committed; **review gate NOT CLOSED** (same process debt as S0). Owner confirmation of Q1–Q5/Q9 still open. **Blocks:** nominally S2+, which proceeded at recorded risk (see `s2-remediation.md`).
+**Gate:** **CLOSED 2026-09-28.** Artifacts produced and committed; review gate closed by the S0 lead review 2026-09-28 (the "same process debt" it referenced is the S0 gate, which that review also closed). Q1–Q5/Q9 confirmed 2026-09-26. S2+ no longer proceed "at risk" — the retroactive review debt is paid.
 
 ## Sprint S2 — thin slice core (advisory, stdlib, this repo)
 
@@ -171,8 +171,13 @@ round-3 APPROVE at pin `856cbd08…` listed these as non-blocking):
   shapes. No separate code change was needed; the only residual window is
   the fallback-of-the-fallback (`mkdtemp` itself failing), which has no
   writable floor left to fall back to and is out of contract scope.
-- [ ] Close S0 carry-forwards: independent review of R1–R9 and ADR disposition
+- [x] Close S0 carry-forwards: independent review of R1–R9 and ADR disposition
   (round-1 process debt; audit covered code, not the ADR clause decisions).
+  **CLOSED 2026-09-28** — this is the same act the S0 lines above recorded:
+  finding-by-finding R1–R9 review against shipped code, then ADR-001…014/016/017/019
+  accepted and 015/018 deliberately held. The S0 independent audit
+  (`s0-independent-audit.md`, 2026-09-22) covered the code; the clause-decision
+  half is what 2026-09-28 closed. No further carry-forward.
 - [x] `semantic-scan.mjs` root detection: either scope it to this repo or
   declare it out of service for this repo — do not keep a permanently-red or
   silently-parent-scanning gate (GD-adjacent, round 2–3).
@@ -709,7 +714,8 @@ sprints. Findings and dispositions:
       the window, so falling through the skip branch WOULD report staleness; the test was verified RED against a
       move of the skip branch behind the recency check, killed by exactly that one test. Both `/tmp`-backup
       restores verified byte-identical.
-- [ ] CI workflow following `templates/github-workflows/drift-scan.yml` pattern, `runs-on: devgate` (or repo labels like `devgate-game`), pinned runtime invocation + event wiring only; gate executes or reports explicit SKIPPED per `ci-run-01` (coh-int-01, coh-int-06).
+- [x] CI workflow following `templates/github-workflows/drift-scan.yml` pattern, `runs-on: devgate` (or repo labels like `devgate-game`), pinned runtime invocation + event wiring only; gate executes or reports explicit SKIPPED per `ci-run-01` (coh-int-01, coh-int-06).
+      **CLOSED 2026-09-28 (ledger catch-up).** The work below is shipped: template exists at `templates/github-workflows/spec-coherence.yml`, D1/D2/D3 fixed, real containerized runs measured on two hosts, hosted green run `36501521466`. Re-measured this pass: `tests/test_coherence_local_wrapper.py` + `tests/test_coherence_image_identity.py` → **29 passed**. Remaining reduced items are tracked on their own lines and are not this item: stage-2 signing in the containerized path (exit 33 gap, own line below), and `coherence_*_root` env-default absence (Phase-3 hub fetch supersedes).
       **REOPENED (round-18), then re-fixed.** This line was disposed `SHIPPED` at `07d1275` on the strength of a
       mutation battery that was real but **purely structural** — every one of its 11 tests regex-matched the shell
       text and none ever validated the emitted request against `request.schema.json` or actually invoked the entry
@@ -1286,7 +1292,8 @@ sprints. Findings and dispositions:
       the only version, so the registry is empty by construction — the
       machinery exists so the first retirement is a data edit plus this
       doc's window, not a gate redesign.
-- [ ] SLOs: evaluation availability, maximum advisory age.
+- [x] SLOs: evaluation availability, maximum advisory age.
+      **CLOSED 2026-09-28 with the split disposition written below.** Maximum advisory age = 30 days (Q3, owner 2026-09-26), built and enforced. Evaluation availability DEFERRED to a post-pilot measurement — inventing an SLO number before real fleet duration/failure distributions exist would be a fabricated target, not a service level. Revisit when pilots produce measured data (see the S8 observability line).
       **Measured 2026-09-26 — split into its two genuinely different halves.**
       (1) *Maximum advisory age* is BUILT and the number is now SET:
       `stages.max_advisory_age_days` is in the policy schema,
