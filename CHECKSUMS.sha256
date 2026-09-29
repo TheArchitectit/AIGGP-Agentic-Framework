@@ -1,4 +1,4 @@
-# DevGate release checksums — generated 2026-09-27T09:48:07Z
+# DevGate release checksums — generated 2026-09-29T00:30:44Z
 # Verify before use: python3 scripts/gen-checksums.py verify
 3ba50bc8b31743b05c2d11a2fe8156c44477548600ac9c2e1b4fa8f78e09c378  hub/__init__.py
 ee9d420de2f1a6dd228e9166b508e106f753dace985884ec6355581cabdbeb91  hub/alerts.py
@@ -17,7 +17,7 @@ e9dc0d010aa709a75469bbf9a81494f6232ecdb361343fdb189497ac52397fc5  hub/coherence/
 0ff2a420f21a78f478a9ec01c301936aee24c91070c11c2182bc2a5b87b5cc7a  hub/coherence/evidence.py
 3ba1457e5e4d3da2223e2a6302b315aed40644e4ac29efaa5a5f7a59b5e95587  hub/coherence/invoke.py
 5f9262c4a8fba07af604988f1c4d5bbf9e16c18076015f05e9caca698dcc8514  hub/coherence/issue.py
-28e264c099d5225edf02dafd5ff70274c6236adc9328899346e0ca097db8a7f3  hub/coherence/launcher.py
+d7e0067583c60d0cc12aed55114450f368f50ec208dfd6456c1f7c4ae2150e03  hub/coherence/launcher.py
 eb66369aac9bd8f54df4bb51f1ffcb582de369e3782b55ae9afe9b7b805914de  hub/coherence/manifest.py
 d3ff4bd7aecee3213dec9c64b0a447108c1dfea4771d28ee6bbd760245f5601b  hub/coherence/package.py
 22b0989b84082127295e68fd083d07f0515a8afab84276c054c5041b86af5dc4  hub/coherence/plan.py

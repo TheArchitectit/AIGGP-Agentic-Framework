@@ -296,9 +296,9 @@ def run(ctx: dict, *, output_dir: Path, container_args=None,
         buf += chunk
         if len(buf) > cap:
             status = "output-overflow"
+            break  # the cap is a limit, not a label: stop consuming
     if status != "completed":
         proc.kill()
-        proc.wait()
         # Deferred P2 / coh-rt-05 hardening: attempt container-level kill
         # when running under container context; never raises.
         try:
@@ -308,5 +308,7 @@ def run(ctx: dict, *, output_dir: Path, container_args=None,
                                capture_output=True, timeout=2)
         except Exception:
             pass
-
+    # Unconditional: a completed run must still reap the process, or
+    # returncode stays None and the exit-relay contract breaks (32 not 30).
+    proc.wait()
     return LaunchRun(proc.returncode, bytes(buf), status)
