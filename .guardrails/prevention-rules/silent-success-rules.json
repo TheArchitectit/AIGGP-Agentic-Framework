@@ -125,6 +125,32 @@
       ],
       "enabled": true,
       "note": "A TODO/FIXME inside the shipped service package is declared incompleteness on a production path. Move it to the change package where it has an owner and a gate."
+    },
+    {
+      "family": "zig_swallowed_error_continue",
+      "language": "zig",
+      "regex": "else \\|[_a-zA-Z]*\\| \\{\\}",
+      "file_glob": [
+        "*.zig"
+      ],
+      "enabled": false,
+      "note": "An `else |_| {}` arm discards an error and falls through as if the work happened. Some are deliberate \u2014 a parse allowed to fail, a config meant to be retried \u2014 and those belong in the project allowlist with their reasons. [dead-air: authored 2026-09-27 against a Zig tree that kept producing this shape by hand; 15 markers allowlisted there with reasons and a planted occurrence fails the scan. Ships disabled like every family here: enable it after you have allowlisted the occurrences you intend to keep.]",
+      "exclude_globs": [
+        "*_test.zig"
+      ]
+    },
+    {
+      "family": "zig_ignored_error_catch",
+      "language": "zig",
+      "regex": "catch \\{\\};",
+      "file_glob": [
+        "*.zig"
+      ],
+      "enabled": false,
+      "note": "`catch {};` ignores an error entirely and continues. The two that prompted this were `pipe.resize(...) catch {}` in a play loop \u2014 a failed resize leaves the viewport wrong and says nothing. [dead-air: authored 2026-09-27; validated alongside zig_swallowed_error_continue. Ships disabled like every family here.]",
+      "exclude_globs": [
+        "*_test.zig"
+      ]
     }
   ]
 }

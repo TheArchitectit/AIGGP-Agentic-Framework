@@ -24,7 +24,15 @@ import { homedir } from "node:os";
 
 // --- configuration -----------------------------------------------------------
 // Set DB_ADAPTER to match your database engine. Use "none" if your project
-// doesn't use a relational database — the script will exit 0 gracefully.
+// doesn't use a relational database.
+//
+// Exit-code contract (deploy.sh dispatches on these — do not collapse them):
+//   0 = the gate RAN and the schema passed
+//   1 = the gate ran and FAILED, or the configuration is unusable
+//       (adapter selected but no adapter block configured)
+//   2 = the gate was SKIPPED (DB_ADAPTER "none" or no columns declared)
+// A skip and a pass must not share an exit code: a consumer that configured a
+// database wrongly would otherwise read "could not evaluate" as "clean".
 const DB_ADAPTER = "none"; // "sqlite" | "postgres" | "mysql" | "none"
 
 // --- column registry (customize for your schema) -----------------------------
@@ -142,11 +150,12 @@ for (let i = 0; i < args.length; i++) {
 	}
 }
 
-// If no adapter configured or no columns registered, skip gracefully.
+// If no adapter configured or no columns registered, skip loudly (exit 2 —
+// distinct from a pass; deploy.sh treats anything else as a failure).
 if (DB_ADAPTER === "none" || EXPECTED_COLUMNS.length === 0) {
-	console.log("[schema-health-check] No database configured — skipping.");
+	console.log("[schema-health-check] No database configured — SKIPPED (exit 2, not a pass).");
 	console.log("[schema-health-check] To enable: set DB_ADAPTER and EXPECTED_COLUMNS in scripts/schema-health-check.mjs");
-	process.exit(0);
+	process.exit(2);
 }
 
 if (!adapter) {
@@ -160,8 +169,8 @@ let failures = 0;
 // Open database connection
 const dbExists = await adapter.open(dbConnString);
 if (!dbExists) {
-	console.error(`[schema-health-check] Database not found at ${dbConnString} — skipping (cold install OK)`);
-	process.exit(0);
+	console.error(`[schema-health-check] Database not found at ${dbConnString} — SKIPPED (cold install OK, exit 2)`);
+	process.exit(2);
 }
 
 try {

@@ -29,8 +29,8 @@ Dependency-ordered sprint plan for the full program. Sprint S0–S1 gate everyth
   claims; left as written. Process note kept honest: the auditor's own LIMITATIONS record that it could
   not fetch hosted logs or find an independent pre-package submission source — the fidelity leg of this
   item is bounded by the absence of any submitted original in-repo, not by auditor effort.
-- [ ] Lead review of `review.md` findings R1–R9 and design v2 amendment log — not performed.
-- [ ] Accept or amend ADR-001 through ADR-010 — not reviewed clause-by-clause; ADR-011…019 likewise unaccepted.
+- [x] Lead review of `review.md` findings R1–R9 and design v2 amendment log — **PERFORMED 2026-09-28 (owner-approved lead review, in-session).** Each R1–R9 checked against shipped code, not prose: R1 CLOSED (acyclic seal, `attest.seal_run`; re-sign invariance `test_resign_leaves_decision_unchanged`), R2 CLOSED (context-bound semantics, `context.is_promotion_authorizing`; no caller mode), R3 CLOSED (single decision/exit matrix + per-assertion ledger), R4 CLOSED with one recorded finding (anti-rollback `policy.check_anti_rollback` with named refusal codes; the EXTERNAL enforcement boundary — required status check/ruleset — does not exist in-tree and is a repo-settings act, recorded at :620), R5 CLOSED-AS-DECIDED (built-in evaluators only; sandbox deliberately deferred — the deferral itself is why ADR-015 stays unaccepted), R6 CLOSED (restricted RFC 8785 + domain-separated digests, `canon.py`), R7 CLOSED (operational assertion schema: refs, owners, typed selectors, finding keys), R8 PARTIALLY CLOSED (signing milestone implemented and tested `attest.required`; retention clause coded but unwired pending Q7 — why ADR-018 stays unaccepted), R9 CLOSED (both halves: fingerprint lifecycle tests named and green; LobsterWars provenance captured 2026-09-28, gamerepo01 synthetic by measurement). 93 tests + 13 subtests green at review time (conformance + adoption-policy + attestation suites).
+- [x] Accept or amend ADR-001 through ADR-010 — **ACCEPTED 2026-09-28** (owner, in-session): ADR-001…014 and 016/017/019 accepted as written (clause-by-clause mapping onto R1–R9 precedes acceptance; see `adrs.md` header). ADR-015 and ADR-018 deliberately UNACCEPTED: 015's acceptance would ratify the plugin-sandbox deferral as a decision (held open; the sandbox ADR is its acceptance condition), 018's retention clause waits on Q7. The amendment log in design.md v2 is consistent with the accepted set — no divergence found between proposed amendments and shipped code.
 - [x] Record repo defaults: `coh-*` requirement namespace; no `openspec/gate-config.json` yet (advisory); stdlib slice-1 runtime with pinned container deferred — recorded in `next-phase-plan.md`.
 - [x] Owner decisions on acceptance.md questions Q1–Q5, Q9 — proposed defaults in `s1-freeze-record.md` §7; unconfirmed.
       **CONFIRMED 2026-09-26 by the owner** (in-session, explicit): all six proposed defaults accepted
@@ -279,6 +279,25 @@ Sprint work:
   → `dadfd1d8…` in two ordered commits. The gate's mechanism is unchanged and was re-run against the new record:
   anonymous pull by digest, schemas loaded from the fetched bytes. Detail and the ordering constraint are in
   `openspec/changes/add-runner-image-cycling/tasks.md` sprint 5, where the re-pin operation lives.
+  **SWEEP RESIDUE CLOSED 2026-09-28 — one survivor of the same rename, in a file no guard reads.** The
+  anomalies carried since round-19 named three surfaces; re-measured, they do not disagree at all. The
+  registry (`container/execution-profiles.json:3`), the template's `COHERENCE_IMAGE` *and* its
+  `COHERENCE_IMAGE_MANIFEST_DIGEST` (`templates/github-workflows/spec-coherence.yml:111,113`), the runner
+  README, the repin fixture, and the heartbeat test all say `aiggp-agentic-framework` and pin `d798dc48…` —
+  verified live: an anonymous `GET /v2/thearchitectit/aiggp-agentic-framework/devgate-coherence/manifests/main`
+  returns 200. CI never carried a literal at all: `ci.yml:494` builds the path from `${GITHUB_REPOSITORY,,}`,
+  which is why the rename could not desync the publish/pull pair. The single genuine survivor was
+  `container/Containerfile`, whose *publish comment* still said `devgate-agentic-framework` — a path no
+  workflow has ever pushed to. It is a comment, so no test could read it and `test_coherence_image_identity.py`
+  (which resolves the image through `reg['image']`, deliberately, never a literal) structurally cannot catch
+  it. Corrected to the real path with the provenance named inline. **Not corrected, deliberately:**
+  `CHANGELOG.md:114`'s `[1.3.0]` entry names the same package. That line was written in `7a57515`, *before*
+  the rename `dadfd1d`, so it records what was genuinely published on 2026-09-23 — it is a historical fact
+  about a superseded release, not a live pointer, and rewriting a shipped release note to match today's
+  registry would falsify it. The distinction is the disposition: live pointers get corrected, dated release
+  notes do not. No test added for the comment class — a guard that greps prose for an image path would pin
+  the prose, not the behavior; the load-bearing invariant (publish path ≡ pull path) is already held by CI
+  deriving one and the registry supplying the other.
   **S4 PUBLISH + RE-PIN EXECUTED 2026-09-26** (owner-authorized: "publish + re-pin now"). The S4 publish
   dispatch (CI run 36276335042 @ a4ada9c, `workflow_dispatch` `publish=true`) built with `--timestamp 0`
   and pushed `:main` + `:sha-a4ada9c01b3f` to ghcr; the publish job's own registry check read the SERVED
@@ -988,7 +1007,136 @@ sprints. Findings and dispositions:
       (1001 + the 4 new), all 10 mutation batteries green (the new one included, run individually
       — every one reported "killed, no survivors"), `gen_floors.py` "floors hold" (68 suites,
       1010 tests), openspec strict 36/36, silent-success OK, traceability unchanged 73/123.
-- [ ] Real pilots behind R9 provenance, now that fleet recon confirms the repos are real registered spokes: gamerepo01 (runner `ucs03-game` — was `dell-u2-game` before the 2026-09-25 two-tier rebalance; both it and `u85-game` are now offline), gamerepo02/LobsterWars (`ucs03-gamerepo02`, registered + online since 2026-09-25 — this closes the earlier "no runner behind the label" gap), and one clean repo; capture lineage/13-violation facts from the real repos with owner approval before labeling fixtures non-synthetic; Stage 2 ratchet demo blocks a new violation while named debt remains advisory.
+- [~] Real pilots behind R9 provenance — **capture DONE 2026-09-28, pilots not yet run.**
+      `r9-provenance-capture.md` records both subjects. **LobsterWars: COMPLETE** — SHA
+      `f5b48a30a7113217742f0754ffe1cc6357ac9416`, run `36405534067` (`drift-scan.yml`, schedule),
+      capture 2026-09-28T09:45:37Z, digest `sha256:8c19f2f1a2482f6852c562939b00e1fb81e8aa25c886601a1e8a300c9dba558f`
+      over the 13 violations in emitted order (12×PREVENT-011 + 1×PREVENT-029; 16 PREVENT-012 advisories
+      excluded), count independently reproduced from the run log rather than taken from the narrative.
+      Its baseline may now be labeled non-synthetic. **gamerepo01: INCOMPLETE by measurement** — the repo
+      has no `.guardrails/` at all (`.guardrails/`, `scope.json`, `product.json`, `identity.json` all 404),
+      so the "lineage mismatch" narrative has no declared identity to mismatch; the fixture stays synthetic
+      and there is no report digest to record because no gate report made that claim.
+      **Still outstanding:** the ratchet demo run (criterion 8) and the fleet-half hosted coherence run on an
+      enrolled spoke (criterion 9) — both need runner time, neither needs a decision. gamerepo01 runner
+      `ucs03-game`; LobsterWars runner `ucs03-gamerepo02`; all 14 ucs03 spokes heartbeating since 2026-09-26.
+      **Update 2026-09-28: the ratchet demo half is DONE, and it did need runner time after all.** Running it
+      against a locally-invoked service promptly exposed two things a hosted run would have hidden behind
+      "the fixture failed". (1) The demo first read `result["assertion_results"]` for per-location
+      cardinality and reported "1 of 13" forever: the ledger carries ONE ROW PER ASSERTION (`evaluate.run`
+      appends one per planned assertion), while the evaluator's per-subject findings are `extend`ed into a
+      separate list and sealed into `evidence/findings/`. A single assertion over 14 files is 1 ledger row
+      and 14 sealed findings — reading the ledger for cardinality is a broken reading, not a broken ratchet.
+      (2) The baseline was fingerprinted with the captured class (`pattern-violation:prevent-011`) while the
+      identity evaluator emits `identity-mismatch`; `adoption._vclass` reads `violation_class` directly, so
+      NOTHING matched and all 13 blocked. The first drill passed anyway — a non-sheltering baseline also
+      blocks — which is exactly why the direction control (drill 3) exists; without it the expiry drill
+      would have "passed" against a ladder that never sheltered anything. Both errors are recorded here
+      rather than quietly fixed: they are the two ways this demo can pass or fail for the wrong reason, and
+      the second one is the load-bearing argument for a both-directions control on any ratchet evidence.
+      Result: `scripts/ratchet_demo.py` (10/10 steps, exit 0), `tests/test_ratchet_demo.py` (7 tests),
+      both ladder mutations killed by the drill that owns them. **The baseline shape is captured; the run
+      stays synthetic** — this discharges criterion 8's demonstration, NOT the real-subject run, which
+      criterion 9 still owes against an enrolled spoke.
+      **Update 2026-09-28 (later): criterion 9's enrollment write HAPPENED.** The owner chose LobsterWars;
+      the gate is enrolled (PR LobsterWars#1, merged `e793ce5` on `master`): workflow installed,
+      `.devgate` submodule bumped `438c9f7` → `ab88905` (the old pin predates `invoke.py`; the pin check
+      fails closed on it by design), submodule URL moved to the post-rename repo, push trigger wired to
+      `master` (the template shipped `[main]` — a trigger the repo could never fire, the ci-run-01 lesson
+      again). **Control-plane artifacts are provisioned** on the runner host (the
+      `devgate-runner-gamerepo02` `_work` volume, `/_work/control-plane/`): package, policy bundle, stage
+      registry, and a signed context issued by the REAL issuer (`hub.coherence.issue_context`) at stage 1
+      with an EMPTY baseline — ADR-006's entry posture; the captured 13-finding drift-scan baseline CANNOT
+      become coherence baseline entries (different class space; mapping PREVENT-011 onto a coherence
+      assertion would manufacture finding identities, the R9 prohibition). A local dry run against the
+      actual LobsterWars checkout (`f5b48a30`, the captured SHA) executed the real service end-to-end:
+      exit 10 ADVISORY with three per-assertion outcomes (identity UNRESOLVED — the subject declares no
+      identity, measured; release-claim VIOLATED — no release manifest; traceability SATISFIED) and a
+      sealed evidence bundle. Two fleet facts measured en route, both general: **runner containers carry
+      no podman**, so the container phase SKIPPEDs honestly (warning-level doctor) until the runner image
+      gains it — a fleet-wide infra item, not a pilot gap; and **default branch is `master`**, so the
+      template's `[main]` trigger needed the fix above. What remains for criterion 9's fleet half is the
+      first hosted run completing on the enrolled spoke and its canonical result agreeing with the
+      CI/local byte-identity claim.
+      **Update 2026-09-28 (latest): option A applied to the pilot runner; the
+      first hosted run measured the whole chain.** Run `36491296436` (the
+      merge-commit push) failed exactly as the fleet fact predicted: doctor
+      `podman not on PATH` → warning → SKIPPED → exit 1 (fail-closed
+      honest, coh-int-06). The owner chose option A; the
+      `devgate-runner-gamerepo02` quadlet gained: a child image
+      `localhost/devgate-runner-gamerepo02:podman` baking podman 4.9.3
+      (matching the host exactly — the launcher derives podman-specific
+      flags, so the docker CLI cannot substitute), a bind of the host
+      rootless socket (`/run/user/1000/podman/podman.sock` →
+      `/var/run/docker.sock` + `CONTAINER_HOST`; the evaluator container
+      itself never sees the socket — the launcher rejects socket binds),
+      and the work volume **mirror-mounted at its own host path** with
+      `DEVGATE_HOST_WORK_ROOT` exported — because podman resolves `-v` bind
+      sources on the HOST, where runner-visible `/_work/...` does not
+      exist. Run `36493189424` (dispatch, pre-template-fix) measured the
+      second half: doctor **ok** (the socket access works, pinned image
+      found) but the gate step failed on the bind paths — the
+      path-translation gap, fixed in the template + the enrolled workflow
+      (prefix rewrite onto `DEVGATE_HOST_WORK_ROOT` before the builder
+      runs; the builder still owns every payload field, round-18 D1). The
+      containerized `--launch-config` path was also dry-run locally
+      against the real checkout first: exit 10 ADVISORY, same three
+      per-assertion outcomes as the in-process run, bundle verifies.
+      Infra side documented in infra-info `f674f43`. Two more hosted
+      measurements followed, both teaching real lessons:
+      **run 36493334305** died in ~225ms with an empty step summary — the
+      cause was NOT the gate logic but an env-clobber trap: the workflow's
+      own job-level `env: DEVGATE_HOST_WORK_ROOT: ""` (declared to satisfy a
+      template lint) OVERRIDES the runner container's quadlet-provided
+      environment, so the translation never activated and the driver passed
+      runner-visible paths as bind sources, which the host podman daemon
+      cannot bind (container exit 125 → contract exit 32). Measured rule:
+      **job-level env overrides runner-container env** — the var must arrive
+      ONLY from the quadlet; the template now carries a comment naming the
+      trap. **Run 36494148238** then proved the whole chain end-to-end (the
+      evaluator container ran with translated paths and wrote its evidence
+      finding through the mirror mount at 22:44:33, within a 1.09s step) but
+      the gate script mislabeled the result: the driver relayed **exit 10
+      (ADVISORY)** — the frozen decision/exit matrix's non-blocking stage-1
+      verdict (result.py:15, design.md:133) — and the binary PASS/FAIL
+      handler recorded `FAIL (exit 10)` and failed the job. The gate now
+      decodes the exit against the frozen matrix AND reads the decision back
+      from `result.json`, requiring agreement (design.md:141: exit/result
+      disagreement resolves never in favor of the more permissive signal);
+      ADVISORY records without failing, disagreement fails closed. That
+      dispatch (36497952786) then exposed one more measured bash trap in
+      the fix itself: `if ! cmd; then CODE=$?; fi` captures the
+      NEGATION's status (0), never the command's — the driver's exit 10
+      read as 0, WANT=PASS disagreed with GOT=ADVISORY, and the
+      fail-closed branch fired exactly as designed. `|| CODE=$?` binds
+      the real rc (measured: `bash -c 'f(){ return 10; }; if ! f; then
+      echo $?; fi'` prints 0). **HOSTED GREEN 2026-09-29: run
+      `36501521466`** — the full option-A chain on the enrolled spoke:
+      doctor ok, builder built the seven-field request from translated
+      paths, the digest-pinned evaluator container ran (evidence finding
+      written through the mirror mount at 00:07:58.22, container-user
+      100999), the driver relayed exit 10 ADVISORY, the gate read the
+      decision back from `result.json`, found agreement, recorded
+      ADVISORY, and exited 0 — all six job steps success. PR LobsterWars#2
+      merged at 00:08:56Z. One enrollment regression surfaced from the
+      merge itself: PR #2's branch copy carried the template's `[main]`
+      push trigger back onto master, undoing PR #1's `master` wiring
+      (ci-run-01 again — the template's defaults live in the PR-branch
+      copy, and a merge silently re-installs them) — fixed at `826c076`
+      on master. **The standing confirmation measured green: run
+      `36501737785`, event `push`, branch `master`, workflow "Spec
+      Coherence", success** — the push-triggered path the promotion flow
+      will actually use is now operational. Criterion 9's fleet half is
+      now measured. **Follow-the-fix test gap closed 2026-09-28:** the
+      tr_p block's `cp_ro/cp_po/cp_ct/cp_out` aliases never landed in
+      the byte-equivalence replay's substitution map, so the replay
+      passed a literal `$cp_ro` to the builder (`PackageError: missing
+      package manifest: …/$cp_ro/package.json`, hosted run
+      `36501842166` red on its own tree — the walk-the-fix bookkeeping
+      this suite exists for, missing one alias list). The replay now
+      substitutes the four aliases (equal to their `COHERENCE_*` sources
+      when `DEVGATE_HOST_WORK_ROOT` is unset — the native case it
+      exercises); fixed at `249bba3`.
       **(all 14 ucs03 spokes now heartbeating, 2026-09-26)** the "registered + online" state this line
       describes for gamerepo02 now holds fleet-wide: `ucs03-game` enrolled + heartbeating too, alongside
       da/mc/radical/radical-code/redeye/rtp/zdf/zombietoss/zxp (see the coh-int-07 closure above). The
@@ -1152,8 +1300,10 @@ sprints. Findings and dispositions:
       `duration_sec`, which nothing surfaces — no metrics in the result, no
       report view, no fleet export. Building the metrics surface BEFORE an
       SLO number would put the cart first: the SLO definition needs measured
-      baseline data from real fleet runs, which do not exist yet (the pilot
-      fixtures are still synthetic under R9). Disposition: the availability
+      baseline data from real fleet runs, which do not exist yet (LobsterWars'
+      baseline is now captured under R9 as of 2026-09-28, but no coherence run
+      has yet executed against it, so there is still no measured fleet data).
+      Disposition: the availability
       half is properly an S6/S7-adjacent observability build + a
       post-pilot baseline measurement, sequenced AFTER the first real
       pilots (S8 line at :900); opening it now would invent a number without
@@ -1186,8 +1336,11 @@ sprints. Findings and dispositions:
 - [ ] Stage 3 readiness review before any enforced fleet rollout.
       **Inputs assembled 2026-09-26** — `stage3-readiness.md`: the 12 release acceptance
       criteria dispositioned one by one with cited evidence (8 MET with named tests/measured
-      runs, criterion 8's ratchet-demo half + 9's fleet-half + 10's real-repo half OPEN on R9
-      pilots, criterion 12's evaluator-revocation leg OPEN on an owner decision), the ten
+      runs; criterion 12's evaluator-revocation leg was OPEN on an owner decision, **decided
+      2026-09-26 → 5/5**). **Updated 2026-09-28:** the R9 provenance capture ran, so criteria
+      8 and 10 now have their real subject available and criterion 10's gamerepo01 half is
+      closed as measured-synthetic; what remains OPEN on criteria 8 and 9 is a *run* (ratchet
+      demo; fleet-half hosted coherence run), not a capture or a decision. The ten
       owner-decision open questions tabulated with status, and the verdict: **not ready for
       enforced rollout — the gate is built and measured; the enforcement posture is waiting
       on humans, not code.** The review itself (the owner's sign-off act) remains open; this

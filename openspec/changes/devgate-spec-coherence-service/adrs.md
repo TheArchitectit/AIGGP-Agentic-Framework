@@ -1,6 +1,33 @@
 # Architecture decisions proposed for acceptance
 
-All decisions below remain **proposed** until Phase 0 owner review. The word “Decision” preserves the submitted ADR format; it does not record acceptance.
+**ACCEPTANCE 2026-09-28 (owner, in-session):** ADR-001 through ADR-014 and
+ADR-016, ADR-017, ADR-019 are **ACCEPTED** as written. Each maps 1:1 onto a
+review finding R1–R9 (`review.md`), each is implemented in `hub/coherence/`,
+and each is pinned by named tests — the finding-by-finding review that
+preceded acceptance verified the closure evidence against the code (sealing
+order and re-sign invariance `test_resign_leaves_decision_unchanged`;
+context-bound semantics `context.py` `is_promotion_authorizing`; decision
+matrix and per-assertion ledger; anti-rollback `policy.check_anti_rollback`
+with named refusal codes; restricted RFC 8785 with domain-separated digests
+`canon.py`; fingerprinted baselines
+`test_one_fixed_one_new_at_constant_count_blocks` +
+`test_recurrence_after_remediation_blocks`). 93 tests + 13 subtests green at
+acceptance time.
+
+**Two ADRs remain UNACCEPTED, deliberately:**
+
+- **ADR-015** — acceptance would ratify a *deferral* (no plugin sandbox; the
+  built-in-evaluators posture stands "until a sandbox ADR exists"). The owner
+  holds it open rather than accepting the deferral as a decision; the sandbox
+  ADR is the acceptance condition.
+- **ADR-018** — its signing milestone is implemented and tested
+  (`attest.required(stage, semantics)`; every promotion-authorizing Stage 2+
+  result requires detached attestation), but the retention clause is coded
+  and unwired pending Q7 (evidence retention periods, still OPEN in
+  `acceptance.md`). Acceptance waits on Q7, not on code.
+
+The word “Decision” below preserves the submitted ADR format; acceptance
+status is governed by the paragraph above, not by the section titles.
 
 ## ADR-001: Build spec coherence as a distinct DevGate service
 

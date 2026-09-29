@@ -37,7 +37,7 @@ const overlayRulesPath = join(projectRoot, ".guardrails", "prevention-rules", "p
 // without these the pattern gate evaluated NONE of this repo's JavaScript and
 // reported "clean" — the same permanently-empty shape semantic-scan had (its
 // fix + pin: see tests/test_scanner_root_anchor.mjs section on the count 3→11).
-const SOURCE_EXTENSIONS = [".ts", ".js", ".py", ".rs", ".go", ".gd", ".java", ".kt", ".rb", ".php", ".jsx", ".tsx", ".svelte", ".zig", ".mjs", ".cjs"];
+const SOURCE_EXTENSIONS = [".ts", ".js", ".py", ".rs", ".go", ".gd", ".java", ".kt", ".rb", ".php", ".jsx", ".tsx", ".svelte", ".zig", ".mjs", ".cjs", ".html"];
 
 // Directories to skip (DevGate's own dir + common non-source dirs)
 

@@ -16,10 +16,12 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import time
 import urllib.error
 import urllib.request
 from datetime import datetime
+from pathlib import Path
 
 log = logging.getLogger("hub.github_client")
 
@@ -37,11 +39,30 @@ def parse_iso(value: str | None) -> datetime | None:
 class GitHubClient:
     """Minimal GitHub REST client (stdlib urllib). Backs off on 403/429."""
 
-    def __init__(self, api_base: str, token: str, backoff_max: int = 120) -> None:
+    def __init__(self, api_base: str, token: str, backoff_max: int = 120,
+                 token_file: str = "") -> None:
         self.api_base = api_base.rstrip("/")
         self.token = token
         self.backoff_max = backoff_max
         self._last_request_time = 0.0
+        # Optional path to re-read the token from; refresh_token() is a no-op
+        # unless it is set, so a bare token argument is unchanged.
+        self.token_file = token_file
+
+    def refresh_token(self) -> None:
+        """Re-read the token from `token_file`, if one was configured.
+
+        The hub enrolls with a token GitHub can rotate (revoke/re-enroll), so
+        re-reading each poll cycle lets a rotation take effect without a hub
+        restart. An unreadable file keeps the current token rather than
+        dropping to unauthenticated requests: a transient read error must not
+        turn every check in that cycle into a silent 401.
+        """
+        if self.token_file and os.path.isfile(self.token_file):
+            try:
+                self.token = Path(self.token_file).read_text().strip()
+            except OSError:
+                pass  # keep the existing token
 
     def _request(self, method: str, path: str, body: dict | None = None,
                  accept: str = "application/vnd.github+json") -> tuple[int, dict | list, dict]:

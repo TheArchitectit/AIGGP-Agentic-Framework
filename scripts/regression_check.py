@@ -290,7 +290,7 @@ def run_regression_check(registry_path: Path | None = None, rules_path: Path | N
         matching_failures = check_file_against_failures(file_path, failures)
         if matching_failures:
             file_issues["failures"] = matching_failures
-        diff = get_diff_content(run_git_command, file_path, staged=staged, git_range=git_range, base=base)
+        diff = get_diff_content(run_git_command, file_path, staged=staged, unstaged=unstaged, git_range=git_range, base=base)
         if diff:
             violations = check_diff_against_patterns(diff, rules_for_file(rules, file_path))
             if violations:

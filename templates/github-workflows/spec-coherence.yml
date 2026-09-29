@@ -128,6 +128,21 @@ jobs:
       # Doctor phase severity. Set to `error` in a repo where a host that
       # cannot run the pinned image must fail the gate rather than warn.
       COHERENCE_DOCTOR_LEVEL: warning
+      # Containerized execution on a containerized runner. When the gate's
+      # `podman` runs INSIDE a runner container, the host podman daemon
+      # resolves `-v` bind sources on the HOST — a runner-visible
+      # `/_work/...` path does not exist there (the volume's _data dir does).
+      # The runner quadlet mirror-mounts the volume at its own host path and
+      # exports DEVGATE_HOST_WORK_ROOT as that path; this workflow rewrites
+      # the runner-visible prefix onto it before the builder runs. The
+      # builder still owns every payload field (round-18 D1) — this is
+      # argument plumbing, not payload assembly.
+      # DO NOT declare DEVGATE_HOST_WORK_ROOT in this env block: a job-level
+      # env var OVERRIDES the runner container's environment (measured:
+      # `DEVGATE_HOST_WORK_ROOT: ""` here clobbered the quadlet's value and
+      # the gate died on un-bindable paths). It must arrive only from the
+      # runner quadlet. Unset on a native-runner host the rewrite is simply
+      # skipped and behavior is unchanged.
 
     steps:
       - name: Checkout candidate
@@ -298,6 +313,27 @@ jobs:
                   CAND_ROOT="$PWD"
                   OUT="$RUNNER_TEMP/coherence-$(echo "$SUBJECT" | tr '/.' '--')"
                   mkdir -p "$OUT"
+                  # Containerized-runner path translation: when the runner
+                  # container exports DEVGATE_HOST_WORK_ROOT, every gate path
+                  # under the runner workdir is rewritten onto the volume's
+                  # host path, because the host podman daemon resolves -v
+                  # sources there, not here. Anything outside the workdir
+                  # prefix is left untouched — RUNNER_TEMP lives in the
+                  # runner-config area on the same volume. A set-but-wrong
+                  # var surfaces as a podman bind error at run time (fail
+                  # closed, never a silent mis-evaluation); an unset var
+                  # changes nothing (native-runner hosts).
+                  if [ -n "$DEVGATE_HOST_WORK_ROOT" ]; then
+                    tr_p() { case "$1" in "$RUNNER_WORKDIR"/*|"$RUNNER_WORKDIR") echo "${DEVGATE_HOST_WORK_ROOT}${1#"$RUNNER_WORKDIR"}";; *) echo "$1";; esac; }
+                    CAND_ROOT="$(tr_p "$CAND_ROOT")"
+                    cp_ro="$(tr_p "$COHERENCE_OPENSPEC_ROOT")"
+                    cp_po="$(tr_p "$COHERENCE_POLICY_ROOT")"
+                    cp_ct="$(tr_p "$COHERENCE_CONTEXT_ROOT")"
+                    cp_out="$(tr_p "$OUT")"
+                  else
+                    cp_ro="$COHERENCE_OPENSPEC_ROOT"; cp_po="$COHERENCE_POLICY_ROOT"
+                    cp_ct="$COHERENCE_CONTEXT_ROOT"; cp_out="$OUT"
+                  fi
                   # The container writes the bundle as its configured user
                   # (1000:1000), which under rootless podman's subuid map is
                   # NOT the runner user that owns this dir — measured on two
@@ -310,10 +346,10 @@ jobs:
                   # passed is absolute so the cd cannot corrupt a root.
                   if ! (cd .devgate && PYTHONPATH=. python3 -m hub.coherence.invoke \
                           --subject "$CAND_ROOT/$SUBJECT" \
-                          --openspec "$COHERENCE_OPENSPEC_ROOT" \
-                          --policy "$COHERENCE_POLICY_ROOT" \
-                          --context "$COHERENCE_CONTEXT_ROOT" \
-                          --outputs "$OUT" \
+                          --openspec "$cp_ro" \
+                          --policy "$cp_po" \
+                          --context "$cp_ct" \
+                          --outputs "$cp_out" \
                           --image "$COHERENCE_IMAGE" --profile "$COHERENCE_PROFILE" \
                           --manifest-digest "$DIGEST" \
                           --request-id "$SUBJECT" \
@@ -324,14 +360,42 @@ jobs:
                     FAIL=1
                     continue
                   fi
-                  if (cd .devgate && PYTHONPATH=. python3 -m hub.coherence \
+                  # The driver's exit code IS the frozen decision/exit matrix
+                  # (design.md:141, result.py: EXIT_PASS=0, EXIT_ADVISORY=10,
+                  # EXIT_FAIL=20, EXIT_*=30..40) — but a bare rc only tells
+                  # half the story. design.md:141: exit/result disagreement
+                  # resolves never in favor of the more permissive signal,
+                  # so the gate reads the decision back from result.json and
+                  # requires agreement. ADVISORY is recorded and does not
+                  # fail the job (stages 0-1 are non-blocking by design);
+                  # PASS records; FAIL/ERROR, an unreadable bundle, or any
+                  # disagreement fails closed.
+                  CODE=0
+                  (cd .devgate && PYTHONPATH=. python3 -m hub.coherence \
                         --request "$OUT/request.json" \
                         --launch-config "$OUT/launch.json") \
-                       > "$OUT/stdout.log" 2> "$OUT/stderr.log"; then
-                    note "$SUBJECT" "PASS"
+                       > "$OUT/stdout.log" 2> "$OUT/stderr.log" || CODE=$?
+                  # Measured bash trap (run 36497952786): `if ! cmd; then
+                  # CODE=$?; fi` captures the NEGATION's status (0), never
+                  # the command's — the driver's exit 10 read as 0 and the
+                  # agreement check fired a false disagreement. `|| CODE=$?`
+                  # binds the real rc.
+                  case "$CODE" in
+                    0)          WANT=PASS ;;
+                    10)         WANT=ADVISORY ;;
+                    20)         WANT=FAIL ;;
+                    3[0-9]|40)  WANT=ERROR ;;
+                    *)          WANT=UNKNOWN ;;
+                  esac
+                  GOT="$(python3 -c "import json,sys; print(json.load(open('$OUT/result.json'))['decision'])" 2>/dev/null || echo UNREADABLE)"
+                  if [ "$GOT" = "$WANT" ] && [ "$WANT" != UNKNOWN ]; then
+                    case "$WANT" in
+                      PASS)     note "$SUBJECT" "PASS" ;;
+                      ADVISORY) note "$SUBJECT" "ADVISORY (exit 10; stage does not block)" ;;
+                      *)        note "$SUBJECT" "$WANT (exit $CODE)"; FAIL=1 ;;
+                    esac
                   else
-                    CODE=$?
-                    note "$SUBJECT" "FAIL (exit $CODE)"
+                    note "$SUBJECT" "FAIL (exit $CODE, decision $GOT — exit/result disagreement or unreadable bundle)"
                     FAIL=1
                   fi
                 done

@@ -32,7 +32,6 @@ from datetime import datetime, timezone
 
 from . import registry
 from .alerts import AlertSink
-from .config import Config
 from .github_client import GitHubClient, parse_iso
 from .scan_view import scan_alerts
 from .server import HubState
@@ -51,6 +50,11 @@ log = logging.getLogger("hub.monitor")
 # contract cannot pass the suite).
 NON_PASSING_CONCLUSIONS = frozenset(
     {"failure", "timed_out", "cancelled", "action_required", "neutral", "stale"})
+
+# The transport (`GitHubClient`, `parse_iso`) arrives from hub/github_client.py,
+# which exists because this file reached the 500-line limit regression_sizes.py
+# enforces. A second copy was briefly inlined here, shadowing the import: the
+# class the tests pinned was not the class the monitor ran.
 
 
 class MonitorLoop:
@@ -72,9 +76,11 @@ class MonitorLoop:
     def __init__(self, state: HubState, alert_sink: "AlertSink | None" = None) -> None:
         self.state = state
         self.config = state.config
+        token_file = os.path.join(self.config.data_dir, "github_token.txt")
         self.client = GitHubClient(
             api_base=self.config.github_api_base,
             token=os.environ.get("GITHUB_TOKEN", ""),
+            token_file=token_file,
             backoff_max=self.config.api_backoff_max_sec,
         )
         self.alert_sink = alert_sink  # Sprint 4: AlertEngine with dedupe
@@ -100,6 +106,8 @@ class MonitorLoop:
 
     def poll_cycle(self) -> None:
         """One full monitoring cycle across all registered repos."""
+        # Refresh token from file so rotations (revoke/re-enroll) take effect.
+        self.client.refresh_token()
         # A locked deep copy: HTTP threads mutate these dicts in place
         # (heartbeat writes digest/reason/scan_state as separate assignments),
         # and the readiness checks below read fields across those writes.
@@ -131,30 +139,23 @@ class MonitorLoop:
         (Measured — placed last, a closed port silences both.)
         """
         owner = repo.split("/")[0]
-
-        # --- 3.5 Evaluator-image readiness (img-cycle-03)
+        # --- 3.5 image readiness (img-cycle-03)
         self._check_image_readiness(repo, runners)
 
         # --- 3.6 Fleet scan state (secret-scan-07)
         self._check_scan_state(repo, runners)
-
-        # --- 3.1 Runner status + queued-run age (mon-online-01, mon-queue-01)
+        # --- 3.1 runner status + queued-run age (mon-online-01, mon-queue-01)
         self._check_runner_status(repo, runners)
         self._check_queue_drain(repo, runners)
-
-        # --- 3.2 Check-run conclusions on watched branches (mon-gates-01)
+        # --- 3.2 gate conclusions (mon-gates-01), 3.3 drift (mon-drift-01),
+        # --- 3.4 spec coherence (coh-int-02, coh-int-07)
         self._check_gate_results(repo, owner)
-
-        # --- 3.3 Drift-scan presence/recency (mon-drift-01)
         self._check_drift_scan(repo, owner)
-
-        # --- 3.4 Spec-coherence presence/recency (coh-int-02, coh-int-07)
         self._check_spec_coherence(repo, owner)
 
     def _check_runner_status(self, repo: str, runners: list[dict]) -> None:
         """Check GitHub API runner status + heartbeat freshness (mon-online-01)."""
         owner = repo.split("/")[0]
-        # Get the runner group for this repo.
         result = self.client.get_with_backoff(f"/repos/{repo}/actions/runners")
         if result is None:
             log.warning("could not fetch runners for %s (rate limited)", repo)
@@ -172,8 +173,13 @@ class MonitorLoop:
             name = runner["name"]
             api_runner = api_runners.get(name)
 
-            # Check API status.
-            api_online = api_runner is not None and api_runner.get("status") == "online"
+            # Check API status. Distinguish "not found" from "found but offline".
+            if api_runner is None:
+                self._raise_alert(repo, "runner_missing", name,
+                                  detail="runner not found in GitHub API for this repo — "
+                                         "may be unregistered or assigned to a different repo")
+                continue
+            api_online = api_runner.get("status") == "online"
 
             # Check heartbeat freshness.
             last_hb = parse_iso(runner.get("last_heartbeat"))
@@ -185,7 +191,7 @@ class MonitorLoop:
             if not api_online or not hb_fresh:
                 reasons = []
                 if not api_online:
-                    reasons.append("API status not online")
+                    reasons.append(f"API status={api_runner.get('status', 'unknown')}")
                 if not hb_fresh:
                     age_str = f"{(now - last_hb).total_seconds() / 60:.1f}m" if last_hb else "never"
                     reasons.append(f"heartbeat stale ({age_str})")
@@ -255,7 +261,6 @@ class MonitorLoop:
 
         threshold_sec = self.config.queue_threshold_min * 60
         now = datetime.now(timezone.utc)
-        registered_labels = {lbl for r in runners for lbl in r.get("labels", [])}
 
         for run in body.get("workflow_runs", []):
             created = parse_iso(run.get("created_at"))
@@ -492,7 +497,3 @@ class MonitorLoop:
         else:
             # No alert sink configured (Sprint 3 stub): log loudly.
             log.warning("ALERT [%s/%s/%s] %s", repo, check_class, runner, detail)
-
-
-
-# Fleet helpers (P2 deferred): monitor updates in-place (read-only API -> in-memory state + alert sink); registry load/validate (5958574) ensures no destructive mutation; launcher kill (aa02a99) protects container-level state; alerts backoff (ddff028) ensures transient failures don't corrupt state. Confirmed by design doc (mon-enroll-01 / coh-rt-05) and verified through import + checksums.

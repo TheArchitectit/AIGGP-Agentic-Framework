@@ -91,6 +91,15 @@ def _copy_scripts(dest: Path) -> Path:
         src = SCRIPTS / name
         if src.exists():
             (scripts / name).write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+    # regression_sizes (a542c3b) loads .guardrails/scope.json at MODULE level,
+    # so any synthetic repo importing it needs the contract present — a fixture
+    # without it dies at import, which is a crash, not a RED assertion.
+    guard = dest / ".guardrails"
+    guard.mkdir(exist_ok=True)
+    real = REPO_ROOT / ".guardrails" / "scope.json"
+    if real.is_file():
+        (guard / "scope.json").write_text(real.read_text(encoding="utf-8"),
+                                          encoding="utf-8")
     # The shared Python root contract (root-anchor-03) lives under scripts/lib
     # once it exists; copy the whole lib dir so the fixture stays valid against
     # both the pre-fix (import fails -> RED) and post-fix (import works) trees.

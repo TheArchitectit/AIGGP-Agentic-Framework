@@ -20,6 +20,7 @@ so legacy debt cannot block an unrelated release.
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 from pathlib import Path
@@ -37,7 +38,7 @@ TEST_HARD = 600
 # Source file extensions to check (language-agnostic)
 SOURCE_EXTENSIONS = (".ts", ".tsx", ".py", ".rs", ".go", ".gd", ".java", ".kt",
                      ".rb", ".php", ".js", ".jsx", ".swift", ".c", ".cpp", ".h", ".cs",
-                     ".sh", ".zig")
+                     ".sh", ".zig", ".html")
 
 # Test-file extensions for the PREFIX convention ("test_*.py" / "test_*.sh").
 # A tuple because the convention is about naming, not about Python.
@@ -86,6 +87,18 @@ def _classify_file(rel_path: str) -> tuple[int | None, int | None]:
     return (SRC_SOFT, SRC_HARD)
 
 
+# fw-scope-01: single scope contract — .guardrails/scope.json, shared by all
+# gates. This walk previously consumed NOTHING: it entered vendored and cache
+# trees that every other gate skips, so a cached or vendored copy of a source
+# file could fail this gate while guardrails-scan, semantic-scan and
+# silent-success all correctly ignored it. That divergence between gates is
+# exactly what fw-scope-01 exists to prevent, and test_scope_contract only
+# checked that no gate RE-DECLARES a list — never that each one consumes it.
+SKIP_DIRS = set(json.loads((Path(__file__).resolve().parent.parent
+                            / ".guardrails/scope.json")
+                           .read_text(encoding="utf-8"))["skip_dirs"])
+
+
 def check_file_sizes(repo_root: Path, source_dirs: list[str],
                      touched: set[str] | None = None) -> list[dict]:
     """Size every source file; classify hard-limit breaches by touched-ness.
@@ -132,7 +145,9 @@ def check_file_sizes(repo_root: Path, source_dirs: list[str],
         base = repo_root / top
         if not base.is_dir():
             continue
-        for dirpath, _dirnames, filenames in os.walk(base):
+        for dirpath, dirnames, filenames in os.walk(base):
+            # Prune in place so os.walk does not descend at all.
+            dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
             for name in filenames:
                 if not name.endswith(SOURCE_EXTENSIONS):
                     continue

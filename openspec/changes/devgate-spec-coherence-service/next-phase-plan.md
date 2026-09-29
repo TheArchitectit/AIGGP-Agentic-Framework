@@ -51,7 +51,7 @@ Owner decisions from `acceptance.md` that gate Phase 0: Q1 (approval mechanism),
 ## Step 2 — Phase 0 discovery, scoped to this repo
 
 - Inventory fleet/gate result shapes from `hub/monitor.py` check classes and the `/health` payload; record in a design appendix so the coherence result contract does not silently collide with existing fields (feeds Q8).
-- Pilot provenance rule (R9): every fixture records source commit SHA, report digest, capture time, and source location; synthetic fixtures are labeled synthetic. The LobsterWars 13-violation baseline and the gamerepo01 identity-drift fixture are synthetic models until captured from the real repositories with owner approval.
+- Pilot provenance rule (R9): every fixture records source commit SHA, report digest, capture time, and source location; synthetic fixtures are labeled synthetic. ~~The LobsterWars 13-violation baseline and the gamerepo01 identity-drift fixture are synthetic models until captured from the real repositories with owner approval.~~ **Updated 2026-09-28:** the capture ran (`r9-provenance-capture.md`). LobsterWars' 13-violation baseline is captured with all four fields and may be labeled a production baseline. gamerepo01's identity-drift fixture **remains synthetic and is now known to be un-capturable in that form**: the repo declares no identity (no `.guardrails/`; identity probes 404), so there is nothing for a lineage to mismatch.
 - Freeze the canonical JSON profile, digest algorithm, and protocol versioning (R6) as golden vectors committed under `tests/fixtures/coherence/`.
 - Name the central policy authority and exception approvers in the policy-bundle design; these live in the control plane, not in repository config.
 
