@@ -15,12 +15,25 @@
 
 ## 2. Image rebuild and identity
 
-- [ ] 2.1 Rebuild with the documented reproducible-ish invocation
+- [x] 2.1 Rebuild with the documented reproducible-ish invocation
        (`podman build --timestamp 0`), record the new manifest digest +
        `built` date in `container/execution-profiles.json`.
-- [ ] 2.2 Verify in-container: `podman run --rm --read-only ... <image>
+       (Rebuilt 2026-09-28: local image id `bafa438543d9`. The local
+       `podman image inspect` digest `efd4ac29…` is on the storage axis and is
+       deliberately NOT recorded — that is the S4 unpullable-pin class.
+       `scripts/re-pin-evaluator-identity.sh` resolved what GHCR serves for
+       `:main` (`sha256:66190f5a04cd9be31f5de688f0814c0470b29ae775315601503951f087178c2d`),
+       proved anonymous fetchability, and moved the record + template pin
+       together (`9fd87ee` / `ef6e8aa`); `built` = 2026-09-28. Guard
+       `REPIN_CHECK_ONLY=1` re-verified the four literals after.)
+- [x] 2.2 Verify in-container: `podman run --rm --read-only ... <image>
        python3 -c "from hub.coherence import schemacheck;
        schemacheck.load('request.schema.json')"` succeeds.
+       (Under the launcher's enforced flag set — `--read-only --read-only-tmpfs
+       --cap-drop=ALL --security-opt=no-new-privileges --network=none` — the
+       local rebuild printed `schemas OK in image`; the same check on the
+       recorded registry-served digest printed `schemas OK in the served
+       image`. Both schemas loaded: request + result.)
 
 ## 3. Honest smoke evidence
 
