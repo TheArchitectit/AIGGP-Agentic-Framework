@@ -1127,7 +1127,16 @@ sprints. Findings and dispositions:
       `36501737785`, event `push`, branch `master`, workflow "Spec
       Coherence", success** — the push-triggered path the promotion flow
       will actually use is now operational. Criterion 9's fleet half is
-      now measured.
+      now measured. **Follow-the-fix test gap closed 2026-09-28:** the
+      tr_p block's `cp_ro/cp_po/cp_ct/cp_out` aliases never landed in
+      the byte-equivalence replay's substitution map, so the replay
+      passed a literal `$cp_ro` to the builder (`PackageError: missing
+      package manifest: …/$cp_ro/package.json`, hosted run
+      `36501842166` red on its own tree — the walk-the-fix bookkeeping
+      this suite exists for, missing one alias list). The replay now
+      substitutes the four aliases (equal to their `COHERENCE_*` sources
+      when `DEVGATE_HOST_WORK_ROOT` is unset — the native case it
+      exercises); fixed at `249bba3`.
       **(all 14 ucs03 spokes now heartbeating, 2026-09-26)** the "registered + online" state this line
       describes for gamerepo02 now holds fleet-wide: `ucs03-game` enrolled + heartbeating too, alongside
       da/mc/radical/radical-code/redeye/rtp/zdf/zombietoss/zxp (see the coh-int-07 closure above). The
