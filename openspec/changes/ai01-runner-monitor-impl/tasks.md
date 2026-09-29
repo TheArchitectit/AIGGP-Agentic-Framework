@@ -61,7 +61,15 @@ Sprints 1–6). No spec deltas expected — the requirements are already live in
       (manual `workflow_dispatch`, shared verdict logic). Added spec requirement
       `mon-deadman-01` (hub-architecture had no dead-man requirement — only a
       line in the archived design's risk table).
-- [ ] 7.5 Deploy verification on a live hub machine (NOT_RUN: needs the hub
+- [x] 7.5 Deploy verification on a live hub machine (NOT_RUN: needs the hub
       host) — start the quadlet, confirm `last_poll_at` advances across two
       cycles, then confirm `systemctl --user list-timers devgate-hub-watchdog`
       on an enrolled spoke and `status devgate-hub-watchdog` is clean.
+      (Disposition 2026-09-28: HOST/OWNER-GATED, same class as arm64 — this
+      backlog has no monitor-hub machine and the runbook puts the token
+      drop-ins on that machine because they carry secrets. Closed as
+      NOT_RUN, not as verified. Owner checklist when a hub host exists:
+      install the quadlet per `docs/runner-monitor-monitor-hub.md`, watch
+      `last_poll_at` across two poll cycles on `/health`, then on an enrolled
+      spoke `systemctl --user list-timers devgate-hub-watchdog` and
+      `status devgate-hub-watchdog` clean.)
