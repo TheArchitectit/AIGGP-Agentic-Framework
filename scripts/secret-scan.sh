@@ -182,9 +182,26 @@ allow_path, report_path, *rest = sys.argv[1:]
 scope, history_mode = rest[-2], rest[-1]
 scans = rest[:-2]
 
+# gitleaks --source $REPO --no-git reports File as an absolute path on a CI
+# checkout (GITHUB_WORKSPACE/...), while the allowlist is repo-relative.
+# Cover compares the relative form of both: a disposition that matches only
+# one spelling of a path disappears on the push that needs it (run 36511483019).
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(allow_path), "..")).replace("\\", "/")
+
+def repo_rel(p):
+    p = (p or "").replace("\\", "/")
+    if p.startswith(REPO_ROOT + "/"):
+        p = p[len(REPO_ROOT) + 1:]
+    if p.startswith("./"):
+        p = p[2:]
+    return p
+
 entries = []
 if os.path.exists(allow_path):
     entries = json.load(open(allow_path)).get("entries", [])
+for e in entries:
+    if isinstance(e, dict):
+        e["path"] = repo_rel(e.get("path", ""))
 
 findings = []
 for spec in scans:
@@ -200,7 +217,7 @@ for spec in scans:
         # finding is a location, not a value.
         findings.append({
             "rule": f.get("RuleID") or f.get("Rule") or "unknown",
-            "path": f.get("File") or "unknown",
+            "path": repo_rel(f.get("File") or "unknown"),
             "line": f.get("StartLine") or 0,
             "commit": (f.get("Commit") or "")[:12] or "working tree",
         })

@@ -320,6 +320,24 @@ def test_an_allowlisted_finding_passes_and_is_named(tmp_path):
         "the dispositioned finding was not named"
 
 
+def test_an_absolute_finding_path_is_covered_by_a_relative_disposition(tmp_path):
+    """gitleaks --source $REPO --no-git reports File as an absolute path on a CI
+    checkout (GITHUB_WORKSPACE/...), while the allowlist is repo-relative.
+    Cover must compare the relative form of both: measured 2026-09-29 on run
+    36511483019, the audit doc's already-dispositioned prose FP redlined CI
+    (FINDING generic-api-key docs/qa/...:94) while the entry sat there
+    'not matched in this scope'."""
+    abs_finding = dict(FINDING, File=str(tmp_path / "src" / "app.py"),
+                       Fingerprint="abc123def456:abs:github-pat:42")
+    assert abs_finding["File"] != "src/app.py", "fixture must carry an absolute path"
+    g = Gate(tmp_path, findings=[abs_finding])
+    g.allowlist([{"rule": "github-pat", "path": "src/app.py",
+                  "reason": "fixture value, not a credential"}])
+    res = g.runs("--tree")
+    assert res.returncode == 0, (
+        f"an absolute finding path escaped the relative disposition: {res.stderr}")
+
+
 def test_an_allowlisted_rule_in_another_path_still_fails(tmp_path):
     """An entry covers a location, not a rule. Otherwise one disposition of one
     false positive silently immunises the whole ruleset."""
