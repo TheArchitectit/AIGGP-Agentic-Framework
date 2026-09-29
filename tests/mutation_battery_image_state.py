@@ -42,7 +42,11 @@ ENR = "scripts/runner-enroll.sh"
 LIB = "scripts/lib/runner-units.sh"
 
 T_REG = "tests/test_hub_registry.py"
-T_MON = "tests/test_hub_monitor.py"
+# The readiness alerts live in the monitor-image suite, split out of
+# test_hub_monitor.py when that file passed the hard limit. Naming the old
+# file is how R3/R4 and M1-M5 used to read as survivors: every kill is in
+# here, and test_hub_monitor.py has no image path left to break.
+T_MON = "tests/test_hub_monitor_image.py"
 T_HTTP = "tests/test_hub_enroll_heartbeat.py"
 # The probe's tests, split out of test_runner_enroll.py when that file
 # passed the 600-line hard limit. Every mutation here targets

@@ -53,7 +53,12 @@ VIEW = "hub/scan_view.py"
 MON = "hub/monitor.py"
 
 T_VIEW = "tests/test_hub_scan_view.py"
-T_MON = "tests/test_hub_monitor.py"
+# The scan-state tests live in the monitor-image suite, split out of
+# test_hub_monitor.py when that file passed the hard limit (same split that
+# moved the image-readiness killers). Naming the old file is how M1-M4 read as
+# survivors: the dispatch/attribution/ordering test is
+# test_poll_cycle_reports_scan_state_while_the_api_is_unreachable.
+T_MON = "tests/test_hub_monitor_image.py"
 
 MUTATIONS = [
     # --- hub/scan_view.py: the sentences ------------------------------------

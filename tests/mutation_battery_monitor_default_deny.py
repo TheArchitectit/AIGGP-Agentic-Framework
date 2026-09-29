@@ -31,6 +31,10 @@ import sys
 import mutation_harness  # noqa: E402  (sibling module, tests/ is sys.path[0])
 
 MON = "hub/monitor.py"
+# The coherence channel's conclusion check was lifted out of monitor.py into
+# this module (check_workflow_runs / check_check_runs). M6's anchor has to
+# follow it; a monitor.py site no longer exists.
+COH_VIEW = "hub/coherence_view.py"
 T = "tests/test_hub_monitor_default_deny.py"
 C_TEST = T + "::test_coherence_fresh_nonpassing_conclusion_alerts_never_reads_healthy"
 D_TEST = T + "::test_drift_fresh_nonpassing_conclusion_alerts_never_reads_healthy"
@@ -47,10 +51,12 @@ def _drop(member):
     return [(MON, TABLE_FULL, mutated)]
 
 
-COH_SITE = ('        if latest.get("conclusion") in NON_PASSING_CONCLUSIONS:\n'
-            "            # coh-int-05 fleet half")
-COH_REVERT = ('        if latest.get("conclusion") == "failure":\n'
-              "            # coh-int-05 fleet half")
+COH_SITE = ('    if latest.get("conclusion") in non_passing:\n'
+            '        raise_alert(\n'
+            '            repo, "coherence_failure", "?",')
+COH_REVERT = ('    if latest.get("conclusion") == "failure":\n'
+              '        raise_alert(\n'
+              '            repo, "coherence_failure", "?",')
 DRIFT_SITE = ('        if latest.get("conclusion") in NON_PASSING_CONCLUSIONS:\n'
               '            self._raise_alert(\n'
               '                repo, "drift_failed", "?",')
@@ -72,7 +78,7 @@ MUTATIONS = [
     ("M5: `stale` dropped",
      _drop('"stale"'), [C_TEST], {}),
     ("M6: coherence site reverts to the pre-fix literal `== \"failure\"`",
-     [(MON, COH_SITE, COH_REVERT)], [C_TEST], {}),
+     [(COH_VIEW, COH_SITE, COH_REVERT)], [C_TEST], {}),
     ("M7: drift site reverts to the pre-fix literal — the table is whole but unread here",
      [(MON, DRIFT_SITE, DRIFT_REVERT)], [D_TEST], {}),
     ("M8: check-run site reverts to the old two-member tuple",
