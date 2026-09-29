@@ -374,6 +374,68 @@ class TestLauncherPodmanArgs(unittest.TestCase):
     def test_image_is_last_arg(self):
         self.assertEqual(self.args[-1], "ghcr.io/example/coherence@" + SHA)
 
+    def test_cidfile_pins_container_identity(self):
+        # coh-rt-05 hardening lives or dies here: the kill path must be able
+        # to name the CONTAINER. `podman kill` accepts a container id, not an
+        # image name — feed it one and the call is a silent no-op. Assert the
+        # anchor first (no --cidfile means the replace below is a no-op and
+        # the mutation would "survive" looking like a real defect).
+        i = self.args.index("--cidfile")
+        self.assertEqual(self.args[i + 1], "/tmp/out.cid")
+
+
+class TestLauncherKillTarget(unittest.TestCase):
+    """The failure-path container kill must target the cid the run recorded,
+    never the image name (which podman cannot resolve)."""
+
+    def test_timeout_kills_by_cid_not_image(self):
+        import os
+        from unittest import mock
+        import hub.coherence.launcher as L
+        cfg = base_cfg()
+        cfg["limits"] = dict(cfg["limits"], time_s=1)
+        # PODMAN_RUN=1 activates the container-level kill in run().
+        out = Path(tempfile.mkdtemp(prefix="dg-kill-"))
+        self.addCleanup(shutil.rmtree, out, ignore_errors=True)
+        ctx = validate_launch(cfg, PROFILES)
+        cid_path = Path(str(out) + ".cid")
+        self.addCleanup(cid_path.unlink, missing_ok=True)
+        rfd, wfd = os.pipe()
+        fake = mock.MagicMock()
+        fake.stdout = os.fdopen(rfd, "rb")
+        fake.returncode = -9
+
+        def popen_side_effect(argv, **kwargs):
+            # podman writes the --cidfile at container start — run() clears a
+            # stale one before launch, so the cid must appear at run time.
+            self.assertIn("--cidfile", argv)
+            self.assertEqual(argv[argv.index("--cidfile") + 1], str(cid_path))
+            cid_path.write_text("deadbeefcafebabe\n", encoding="utf-8")
+            return fake
+
+        try:
+            with mock.patch.object(L.subprocess, "Popen",
+                                   side_effect=popen_side_effect) as popen, \
+                 mock.patch.object(L.subprocess, "run",
+                                   return_value=mock.MagicMock(
+                                       returncode=0)) as srun:
+                rr = L.run(ctx, output_dir=out,
+                           env={"PODMAN_RUN": "1"},
+                           container_args=["--help"])
+        finally:
+            os.close(wfd)
+            fake.stdout.close()
+        self.assertEqual(rr.status, "timeout")
+        fake.kill.assert_called_once()
+        self.assertEqual(popen.call_args[0][0][:2], ["podman", "run"])
+        # The kill must be podman kill <cid>, never the image name.
+        kills = [c.args[0] for c in srun.call_args_list
+                 if c.args and c.args[0][:2] == ["podman", "kill"]]
+        self.assertEqual(kills, [["podman", "kill", "deadbeefcafebabe"]])
+        image_name = cfg["image"].split("@")[0]
+        for k in kills:
+            self.assertNotIn(image_name, k)
+
 
 @unittest.skipUnless(shutil.which("podman"), "podman not available")
 class TestLauncherRun(unittest.TestCase):
