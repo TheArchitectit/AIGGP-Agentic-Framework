@@ -1,17 +1,17 @@
 # Tasks: devgate-product-tiers-fleet-manager
 
-Status: PROPOSED — BLOCKED. Every task below is blocked by
-devgate-spec-coherence-service acceptance (DEP-001). This file records the
-sprint plan from the package's section 12; it is documentation, not a work
-authorization. Full normative text: proposal.md in this directory.
+Status: PROPOSED — SPRINT 0 IN PROGRESS. DEP-001 is evidenced; DEP-003 audit is
+published (0.2/0.3/0.4 below). Implementation of Sprints 1+ is still held on
+OD-001 and OD-002 (0.5). This file records the sprint plan from the package's
+section 12 plus Sprint 0 disposition. Full normative text: proposal.md.
 
 ## 0. Dependency lock (Sprint 0 entry)
 
-- [ ] 0.1 Predecessor devgate-spec-coherence-service accepted: sealed identity, green required gates from clean clone, docs/qa/ acceptance record with exact commit (DEP-001)
-- [ ] 0.2 Fresh full-repository audit at new head; docs/qa/YYYY-MM-DD-product-tiers-fleet-manager-baseline.md published (DEP-003)
-- [ ] 0.3 Predecessor identity imported; dependency-review record confirms no contract redefined here
-- [ ] 0.4 Overlaps reconciled with runner-monitoring, enrollment-and-alerting, hub-architecture, add-runner-to-fleet
-- [ ] 0.5 Owner decisions OD-001 (commercial license text) and OD-002 (enterprise/ vs fleet-manager/ root) resolved
+- [x] 0.1 Predecessor devgate-spec-coherence-service accepted: sealed identity, green required gates from clean clone, docs/qa/ acceptance record with exact commit (DEP-001) — EVIDENCED 2026-09-28 at accepted SHA `30aa60d505a36e75e46ae5a72b96f3ea2125eabb`, record `docs/qa/2026-09-28-spec-coherence-service-acceptance.md` (landed `40d2998`). Re-cited in the DEP-003 baseline.
+- [x] 0.2 Fresh full-repository audit at new head; docs/qa/YYYY-MM-DD-product-tiers-fleet-manager-baseline.md published (DEP-003) — `docs/qa/2026-09-29-product-tiers-fleet-manager-baseline.md` at `a37f8424d933df52cf7830f2a9f7374902ba4c90` (clean tree). Commands, inventory, gates, runner caps, overlaps, license, secret classes, findings/uncertainties all recorded there. Hosted run `36527007652` on that SHA: Specs + DevGate-gates green.
+- [x] 0.3 Predecessor identity imported; dependency-review record confirms no contract redefined here — import + no-redefine disposition is baseline §2/§4: consume `coh-*` / `mon-*` / `fleet-*`; do not copy, rename, fork, or redefine. This package may only extend the hub's well-formed-envelope / `ctx-*` surface.
+- [x] 0.4 Overlaps reconciled with runner-monitoring, enrollment-and-alerting, hub-architecture, add-runner-to-fleet — dispositions table in baseline §4 (consumer vs mutator per package).
+- [ ] 0.5 Owner decisions OD-001 (commercial license text) and OD-002 (enterprise/ vs fleet-manager/ root) resolved — STAGED as architect questions with options in baseline §8. Do not tick until the owner answers.
 
 ## 1. Sprint 1: repository and contract gates
 

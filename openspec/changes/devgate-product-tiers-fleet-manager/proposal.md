@@ -51,7 +51,7 @@ integration) into one sequenced, dependency-locked change.
 Full OpenSpec package
 Date: 2026-09-18
 Working change ID: devgate-product-tiers-fleet-manager
-Status: PROPOSED - DEP-001 EVIDENCED; implementation held for backlog queue
+Status: PROPOSED - DEP-001 EVIDENCED; DEP-003 AUDIT PUBLISHED 2026-09-29; Sprint 1+ held on OD-001/OD-002
 Repository: TheArchitectit/AIGGP-Agentic-Framework
 Repository snapshot audited for structure: e9ea400c5bf6a6fcacf55264b82c16ebf5f1c7b0
 Predecessor package: devgate-spec-coherence-service
