@@ -2,10 +2,13 @@
   "api_version": "devgate.scope/v1",
   "note": [
     "Single source of truth for directory-exclusion scope across gates.",
-    "Consumed by guardrails-scan.mjs, semantic-scan.mjs, and the",
-    "silent-success scan. Projects EXTEND via the .guardrails overlay,",
-    "never by editing the submodule baseline (overlay-not-fork).",
-    "Note: 'pkg' is deliberately NOT excluded \u2014 it is commonly first-party Go source; the module cache lives outside the repo (and .sandbox-home covers the reported divergence case)."
+    "Consumed by every gate via gate_common.load_skip_dirs (fw-scope-01).",
+    "Projects EXTEND via the .guardrails overlay, never by editing the",
+    "submodule baseline (overlay-not-fork).",
+    "Note: 'pkg' is deliberately NOT excluded \u2014 it is commonly first-party Go source; the module cache lives outside the repo (and .sandbox-home covers the reported divergence case).",
+    "'worktrees' added 2026-09-28 (consolidate-shared-gate-logic): agent-created",
+    "git worktree checkouts are not first-party gate scope (was only in",
+    "regression_sizes.FILE_SIZE_SKIP_PARTS, so walks disagreed)."
   ],
   "skip_dirs": [
     ".claude",
@@ -24,6 +27,7 @@
     "out",
     "target",
     "vendor",
-    "venv"
+    "venv",
+    "worktrees"
   ]
 }

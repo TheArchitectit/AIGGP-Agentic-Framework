@@ -41,6 +41,7 @@ Loaded, never redeclared. Names:
     egg-info         Python packaging metadata
     node_modules     JS dependency tree
     vendor           third-party pinned source
+    worktrees        agent-created git worktree checkouts (2026-09-28)
 
 Deliberately NOT in the list: ``pkg/`` — commonly first-party Go source.
 The Go module cache lives outside the repo.

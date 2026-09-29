@@ -41,6 +41,8 @@ from pathlib import Path
 # push, which is what makes the shared-contract conformance load-bearing here.
 sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
 from project_root import project_root_for  # noqa: E402  # guardrails-allow PREVENT-024: shared root-contract module defined in scripts/lib/project_root.py, not an external package
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from gate_common import read_jsonl_registry  # noqa: E402
 
 PROJECT_ROOT = project_root_for(Path(__file__).resolve().parent.parent)
 
@@ -88,28 +90,8 @@ def _parse_affected_files(raw) -> list[str]:
 
 
 def _load_entries(registry_path: Path) -> tuple[list[dict], list[str]]:
-    """Parse JSONL registry, skipping blank lines and # comments.
-
-    Returns (entries, parse_errors). parse_errors contains one-line summaries
-    for lines that could not be decoded.
-    """
-    entries: list[dict] = []
-    parse_errors: list[str] = []
-    if not registry_path.exists():
-        parse_errors.append(f"registry not found: {registry_path}")
-        return entries, parse_errors
-    with open(registry_path, encoding="utf-8", errors="replace") as fh:
-        for lineno, raw in enumerate(fh, 1):
-            stripped = raw.strip()
-            if not stripped or stripped.startswith("#"):
-                continue
-            try:
-                entries.append(json.loads(stripped))
-            except json.JSONDecodeError as exc:
-                parse_errors.append(
-                    f"line {lineno}: JSON parse error — {exc}"
-                )
-    return entries, parse_errors
+    """Parse JSONL registry. Shared semantics in gate_common.read_jsonl_registry."""
+    return read_jsonl_registry(registry_path)
 
 
 def check(registry_path: Path | None = None) -> tuple[int, list[str]]:

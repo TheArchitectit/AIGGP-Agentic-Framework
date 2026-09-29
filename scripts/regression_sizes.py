@@ -20,14 +20,18 @@ so legacy debt cannot block an unrelated release.
 
 from __future__ import annotations
 
-import json
 import os
 import sys
 from pathlib import Path
 
-FILE_SIZE_SKIP_PARTS = ("node_modules", "dist", ".claude", "target", "__pycache__",
-                        ".devgate", "vendor", "build", "out", ".next", ".nuxt",
-                        "venv", ".venv", "worktrees", "egg-info")
+# Shared SKIP_DIRS — load, never redeclare (fw-scope-01). The old
+# FILE_SIZE_SKIP_PARTS tuple was a second list that drifted (it alone knew
+# about worktrees; scope.json alone knew about .crew/.git).
+if str(Path(__file__).resolve().parent) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+from gate_common import load_skip_dirs  # noqa: E402
+
+SKIP_DIRS = load_skip_dirs()
 FILE_SIZE_SKIP_SUFFIXES = (".d.ts", ".min.js", ".min.mjs", ".map")
 
 # File-size limits — configurable. These apply to ALL source file types.
@@ -58,7 +62,7 @@ def format_severity(severity: str) -> str:
 def _classify_file(rel_path: str) -> tuple[int | None, int | None]:
     """Return (soft, hard) line limits for a repo-relative path."""
     parts = rel_path.split(os.sep)
-    for skip in FILE_SIZE_SKIP_PARTS:
+    for skip in SKIP_DIRS:
         if skip in parts:
             return (None, None)
     for suf in FILE_SIZE_SKIP_SUFFIXES:
@@ -85,18 +89,6 @@ def _classify_file(rel_path: str) -> tuple[int | None, int | None]:
     if is_test:
         return (None, TEST_HARD)
     return (SRC_SOFT, SRC_HARD)
-
-
-# fw-scope-01: single scope contract — .guardrails/scope.json, shared by all
-# gates. This walk previously consumed NOTHING: it entered vendored and cache
-# trees that every other gate skips, so a cached or vendored copy of a source
-# file could fail this gate while guardrails-scan, semantic-scan and
-# silent-success all correctly ignored it. That divergence between gates is
-# exactly what fw-scope-01 exists to prevent, and test_scope_contract only
-# checked that no gate RE-DECLARES a list — never that each one consumes it.
-SKIP_DIRS = set(json.loads((Path(__file__).resolve().parent.parent
-                            / ".guardrails/scope.json")
-                           .read_text(encoding="utf-8"))["skip_dirs"])
 
 
 def check_file_sizes(repo_root: Path, source_dirs: list[str],
