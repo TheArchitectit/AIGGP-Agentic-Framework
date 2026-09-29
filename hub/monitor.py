@@ -143,6 +143,9 @@ class MonitorLoop:
         # --- 3.5 image readiness (img-cycle-03)
         self._check_image_readiness(repo, runners)
 
+        # --- 3.5b served-vs-record (img-cycle-05)
+        self._check_image_pin_divergence(repo, runners)
+
         # --- 3.6 Fleet scan state (secret-scan-07)
         self._check_scan_state(repo, runners)
         # --- 3.1 runner status + queued-run age (mon-online-01, mon-queue-01)
@@ -260,6 +263,25 @@ class MonitorLoop:
                           "has not reported an image state at all, so it cannot "
                           "be counted ready to gate")
             self._raise_alert(repo, "runner_image_missing", runner["name"], detail)
+
+    def _check_image_pin_divergence(self, repo: str, runners: list[dict]) -> None:
+        """Served-vs-recorded is a fact about the repository (img-cycle-05, D6).
+
+        Raised ONCE per repo under runner "?", not once per host: every host
+        that can reach the registry reports the same divergence, and filing one
+        issue per host turns one re-pin decision into N copies of the same
+        ticket. The detail is the host-reported string, rendered never matched
+        (same policy as image_reason) — it already names both digests, which is
+        what the requirement asks the alert to name.
+
+        Reads only the registry, so a GitHub rate limit cannot silence it — same
+        placement as `_check_image_readiness` above.
+        """
+        for runner in runners:
+            detail = runner.get("image_pin_divergence")
+            if isinstance(detail, str) and detail:
+                self._raise_alert(repo, "image_pin_divergence", "?", detail)
+                return
 
     def _check_scan_state(self, repo: str, runners: list[dict]) -> None:
         """A repository whose scan state is unknown is not a clean repository.

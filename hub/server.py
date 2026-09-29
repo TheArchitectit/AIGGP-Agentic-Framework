@@ -65,7 +65,8 @@ class InvalidContentLength(Exception):
 # Per-field caps: the body cap bounds the REQUEST, not what one field can do
 # to an issue body or a fleet table later. A 60 KB image_reason belongs in no
 # GitHub issue; labels are names, not payloads.
-FIELD_CAPS = {"image_digest": 512, "image_reason": 1024, "last_job_seen": 256}
+FIELD_CAPS = {"image_digest": 512, "image_reason": 1024,
+              "image_pin_divergence": 1024, "last_job_seen": 256}
 MAX_LABELS = 64
 MAX_LABEL_LEN = 128
 MAX_SCAN_REPOS = 256
@@ -333,11 +334,13 @@ class HubHandler(BaseHTTPRequestHandler):
             # The image fields and the fleet sweep's state are read
             # presence-aware: a body that omits them must not clear a host's
             # last report, while a body that sends an explicit null must
-            # (registry.UNREPORTED says why).
+            # (registry.UNREPORTED says why). image_pin_divergence is the same
+            # — absent means an older helper; null means checked-and-agree.
             reg.heartbeat(runner_name, data.get("last_job_seen"),
                           data.get("disk_ok"), data.get("podman_ok"),
                           data.get("image_digest", UNREPORTED),
                           data.get("image_reason", UNREPORTED),
+                          data.get("image_pin_divergence", UNREPORTED),
                           data.get("scan_state", UNREPORTED))
             return {"ok": True}
 

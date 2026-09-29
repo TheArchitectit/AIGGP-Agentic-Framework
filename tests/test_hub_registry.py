@@ -172,6 +172,41 @@ def test_a_freshly_enrolled_runner_has_no_image_and_no_reason(tmp_path):
     runner = reg.find_runner("r1")
     assert runner["image_digest"] is None
     assert runner["image_reason"] is None
+    assert runner["image_pin_divergence"] is None
+
+
+# --- the served-vs-record pin divergence (img-cycle-05) -------------------------
+#
+# Same presence-aware rule as the image fields. Null clears a stored divergence
+# (the tag was re-pinned back onto the record); omitting the key must not.
+
+PIN = ("served ghcr.io/owner/repo/devgate-coherence:main is sha256:" + "b" * 64 +
+       " but the record is sha256:" + "a" * 64 + " — a re-pin is due")
+
+
+def test_a_reported_pin_divergence_is_stored_for_the_host(tmp_path):
+    reg = Registry(str(tmp_path / "runners.json"))
+    reg.enroll("r1", "OWNER/REPO", [], "")
+    reg.heartbeat("r1", None, None, None, image_pin_divergence=PIN)
+    assert reg.find_runner("r1")["image_pin_divergence"] == PIN
+
+
+def test_a_reported_null_pin_divergence_clears_a_stored_one(tmp_path):
+    reg = Registry(str(tmp_path / "runners.json"))
+    reg.enroll("r1", "OWNER/REPO", [], "")
+    reg.heartbeat("r1", None, None, None, image_pin_divergence=PIN)
+    reg.heartbeat("r1", None, None, None, image_pin_divergence=None)
+    assert reg.find_runner("r1")["image_pin_divergence"] is None
+
+
+def test_an_omitted_pin_divergence_leaves_the_last_report_alone(tmp_path):
+    """A body that says nothing is not a body saying "they agree" — an older
+    helper must not clear a live divergence."""
+    reg = Registry(str(tmp_path / "runners.json"))
+    reg.enroll("r1", "OWNER/REPO", [], "")
+    reg.heartbeat("r1", None, None, None, image_pin_divergence=PIN)
+    reg.heartbeat("r1", "job-1", True, True)
+    assert reg.find_runner("r1")["image_pin_divergence"] == PIN
 
 
 # --- the fleet sweep's state (secret-scan-07) --------------------------------

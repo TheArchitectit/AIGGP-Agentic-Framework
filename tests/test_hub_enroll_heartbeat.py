@@ -185,6 +185,45 @@ def test_image_state_rides_the_heartbeat_over_http(tmp_path):
         hub.close()
 
 
+def test_image_pin_divergence_rides_the_heartbeat_presence_aware(tmp_path):
+    """img-cycle-05's host field, same boundary rule as the other image fields:
+    omitted leaves the last report alone, null clears it. And it is size-capped
+    — a 60 KB string belongs in no GitHub issue body."""
+    hub = HubFixture(tmp_path)
+    pin = ("served ghcr.io/o/r/devgate-coherence:main is sha256:" + "b" * 64 +
+           " but the record is sha256:" + "a" * 64 + " — a re-pin is due")
+    try:
+        code, body = hub.post("/enroll", {"runner_name": "r1", "repo": "OWNER/REPO",
+                                          "enrollment_token": "test-enroll-token-PLACEHOLDER"})
+        hb_token = body["heartbeat_token"]
+
+        code, body = hub.post("/heartbeat", {
+            "runner_name": "r1", "heartbeat_token": hb_token,
+            "image_pin_divergence": pin})
+        assert code == 200, body
+        assert hub.state.registry.find_runner("r1")["image_pin_divergence"] == pin
+
+        code, body = hub.post("/heartbeat", {
+            "runner_name": "r1", "heartbeat_token": hb_token})
+        assert code == 200, body
+        assert hub.state.registry.find_runner("r1")["image_pin_divergence"] == pin, \
+            "an omitted pin field cleared a live divergence"
+
+        code, body = hub.post("/heartbeat", {
+            "runner_name": "r1", "heartbeat_token": hb_token,
+            "image_pin_divergence": None})
+        assert code == 200, body
+        assert hub.state.registry.find_runner("r1")["image_pin_divergence"] is None
+
+        code, body = hub.post("/heartbeat", {
+            "runner_name": "r1", "heartbeat_token": hb_token,
+            "image_pin_divergence": "x" * 2000})
+        assert code == 400, body
+        assert "image_pin_divergence" in body.get("detail", ""), body
+    finally:
+        hub.close()
+
+
 def test_fleet_scan_state_rides_the_heartbeat_over_http(tmp_path):
     """The same three-way distinction for the sweep's report (secret-scan-07),
     through the same boundary and for the same reason: `data.get("scan_state")`

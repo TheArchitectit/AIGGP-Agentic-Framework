@@ -245,7 +245,47 @@ def test_the_podman_stub_materialises_the_store_like_podman_does(tmp_path):
     assert store.is_dir(), "the stub must create the store the way podman does"
 
 
-def test_the_spoke_environment_carries_no_ambient_coherence_variables(tmp_path):
+def test_heartbeat_ships_a_pin_divergence_when_the_published_tag_has_moved(tmp_path):
+    """img-cycle-05 rides the heartbeat (design D5). Non-empty names both
+    digests; the tick still exits 0 — it is a fact about the repository."""
+    s = Spoke(tmp_path)
+    assert s.enroll("alpha").returncode == 0
+    s.stub_podman()
+    other = "sha256:" + "b" * 64
+    env = _image_env(tmp_path)
+    res = s.run_helper("alpha", STUB_SERVED_DIGEST=other, **env)
+    assert res.returncode == 0, res.stderr
+    body = _last_heartbeat_body(s)
+    divergence = body["image_pin_divergence"]
+    assert isinstance(divergence, str) and divergence, body
+    assert other in divergence, divergence
+    assert IMG_DIGEST in divergence, divergence
+    assert "re-pin is due" in divergence, divergence
+
+
+def test_heartbeat_ships_a_null_pin_divergence_when_the_published_tag_matches(tmp_path):
+    """Checked-and-agree is null, not an omitted key: a consumer testing for
+    null gets null, and a stale divergence from a prior tick is cleared."""
+    s = Spoke(tmp_path)
+    assert s.enroll("alpha").returncode == 0
+    s.stub_podman()
+    env = _image_env(tmp_path)
+    res = s.run_helper("alpha", STUB_SERVED_DIGEST=IMG_DIGEST, **env)
+    assert res.returncode == 0, res.stderr
+    assert _last_heartbeat_body(s)["image_pin_divergence"] is None
+
+
+def test_heartbeat_ships_a_null_pin_divergence_when_the_registry_cannot_be_asked(tmp_path):
+    """Could-not-check is the same value as agrees — and the library's refusal
+    already went to stderr, so this is not a clean bill of health either. The
+    tick still exits 0: a dead heartbeat blinds the fleet."""
+    s = Spoke(tmp_path)
+    assert s.enroll("alpha").returncode == 0
+    s.stub_podman()
+    env = _image_env(tmp_path)
+    res = s.run_helper("alpha", STUB_SERVED_DIGEST="", **env)
+    assert res.returncode == 0, res.stderr
+    assert _last_heartbeat_body(s)["image_pin_divergence"] is None
     """The probe's own inputs must not arrive from the ambient environment.
 
     These three decide which branch of the probe runs. Inheriting them would

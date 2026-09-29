@@ -25,6 +25,30 @@
 
 set -euo pipefail
 
+# dirname(1) is a PATH dependency these scripts cannot afford: a bare host
+# with an empty PATH must still reach the podman check. Builtins only.
+_self="${BASH_SOURCE[0]}"
+_script_dir="${_self%/*}"
+[ "$_script_dir" = "$_self" ] && _script_dir=.
+SCRIPT_DIR="$(cd -- "$_script_dir" && pwd)"
+unset _self _script_dir
+# Same sibling rule as runner-image-cycle.sh: in-repo it is lib/registry-digest.sh,
+# installed it is copied beside the helper as registry-digest.sh (runner-enroll.sh
+# installs it). Missing from a host one of them ticks.
+if [ -f "$SCRIPT_DIR/lib/registry-digest.sh" ]; then
+    # shellcheck source=lib/registry-digest.sh
+    . "$SCRIPT_DIR/lib/registry-digest.sh"
+elif [ -f "$SCRIPT_DIR/registry-digest.sh" ]; then
+    # shellcheck source=registry-digest.sh
+    . "$SCRIPT_DIR/registry-digest.sh"
+else
+    echo "[hb] registry-digest.sh missing beside this script ($SCRIPT_DIR)" \
+         "— img-cycle-05 divergence not checked" >&2
+    # Not a dead heartbeat. The fleet needs the tick more than the advisory;
+    # the field below is simply left absent (could not check ≠ agrees).
+    registry_digest_missing=1
+fi
+
 : "${HUB_URL:?HUB_URL is not set - check the unit EnvironmentFile}"
 : "${RUNNER_NAME:?RUNNER_NAME is not set - check the unit EnvironmentFile}"
 : "${HEARTBEAT_TOKEN:?HEARTBEAT_TOKEN is not set - check the unit EnvironmentFile}"
@@ -125,6 +149,24 @@ else
     unset graph_root pinned_ref
 fi
 
+# img-cycle-05: served-vs-recorded rides this ticker (design D5). Non-empty
+# means "the published tag has moved past the record"; the tick still exits 0 —
+# it is a fact about the repository, not a fault on this host. Empty means
+# either "checked and they agree" or "could not check"; the lib's failure is
+# reported on stderr and the key becomes null, which is NOT a clean bill of
+# health and is exactly why a missing lib is not a dead heartbeat above.
+image_pin_divergence=""
+if [ -n "${COHERENCE_IMAGE:-}" ] && [ -n "${COHERENCE_IMAGE_MANIFEST_DIGEST:-}" ] \
+    && [ "${registry_digest_missing:-0}" != "1" ] \
+    && [ "${IMAGE_CYCLE_SKIP_ADVISORY:-0}" != "1" ]; then
+    PublishedTag="${COHERENCE_PUBLISHED_TAG:-main}"
+    served_digest="$(docker_content_digest "${COHERENCE_IMAGE}" "${PublishedTag}" || true)"
+    if [ -n "${served_digest:-}" ] && [ "$served_digest" != "$COHERENCE_IMAGE_MANIFEST_DIGEST" ]; then
+        image_pin_divergence="served ${COHERENCE_IMAGE}:${PublishedTag} is $served_digest but the record is $COHERENCE_IMAGE_MANIFEST_DIGEST — a re-pin is due"
+    fi
+    unset PublishedTag served_digest
+fi
+
 # The empty strings become JSON null: `or None` rather than a sentinel string,
 # so a consumer testing for null gets null and not "null".
 #
@@ -190,8 +232,9 @@ print(json.dumps({
     "podman_ok": sys.argv[2] == "true",
     "image_digest": sys.argv[3] or None,
     "image_reason": sys.argv[4] or None,
+    "image_pin_divergence": sys.argv[5] or None,
     "scan_state": scan_state(os.environ.get("SECRET_SCAN_REPORT", "")),
-}))' "$disk_ok" "$podman_ok" "$image_digest" "$image_reason")"
+}))' "$disk_ok" "$podman_ok" "$image_digest" "$image_reason" "$image_pin_divergence")"
 
 # The response is kept for diagnosis, so its filename must be filesystem-safe.
 # A name containing "/" makes curl unable to open the -o target (exit 23), and

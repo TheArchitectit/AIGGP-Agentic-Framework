@@ -33,6 +33,7 @@
 #   COHERENCE_IMAGE, COHERENCE_IMAGE_MANIFEST_DIGEST, COHERENCE_PODMAN_STORE
 # Optional:
 #   IMAGE_CYCLE_PRUNE=0   keep superseded builds of the same repo (default: remove)
+#   COHERENCE_PUBLISHED_TAG=main   the tag whose SERVED digest the advisory compares
 #
 # Exit codes:
 #   0   converged — the pinned digest-qualified ref is present in this store
@@ -49,6 +50,29 @@
 # A non-zero exit is the honest state: the host cannot run the pinned evaluator.
 
 set -euo pipefail
+
+# dirname(1) is a PATH dependency these scripts cannot afford: a bare host
+# with an empty PATH must still reach the podman check. Builtins only.
+_self="${BASH_SOURCE[0]}"
+_script_dir="${_self%/*}"
+[ "$_script_dir" = "$_self" ] && _script_dir=.
+SCRIPT_DIR="$(cd -- "$_script_dir" && pwd)"
+unset _self _script_dir
+# In the repo this is scripts/lib/registry-digest.sh; installed by
+# runner-enroll.sh it is copied beside the helper as registry-digest.sh (the
+# same sibling resolution the fleet sweep uses for the gate). One file, one
+# recipe — a second copy of the curl dance is the axis-divergence scar.
+if [ -f "$SCRIPT_DIR/lib/registry-digest.sh" ]; then
+    # shellcheck source=lib/registry-digest.sh
+    . "$SCRIPT_DIR/lib/registry-digest.sh"
+elif [ -f "$SCRIPT_DIR/registry-digest.sh" ]; then
+    # shellcheck source=registry-digest.sh
+    . "$SCRIPT_DIR/registry-digest.sh"
+else
+    echo "[img-cycle] registry-digest.sh missing beside this script ($SCRIPT_DIR)" \
+         "— cannot check served-vs-record (img-cycle-05)" >&2
+    exit 1
+fi
 
 : "${COHERENCE_IMAGE:?COHERENCE_IMAGE is not set - check the unit EnvironmentFile}"
 : "${COHERENCE_IMAGE_MANIFEST_DIGEST:?COHERENCE_IMAGE_MANIFEST_DIGEST is not set - check the unit EnvironmentFile}"
@@ -157,6 +181,36 @@ if [ "$GOT" != "$COHERENCE_IMAGE_MANIFEST_DIGEST" ]; then
          "recorded '$COHERENCE_IMAGE_MANIFEST_DIGEST'" >&2
     exit 4
 fi
+
+# img-cycle-05: served-vs-recorded is a fact about the REPOSITORY, not a fault
+# on this host. The tick that has just converged the recorded pin has done its
+# job; what the published tag now points at being a different build is a
+# re-pin decision owned here, and failing a host for it trains operators to
+# ignore the alert. So: one advisory line, same exit code.
+#
+# The compare is the SHAPE difference this repository keeps meeting on
+# discord — `podman image inspect` after a pull answers on the LOCAL-STORAGE
+# axis (measured: 6032c209 for an image the registry serves as fc7074e7), so a
+# vanilla inspect here would manufacture divergence on every tick and burn
+# the advisory into noise. Whichever alternative we pick, the source has to be
+# the registry's own Docker-Content-Digest (scripts/lib/registry-digest.sh).
+PublishedTag="${COHERENCE_PUBLISHED_TAG:-main}"
+if [ "${IMAGE_CYCLE_SKIP_ADVISORY:-0}" = "1" ]; then
+    : # test seam: a stubbed host may not want the registry hop every tick
+else
+    SERVED="$(docker_content_digest "$COHERENCE_IMAGE" "$PublishedTag" || true)"
+    if [ -n "$SERVED" ] && [ "$SERVED" != "$COHERENCE_IMAGE_MANIFEST_DIGEST" ]; then
+        echo "[img-cycle] ADVISORY (img-cycle-05): ${COHERENCE_IMAGE}:${PublishedTag}" \
+             "is served as $SERVED but the record is $COHERENCE_IMAGE_MANIFEST_DIGEST" \
+             "— a re-pin is due. Not failing this host."
+    elif [ -z "$SERVED" ]; then
+        echo "[img-cycle] (img-cycle-05) could not resolve a served digest for" \
+             "${COHERENCE_IMAGE}:${PublishedTag} — divergence not checked this tick" \
+             "(this is not a clean bill of health)"
+    fi
+    unset SERVED
+fi
+unset PublishedTag
 
 # Reclaim disk from superseded builds of THIS repo only. A prune failure is
 # reported and does not fail the tick: convergence is the contract, hygiene is

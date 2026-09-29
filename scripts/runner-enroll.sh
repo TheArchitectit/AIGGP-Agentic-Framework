@@ -315,6 +315,11 @@ install_timer() {
         "$REPO_ROOT/scripts/runner-heartbeat.sh" "$HB_HELPER"
     install_helper "Image-cycle" \
         "$REPO_ROOT/scripts/runner-image-cycle.sh" "$CYC_HELPER"
+    # Sibling of the cycle and the heartbeat, not under lib/: the installed
+    # helpers are flat in $ENV_DIR and resolve it as a sibling, the way the
+    # fleet sweep resolves the gate. Missing from a host one of them ticks.
+    install_helper "Registry-digest" \
+        "$REPO_ROOT/scripts/lib/registry-digest.sh" "$ENV_DIR/registry-digest.sh"
     # The gate first, then the sweep: the sweep resolves the gate as a sibling
     # at run time, so if only one of the two is ever missing it must not be the
     # gate. install_helper copies both in the same breath, and a missing source

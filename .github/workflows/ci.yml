@@ -475,6 +475,10 @@ jobs:
     permissions:
       contents: read
       packages: write
+      # mon-alert-01: the divergence advisory is a GitHub issue on this repo,
+      # the same path the fleet's monitor raises (img-cycle-05 says SHALL NOT
+      # be reported only as a CI log notice). The notifier is hub/alerts.py.
+      issues: write
     if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.publish)
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -504,14 +508,15 @@ jobs:
           # fc7074e7… (run 36050827753). Recording a pin from either is how
           # the S4 identity was once recorded unpullable, so ask ghcr what it
           # serves for the tag — the manifest's Docker-Content-Digest.
-          REPO_PATH="${IMAGE#ghcr.io/}"
-          TOKEN="$(curl -fsS \
-            "https://ghcr.io/token?scope=repository:${REPO_PATH}:pull&service=ghcr.io" \
-            | python3 -c 'import json,sys;print(json.load(sys.stdin)["token"])')"
-          SERVED="$(curl -fsS -o /dev/null -D - -H "Authorization: Bearer $TOKEN" \
-            -H 'Accept: application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json' \
-            "https://ghcr.io/v2/${REPO_PATH}/manifests/main" \
-            | tr -d '\r' | awk 'tolower($1) == "docker-content-digest:" {print $2}')"
+          # One recipe, one source: the same resolver the cycle and the
+          # heartbeat use (scripts/lib/registry-digest.sh). A second curl
+          # dance here is the axis-divergence scar — this step's inline copy
+          # already disagreed with the re-pin script once.
+          . scripts/lib/registry-digest.sh
+          # `|| true` so the empty-handling below names the failure rather
+          # than the job dying on the resolver's own non-zero (GHA runs bash
+          # -eo pipefail).
+          SERVED="$(docker_content_digest "$IMAGE" main || true)"
           if [ -z "$SERVED" ]; then
             echo "::error::ghcr reported no digest for $IMAGE:main — this run cannot be recorded as an identity"
             exit 1
@@ -519,7 +524,16 @@ jobs:
           RECORDED="$(python3 -c "import json;print(json.load(open('container/execution-profiles.json'))['profiles'][0]['image_manifest_digest'])")"
           echo "served digest: $SERVED"
           if [ "$SERVED" != "$RECORDED" ]; then
-            echo "::notice::published $SERVED — execution-profiles.json records $RECORDED; re-pin (S4 acceptance) if this is the release build"
+            DETAIL="served ${IMAGE}:main is ${SERVED} but the record is ${RECORDED} — a re-pin is due"
+            echo "::notice::${DETAIL}"
+            # img-cycle-05: advisory through mon-alert-01, the same path the
+            # fleet watches — NOT only a log notice inside this job. Via `?`
+            # rather than a host name: this is a fact about the repository
+            # (design D6), and the hub monitor raises the same key from the
+            # heartbeat, so the two land on one deduped issue.
+            # One -c line: a YAML-indented multi-line -c is an IndentationError.
+            ALERT_REPO="${GITHUB_REPOSITORY}" ALERT_DETAIL="${DETAIL}" \
+              GITHUB_TOKEN="${GITHUB_TOKEN}" python3 -c 'import os; from hub.alerts import GitHubIssueNotifier; GitHubIssueNotifier(api_base="https://api.github.com", token=os.environ["GITHUB_TOKEN"], alerts_dir=os.environ.get("RUNNER_TEMP", "/tmp")).raise_alert(os.environ["ALERT_REPO"], "image_pin_divergence", "?", os.environ["ALERT_DETAIL"])'
           else
             echo "::notice::published $SERVED — matches the identity registry"
           fi

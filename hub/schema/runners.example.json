@@ -23,6 +23,7 @@
       "podman_ok": true,
       "image_digest": "ghcr.io/owner/repo/devgate-coherence@sha256:0000000000000000000000000000000000000000000000000000000000000000",
       "image_reason": null,
+      "image_pin_divergence": null,
       "enrolled": true,
       "queue_threshold_min": 30,
       "drift_period_min": 1440
@@ -45,6 +46,7 @@
       "podman_ok": false,
       "image_digest": null,
       "image_reason": "not provisioned: COHERENCE_IMAGE, COHERENCE_IMAGE_MANIFEST_DIGEST, COHERENCE_PODMAN_STORE not set",
+      "image_pin_divergence": "served ghcr.io/owner/repo/devgate-coherence:main is sha256:1111111111111111111111111111111111111111111111111111111111111111 but the record is sha256:0000000000000000000000000000000000000000000000000000000000000000 — a re-pin is due",
       "enrolled": true,
       "queue_threshold_min": 30,
       "drift_period_min": 1440

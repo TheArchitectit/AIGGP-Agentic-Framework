@@ -272,6 +272,7 @@ class Registry:
             "enrolled": True,
             "image_digest": None,
             "image_reason": None,
+            "image_pin_divergence": None,
             "scan_state": None,
         }
         self._data["runners"].append(runner)
@@ -280,13 +281,17 @@ class Registry:
     def heartbeat(self, runner_name: str, last_job_seen: str | None,
                   disk_ok: bool | None, podman_ok: bool | None,
                   image_digest=UNREPORTED, image_reason=UNREPORTED,
+                  image_pin_divergence=UNREPORTED,
                   scan_state=UNREPORTED) -> bool:
         """Update freshness + health fields for a verified runner.
 
         The image fields and `scan_state` take UNREPORTED as their default, not
         None: a caller that means "the host reports no image" passes None
         explicitly and the stored ref is cleared; a caller that passes nothing
-        leaves the last report alone. `scan_state` is the same distinction for
+        leaves the last report alone. `image_pin_divergence` is the same
+        distinction — null means the host checked and the served digest matches
+        the record (or it could not check), whereas omitting it means the spoke
+        has no opinion. `scan_state` is the same distinction for
         the fleet sweep's report — null is a POSITIVE report that this host has
         no scan state (which must clear a stale one to unknown), whereas
         omitting it means the spoke has no opinion (which must not).
@@ -305,6 +310,8 @@ class Registry:
             runner["image_digest"] = image_digest
         if image_reason is not UNREPORTED:
             runner["image_reason"] = image_reason
+        if image_pin_divergence is not UNREPORTED:
+            runner["image_pin_divergence"] = image_pin_divergence
         if scan_state is not UNREPORTED:
             runner["scan_state"] = scan_state
         return True

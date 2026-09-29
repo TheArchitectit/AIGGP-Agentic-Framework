@@ -251,6 +251,36 @@ MUTATIONS = [
     ("E7: the cycle runs at the heartbeat's cadence (a fleet-wide registry hammer)",
      [(ENR, "OnUnitActiveSec=${CYCLE_INTERVAL}", "OnUnitActiveSec=${INTERVAL}")],
      [T_ENROLL], {}),
+
+    # --- img-cycle-05: served-vs-record pin divergence -------------------------
+    ("P1: the heartbeat drops the pin-divergence field from the body", [(HB,
+        '    "image_pin_divergence": sys.argv[5] or None,\n', "")], [T_IMG], {}),
+    ("P2: the heartbeat ships the field as a mere omission when it has nothing "
+     "to say (a null-with-meaning becomes absent)", [(HB,
+        '    "image_pin_divergence": sys.argv[5] or None,',
+        '    **({"image_pin_divergence": sys.argv[5]} if sys.argv[5] else {}),')],
+     [T_IMG], {}),
+    ("P3: the registry treats an omitted pin field as an explicit null "
+     "(an older helper clears a live divergence)", [(REG,
+        "        if image_pin_divergence is not UNREPORTED:",
+        "        if image_pin_divergence is not None:")],
+     [T_REG, T_HTTP], {}),
+    ("P4: the server forgets the sentinel on the pin field", [(SRV,
+        '                          data.get("image_pin_divergence", UNREPORTED),',
+        '                          data.get("image_pin_divergence"),')],
+     [T_HTTP], {}),
+    ("P5: the monitor never calls the pin-divergence check", [(MON,
+        "        self._check_image_pin_divergence(repo, runners)",
+        "        pass  # mutated away")], [T_MON], {}),
+    ("P6: the pin-divergence alert is filed against every host instead of the "
+     "repository (N tickets for one re-pin)", [(MON,
+        '            self._raise_alert(repo, "image_pin_divergence", "?", detail)',
+        '            self._raise_alert(repo, "image_pin_divergence", runner["name"], detail)\n                return')],
+     [T_MON], {}),
+    ("P7: a host-reported divergence is matched, not rendered", [(MON,
+        "            if isinstance(detail, str) and detail:",
+        "            if isinstance(detail, str) and \"re-pin\" in detail and \"served\" in detail:")],
+     [T_MON], {}),
 ]
 
 # Negative controls: pairs of edits that must NOT kill anything, because each

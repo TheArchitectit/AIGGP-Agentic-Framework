@@ -54,6 +54,10 @@
           "description": "Why image_digest is null, in the host's own words. The vocabulary the shipped probe uses, one fault per fix: 'not provisioned: <vars> not set' | 'podman not on PATH' | 'store does not exist: <path>' | 'podman info failed for the configured store' | 'store mismatch: podman reports <a>, configured <b>' | 'pinned image absent from the store (not pulled)'. Free text from an untrusted-as-input host, so consumers must render it, never match on it.",
           "type": ["string", "null"]
         },
+        "image_pin_divergence": {
+          "description": "The host's report that the registry's served digest for the published tag no longer equals the recorded image_manifest_digest (img-cycle-05). Non-empty string names both digests ('served <image>:<tag> is <served> but the record is <record> — a re-pin is due'). Null means the host checked and they agree, OR it could not check — the two are deliberately the same value here because both mean 'no divergence was observed', and the check itself is a repository-reachable fact the publish job and the hub also carry. A key left out entirely means an older helper that does not report this field. Free text from an untrusted-as-input host, so consumers must render it, never match on it. Divergence is a fact about the repository, not a fault on the host (design D6): the tick still succeeds.",
+          "type": ["string", "null"]
+        },
         "scan_state": {
           "description": "The last fleet secret sweep this host reported (secret-scan-07), or null when it has no scan state to report. Null is UNKNOWN, never healthy: a host that has never been swept is not a swept-and-clean host. 'unreadable' is set when a report exists on the host and would not parse, and it is NOT an empty fleet.",
           "type": ["object", "null"],

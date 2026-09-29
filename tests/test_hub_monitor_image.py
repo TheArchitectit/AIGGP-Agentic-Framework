@@ -249,3 +249,83 @@ def test_queue_stall_uses_run_id_field(tmp_path):
     finally:
         server.shutdown()
 
+
+# --- served-vs-record pin divergence (img-cycle-05) ----------------------------
+
+def test_poll_cycle_dispatches_the_pin_divergence_check(tmp_path):
+    """A wiring that exists and is never called passes every direct-method test.
+    Pins that poll_cycle actually DISPATCHES _check_image_pin_divergence.
+
+    The port is CLOSED: the client catches HTTPError but not URLError, so a
+    refused connection raises out of `_check_runner_status` into poll_cycle's
+    per-repo handler and aborts every check after it. The call sits BEFORE the
+    network checks (same placement as `_check_image_readiness`), so a registry-
+    driven alert must still arrive — and the only way it arrives is if the
+    dispatch is wired.
+    """
+    probe = socket.socket()
+    probe.bind(("127.0.0.1", 0))
+    dead_port = probe.getsockname()[1]
+    probe.close()  # nothing listens there now: a real ECONNREFUSED
+    state, runner = _image_state_state(tmp_path, None, None)
+    detail = ("served ghcr.io/o/r/devgate-coherence:main is sha256:b..b "
+              "but the record is sha256:a..a — a re-pin is due")
+    runner["image_pin_divergence"] = detail
+    state.registry.save()
+    sink = _CollectSink()
+    monitor = MonitorLoop(state, alert_sink=sink)
+    monitor.client.api_base = f"http://127.0.0.1:{dead_port}"
+    monitor.client.backoff_max = 0
+    monitor.poll_cycle()
+    got = [(repo, cls, who) for repo, cls, who, _ in sink.alerts]
+    assert ("owner/repo", "image_pin_divergence", "?") in got, sink.alerts
+
+
+def test_check_image_pin_divergence_alerts_once_per_repo_as_a_repository_fact(tmp_path):
+    """Divergence is a fact about the repository (D6), so the alert is keyed on
+    runner "?" — N hosts reporting the same re-pin is one ticket, not N."""
+    state = _hub_state(tmp_path)
+    r1 = _enroll(state, "r1", "owner/repo", "dell-u2")
+    r2 = _enroll(state, "r2", "owner/repo", "ucs03")
+    detail = ("served ghcr.io/o/r/devgate-coherence:main is sha256:b..b "
+              "but the record is sha256:a..a — a re-pin is due")
+    r1["image_pin_divergence"] = detail
+    r2["image_pin_divergence"] = detail
+    state.registry.save()
+    sink = _CollectSink()
+    monitor = MonitorLoop(state, alert_sink=sink)
+    monitor._check_image_pin_divergence("owner/repo", [r1, r2])
+
+    assert len(sink.alerts) == 1, sink.alerts
+    repo, check_class, name, got = sink.alerts[0]
+    assert check_class == "image_pin_divergence"
+    assert name == "?", "a repository fact must not be filed against a host"
+    assert got is detail or got == detail
+    assert repo == "owner/repo"
+
+
+def test_check_image_pin_divergence_stays_quiet_when_the_host_reports_no_divergence(tmp_path):
+    """The mirror case. Null means checked-and-agree OR could not check — both
+    are "no divergence was observed", and neither is an alert to file."""
+    state, runner = _image_state_state(tmp_path, "ghcr.io/o/r@sha256:" + "a" * 64)
+    runner["image_pin_divergence"] = None
+    state.registry.save()
+    sink = _CollectSink()
+    monitor = MonitorLoop(state, alert_sink=sink)
+    monitor._check_image_pin_divergence("owner/repo", [runner])
+    assert sink.alerts == [], sink.alerts
+
+
+def test_check_image_pin_divergence_renders_the_host_string_without_matching_it(tmp_path):
+    """Free text from an untrusted-as-input host: the detail is carried through
+    as given (render, never match), the same policy as image_reason."""
+    state, runner = _image_state_state(tmp_path, None, "podman not on PATH")
+    hostile = "served x is y but the record is z —  <script>LOOK ME UP</script>"
+    runner["image_pin_divergence"] = hostile
+    state.registry.save()
+    sink = _CollectSink()
+    monitor = MonitorLoop(state, alert_sink=sink)
+    monitor._check_image_pin_divergence("owner/repo", [runner])
+    assert len(sink.alerts) == 1, sink.alerts
+    assert sink.alerts[0][3] == hostile
+

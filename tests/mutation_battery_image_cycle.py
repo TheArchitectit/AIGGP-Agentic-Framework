@@ -107,6 +107,28 @@ MUTATIONS = [
     # observation and the scenario goes inert.
     ("K6: the podman stub's rmi stops removing what it reaped",
      [(T_HARNESS, RMI_MUTATES, "    pass")], [T_CYC], {}),
+
+    # --- img-cycle-05: served-vs-record starves --------------------------------
+    ("K7: a moved published tag fails the tick (a repository fact blamed on the "
+     "host)",
+     [(CYC, '             "is served as $SERVED but the record is $COHERENCE_IMAGE_MANIFEST_DIGEST" \\\n'
+            '             "— a re-pin is due. Not failing this host."',
+            '             "is served as $SERVED but the record is $COHERENCE_IMAGE_MANIFEST_DIGEST" \\\n'
+            '             "— a re-pin is due." >&2\n        exit 1')],
+     [T_CYC], {}),
+    ("K8: the advisory names only the served digest (the record CTC is what "
+     "makes a re-pin owe)",
+     [(CYC, '             "is served as $SERVED but the record is $COHERENCE_IMAGE_MANIFEST_DIGEST" \\',
+            '             "is served as $SERVED" \\')],
+     [T_CYC], {}),
+    ("K9: could-not-check reads as agreement (the advisory is dropped on the "
+     "floor)",
+     [(CYC, """    elif [ -z "$SERVED" ]; then
+        echo "[img-cycle] (img-cycle-05) could not resolve a served digest for" \\
+             "${COHERENCE_IMAGE}:${PublishedTag} — divergence not checked this tick" \\
+             "(this is not a clean bill of health)"
+    fi""", "    fi")],
+     [T_CYC], {}),
 ]
 
 # Negative controls: edits that must NOT kill anything, because each shows that

@@ -432,6 +432,23 @@ def test_enroll_installs_the_image_cycle_helper_beside_the_heartbeat(tmp_path):
     assert helper.read_bytes() == src.read_bytes(), "helper differs from its source"
 
 
+def test_enroll_installs_the_registry_digest_lib_beside_the_helpers(tmp_path):
+    """The cycle and the heartbeat both source it as a SIBLING. A library
+    installed under lib/ dies at runtime looking enroled — the scar the fleet
+    sweep taught. Flat in $ENV_DIR, same as the helpers that need it."""
+    s = Spoke(tmp_path)
+    assert s.enroll("alpha").returncode == 0
+    lib = s.registry_digest_helper()
+    assert lib.is_file(), f"the digest lib was not installed beside the helpers: {lib}"
+    assert lib.stat().st_mode & 0o777 == 0o755, oct(lib.stat().st_mode)
+    src = (Path(__file__).resolve().parent.parent
+           / "scripts" / "lib" / "registry-digest.sh")
+    assert lib.read_bytes() == src.read_bytes(), "lib differs from its source"
+    # Sibling of both helpers that source it.
+    assert lib.parent == s.helper().parent
+    assert lib.parent == s.cycle_helper().parent
+
+
 def test_an_existing_cycle_helper_is_left_unchanged_and_flagged(tmp_path):
     """Same policy as the heartbeat helper: never clobber a host's copy in
     silence. A helper that has diverged is a stale fix, and the operator has to

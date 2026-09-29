@@ -346,6 +346,76 @@ def test_pruning_can_be_turned_off(tmp_path):
     assert not h.rmis(), "pruning ran despite IMAGE_CYCLE_PRUNE=0"
 
 
+# --- served-vs-recorded advisory (img-cycle-05) --------------------------------
+#
+# The registry's Docker-Content-Digest for the published tag, compared with the
+# recorded image_manifest_digest, is a fact about the REPOSITORY. It must
+# therefore never fail this host's tick — a host that has just converged the
+# recorded pin has done its job. The advisory names BOTH digests, which is what
+# the requirement asks the alert to name.
+
+def test_a_served_tag_that_moved_past_the_record_is_an_advisory_not_a_failure(tmp_path):
+    """ADVISORY line, same exit code. A non-zero here would teach operators to
+    ignore the alert, and img-cycle-05 says divergence SHALL NOT fail the tick."""
+    h = Host(tmp_path)
+    res = h.runs(IMAGE_CYCLE_SKIP_ADVISORY="0", STUB_SERVED_DIGEST=OTHER)
+    assert res.returncode == 0, res.stderr
+    out = res.stdout
+    # BOTH digests must be named BY THE ADVISORY. Asserting them on the whole
+    # stdout is vacuous: `converged: $REF` is digest-qualified, so the record
+    # appears whether or not the advisory says it — which is exactly how K8
+    # (drop the record from the advisory text) first survived.
+    advisory_line = next(
+        (ln for ln in out.splitlines() if "ADVISORY (img-cycle-05)" in ln), "")
+    assert advisory_line, out
+    assert OTHER in advisory_line, f"served digest not in the advisory: {advisory_line}"
+    assert RECORDED in advisory_line, f"record not in the advisory: {advisory_line}"
+    assert "re-pin is due" in advisory_line, advisory_line
+    assert "converged" in out, "the tick must still claim convergence"
+
+
+def test_a_served_tag_that_matches_the_record_is_quiet_on_the_advisory(tmp_path):
+    """The mirror case, or the advisory is an alert on every healthy publish."""
+    h = Host(tmp_path)
+    res = h.runs(IMAGE_CYCLE_SKIP_ADVISORY="0", STUB_SERVED_DIGEST=RECORDED)
+    assert res.returncode == 0, res.stderr
+    assert "ADVISORY" not in res.stdout, res.stdout
+    assert "converged" in res.stdout, res.stdout
+
+
+def test_a_served_digest_the_registry_will_not_give_is_not_a_clean_bill_of_health(tmp_path):
+    """Could-not-check is not checked-and-agree. Saying nothing here is how a
+    repo whose tag moved while ghcr was unreachable reads as healthy."""
+    h = Host(tmp_path)
+    res = h.runs(IMAGE_CYCLE_SKIP_ADVISORY="0", STUB_SERVED_DIGEST="")
+    assert res.returncode == 0, res.stderr
+    combined = res.stdout + res.stderr
+    assert "could not resolve a served digest" in combined, combined
+    assert "not a clean bill of health" in combined, combined
+    assert "ADVISORY" not in res.stdout, res.stdout
+
+
+def test_the_digest_lib_beside_the_script_is_required_for_the_advisory_check(tmp_path):
+    """A cycle installed without its sibling lib dies as a config error rather
+    than silently reporting divergence of an empty digest (the sibling-
+    resolution scar: a helper without its library looks enroled and faults at
+    runtime)."""
+    import shutil
+    import subprocess
+    bare = tmp_path / "bare"
+    bare.mkdir()
+    shutil.copy(SCRIPT, bare / SCRIPT.name)
+    (bare / SCRIPT.name).chmod(0o755)
+    h = Host(tmp_path)
+    env = dict(h.env)
+    env["IMAGE_CYCLE_SKIP_ADVISORY"] = "0"
+    res = subprocess.run([BASH, str(bare / SCRIPT.name)], env=env,
+                         capture_output=True, text=True, encoding="utf-8",
+                         errors="replace", timeout=60)
+    assert res.returncode == 1, res.stderr
+    assert "registry-digest.sh missing" in res.stderr, res.stderr
+
+
 def _main():
     import tempfile
     failed = 0

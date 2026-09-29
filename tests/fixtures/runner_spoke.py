@@ -59,6 +59,7 @@ import json, os, sys
 args = sys.argv[1:]
 data = outfile = write_fmt = url = None
 fail_on_error = False
+dump_headers = False
 i = 0
 while i < len(args):
     a = args[i]
@@ -68,7 +69,11 @@ while i < len(args):
         outfile = args[i + 1]; i += 2
     elif a in ("-w", "--write-out"):
         write_fmt = args[i + 1]; i += 2
-    elif a in ("-X", "--request", "-H", "--header", "--connect-timeout"):
+    elif a in ("-X", "--request", "-H", "--header", "--connect-timeout",
+               "--max-time", "-w", "--write-out", "-o", "--output",
+               "-D", "--dump-header"):
+        if a in ("-D", "--dump-header") and i + 1 < len(args) and args[i+1] == "-":
+            dump_headers = True
         i += 2
     elif a == "-f" or a == "-sf" or (a.startswith("-") and len(a) <= 3 and "f" in a):
         if "f" in a and not a.startswith("--"):
@@ -85,7 +90,25 @@ if url and "://" in url:
     if "/" in tail:
         path = "/" + tail.split("/", 1)[1]
 
-if path == "/enroll":
+if path.startswith("/token") or "/token?" in (url or ""):
+    # registry-digest.sh's anonymous pull token. Empty token is how the
+    # library reports an unreachable/refusing registry — the heartbeat then
+    # ships image_pin_divergence as null ("could not check"), which is the
+    # safe direction for every test that does not care about the advisory.
+    status = 200
+    if os.environ.get("STUB_TOKEN_FAIL"):
+        body = json.dumps({})
+    else:
+        body = json.dumps({"token": "stub-pull"})
+elif "/manifests/" in (url or ""):
+    # Docker-Content-Digest on stdout, which is what `curl -D -` would do.
+    status = 200
+    digest = os.environ.get("STUB_SERVED_DIGEST", "")
+    if digest and dump_headers:
+        body = "HTTP/1.1 200 OK\r\nDocker-Content-Digest: " + digest + "\r\n\r\n"
+    else:
+        body = ""  # no header: "could not resolve a served digest"
+elif path == "/enroll":
     payload = json.loads(data or "{}")
     runner = payload.get("runner_name", "unknown")
     status = int(os.environ.get("STUB_ENROLL_STATUS", "200"))
@@ -197,6 +220,15 @@ class Spoke:
 
     def cycle_helper(self):
         return self.home / ".config" / "containers" / "devgate-image-cycle.sh"
+
+    def registry_digest_helper(self):
+        """The digest resolver the cycle and the heartbeat both source.
+
+        Installed as a SIBLING of the helpers (flat in $ENV_DIR), the same
+        resolution the fleet sweep uses for its gate — a library installed
+        under lib/ dies at runtime looking enroled.
+        """
+        return self.home / ".config" / "containers" / "registry-digest.sh"
 
     def cycle_units(self, runner):
         """(service, timer) for the image cycle, named per runner like the rest."""

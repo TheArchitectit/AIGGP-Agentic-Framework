@@ -194,6 +194,57 @@ sys.exit(125)
 '''
 
 
+# Answers the registry-digest dance the cycle and the heartbeat share
+# (scripts/lib/registry-digest.sh): the anonymous token endpoint becomes
+# {"token":"…"}; the manifests endpoint prints a Docker-Content-Digest line on
+# stdout (which is what `curl -D -` would do). STUB_SERVED_DIGEST names the
+# digest; empty means "the registry refused to say", which is the could-not-
+# check path. STUB_REGISTRY_UNREACHABLE=1 makes the hop fail outright.
+CURL_STUB = r'''#!/usr/bin/env python3
+import json, os, sys
+
+args = sys.argv[1:]
+url = None
+dump_headers = False
+i = 0
+while i < len(args):
+    a = args[i]
+    if a in ("-o", "--output", "-H", "--header", "-X", "--request",
+             "--max-time", "--connect-timeout", "-w", "--write-out"):
+        i += 2
+    elif a in ("-D", "--dump-header"):
+        if i + 1 < len(args) and args[i + 1] == "-":
+            dump_headers = True
+        i += 2
+    elif a.startswith("-"):
+        i += 1
+    else:
+        url = a
+        i += 1
+
+if os.environ.get("STUB_CURL_LOG"):
+    with open(os.environ["STUB_CURL_LOG"], "a") as fh:
+        fh.write(json.dumps({"url": url}) + "\n")
+
+if os.environ.get("STUB_REGISTRY_UNREACHABLE"):
+    sys.stderr.write("curl: (6) could not resolve host\n")
+    sys.exit(6)
+
+if url and "/token" in url:
+    sys.stdout.write(json.dumps({"token": "stub-pull"}))
+    sys.exit(0)
+
+if url and "/manifests/" in url:
+    digest = os.environ.get("STUB_SERVED_DIGEST", "")
+    if digest and dump_headers:
+        sys.stdout.write("HTTP/1.1 200 OK\r\nDocker-Content-Digest: " + digest + "\r\n\r\n")
+    sys.exit(0)
+
+sys.stderr.write("curl-stub: unhandled url %r\n" % (url,))
+sys.exit(22)
+'''
+
+
 class Host:
     """A fake runner host with podman stubbed on PATH."""
 
@@ -207,6 +258,14 @@ class Host:
         p = bindir / "podman"
         p.write_text(PODMAN_STUB, encoding="utf-8")
         p.chmod(0o755)
+        # The registry-digest dance (img-cycle-05) goes through curl. Existing
+        # convergence tests skip that hop (IMAGE_CYCLE_SKIP_ADVISORY=1 below);
+        # the advisory tests turn it back on and point this stub at
+        # STUB_SERVED_DIGEST. Without a stub, a skipped advisory is the only
+        # thing keeping the suite off the network.
+        c = bindir / "curl"
+        c.write_text(CURL_STUB, encoding="utf-8")
+        c.chmod(0o755)
         self.bindir = bindir
         # A provisioned host's store is a MOUNT that exists before anything
         # runs, so it exists here by default. `store_exists=False` models the
@@ -223,6 +282,10 @@ class Host:
             "COHERENCE_IMAGE": IMAGE,
             "COHERENCE_IMAGE_MANIFEST_DIGEST": RECORDED,
             "COHERENCE_PODMAN_STORE": self.store,
+            # Convergence tests are about the STORE, not the registry. The
+            # advisory below is exercised by its own tests with this turned
+            # off and STUB_SERVED_DIGEST set.
+            "IMAGE_CYCLE_SKIP_ADVISORY": "1",
         }
         self.env.update({k: str(v) for k, v in knobs.items()})
         self.attach(REF)  # a host that already has the pinned image
