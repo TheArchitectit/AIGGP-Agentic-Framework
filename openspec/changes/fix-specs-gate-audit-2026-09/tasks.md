@@ -246,18 +246,29 @@ disposition rule this package set.
 
 ## HIGH — containerized coherence path not rebuilt and re-pinned
 
-- [ ] **OPEN — out of scope for this package.** The evaluator image must be
+- [x] **OPEN — out of scope for this package.** The evaluator image must be
       rebuilt and its identity re-pinned before the coherence-service package is
       a safe unification baseline. This is a merge-gate item on that package
       (the trio: rebuild, re-pin, execute), not a spec-format defect. This branch
       makes no claim about it and does not mark it resolved.
+      (SUPERSEDED 2026-09-28 by `fix-coherence-container-contract` 2.1/2.2:
+      rebuilt (`--timestamp 0`), identity re-pinned through
+      `scripts/re-pin-evaluator-identity.sh` to the registry-served
+      `sha256:66190f5a…` (`9fd87ee`/`ef6e8aa`), and executed —
+      `tests/test_hub_coherence_container_real.py` 3/3 against that pin:
+      schemas-present, valid-request PASS, honest exit-30. The trio is closed;
+      this audit's deferral is no longer accurate and is marked so.)
 
 ## HIGH — coherence change delivered but not accepted (31 open items)
 
-- [ ] **OPEN — separate lifecycle event.** Package acceptance is a docs/qa
+- [x] **OPEN — separate lifecycle event.** Package acceptance is a docs/qa
       decision with its own record. What this branch changes is that the spec
       tree is now strict-green, which removes the format barrier that stood in
       front of that decision. It does not perform the acceptance.
+      (SUPERSEDED 2026-09-28: the acceptance happened out of band —
+      `docs/qa/2026-09-28-spec-coherence-service-acceptance.md` (DEP-001,
+      commit `40d2998`) and the S3 demo acceptance at `30aa60d`. The 31-open
+      snapshot this finding cites is stale.)
 
 ## MEDIUM — AIGGP-02 overlap unreconciled
 
@@ -562,6 +573,14 @@ pin, in push order.
       unmonitored under the two-tier label rule); the repo-side question —
       whether the monitor should alert on a GH-online runner whose host row
       is absent — needs a spec call before code. Recorded, not acted on.
+      (OWNER-GATED 2026-09-28: measured and recorded; still open — this
+      package does not pre-empt the spec call. Decision for the architect
+      when ready —
+      (A) monitor alerts when a GH-online runner has no host row (new
+      `mon-*` requirement + alert class); (B) two-tier label rule is
+      explicit policy and such runners are deliberately unmonitored
+      (document the allowlist, no code); (C) re-enroll the missing 13 on
+      ucs03 as provisioning, no spec change. Not blocking the drain.)
 - [ ] **Private-repo hosted risk, measured: every spoke token on ucs03 is
       readable by every CI job on ucs03.** Evidence pass (read-only, no token
       values touched): the hub's `heartbeat_token` is the *only* credential on
@@ -583,6 +602,15 @@ pin, in push order.
       heartbeat credential so token theft degrades to false-health, not
       fleet kill. Recorded with measurements, not acted on — touches live
       hosts and the mon-enroll-01 auth contract.
+      (OWNER-GATED 2026-09-28: measured and recorded; still open — this
+      package does not touch a live host or the mon-enroll-01 contract.
+      Decision for the architect when ready —
+      (A) per-runner UIDs on shared hosts (structural; touches live
+      provisioning and the spawn story for systemd --user);
+      (B) hub-side split of revoke-vs-heartbeat credentials (stopgap;
+      changes mon-enroll-01's auth contract, needs its own openspec);
+      (C) accept the co-resident exposure under the two-tier label rule
+      and document it as a known lateral limit. Not blocking the drain.)
 
 ## Zig gate-work review (2026-09-26) — another session's batch, audited here
 
