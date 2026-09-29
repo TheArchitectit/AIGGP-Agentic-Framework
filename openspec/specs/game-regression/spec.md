@@ -1,10 +1,8 @@
-# Game Regression Tracking
-
-Status: Proposed. Enforcement layer invoked by game-type-phase-matrix.
+# Game-class regression scanning
 
 ## Purpose
 
-Track game-class runtime failures (null derefs, scene-load failures, save corruption, orphaned signals, determinism breaks, perf regressions) as an append-only project registry, and block changes that re-introduce a registered failure. The registry is shared by `scripts/log_failure.py` and the regression scanner.
+Track game-class runtime failures (null derefs, scene-load failures, save corruption, orphaned signals, determinism breaks, perf regressions) as an append-only project registry, and block changes that re-introduce a registered failure. The registry is shared by `scripts/log_failure.py` and the regression scanner: an append-only `.guardrails/failure-registry.jsonl` — one JSON object per bug/failure, never edited, only appended via `scripts/log_failure.py`.
 
 ## Requirements
 
@@ -42,30 +40,48 @@ any further divergence as a regression.
 - **WHEN** a crash is reported without seed or trace
 - **THEN** the gate refuses to mark it a regression and demands a seeded replay
 
-## Registry
-Append-only `.guardrails/failure-registry.jsonl` — one JSON object per bug/failure.
-Never edit existing entries; append only via `scripts/log_failure.py`.
+### Requirement: Game-class pattern scan
+<!-- id: game-reg-01 -->
+The game regression scanner SHALL scan changed or discovered source files
+against its built-in game-class pattern families (NULL_DEREF, SCENE_LOAD_FAIL,
+SAVE_CORRUPT, SCRIPT_ERROR, ORPHAN_SIGNAL) and SHALL report each hit with
+pattern class, file, and line. With `--pre-commit` it SHALL exit non-zero when
+any issue is found.
 
-Game-class patterns tracked (beyond generic DevGate):
-- NULL_DEREF / NPE at runtime
-- SCENE_LOAD_FAIL — scene fails to instantiate
-- SAVE_CORRUPT — save/load round-trip breaks
-- SCRIPT_ERROR — engine script runtime error
-- ORPHAN_SIGNAL — button/signal with no handler
-- DETERMINISM_BREAK — seeded run diverges
-- PERF_REGRESSION — frame time / memory exceeds budget
+#### Scenario: orphaned signal detected
+- **WHEN** a scanned source line connects a `pressed` signal in the pattern
+  family ORPHAN_SIGNAL targets
+- **THEN** the scanner reports the ORPHAN_SIGNAL hit with file and line
 
-## Regression scanner
-`scripts/game_regression_check.py` — scans staged/unstaged changes against the registry
-patterns + file-size limits + prevention rules. `--pre-commit` exits nonzero on blockers.
-Soft-as-hard headroom: promote soft violations to blocking for files changed since prior
-release tag (mirror DevGate regression_check.py).
+#### Scenario: pre-commit blocking
+- **WHEN** the scanner runs with `--pre-commit` and finds issues
+- **THEN** it exits 1 after printing the summary
 
-## Determinism accommodation
-A gameplay run is only a regression candidate if seed + input trace are logged. Gate requires
-seed-logged replay for any gameplay-crash entry.
+### Requirement: Registry patterns honor scoping and annotations
+<!-- id: game-reg-02 -->
+Registry-sourced regression patterns SHALL apply only to files matching their
+`file_glob`, SHALL skip lines carrying a matching `guardrails-allow`
+annotation, and SHALL honor the project's `.guardrailsignore`; a `*.go`-scoped
+registry pattern SHALL not fire on a markdown file quoting it.
 
-## Seeding
-Port from reference: Sword of Hope `scripts/regression_check.py`, `.guardrails/failure-registry.jsonl`,
-`prevention-rules`, `b8_polish_verify.py`. Generic byte/file-size logic stays in DevGate; this
-module adds the game-class patterns and screen/save/determinism hooks.
+#### Scenario: glob-scoped registry pattern
+- **WHEN** a registry entry is scoped `file_glob: ["*.go"]` and a `.md` file
+  quotes its pattern
+- **THEN** the scanner does not report the markdown file
+
+#### Scenario: annotated line suppressed
+- **WHEN** a line carries `// guardrails-allow FAIL-<id>: <reason>` for the
+  matching registry pattern
+- **THEN** the scanner does not report that line
+
+### Requirement: Empty scope is not a pass
+<!-- id: game-reg-03 -->
+When the scan scope evaluates zero files the scanner SHALL print an explicit
+NOTHING SCANNED notice and never a clean-pass line; `--fail-if-empty` SHALL
+turn the empty scope into exit 2 for CI, and the default empty-scope exit
+SHALL remain 0 so non-game consumers are not blocked.
+
+#### Scenario: empty project
+- **WHEN** the scanner runs against a project with no matching source files
+- **THEN** it prints NOTHING SCANNED and exits 0, or exits 2 with
+  `--fail-if-empty`

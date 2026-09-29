@@ -4,7 +4,7 @@
 Engine-aware: detects the project engine (game-manifest.json, else project
 files) and dispatches to the matching scanner.
 
-  Godot        — discovers .tscn files under src/, parses Button nodes and their
+Godot        — discovers .tscn files under src/, parses Button nodes and their
                  'pressed' signal connections, reports orphaned signals.
   Zig + OpenGL — discovers .zig UI screens under src/ui/, validates handler
                  bindings declared alongside .label buttons.
@@ -13,9 +13,11 @@ Ported from Sword of Hope's scene_load_check.gd, generalized to be
 engine-agnostic. Zig + OpenGL support imported from the former
 devgate-game-framework repository (merged 2026-09-26).
 
-Exit codes: 0 = all scenes pass, 1 = any scene/button failure.
+Exit codes: 0 = all scenes pass, 1 = any scene/button failure, 2 = usage error.
+A scope that discovered zero scenes is reported as NOTHING SCANNED, never as a
+clean pass; --fail-if-empty turns it into exit 2 for CI (no-vacuous-green).
 """
-import json, os, re, sys, xml.etree.ElementTree as ET
+import argparse, json, re, sys
 from pathlib import Path
 
 # Project root by LAYOUT CONTRACT — the same shared rule as regression_check.py
@@ -45,36 +47,53 @@ def detect_engine(root):
         return "Godot"
     if (root / "build.zig").exists():
         return "Zig + OpenGL"
+    # A tree whose only engine signal is the scenes themselves is still Godot —
+    # otherwise a project with just .tscn files is invisible to the scan.
+    try:
+        next(root.rglob("*.tscn"))
+        return "Godot"
+    except StopIteration:
+        pass
     return "unknown"
 
 # === GODOT SCANNER ===
 
 def discover_scenes_godot(root):
-    """Find all .tscn files under src/ — mirrors SoH's _discover_scenes()."""
+    """Find .tscn files under the project's scene trees.
+
+    src/ is the primary convention (mirrors SoH's _discover_scenes()), with
+    scenes/ and the project root also scanned so a standard Godot layout
+    (res://scenes/…) is not invisible to the gate.
+    """
     scenes = []
-    src = root / "src"
-    if not src.is_dir():
-        return scenes
-    for p in sorted(src.rglob("*.tscn")):
-        scenes.append(str(p.relative_to(root)))
+    roots = [root / "src", root / "scenes"]
+    for r in roots:
+        if r.is_dir():
+            for p in sorted(r.rglob("*.tscn")):
+                rel = str(p.relative_to(root))
+                if rel not in scenes:
+                    scenes.append(rel)
+    for p in sorted(root.glob("*.tscn")):
+        rel = str(p.relative_to(root))
+        if rel not in scenes:
+            scenes.append(rel)
     return scenes
 
 def parse_tscn_buttons(scene_path):
-    """Parse a .tscn file for Button nodes and their signal connections.
+    """Parse a .tscn file (Godot's text scene format — NOT XML) for Button
+    nodes and their signal connections.
 
-    Returns: list of {node, signal, target, method} dicts.
+    Returns: (buttons, connections, orphaned).
     A button with a 'pressed' signal but no connected handler = orphaned.
-    """
-    try:
-        tree = ET.parse(scene_path)
-    except Exception:
-        return [], "parse error"
 
+    History (QA C1): this function used to call xml.etree.ElementTree.parse
+    FIRST, which raises on every valid .tscn — so every scene reported
+    "parse error" and the regex parser below was unreachable dead code. The
+    regex parser is the real implementation.
+    """
     buttons = []
     connections = []
-    # .tscn is not real XML but has ExtResource/InternalResource blocks
-    # Parse with regex instead
-    text = Path(scene_path).read_text(errors="replace")
+    text = Path(scene_path).read_text(encoding="utf-8", errors="replace")
 
     # Find Button nodes
     for m in re.finditer(r'\[node\s+name="([^"]+)"[^]]*type="Button"', text):
@@ -89,34 +108,31 @@ def parse_tscn_buttons(scene_path):
             "method": m.group(4),
         })
 
-    # Find orphaned buttons: Button nodes with no 'pressed' connection
-    connected = {c["from"] for c in connections if c["signal"] == "pressed"}
+    # Find orphaned buttons: Button nodes with no 'pressed' connection.
+    # Connections carry NODE PATHS ("Panel/PlayButton"); buttons carry bare
+    # node names — compare on the last path segment so a nested button is not
+    # false-reported as orphaned (QA C1 follow-on).
+    connected = {c["from"].rsplit("/", 1)[-1]
+                 for c in connections if c["signal"] == "pressed"}
     orphaned = [b for b in buttons if b not in connected]
 
     return buttons, connections, orphaned
 
-def scan_godot(root):
+def scan_godot(root, fail_if_empty=False):
     root = Path(root)
     scenes = discover_scenes_godot(root)
 
     if not scenes:
-        print(f"[scene-inventory] no .tscn scenes found under src/ — nothing to scan")
-        return 0
+        print("[scene-inventory] NOTHING SCANNED — no .tscn scenes found under src/")
+        return 2 if fail_if_empty else 0
 
-    print(f"[scene-inventory] discovered {len(scenes)} scene(s) under src/")
+    print(f"[scene-inventory] discovered {len(scenes)} scene(s)")
     failures = 0
     orphan_count = 0
 
     for scene in scenes:
         full = root / scene
-        result = parse_tscn_buttons(full)
-
-        if isinstance(result, tuple) and len(result) == 3:
-            buttons, connections, orphaned = result
-        else:
-            print(f"  FAIL {scene}: parse error")
-            failures += 1
-            continue
+        buttons, connections, orphaned = parse_tscn_buttons(full)
 
         status = "OK"
         if orphaned:
@@ -202,11 +218,11 @@ def parse_zig_handlers(screen_path):
     orphans = [h for h in handlers if h not in button_handlers]
     return buttons, handlers, orphans
 
-def scan_zig(root):
+def scan_zig(root, fail_if_empty=False):
     screens = discover_zig_screens(root)
     if not screens:
-        print("[scene-inventory] no Zig UI screens found under src/ui/")
-        return 0
+        print("[scene-inventory] NOTHING SCANNED — no Zig UI screens found under src/ui/")
+        return 2 if fail_if_empty else 0
 
     print(f"[scene-inventory] discovered {len(screens)} Zig screen(s) under src/ui/")
     failures = 0
@@ -236,23 +252,30 @@ def scan_zig(root):
 
 # === MAIN DISPATCH ===
 
-def scan_project(root):
+def scan_project(root, fail_if_empty=False):
     root = Path(root)
     engine = detect_engine(root)
     print(f"[scene-inventory] detected engine: {engine}")
 
     if engine == "Zig + OpenGL":
-        return scan_zig(root)
+        return scan_zig(root, fail_if_empty=fail_if_empty)
     if engine == "Godot":
-        return scan_godot(root)
+        return scan_godot(root, fail_if_empty=fail_if_empty)
     # Fall back to markers when the manifest is absent or names an unknown engine.
     if (root / "project.godot").exists():
-        return scan_godot(root)
+        return scan_godot(root, fail_if_empty=fail_if_empty)
     if (root / "build.zig").exists():
-        return scan_zig(root)
-    print(f"[scene-inventory] unknown engine — no scenes to scan")
-    return 0
+        return scan_zig(root, fail_if_empty=fail_if_empty)
+    print("[scene-inventory] NOTHING SCANNED — unknown engine, no scenes to scan")
+    return 2 if fail_if_empty else 0
 
 if __name__ == "__main__":
-    print(f"[scene-inventory] project root: {PROJECT_ROOT}")
-    sys.exit(scan_project(PROJECT_ROOT))
+    ap = argparse.ArgumentParser(description="Scene inventory + button handler validation")
+    ap.add_argument("--root", default=None,
+                    help="project root (default: layout-contract PROJECT_ROOT)")
+    ap.add_argument("--fail-if-empty", action="store_true",
+                    help="turn a zero-scene scope into exit 2 (no-vacuous-green)")
+    args = ap.parse_args()
+    root = Path(args.root) if args.root else PROJECT_ROOT
+    print(f"[scene-inventory] project root: {root}")
+    sys.exit(scan_project(root, fail_if_empty=args.fail_if_empty))

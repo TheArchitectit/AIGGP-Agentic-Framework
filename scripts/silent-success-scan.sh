@@ -71,7 +71,9 @@ rules_path, allowlist_path = sys.argv[1], sys.argv[2]
 
 # DevGate lives at <project>/.devgate, so the scan target is the PROJECT root
 # (the parent) when that is where the source lives; fall back to the DevGate root
-# for a standalone checkout.
+# for a standalone checkout. SILENT_SUCCESS_SCAN_ROOT overrides the target —
+# the canary test uses it to prove this gate FAILS on a planted violation
+# (a gate that cannot fail is decoration, not a gate).
 devgate_root = Path.cwd()
 # SILENT_SUCCESS_SCAN_ROOT overrides the scan target — the canary test uses
 # it to prove this gate FAILS on a planted violation (a gate that cannot

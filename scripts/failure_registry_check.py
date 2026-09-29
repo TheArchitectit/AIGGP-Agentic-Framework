@@ -134,6 +134,12 @@ def check(registry_path: Path | None = None) -> tuple[int, list[str]]:
     devgate_root = Path(__file__).resolve().parent.parent
 
     if registry_path is not None:
+        # An EXPLICITLY named registry that does not exist is a configuration
+        # error, never a skip (audit finding: a typo'd FAILURE_REGISTRY_PATH
+        # yielded zero entries, zero errors, exit 0 — a vacuous green from the
+        # hygiene gate itself). The old guard only covered the "devgate" label.
+        if not registry_path.exists():
+            return 1, [f"registry not found: {registry_path}"]
         sources = [("registry", registry_path, project_root)]
     else:
         sources = [("devgate", devgate_root / ".guardrails" / "failure-registry.jsonl", devgate_root)]

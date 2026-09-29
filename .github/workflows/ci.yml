@@ -43,7 +43,7 @@ jobs:
     name: Test suite (Python + Node)
     runs-on: ubuntu-latest
     steps:
-      # fetch-depth 0: the template's DEVGATE_PIN is checked here against the
+# fetch-depth 0: the template's DEVGATE_PIN is checked here against the
       # registry IN THAT COMMIT's tree (test_the_pinned_commit_carries_the_
       # pinned_identity) — a shallow clone cannot see the object and the guard
       # would degrade into a "cannot evaluate" pass.
@@ -62,7 +62,7 @@ jobs:
         run: python3 -m pytest tests/ -v
       - name: guardrails scanner fixture suite
         run: node tests/test_guardrails_scan.mjs
-      # The Python root-anchor suite pins the PYTHON scanners
+# The Python root-anchor suite pins the PYTHON scanners
       # (regression_check / scene_inventory / failure_registry_check). It
       # never superseded the Node fixture below — the comment that claimed
       # otherwise was written when 9c19259 deleted that fixture, and left
@@ -108,7 +108,7 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "20"
-      - name: Install pytest (test floors need collection)
+# Install pytest (test floors need collection)
         run: python3 -m pip install --quiet pytest
       - name: Pattern scan (own tree must be warning-clean)
         run: node scripts/guardrails-scan.mjs
@@ -132,7 +132,7 @@ jobs:
         run: bash scripts/silent-success-scan.sh
       - name: Failure-registry hygiene
         run: python3 scripts/failure_registry_check.py
-      # rule-truth-01 (design D7): an enabled rule with no executing checker
+# rule-truth-01 (design D7): an enabled rule with no executing checker
       # is dead coverage presented as live. This gate fails on it, on rules
       # files that no longer validate, and on enabled rules missing a message
       # or severity — the check the 2026-09-13 audit found missing.
@@ -257,8 +257,7 @@ jobs:
       # Hard gate since migrate-specs-to-openspec-conventions: the whole tree
       # (specs + changes) validates strict, and both parsers agree on
       # requirement counts (spec-fmt-01).
-      #
-      # PINNED ON PURPOSE. This was `@fission-ai/openspec` unpinned, so the gate
+# PINNED ON PURPOSE. This was `@fission-ai/openspec` unpinned, so the gate
       # moved under the tree whenever upstream published: a new rule could turn
       # a green branch red (or, worse, a relaxation could turn a red tree green)
       # with no commit on our side. Bump deliberately, and re-run the negative

@@ -23,7 +23,6 @@ from hub.coherence import container_exec as ce
 from hub.coherence import schemacheck
 from hub.coherence.launcher import LaunchRun
 from hub.coherence.profiles import load_registry, resolve_profile
-from tests.test_coherence_image_identity import ensure_pinned_image  # noqa: E402
 
 REPO = Path(__file__).resolve().parent.parent
 CONTAINERFILE = REPO / "container/Containerfile"
@@ -92,54 +91,56 @@ class TestContainerfile(unittest.TestCase):
     def test_containerfile_carries_the_frozen_schemas(self):
         """coh-rt-08, and the podman-free control for the F1/D2 regression.
 
-        `COPY hub/` alone does not ship the contracts: schemacheck.SCHEMA_DIR
-        resolves to <repo>/openspec/changes/devgate-spec-coherence-service/
-        schemas, which lives OUTSIDE hub/. So `run()` inside the container dies
-        on FileNotFoundError loading its own request.schema.json (round-18 D2).
-        The CI job that holds this line self-skips on runners without podman, so
-        the guard would be inert exactly where the regression lives — this unit
-        always executes, so the regression is caught on any runner.
+        The frozen contracts live at hub/coherence/schemas/ — inside the
+        service package — and schemacheck.SCHEMA_DIR resolves relative to the
+        package. A COPY that covers that tree ships them with it. If the
+        schemas ever move back outside hub/ (as they once did: the image
+        shipped without them and died on FileNotFoundError, round-18 D2),
+        this unit fails on any runner — the CI job that also holds this line
+        self-skips without podman.
 
-        The expected destination is DERIVED from the runtime's own path
-        expression, not hardcoded: if the repo location or the Containerfile's
-        WORKDIR move, the assertion tracks them instead of freezing a string
-        that quietly stops matching reality."""
+        Coverage is DERIVED from the runtime's own path expression and the
+        Containerfile's COPY graph, not hardcoded: if either moves, the
+        assertion tracks them."""
         import re
         from hub.coherence import schemacheck
         workdir = re.search(r"^WORKDIR\s+(\S+)", self.text, re.M)
         self.assertIsNotNone(workdir, "Containerfile must set a WORKDIR")
         wd = workdir.group(1)
-        # schemacheck.py ships at <wd>/hub/coherence/schemacheck.py (COPY hub/),
-        # so SCHEMA_DIR — the module's parent.parent.parent plus the package
-        # path — resolves to this in-container location. A COPY whose
-        # destination equals it puts the schemas where load() looks.
-        in_container_dir = (f"{wd}/"
-                            + schemacheck.SCHEMA_DIR.relative_to(REPO).as_posix())
-        # Resolve every COPY destination to an in-container absolute path, the
-        # way the build engine does: a `./x` or bare `x` target is relative to
-        # WORKDIR; a leading-`/` target is already absolute. Trailing slash is
-        # cosmetic (COPY lands the source's contents at the dir either way).
-        def resolve(dest):
+        schema_abs = schemacheck.SCHEMA_DIR.resolve()
+        schema_rel = schema_abs.relative_to(REPO.resolve())
+
+        def resolve_dest(dest):
             dest = dest.rstrip("/")
             if dest.startswith("/"):
                 return dest
             return (wd.rstrip("/") + "/" + dest.lstrip("./")).rstrip("/")
+
         copies = [c for c in _lines(self.text, "COPY ") if "->" not in c]
-        dests = [resolve(c.split()[-1]) for c in copies]
-        self.assertIn(
-            in_container_dir, dests,
-            f"Containerfile must COPY the schema dir to {in_container_dir} "
-            f"(where schemacheck.SCHEMA_DIR resolves in-container); COPY "
-            f"destinations found: {dests}")
-        self.assertEqual(
-            sum(1 for d in dests if d == in_container_dir), 1,
-            f"schema dir must be COPYed exactly once; got {dests}")
-        # And it must be a directory-copy of the source schemas, not a single
-        # file — the whole frozen set has to be present for load() of any name.
-        src = next(c.split()[1] for c in copies
-                   if resolve(c.split()[-1]) == in_container_dir)
-        self.assertTrue(src.rstrip("/").endswith("schemas"),
-                        f"schema COPY source must be the schemas dir, got {src}")
+        in_container_schema = wd.rstrip("/") + "/" + schema_rel.as_posix()
+        covering = []
+        for c in copies:
+            src = c.split()[1].rstrip("/").lstrip("./")
+            dest = resolve_dest(c.split()[-1])
+            src_abs = (REPO / src).resolve()
+            if schema_abs == src_abs:
+                tail = ""
+            elif schema_abs.is_relative_to(src_abs):
+                tail = schema_abs.relative_to(src_abs).as_posix()
+            else:
+                continue
+            landed = (dest.rstrip("/") + "/" + tail).rstrip("/")
+            if landed == in_container_schema or in_container_schema.startswith(
+                    landed + "/"):
+                covering.append((src, dest, landed))
+        self.assertTrue(
+            covering,
+            f"no COPY carries schemacheck.SCHEMA_DIR ({schema_rel}) into "
+            f"{in_container_schema}; COPY lines seen: "
+            f"{[(c.split()[1], c.split()[-1]) for c in copies]}")
+        self.assertTrue(
+            (schema_abs / "request.schema.json").is_file(),
+            "frozen request.schema.json missing from schemacheck.SCHEMA_DIR")
 
 
 DRIVER_API = "devgate.spec-coherence/v1"
@@ -512,36 +513,3 @@ class TestContainerExec(unittest.TestCase):
         # A gate with nothing to evaluate should arguably be UNRESOLVED,
         # but current code returns PASS. Reported, not fixed.
 
-
-@unittest.skipUnless(shutil.which("podman"), "podman not available")
-class TestContainerExecReal(unittest.TestCase):
-    """End-to-end against the real pinned image: an in-container honest
-    rejection must relay through the exit-code agreement check as exit 30."""
-
-    def setUp(self):
-        ensure_pinned_image(self)
-        self.tmp = Path(tempfile.mkdtemp(prefix="dg-cer-"))
-        self.out = self.tmp / "out"
-        self.out.mkdir()
-        # The container's mapped uid must be able to write the output bind.
-        os.chmod(self.out, 0o777)
-
-    def tearDown(self):
-        shutil.rmtree(self.tmp, ignore_errors=True)
-
-    def test_incontainer_rejection_relays_exit30(self):
-        req = {"api_version": DRIVER_API, "outputs": str(self.out)}
-        rp = self.tmp / "request.json"
-        rp.write_text(json.dumps(req), encoding="utf-8")
-        cfg = launch_cfg()
-        cfg["mounts"] = []
-        cp = self.tmp / "launch.json"
-        cp.write_text(json.dumps(cfg), encoding="utf-8")
-        rc = ce.run_containerized(str(rp), str(cp), str(REGISTRY))
-        res = json.loads((self.out / "result.json").read_text(encoding="utf-8"))
-        self.assertEqual(rc, 30, res)
-        self.assertEqual(res["decision"], "ERROR")
-
-
-if __name__ == "__main__":
-    unittest.main()

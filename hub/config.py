@@ -41,8 +41,23 @@ class Config:
     queue_threshold_min: float = 30.0     # mon-queue-01 default, per-runner override
     drift_grace_min: float = 10.0         # mon-drift-01 grace window
     drift_workflow_match: str = "drift"   # config-provided name pattern (spec does not name it)
-    coherence_workflow_match: str = "coherence"  # separate matcher: the two must not shadow each other (coh-int-07)
+    # Coherence gate workflow name pattern (coh-int-02, S6): check-runs whose
+    # name matches this are the coherence evidence channel on watched
+    # branches; a failing conclusion raises "coherence_failure" and ABSENCE
+    # raises "coherence_absent" (default-deny — the gate may not silently
+    # stop existing, mirroring the drift-scan convention).
+    coherence_workflow_match: str = "coherence"
+    # "default" is a SENTINEL, not a branch name: the monitor resolves it to
+    # the repo's actual default branch via the API each cycle (F6 — the old
+    # hardcoded literal silently 404'd the gate-results check on every
+    # default deployment). Replace with explicit branch names to pin.
     watched_branches: list[str] = field(default_factory=lambda: ["default"])
+
+    # Maximum accepted JSON request body, bytes (F9): Content-Length above
+    # this is rejected with 413 before any read — an unauthenticated request
+    # must not be able to force an unbounded buffer. Default is the hub's
+    # hardcoded ceiling; operators may only lower it (stricter wins).
+    max_body_bytes: int = 65536
 
     # Minimum seconds between recurrence comments on the same open issue.
     # Without this the poll loop re-comments every cycle and trips GitHub's
@@ -87,6 +102,8 @@ class Config:
             cfg.coherence_workflow_match = v
         if v := os.environ.get("HUB_WATCHED_BRANCHES"):
             cfg.watched_branches = [b for b in v.split(",") if b]
+        if v := os.environ.get("HUB_MAX_BODY_BYTES"):
+            cfg.max_body_bytes = int(v)
         if v := os.environ.get("GITHUB_API_BASE"):
             cfg.github_api_base = v
         if v := os.environ.get("HUB_POLL_INTERVAL_SEC"):
@@ -94,6 +111,7 @@ class Config:
         if v := os.environ.get("HUB_COMMENT_COOLDOWN_SEC"):
             cfg.comment_cooldown_sec = float(v)
         return cfg
+
     def __post_init__(self):
         # Boundary: the spec requires github_issue or null; a misspelling or a
         # typo like "github_issues" (plural) is a silent misconfiguration

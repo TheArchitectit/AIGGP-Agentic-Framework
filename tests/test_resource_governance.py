@@ -58,7 +58,7 @@ class TestRunCapped(unittest.TestCase):
     def test_runaway_output_is_truncated_not_absorbed(self):
         """A process spewing output forever must be capped — the harness
         survives with truncated output and a flag, not OOM."""
-        # ~1MB of output from a ONE-LINE program. The cap under test is
+# ~1MB of output from a ONE-LINE program. The cap under test is
         # 100_000 bytes, so the bomb only has to exceed it — it does not have
         # to be 5,000 lines of source. It used to be ("print('x'*1000)\n" *
         # 5000), which is a 110KB command line: above the 32767-character
@@ -194,7 +194,7 @@ class TestResourceAuditScript(unittest.TestCase):
         r = subprocess.run(
             [sys.executable, str(script), "--budget-seconds", "1",
              sys.executable, "-c", "while True: pass"],
-            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
+capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120)
         self.assertEqual(r.returncode, 30)
         import json
         rep = json.loads(r.stdout)

@@ -1,10 +1,15 @@
-# Spec: Publish leg safety
+# Publish leg safety
 
 ## Purpose
 
 Make the publish leg of the release pipeline idempotent and safe: exactly-once upload semantics and honest failure behavior.
 
 ## Requirements
+
+The deploy pipeline orders every reversible step before the one immutable publish: clean tree, gates, version bump, commit, tag, push, tag-reached-remote verification, and artifact verification all precede publishing, so any failure aborts with nothing published.
+
+
+
 
 ### Requirement: Upload exactly once
 <!-- id: rel-upload-01 -->

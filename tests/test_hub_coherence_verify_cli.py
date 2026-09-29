@@ -22,6 +22,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from hub.coherence import attest, canon
+from hub.coherence.attest_base import _signed_statement
 from tests.fixtures.coherence import fixtures as fx
 
 REPO = Path(__file__).resolve().parent.parent
@@ -100,9 +101,12 @@ class TestVerificationCLI(unittest.TestCase):
             att["bound"]["subject_digest"] = "sha256:" + "9" * 64
             unsigned = dict(att)
             unsigned.pop("signature")
+            statement = _signed_statement(
+                att["statement_digest"], att["bound"], att["signer"],
+                att.get("issued_at"))
             att["signature"] = attest.SIGNATURE_PREFIX + hmac.new(
                 bytes.fromhex("a" * 64),
-                canon.canon(unsigned), hashlib.sha256).hexdigest()
+                statement, hashlib.sha256).hexdigest()
             ap.write_text(json.dumps(att), encoding="utf-8")
             # The result is untouched, so step 7 (statement digest) cannot
             # fire — only the bound-digest loop can reject this.
@@ -138,9 +142,12 @@ class TestVerificationCLI(unittest.TestCase):
                 "decision/v1", b"a different decision entirely")
             unsigned = dict(att)
             unsigned.pop("signature")
+            statement = _signed_statement(
+                att["statement_digest"], att["bound"], att["signer"],
+                att.get("issued_at"))
             att["signature"] = attest.SIGNATURE_PREFIX + hmac.new(
                 bytes.fromhex("a" * 64),
-                canon.canon(unsigned), hashlib.sha256).hexdigest()
+                statement, hashlib.sha256).hexdigest()
             ap.write_text(json.dumps(att), encoding="utf-8")
             r = self._verify(out, self._signer_set_path(td))
             self.assertEqual(r.returncode, 1,
@@ -271,7 +278,7 @@ class TestPromotionBinding(unittest.TestCase):
                                 "fixture defect: the two runs must differ")
 
             # D1's run is intact and verifies on its own terms...
-            self.assertTrue(attest.verify(str(d1), self._signer_set())[0])
+            self.assertTrue(attest.verify_run(str(d1), self._signer_set())[0])
             # ...but it does NOT authorize promoting D2.
             ok, reason = attest.verify_promotion(
                 str(d1), self._signer_set(), d2_bound["subject_digest"])

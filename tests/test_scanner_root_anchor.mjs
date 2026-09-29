@@ -33,7 +33,7 @@
 // Run: node tests/test_scanner_root_anchor.mjs
 
 import { spawnSync } from "node:child_process";
-import { copyFileSync, cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -448,3 +448,11 @@ if (failures) {
 	process.exit(1);
 }
 console.log("\nall root-anchor checks passed");
+// DROPPED: the audit side carried a second, much smaller fixture (2 cases:
+// semantic-scan counts 1 file under a sibling tree; run-tests finds 1 test
+// file). Both are true copy-paste subsets of the 9-case fixture above (case 1
+// = ours' case 1, case 2 = ours' case 2) and assert the same contract with
+// weaker discriminating power — no marker-bearing parent, no non-vacuity
+// case, no cwd-independence case, no case-exact marker case, and no
+// filesystem-independence probe. Keeping it would duplicate coverage; the
+// union of cases is already covered by the authoritative fixture.

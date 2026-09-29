@@ -51,9 +51,13 @@ class TestStaticDefaultDeny(unittest.TestCase):
         # seal_run executes inside it — without that forwarding no
         # containerized Stage-2 run can ever sign. It forwards only the three
         # named signer vars, only when the host holds them.
+        # attest_base.py joined 2026-09-28 (the sigil split): it IS the
+        # signing module — attest.py's key-material half, shared by the
+        # detached-S5 and run-sealing chains. Same secret holders, same
+        # allowlist decision; it is not a new reader on the evaluation path.
         for p in sorted((REPO / "hub/coherence").glob("*.py")):
-            if p.name in ("issue.py", "attest.py", "retention.py",
-                          "__main__.py", "container_exec.py"):
+            if p.name in ("issue.py", "attest.py", "attest_base.py",
+                          "retention.py", "__main__.py", "container_exec.py"):
                 continue
             self.assertNotIn("os.environ", p.read_text(encoding="utf-8"),
                              f"{p.name} reads the environment")
@@ -301,3 +305,36 @@ class TestAtomicArtifactExport(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestHostileInputEnvelope(unittest.TestCase):
+    """fw-rt-01 regression: pathologically deep JSON nesting raises
+    RecursionError from the stdlib parser (a RuntimeError — outside every
+    stage handler's except tuple). The envelope contract says a malformed
+    request yields the documented invalid-input envelope, never a raw
+    traceback with an undocumented exit code. Verified through the real
+    CLI, which also exercises the main() backstop."""
+
+    def test_deep_request_yields_envelope_not_traceback(self):
+        import os
+        import subprocess
+        with tempfile.TemporaryDirectory() as td:
+            req = Path(td) / "request.json"
+            # Building the fixture via json.dumps would itself recurse, so
+            # write the pathological text directly.
+            req.write_text('{"a":' * 100_000 + "{}" + "}" * 100_000)
+            r = subprocess.run(
+                [sys.executable, "-m", "hub.coherence", "--request", str(req)],
+                capture_output=True, text=True, timeout=120,
+                env={**os.environ, "PYTHONPATH": str(REPO)})
+            self.assertEqual(r.returncode, 30,
+                             "deep-nesting request must exit invalid-input")
+            self.assertNotIn("Traceback", r.stderr,
+                             "no raw traceback may escape the CLI boundary")
+            envelope = Path(td) / "result.json"
+            self.assertTrue(envelope.exists(),
+                            "the invalid-input envelope must be written "
+                            "beside the request")
+            payload = json.loads(envelope.read_text())
+            self.assertEqual(payload["decision"], "ERROR")
+            self.assertEqual(payload["error"]["class"], "invalid-input")

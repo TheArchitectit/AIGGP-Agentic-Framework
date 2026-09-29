@@ -1,6 +1,6 @@
 # Tasks: ai01-runner-monitor implementation (dependency-ordered)
 
-Implements the archived change `2026-09-13-ai01-runner-monitor` (design D1–D7,
+Implements the archived change `2026-09-13-runner-monitor` (design D1–D7,
 Sprints 1–6). No spec deltas expected — the requirements are already live in
 `openspec/specs/{hub-architecture,runner-monitoring,enrollment-and-alerting}/`.
 

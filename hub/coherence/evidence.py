@@ -153,9 +153,16 @@ def verify(output_dir: str, expected_manifest_digest: str) -> bool:
         return False
     try:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
         return False
-    for obj in manifest.get("objects", []):
+    if not isinstance(manifest, dict):
+        return False
+    objects = manifest.get("objects")  # guardrails-allow FAIL-fw-ev01: .get + isinstance is the fail-closed shape check, not the crash
+    if not isinstance(objects, list):
+        return False
+    for obj in objects:
+        if not isinstance(obj, dict):
+            return False
         # The manifest path is attacker-influenceable; a path that escapes the
         # bundle is a verification failure, never a window to read outside it
         # (verify's boolean is otherwise a content-matches-digest oracle).
@@ -165,7 +172,16 @@ def verify(output_dir: str, expected_manifest_digest: str) -> bool:
             return False
         if not fp.is_file():
             return False
-        if canon.digest_bytes("evidence-manifest/v1", fp.read_bytes()) != obj["digest"]:
+        try:
+            if canon.digest_bytes("evidence-manifest/v1",
+                                  fp.read_bytes()) != obj.get("digest"):
+                return False
+        except (OSError, canon.CanonError, KeyError, TypeError):
+            # Unreadable object or a non-canonical digest claim is a
+            # rejection, never a crash and never an acceptance (fw-ev-07/08).
             return False
-    actual = canon.digest_obj("evidence-manifest/v1", manifest)
+    try:
+        actual = canon.digest_obj("evidence-manifest/v1", manifest)
+    except (canon.CanonError, TypeError):
+        return False
     return actual == expected_manifest_digest

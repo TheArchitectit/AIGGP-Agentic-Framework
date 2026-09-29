@@ -1,10 +1,15 @@
-# Spec: Release gate targeting and audit classification
+# Release gate targeting and audit classification
 
 ## Purpose
 
 Ensure release gates evaluate the project actually being deployed, and that audit findings are classified against that project rather than DevGate's own submodule state.
 
 ## Requirements
+
+Release and drift gates target the right tree at the right scope: release gates evaluate the project being published, drift sweeps run on a schedule rather than the PR path, and gate findings carry an audit classification instead of a bare pass/fail.
+
+
+
 
 ### Requirement: Gates evaluate the project being deployed
 <!-- id: rel-target-01 -->

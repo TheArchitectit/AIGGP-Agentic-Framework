@@ -1,10 +1,15 @@
-# Spec: Hub-and-spoke monitor architecture
+# Hub-and-spoke monitor architecture
 
 ## Purpose
 
 Describe the hub-and-spoke monitoring architecture: a single well-known hub endpoint, dual evidence channels from runners, and the trust boundaries between them.
 
 ## Requirements
+
+The runner monitor is ONE hub service bound to loopback by default; the fleet registry is instance state on the hub volume and never committed; each spoke runs a local watchdog that detects hub death without depending on the hub or on GitHub-hosted runners.
+
+
+
 
 ### Requirement: Single hub on monitor-hub
 <!-- id: mon-hub-01 -->
@@ -61,3 +66,18 @@ pass when it cannot perform the check at all.
 - **WHEN** the hub serves `/health` with `polling_enabled: false`
 - **THEN** the watchdog warns that nothing is monitored and exits 0, rather
   than reporting the hub as dead
+
+### Requirement: Local-only network posture
+<!-- id: mon-local-01 -->
+The system SHALL require no inbound network opening into the owner's
+environment: spoke-to-hub enrollment and heartbeat traffic SHALL travel
+only over the local network (same host or LAN), the hub SHALL bind to
+loopback or LAN addresses only and SHALL expose no internet-facing
+listener, and every external interaction — GitHub API polling, alert-issue
+filing, and hub status publication — SHALL be an outbound connection
+initiated by the hub.
+
+#### Scenario: no inbound firewall rules
+- **WHEN** the hub and spokes are deployed per the monitor-hub runbook
+- **THEN** no inbound firewall rule into the owner's environment is
+  required and no component listens on a public interface

@@ -1,10 +1,15 @@
-# Spec: Scanner parsing correctness
+# Scanner parsing correctness
 
 ## Purpose
 
 Pin the correctness of the source scanners' parsers, beginning with Godot scene files: valid inputs are parsed fully, and malformed inputs fail closed rather than silently skipping content.
 
 ## Requirements
+
+Scanners parse their inputs correctly: diff hunks carry accurate line numbers, glob semantics match their documented fnmatch behavior, file-size classification distinguishes test files, and Godot text scenes are parsed by their real grammar.
+
+
+
 
 ### Requirement: Godot scene parsing
 <!-- id: gate-tscn-01 -->

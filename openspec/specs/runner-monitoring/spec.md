@@ -1,10 +1,15 @@
-# Spec: Runner health monitoring
+# Runner health monitoring
 
 ## Purpose
 
 Detect runner health failures — dead quadlets, stalled queues — through the hub's monitoring of runner heartbeats and job state.
 
 ## Requirements
+
+The hub polls the GitHub API for four independent check classes per watched repo — runner online status, queue-drain age, check-run conclusions on watched branches, and scheduled drift-scan recency — and raises an alert when any check fails.
+
+
+
 
 ### Requirement: Runner online detection
 <!-- id: mon-online-01 -->

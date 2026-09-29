@@ -43,8 +43,8 @@ plus this runbook must be enough, with no step reading a secret from the repo.
 | --- | --- | --- | --- |
 | 1 | Build the hub image; pin the base digest | hub machine | Abort; nothing is running yet |
 | 2 | Create the persistent volume | hub machine | Registry + alert log vanish on recreate — re-enrollment needed |
-| 3 | Mint the fine-grained PAT → `chmod 600` drop-in | hub machine | Hub polls with no auth: every check 401s, alerts never fire |
-| 4 | Mint enrollment tokens → `chmod 600` drop-in | hub machine | No runner can enroll (`401 unknown_or_revoked_token`) |
+| 3 | Mint the fine-grained PAT → `chmod 600` secrets env file | hub machine | Hub polls with no auth: every check 401s, alerts never fire |
+| 4 | Mint enrollment tokens → `chmod 600` secrets env file | hub machine | No runner can enroll (`401 unknown_or_revoked_token`) |
 | 5 | Choose the listen port; add the firewall rule for **that port only** | hub machine | Hub reachable from anywhere, or not at all |
 | 6 | `loginctl enable-linger $USER` | hub machine | Hub dies at logout; heartbeats stop being collected |
 | 7 | Install the quadlet, `daemon-reload`, start | hub machine | Hub absent; dead-man switch (step 8) is your only signal |
@@ -94,15 +94,29 @@ at the `https://` endpoint. A bearer token sent over plain HTTP on an untrusted
 segment is sniffable and replayable; this is a deployment decision the runbook
 cannot make for you.
 
-### Tokens are stored plaintext on the volume
+### Token verifiers are hashed at rest
 
-`runners.json` holds heartbeat token values as written — the hub compares
-against them with `hmac.compare_digest` but does not hash them at rest. This is
-instance state on the hub volume, never committed (`mon-registry-01` honored),
-so the exposure is bounded by who can read that volume. If that boundary is too
-wide for you — root on the hub host, a volume backup that leaves the machine,
-a shared storage backend — that is the reason to tighten it. Hashing at rest
-would cut the blast radius of a volume read; it is not implemented in v1.
+`runners.json` stores a **salted hash** (`sha256:<hex>`) of each heartbeat
+token, never the token value itself, and revocation clears the stored
+verifier. The per-registry salt lives in the registry file; verification
+hashes the presented token with the salt and compares via
+`hmac.compare_digest`. A registries file written by an older hub (plaintext
+`heartbeat_token`) is **upgraded on load**: the value is hashed in memory and
+the next save persists only the hash — existing runners keep working with no
+re-enrollment. The plaintext token leaves the hub exactly once, in the
+`/enroll` response, and `runner-enroll.sh` writes it straight to the 0600 env
+file without printing it.
+
+This is still instance state on the hub volume, never committed
+(`mon-registry-01` honored) — hashing bounds the blast radius of a volume
+read; it does not make the volume safe to share.
+
+### Request size cap
+
+JSON endpoints accept bodies up to `HUB_MAX_BODY_BYTES` (default 1 MiB).
+A `Content-Length` above the cap is rejected with `413 body_too_large`
+**before** any read — an unauthenticated request cannot force an unbounded
+buffer even if the bind is widened beyond loopback.
 
 ### Linger
 
@@ -115,7 +129,7 @@ my machine" and is dead by morning.
 
 Enrollment tokens are **one-time** — the hub consumes one on a successful
 `/enroll`. Heartbeat tokens are **per-runner and revocable**. To rotate the
-GitHub PAT, replace the value in `github-token.env` and restart the unit. Treat
+GitHub PAT, replace the value in `devgate-hub.secrets.env` and restart the unit. Treat
 the PAT as fleet-wide read access: it is the highest-value secret here, which
 is why the hub is monitor-only (see Q3 below).
 
@@ -144,22 +158,24 @@ The quadlet's `Volume=devgate-hub-data:/data` mounts it. `runners.json` and
 `alerts/` are created on first start. If you lose this volume you lose the
 registry — recovery is re-enrolling every spoke, which is cheap but manual.
 
-### 3. Mint the GitHub PAT and write the secrets drop-in
+### 3. Mint the GitHub PAT and write the secrets env file
 
 Create a **fine-grained** personal access token with, per watched repo:
 
 - **Actions: read** — runner status, queued runs, check-runs, workflow runs
 - **Issues: write** — file and comment on alert issues
 
-Write it to a drop-in and lock the file down:
+Write it to the file the shipped quadlet declares via
+`EnvironmentFile=-%h/.config/containers/systemd/devgate-hub.secrets.env` (a
+RAW env file read by the unit — not a `.container.d/` drop-in, which is an
+INI fragment), and lock it down:
 
 ```bash
-mkdir -p ~/.config/containers/systemd/devgate-hub.container.d
-cat > ~/.config/containers/systemd/devgate-hub.container.d/secrets.env <<'EOF'
+cat > ~/.config/containers/systemd/devgate-hub.secrets.env <<'EOF'
 GITHUB_TOKEN=<your-fine-grained-PAT>
 HUB_ENROLLMENT_TOKENS=<tok1>,<tok2>
 EOF
-chmod 600 ~/.config/containers/systemd/devgate-hub.container.d/secrets.env
+chmod 600 ~/.config/containers/systemd/devgate-hub.secrets.env
 ```
 
 `HUB_ENROLLMENT_TOKENS` is a comma-separated list; mint one per spoke you intend

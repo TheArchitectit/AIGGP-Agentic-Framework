@@ -20,6 +20,30 @@ def _load_json(path: Path) -> dict:
         raise PackageError(f"cannot read package manifest {path}: {e}") from e
 
 
+def _contained(rel: str, root: Path) -> Path:
+    """Resolve an inventory entry's path under the package root, rejecting
+    anything that escapes (repository-supplied content is untrusted;
+    coh-sec-01). Absolute paths, `~`, empty/`.`/`..` segments, NUL bytes, and
+    symlink escapes are all invalid input — never reads. Without this, a
+    manifest naming `../../../etc/passwd` made the service read arbitrary
+    host files and leak their existence/length through digest mismatch
+    errors (audit finding F3)."""
+    if not isinstance(rel, str) or not rel or "\x00" in rel:
+        raise PackageError(f"invalid inventory path: {rel!r}")
+    if rel.startswith("/") or rel.startswith("~"):
+        raise PackageError(f"inventory path must be relative: {rel!r}")
+    if any(p in ("", ".", "..") for p in rel.split("/")):
+        raise PackageError(f"inventory path traversal rejected: {rel!r}")
+    fp = root / rel
+    try:
+        resolved = fp.resolve()
+    except OSError as e:
+        raise PackageError(f"unresolvable inventory path {rel!r}: {e}") from e
+    if root not in resolved.parents and resolved != root:
+        raise PackageError(f"inventory path escapes package root: {rel!r}")
+    return fp
+
+
 def resolve(root: str) -> dict:
     """Resolve and validate a package rooted at `root`.
 
@@ -44,12 +68,15 @@ def resolve(root: str) -> dict:
 
     # Authenticated normative inventory: every normative file must exist and
     # match its recorded digest; reclassification changes the digest.
+    # Paths are contained under the package root BEFORE any read (coh-sec-01).
     normative_files = []
     for entry in inventory:
+        if not isinstance(entry, dict) or "path" not in entry or "kind" not in entry:
+            raise PackageError(f"malformed inventory entry: {entry!r}")
         path = entry["path"]
         kind = entry["kind"]
-        recorded = entry["digest"]
-        fp = root_p / path
+        recorded = entry.get("digest")
+        fp = _contained(path, root_p)
         if not fp.exists():
             raise PackageError(f"inventory entry missing on disk: {path}")
         actual = canon.digest_bytes("file/v1", fp.read_bytes())

@@ -62,26 +62,19 @@ def traceability_completeness(assertion: dict, package: dict, subject_root: str,
         for rid, meta in reqs.items():
             if meta.get("testable") and rid not in marked:
                 findings.append(_mk(assertion, "unmarked-requirement",
-                                    expected=f"`// spec: {rid}` or `# spec: {rid}` in subject source",
+                                    expected=f"// spec: {rid} in subject source",
                                     observed="no marker in subject tree",
                                     locations=[rid]))
     return findings
 
 
-# Marker grammar copied from scripts/spec_traceability.py: one marker line
-# may carry several comma-separated ids, and the comma anchor keeps a
-# trailing comment (`// spec: <id> -- why`) out of the captured ids.
-# `#` alone is a valid prefix (the gate's H6 fix: `//`-only locked Python
-# and shell consumers out) — the repo's Python files use `# // spec:`, which
-# the `//` arm already catches, but a bare `# spec:` marker counted COVERED
-# by the gate had to read UNMARKED here. Two authorities, silent disagreement
-# in both directions; now one grammar.
+# Marker grammar mirrors scripts/spec_traceability.py (kept in lockstep):
+# one marker line may carry several comma-separated ids, and the comma anchor
+# keeps a trailing comment (`// spec: a-01 -- why`) out of the captured ids.
+# Both `//` and `#` comment prefixes count (H6: `//`-only locked Python
+# subjects out of marker coverage).
 MARKER_RE = re.compile(r"(?://|#)\s*spec:[ \t]*([a-z0-9-]+(?:[ \t]*,[ \t]*[a-z0-9-]+)*)")
 MARKER_ID_RE = re.compile(r"[a-z0-9-]+")
-# Extension + skip-dir sets match scripts/spec_traceability.py (SCAN_EXTS /
-# SCAN_SKIP, its 2026-09-24 note): a marker in a .sh or .zig file counts
-# there, so it must count here too — otherwise the two authorities disagree
-# silently and one side's coverage claim is unverifiable.
 MARKER_EXTS = {".rs", ".py", ".mjs", ".js", ".ts", ".sh", ".zig"}
 MARKER_SKIP = {"target", "node_modules", ".git", "openspec", ".devgate"}
 
@@ -183,18 +176,35 @@ def _extract(selector: dict, subject_root: str, package: dict):
     `# product: <name>` metadata line (versioned extraction rule
     `structured-metadata`). artifact-metadata: dig the package by selector.
     Empty resolution returns None (callers map to UNRESOLVED/selector-empty).
+
+    Selector paths are repository-supplied content and are CONTAINED under the
+    subject root before any read (coh-sec-01): traversal, absolute paths, and
+    symlink escapes are UNRESOLVED with a stable reason — never reads outside
+    the subject tree (audit finding F4: a hostile selector could exfiltrate
+    host files into findings and sealed evidence).
     """
     kind = selector.get("kind")
     if kind == "artifact-metadata":
         return _dig(package, selector.get("selector", ""))
     if kind == "file":
         path = selector.get("path")
-        if not path:
+        if not path or not isinstance(path, str):
             return None
-        fp = Path(subject_root) / path
+        root = Path(subject_root).resolve()
+        try:
+            resolved = (root / path).resolve()
+        except (OSError, ValueError):
+            raise Unresolved(f"selector-unresolvable:{path}")
+        if root not in resolved.parents and resolved != root:
+            raise Unresolved(f"selector-escapes-subject:{path}")
+        fp = root / path
         if not fp.exists():
             return None
-        m = _IDENTITY_RE.search(fp.read_text(encoding="utf-8", errors="replace"))
+        # An existing path that is not a readable file is not an empty
+        # resolution: the evaluator's own read is what fails, and that OSError
+        # is a real crash (ERROR-execution, coh-dec-01) — not selector-empty.
+        text = fp.read_text(encoding="utf-8", errors="replace")
+        m = _IDENTITY_RE.search(text)
         return m.group(1) if m else None
     return None
 

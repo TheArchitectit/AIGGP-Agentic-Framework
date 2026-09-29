@@ -13,6 +13,14 @@
 # is why the name matters and why deleting this file is not an escape: absence
 # is itself the alert (coh-pol-07).
 #
+# DEFAULT-DENY ADAPTER CONTRACT (coh-int-05): the coherence CLI's exit code
+# is the contract (0 PASS / 10 ADVISORY / 20 FAIL / 30-40 ERROR). A timeout
+# or an unparseable result must surface as a FAILED step, never as a neutral
+# pass — that is what `set -euo pipefail` plus the explicit verdict table in
+# the Run coherence gate step enforce (the gate reads the decision back from
+# result.json and requires agreement with the exit code; anything else fails
+# closed).
+#
 # WHAT IT DOES
 #   1. Resolves the pinned runtime: clones DevGate at a fixed commit into
 #      .devgate/ and reads the execution-profile registry there. Nothing is

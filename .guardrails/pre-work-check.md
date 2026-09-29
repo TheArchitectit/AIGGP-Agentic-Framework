@@ -66,19 +66,38 @@ DevGate ships with language-agnostic prevention rules. The following patterns ar
 
 | Rule ID | Language | Pattern | Severity |
 |---------|----------|---------|----------|
-| PREVENT-001 | TS/JS | JSON.parse without null check | error |
-| PREVENT-002 | Multi | SQL string concatenation | critical |
-| PREVENT-003 | All | Hardcoded credentials | critical |
-| PREVENT-004 | GDScript | Direct .free() on Node | error |
-| PREVENT-007 | Python | Bare except clause | error |
-| PREVENT-008 | Python | Mutable default arguments | error |
-| PREVENT-009 | Go | Ignored error return | error |
-| PREVENT-011 | TS/JS | `any` type usage | error |
-| PREVENT-013 | Rust | unwrap() in production | warning |
-| PREVENT-014 | Docker | :latest tag | error |
-| PREVENT-022 | Multi | Debug mode in production | error |
-| PREVENT-023 | Multi | CORS wildcard | error |
-| PREVENT-029 | TS/JS | Network calls in core | critical |
+| PREVENT-001 | js, ts, jsx, tsx | JSON.parse without null check | error |
+| PREVENT-002 | py, js, ts, rb, java, go | SQL injection risk via string concatenation | critical |
+| PREVENT-003 | * | Hardcoded credentials | critical |
+| PREVENT-004 | gd | Godot: Direct .free() on Node | error |
+| PREVENT-005 | tscn, gd, tres, cfg | Godot: Absolute resource paths | critical |
+| PREVENT-006 | gd | Godot: String-based get_node() | warning |
+| PREVENT-007 | py | Python: Bare except clause | error |
+| PREVENT-008 | py | Python: Mutable default arguments | error |
+| PREVENT-009 | go | Go: Ignored error return | error |
+| PREVENT-010 | go | Go: goroutine without context | warning |
+| PREVENT-011 | ts, tsx | TypeScript: any type usage | error |
+| PREVENT-012 | ts, tsx, js, jsx | TypeScript/JS: console.log in production | warning |
+| PREVENT-013 | rs | Rust: unwrap() in non-test code | warning |
+| PREVENT-014 | Dockerfile, Dockerfile.*, dockerfile | Docker: latest tag in production | error |
+| PREVENT-015 | py, js, ts, rb, go | Shell: Command injection via unsanitized input | critical |
+| PREVENT-016 | kt, java | Kotlin/Java: Thread.sleep() | warning |
+| PREVENT-017 | gd | GDScript: Heavy operations in _process | warning |
+| PREVENT-018 | * | AWS/Azure/GCP: Hardcoded cloud credentials | critical |
+| PREVENT-019 | gd | GDScript: Missing type hints | info |
+| PREVENT-020 | * | All: TODO/FIXME/HACK without ticket reference | info |
+| PREVENT-021 | js, ts, jsx, tsx | OWASP A03: Command injection risk | critical |
+| PREVENT-022 | py, js, ts, rb, go, yaml, yml, json, env | OWASP A05: Debug mode in production | error |
+| PREVENT-023 | py, js, ts, go, rb, java, yaml, yml | OWASP A05: CORS wildcard | error |
+| PREVENT-024 | py, js, ts, rs, go, rb, java | AI: Hallucinated package import | warning |
+| PREVENT-025 | py, js, ts, go, rb, java, php | Security: Weak hash for passwords | critical |
+| PREVENT-026 | py, js, ts, go, rb, java | Security: SSRF via unvalidated URL | error |
+| PREVENT-027 | Dockerfile, Dockerfile.* | Docker: Missing .dockerignore | info |
+| PREVENT-028 | gd | GDScript: Missing type hints in function return | info |
+| PREVENT-029 | extensions/**/ts, src/**/ts | Language-agnostic: No network calls in core modules | critical |
+| PREVENT-030 | go | Digit via rune arithmetic | error |
+| PREVENT-031 | go | Wildcard listen bind | warning |
+| PREVENT-032 | go | World-writable OpenFile | warning |
 
 **Run the regression check to see all active rules:**
 ```bash

@@ -275,12 +275,11 @@ def main() -> int:
                   file=sys.stderr)
             return EXIT_USAGE
 
-    # Stage-2 controls need the promotion attestation gate satisfied to
+# Stage-2 controls need the promotion attestation gate satisfied to
     # reach their REAL verdicts (an unsigned stage-2 run stops at exit 33
     # before any check can fire). A valid stand-in signer configured once
     # here is inert for the stage-0/1 and early-exit controls.
     os.environ.update(_signing_env())
-
     failures = []
     crashed = []
     with tempfile.TemporaryDirectory() as td:

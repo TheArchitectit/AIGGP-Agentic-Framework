@@ -11,7 +11,7 @@ online since 2026-09-03, executing that repo's full gate suite on every push).
 | --- | --- |
 | Base image | **`ghcr.io/actions/actions-runner`** — the official GitHub-maintained, MIT-licensed runner image (latest tag 2.337.0 at time of writing). Pin a digest once validated. |
 | Deployment | **Podman quadlet** (rootless systemd) or Docker equivalent — see [`self-hosted-runner.container`](self-hosted-runner.container). |
-| Registration | One container per project, distinct `ContainerName` + `RUNNER_NAME` + `RUNNER_LABELS`. Registration token supplied via drop-in `.env`, never committed. |
+| Registration | One container per project, distinct `ContainerName` + `RUNNER_NAME` + `RUNNER_LABELS`. Registration token supplied via the quadlet's `EnvironmentFile=` secrets file (raw env format, chmod 600), never committed. |
 | Durability | `CONFIGURED_ACTIONS_RUNNER_FILES_DIR=/_work/runner-config` + `DISABLE_AUTOMATIC_DEREGISTRATION=true` + a named `/_work` volume — restarts reuse the registration, no fresh token needed. |
 | Fail-closed | Jobs targeting an unregistered label queue; there is no hosted-runner fallback. An empty runner is a visible outage, not a silent hosted run. |
 
@@ -34,14 +34,16 @@ online since 2026-09-03, executing that repo's full gate suite on every push).
 1. Copy [`self-hosted-runner.container`](self-hosted-runner.container) to
    `~/.config/containers/systemd/<project>-runner.container` on the runner host.
 2. Edit `REPO_URL`, `RUNNER_NAME`, and `RUNNER_LABELS` for your project.
-3. Create the token drop-in (one-time registration token from your repo's
-   **Settings → Actions → Runners → New self-hosted runner**):
+3. Create the secrets env file (one-time registration token from your repo's
+   **Settings → Actions → Runners → New self-hosted runner**). The shipped
+   quadlet declares `EnvironmentFile=-%h/.config/containers/systemd/<project>-runner.secrets.env`
+   — a RAW env file read by the unit (not a quadlet drop-in, which is an INI
+   fragment and would not parse):
 
    ```bash
-   mkdir -p ~/.config/containers/systemd/<project>-runner.container.d
-   printf 'Environment=RUNNER_TOKEN=%s\n' "<TOKEN>" \
-     > ~/.config/containers/systemd/<project>-runner.container.d/token.env
-   chmod 600 ~/.config/containers/systemd/<project>-runner.container.d/token.env
+   printf 'RUNNER_TOKEN=%s\n' "<TOKEN>" \
+     > ~/.config/containers/systemd/<project>-runner.secrets.env
+   chmod 600 ~/.config/containers/systemd/<project>-runner.secrets.env
    ```
 
 4. `systemctl --user daemon-reload && systemctl --user start <project>-runner`
@@ -75,7 +77,7 @@ the two-job pattern that resolves the label at runtime.
 
 This repo is public. Every runner artifact here must stay free of:
 
-- registration tokens (use drop-ins or `podman run --env` overrides)
+- registration tokens (use the `EnvironmentFile=` secrets file or `podman run --env` overrides)
 - `secrets.*` values of any kind
 - internal IPs, hostnames with credentials, URLs with embedded auth
 

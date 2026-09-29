@@ -28,9 +28,11 @@
 #
 # Those installed units are not written here alone: scripts/lib/runner-units.sh
 # holds every operation that writes into, or removes from, the host's unit/env
-# namespace. This script decides WHAT a host runs (which runner, which hub,
-# which token, which host may own a slug) and emits the heartbeat's and the
-# image cycle's unit bodies; a unit that arrives whole with its own enablement
+# namespace — including the ticket env file and the heartbeat unit pair
+# (write_ticket_env / write_heartbeat_units; the size gate took them, not a
+# seam change). This script decides WHAT a host runs (which runner, which hub,
+# which token, which host may own a slug) and emits the image cycle's unit
+# bodies; a unit that arrives whole with its own enablement
 # rule (the watchdog, the fleet secret sweep) is emitted in the library, beside
 # the rule that governs it. Enrollment already runs from a checkout
 # (REPO_ROOT below), so the library sits beside it.
@@ -205,10 +207,25 @@ done
 
 # --- validate -----------------------------------------------------------------
 
+# Per-runner unit names (coh-int-07): a host may run MULTIPLE spokes, so a
+# second enrollment must never overwrite the first's env file or units.
+# RUNNER_NAME is validated to [A-Za-z0-9._-]+ before this is called, which
+# is also the systemd-unit-safe charset.
+compute_unit_paths() {
+    local name="$1"
+    TICKET_FILE="$HOME/.devgate-heartbeat-${name}.env"
+    TIMER_UNIT="$HOME/.config/systemd/user/devgate-hb-${name}.timer"
+    SERVICE_UNIT="$HOME/.config/systemd/user/devgate-hb-${name}.service"
+    WATCHDOG_TIMER_UNIT="$HOME/.config/systemd/user/devgate-hb-watchdog-${name}.timer"
+    WATCHDOG_SERVICE_UNIT="$HOME/.config/systemd/user/devgate-hb-watchdog-${name}.service"
+    HB_TIMER_NAME="devgate-hb-${name}.timer"
+    WD_TIMER_NAME="devgate-hb-watchdog-${name}.timer"
+}
+
 if [[ "$MODE" == "enroll" ]]; then
     [[ -n "$HUB_URL" ]] || { usage; }
     [[ -n "$ENROLL_TOKEN" ]] || die "enrollment token required" 1
-    [[ "$INTERVAL" =~ ^[0-9]+$ && "$INTERVAL" -ge 10 && "$INTERVAL" -le 3600 ]] || die "--interval must be integer 10-3600, got: $INTERVAL" 1
+[[ "$INTERVAL" =~ ^[0-9]+$ && "$INTERVAL" -ge 10 && "$INTERVAL" -le 3600 ]] || die "--interval must be integer 10-3600, got: $INTERVAL" 1
     [[ "$REPO" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || die "--repo must be OWNER/REPO, got: $REPO" 1
     [[ "$HUB_URL" =~ ^https?:// ]] || die "hub URL must start with http(s)://, got: $HUB_URL" 1
     set_unit_paths "$RUNNER_NAME"
@@ -216,7 +233,7 @@ elif [[ "$MODE" == "revoke" ]]; then
     [[ -n "$HUB_URL" ]] || { usage; }
     [[ -n "$REVOKE_HB_TOKEN" ]] || die "heartbeat token required for revoke" 1
     [[ -n "$REVOKE_RUNNER" ]] || die "runner name required for revoke" 1
-    set_unit_paths "$REVOKE_RUNNER"
+set_unit_paths "$REVOKE_RUNNER"
 fi
 
 # Whole seconds: this lands verbatim in [Timer] heredocs and (( )) arithmetic,
@@ -226,12 +243,46 @@ fi
 # --- helpers ------------------------------------------------------------------
 
 post_json() {
-    local url="$1" payload="$2"
+local url="$1" payload="$2"
     # --max-time bounds a hung hub: without it a stuck connection wedges
     # the systemd oneshot unit indefinitely (audit hardening).
     curl -sf --connect-timeout 5 --max-time 15 -X POST \
         -H 'Content-Type: application/json' \
         -d "$payload" "$url" 2>&1
+}
+
+# Build the request JSON with python json.dumps — a quote, backslash, or
+# newline in a label must produce a VALID payload and can never break out of
+# the JSON string (the old inline string interpolation could do both).
+# `labels` is comma-split into an array.
+json_payload() {
+    python3 - "$@" <<'PY'
+import json, sys
+obj = {}
+for arg in sys.argv[1:]:
+    key, _, value = arg.partition("=")
+    if key == "labels":
+        obj[key] = [v.strip() for v in value.split(",") if v.strip()]
+    else:
+        obj[key] = value
+print(json.dumps(obj))
+PY
+}
+
+# Print only non-secret fields of a hub response. The enroll response carries
+# the issued heartbeat token, which must never reach stdout/CI scrollback —
+# it is extracted into a variable and written straight to the 0600 env file.
+response_summary() {
+    python3 -c '
+import json, sys
+try:
+    doc = json.loads(sys.stdin.read())
+except Exception:
+    print("(unparseable response)"); sys.exit(0)
+safe = {k: v for k, v in doc.items()
+        if k in ("ok", "runner_name", "error", "detail")}
+print(json.dumps(safe))
+'
 }
 
 install_timer() {
@@ -273,75 +324,12 @@ install_timer() {
     install_helper "Fleet secret sweep" \
         "$REPO_ROOT/scripts/secret-scan-fleet.sh" "$FLEET_HELPER"
 
-    # Write the heartbeat env file (mode 600 — it holds the token).
-    #
-    # This file is SHARED: the image cycle's three variables live in it too
-    # (design D3.1 — one EnvironmentFile per runner), and nothing here enrolls
-    # them, so an operator provisions a host by adding them by hand. A plain
-    # `cat >` truncated that provisioning on every re-enroll, silently, and the
-    # host then reported "not provisioned" for a mount that was mounted and a
-    # store that was full. So the four keys this script OWNS are rewritten and
-    # everything else in the file is carried over untouched.
-    #
-    # The rewrite goes to a temp file inside a subshell that sets umask 077, so
-    # the token is never on disk with looser permissions than it ends with —
-    # `cat > f` then `chmod 600 f` leaves it readable for the length of a
-    # write. The `mv` is a rename within one directory, so it is atomic.
-    local preserved=""
-    if [[ -e "$TICKET_FILE" && ! -L "$TICKET_FILE" ]]; then
-        preserved="$(grep -vE '^(HUB_URL|RUNNER_NAME|HEARTBEAT_TOKEN|LAST_JOB_SEEN|SECRET_SCAN_REPORT)=' \
-            "$TICKET_FILE" 2>/dev/null || true)"
-    fi
-    (
-        umask 077
-        {
-            printf 'HUB_URL=%s\n' "$HUB_URL"
-            printf 'RUNNER_NAME=%s\n' "$RUNNER_NAME"
-            printf 'HEARTBEAT_TOKEN=%s\n' "$hb_token"
-            printf 'LAST_JOB_SEEN=%s\n' ""
-            # The report path, written here rather than there because this is
-            # where the value is computed (set_unit_paths) and because BOTH
-            # consumers read this file: the sweep unit names it in ExecStart and
-            # the heartbeat reads it to find the report. One line, two readers,
-            # and a test that the unit's copy still matches this one.
-            printf 'SECRET_SCAN_REPORT=%s\n' "$SCAN_REPORT"
-            if [[ -n "$preserved" ]]; then
-                printf '# --- not managed by runner-enroll.sh; carried over as found ---\n'
-                printf '%s\n' "$preserved"
-            fi
-        } > "$TICKET_FILE.new"
-    )
-    chmod 600 "$TICKET_FILE.new"
-    mv -f "$TICKET_FILE.new" "$TICKET_FILE"
-
-    # ExecStart is a bare path on purpose. systemd expands $ in ExecStart
-    # against the unit's own environment, so an inline `bash -c` body loses
-    # every variable it defines itself (DISK_OK, PODMAN_OK) before bash runs:
-    # the JSON goes out malformed, the hub rejects it, and the unit exits 22 on
-    # every tick while enrollment still reports success.
-    cat > "$SERVICE_UNIT" <<EOF
-[Unit]
-Description=DevGate runner heartbeat ($SLUG)
-
-[Service]
-Type=oneshot
-EnvironmentFile=$TICKET_FILE
-ExecStart=$HB_HELPER
-EOF
-
-    # Timer unit: fires every INTERVAL seconds.
-    cat > "$TIMER_UNIT" <<EOF
-[Unit]
-Description=DevGate runner heartbeat timer ($SLUG)
-
-[Timer]
-OnBootSec=${INTERVAL}
-OnUnitActiveSec=${INTERVAL}
-AccuracySec=10
-
-[Install]
-WantedBy=timers.target
-EOF
+    # Env file and the heartbeat pair: writes into the host's unit/env
+    # namespace, so they live in lib/runner-units.sh (write_ticket_env /
+    # write_heartbeat_units). The image-cycle pair is emitted below — its
+    # unit bodies are part of this script's install decision (img-cycle-02).
+    write_ticket_env "$hb_token"
+    write_heartbeat_units
 
     # The image cycle (img-cycle-02, design D3). The gate never pulls
     # (coh-rt-01), so the pinned bytes have to be on the host before the job
@@ -392,7 +380,7 @@ EOF
 if [[ "$MODE" == "enroll" ]]; then
     log "Enrolling '$RUNNER_NAME' with hub at $HUB_URL..."
 
-    # Labels are passed RAW to json.dumps below (audit hardening): a comma,
+# Labels are passed RAW to json.dumps below (audit hardening): a comma,
     # quote, or backslash inside a label must survive as data.
 
     # Check BEFORE contacting the hub: a refused enroll must not leave behind a
@@ -421,10 +409,11 @@ PY
 )"
 
     RESPONSE="$(post_json "$HUB_URL/enroll" "$PAYLOAD")" || {
-        die "hub enrollment failed: $RESPONSE" 2
+        # The failure body never contains a token; safe to print.
+        die "hub enrollment failed: $(printf '%s' "$RESPONSE" | response_summary)" 2
     }
 
-    # Print only non-secret fields (audit hardening): the enroll response
+# Print only non-secret fields (audit hardening): the enroll response
     # carries the heartbeat token, which must never hit stdout/CI scrollback.
     log "Hub response: $(printf '%s' "$RESPONSE" | python3 -c '
 import json, sys
@@ -441,7 +430,7 @@ print(json.dumps({k: v for k, v in doc.items()
         die "could not parse heartbeat_token from hub response" 2
     }
 
-    log "Enrolled successfully. Heartbeat token issued."
+    log "Enrolled successfully. Heartbeat token issued (not printed; written to $TICKET_FILE)."
     install_timer "$HB_TOKEN"
     log "Done. Runner '$RUNNER_NAME' is now heartbeating to $HUB_URL every ${INTERVAL}s."
 fi
@@ -451,15 +440,15 @@ fi
 if [[ "$MODE" == "revoke" ]]; then
     log "Revoking runner '$REVOKE_RUNNER' from hub at $HUB_URL..."
 
-    # json.dumps like enroll: a quote in a name or token must stay data — the
+# json.dumps like enroll: a quote in a name or token must stay data — the
     # old string interpolation let a name smuggle extra JSON fields.
     PAYLOAD="$(python3 -c 'import json,sys; print(json.dumps({"runner_name": sys.argv[1], "heartbeat_token": sys.argv[2]}))' "$REVOKE_RUNNER" "$REVOKE_HB_TOKEN")"
     RESPONSE="$(post_json "$HUB_URL/revoke" "$PAYLOAD")" || {
-        die "hub revoke failed: $RESPONSE" 2
+        die "hub revoke failed: $(printf '%s' "$RESPONSE" | response_summary)" 2
     }
-    log "Hub confirmed revocation: $RESPONSE"
+    log "Hub confirmed revocation: $(printf '%s' "$RESPONSE" | response_summary)"
 
-    # The local names derive from the runner being revoked, so a *different*
+# The local names derive from the runner being revoked, so a *different*
     # runner whose name sanitizes to the same slug would have its units and
     # token file deleted here — the very clobber the per-runner layout exists
     # to prevent. Never remove files that belong to someone else.

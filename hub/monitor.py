@@ -32,6 +32,7 @@ from datetime import datetime, timezone
 
 from . import registry
 from .alerts import AlertSink
+from . import coherence_view
 from .github_client import GitHubClient, parse_iso
 from .scan_view import scan_alerts
 from .server import HubState
@@ -153,6 +154,38 @@ class MonitorLoop:
         self._check_drift_scan(repo, owner)
         self._check_spec_coherence(repo, owner)
 
+    def _default_branch(self, repo: str) -> str | None:
+        """Resolve the repo's actual default branch (F6). The config sentinel
+        'default' is NOT a branch name — the old literal 404'd the gate-results
+        check on every default deployment, silently disabling a whole check
+        class."""
+        result = self.client.get_with_backoff(f"/repos/{repo}")
+        if result is None:
+            return None
+        status, body = result
+        if status != 200 or not isinstance(body, dict):
+            log.warning("could not resolve default branch for %s: HTTP %d",
+                        repo, status)
+            return None
+        branch = body.get("default_branch")
+        return branch if isinstance(branch, str) and branch else None
+
+    def _watched_branches(self, repo: str) -> list[str]:
+        out: list[str] = []
+        for branch in self.config.watched_branches:
+            if branch == "default":
+                resolved = self._default_branch(repo)
+                if resolved is None:
+                    log.warning(
+                        "watched branch 'default' could not be resolved for %s "
+                        "this cycle — gate-results check skipped (not clean)",
+                        repo)
+                    continue
+                out.append(resolved)
+            else:
+                out.append(branch)
+        return out
+
     def _check_runner_status(self, repo: str, runners: list[dict]) -> None:
         """Check GitHub API runner status + heartbeat freshness (mon-online-01)."""
         owner = repo.split("/")[0]
@@ -249,7 +282,6 @@ class MonitorLoop:
 
     def _check_queue_drain(self, repo: str, runners: list[dict]) -> None:
         """Check for queued workflow runs older than threshold (mon-queue-01)."""
-        owner = repo.split("/")[0]
         # Get recent workflow runs.
         result = self.client.get_with_backoff(
             f"/repos/{repo}/actions/runs?per_page=50&status=queued")
@@ -282,9 +314,9 @@ class MonitorLoop:
                 detail=f"queued {age_sec / 60:.0f}m (threshold {self.config.queue_threshold_min:.0f}m), "
                        f"run: {run.get('name', '?')}")
 
-    def _check_gate_results(self, repo: str, owner: str) -> None:
+    def _check_gate_results(self, repo: str, owner: str = "") -> None:
         """Check latest check-run conclusions on watched branches (mon-gates-01)."""
-        for branch in self.config.watched_branches:
+        for branch in self._watched_branches(repo):
             # Get the latest commit on the watched branch.
             result = self.client.get_with_backoff(f"/repos/{repo}/commits/{branch}?per_page=1")
             if result is None:
@@ -313,7 +345,7 @@ class MonitorLoop:
                         repo, "gate_failure", check.get("name", "?"),
                         detail=f"conclusion={conclusion}, branch={branch}, sha={sha[:8]}")
 
-    def _check_drift_scan(self, repo: str, owner: str) -> None:
+    def _check_drift_scan(self, repo: str, owner: str = "") -> None:
         """Check scheduled drift-scan presence/recency (mon-drift-01)."""
         # Find the drift-scan workflow by name pattern.
         match = self.config.drift_workflow_match
@@ -377,117 +409,19 @@ class MonitorLoop:
                 repo, "drift_overdue", "?",
                 detail=f"last drift scan {age_sec / 3600:.1f}h ago (max {max_age_sec / 3600:.1f}h)")
 
-    def _check_spec_coherence(self, repo: str, owner: str) -> None:
-        """Check coherence-workflow presence/recency (coh-int-02, coh-int-07).
+    def _check_spec_coherence(self, repo: str, owner: str = "") -> None:
+        """Check the coherence gate on two independent channels (union).
 
-        The FIFTH check class (design.md round-9). Its own matcher, separate
-        from drift's: the two workflows are different jobs in the same repo,
-        and a repo with only one of them must be reported on the one it lacks,
-        never quietly matched against the other.
-
-        A MISSING coherence workflow is an alert, not silence (coh-pol-07).
-        That is the point of the class — if deleting the workflow made the
-        gate disappear quietly, the boundary would be removable by repository
-        content, which is exactly what the requirement forbids. Presence of a
-        workflow file is not enforcement; a missing one must not be invisible
-        either.
-
-        Scope is the configured `watched_branches` (coh-int-07): a green run on
-        a branch nobody watches is not evidence for the watched branch. With no
-        branch configured the check is an explicit no-op — not a pass, and not
-        silence either, since an unconfigured repo is otherwise
-        indistinguishable from a healthy one.
+        Channel A — workflow runs (coh-int-02/05/06/07). Channel B —
+        check-runs on watched branches (S6). Neither substitutes for the
+        other; the shared implementation lives in hub/coherence_view.py.
         """
-        branches = [b for b in self.config.watched_branches if b != "default"]
-        if not branches:
-            self._raise_alert(
-                repo, "coherence_unconfigured", "?",
-                detail="no watched branches configured — the coherence check "
-                       "is an explicit no-op, not a pass; set "
-                       "HUB_WATCHED_BRANCHES to enable it")
-            return
-
-        match = self.config.coherence_workflow_match
-        result = self.client.get_with_backoff(
-            f"/repos/{repo}/actions/workflows?per_page=100")
-        if result is None:
-            return
-        status, body = result
-        if status != 200:
-            return
-
-        wf = None
-        for candidate in body.get("workflows", []):
-            if match.lower() in candidate.get("name", "").lower():
-                wf = candidate
-                break
-
-        if wf is None:
-            self._raise_alert(
-                repo, "coherence_missing", "?",
-                detail=f"no workflow matching '{match}' found — the coherence "
-                       f"gate has been removed or renamed")
-            return
-
-        result = self.client.get_with_backoff(
-            f"/repos/{repo}/actions/workflows/{wf['id']}/runs?per_page=100")
-        if result is None:
-            return
-        status, body = result
-        if status != 200:
-            return
-
-        latest = None
-        for run in body.get("workflow_runs", []):
-            if run.get("head_branch") in branches:
-                latest = run
-                break
-        if latest is None:
-            self._raise_alert(
-                repo, "coherence_missing", "?",
-                detail=f"no run of workflow '{wf['name']}' on any watched "
-                       f"branch ({', '.join(branches)})")
-            return
-
-        if latest.get("conclusion") in NON_PASSING_CONCLUSIONS:
-            # coh-int-05 fleet half: ANY non-passing conclusion is reported,
-            # not just `failure` — a fresh timed_out/cancelled/… run must not
-            # fall through to the recency window and read healthy.
-            self._raise_alert(
-                repo, "coherence_failure", "?",
-                detail=f"latest coherence run did not pass "
-                       f"(conclusion={latest.get('conclusion')}): "
-                       f"{latest.get('html_url', '')}")
-            return
-
-        if latest.get("conclusion") == "skipped":
-            # coh-int-06: a SKIPPED gate is not a pass. It is not a failure
-            # either — the run explicitly declined to execute and said why —
-            # so it gets its own class rather than being folded into
-            # coherence_failure, which would misattribute a deliberate skip
-            # to a broken gate.
-            self._raise_alert(
-                repo, "coherence_skipped", "?",
-                detail=f"latest coherence run on branch "
-                       f"{latest.get('head_branch')} reported SKIPPED: "
-                       f"{latest.get('html_url', '')}")
-            return
-
-        # Recency, same 24h + grace window drift uses. The schedule period is
-        # not visible from the API, so this is the same conservative default.
-        completed_at = parse_iso(latest.get("completed_at"))
-        if completed_at is None:
-            self._raise_alert(
-                repo, "coherence_overdue", "?",
-                detail="latest coherence run has no completion timestamp")
-            return
-        max_age_sec = 24 * 3600 + self.config.drift_grace_min * 60
-        age_sec = (datetime.now(timezone.utc) - completed_at).total_seconds()
-        if age_sec > max_age_sec:
-            self._raise_alert(
-                repo, "coherence_overdue", "?",
-                detail=f"last coherence run {age_sec / 3600:.1f}h ago "
-                       f"(max {max_age_sec / 3600:.1f}h)")
+        coherence_view.check_workflow_runs(
+            repo, self.config, self.client, self._raise_alert, parse_iso,
+            NON_PASSING_CONCLUSIONS)
+        coherence_view.check_check_runs(
+            repo, self.config, self.client, self._raise_alert,
+            self._watched_branches, NON_PASSING_CONCLUSIONS)
 
     def _raise_alert(self, repo: str, check_class: str, runner: str, detail: str) -> None:
         """Raise an alert. Sprint 4 adds dedupe + GitHub issue filing."""

@@ -36,7 +36,8 @@ REPO_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\Z")
 # Bodies are read before any auth check (/enroll authenticates via its token,
 # which lives IN the body), so trusting Content-Length hands any client an
 # unauthenticated allocation up to 2 GB — doubled again by decode(). Every
-# legitimate payload here is a small JSON object.
+# legitimate payload here is a small JSON object. The ceiling is
+# Config.max_body_bytes (default 64 KiB; operators may lower it further).
 MAX_BODY_BYTES = 64 * 1024
 
 # Returned by a locked enroll when the name is taken: the duplicate check must
@@ -153,6 +154,11 @@ class HubState:
         with self._lock:
             return copy.deepcopy(self.registry.runners())
 
+    # Audit-side name (F10) for the same torn-read-safe snapshot. Two names,
+    # one lock + deep copy — callers on either lineage keep working.
+    def snapshot_runners(self):
+        return self.runners_snapshot()
+
 
 
 
@@ -177,7 +183,8 @@ class HubHandler(BaseHTTPRequestHandler):
             # rfile.read(-1) into read-until-EOF, pinning this thread until
             # the client hangs up (see InvalidContentLength).
             raise InvalidContentLength()
-        if length > MAX_BODY_BYTES:
+        cap = getattr(self.server.hub_state.config, "max_body_bytes", MAX_BODY_BYTES)
+        if length > cap:
             # Refused BEFORE reading: the 413 is sent by do_POST, which owns
             # the response so a handler never answers twice.
             raise PayloadTooLarge()
@@ -229,8 +236,9 @@ class HubHandler(BaseHTTPRequestHandler):
         except PayloadTooLarge:
             # Raised before the body was read; the connection is HTTP/1.0 and
             # closes on this response, so the unread body is discarded.
-            self._send(413, {"ok": False, "error": "payload_too_large",
-                             "max_bytes": MAX_BODY_BYTES})
+            self._send(413, {"ok": False, "error": "body_too_large",
+                             "max_bytes": getattr(self.server.hub_state.config,
+                                                  "max_body_bytes", MAX_BODY_BYTES)})
         except InvalidContentLength:
             # The negative length was refused before reading; 400 is correct.
             # No body was consumed, so nothing drains, and a malicious repeat
@@ -282,9 +290,9 @@ class HubHandler(BaseHTTPRequestHandler):
                 return ALREADY_ENROLLED
             if not reg.consume_enrollment_token(presented or ""):
                 return False
-            runner = reg.enroll(runner_name, repo, labels, host_alias)
+            runner, heartbeat_token = reg.enroll(runner_name, repo, labels, host_alias)
             return {"ok": True, "runner_name": runner_name,
-                    "heartbeat_token": runner["heartbeat_token"]}
+                    "heartbeat_token": heartbeat_token}
 
         result = state.with_registry(do_enroll)
         if result is ALREADY_ENROLLED:

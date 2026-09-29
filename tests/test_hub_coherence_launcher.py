@@ -417,8 +417,11 @@ class TestLauncherKillTarget(unittest.TestCase):
             with mock.patch.object(L.subprocess, "Popen",
                                    side_effect=popen_side_effect) as popen, \
                  mock.patch.object(L.subprocess, "run",
-                                   return_value=mock.MagicMock(
-                                       returncode=0)) as srun:
+                                   side_effect=lambda cmd, **kw: (
+                                       mock.MagicMock(returncode=1)
+                                       if cmd[:3] == ["podman", "container", "exists"]
+                                       else mock.MagicMock(returncode=0)
+                                   )) as srun:
                 rr = L.run(ctx, output_dir=out,
                            env={"PODMAN_RUN": "1"},
                            container_args=["--help"])

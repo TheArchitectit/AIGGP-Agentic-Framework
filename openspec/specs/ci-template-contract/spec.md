@@ -1,10 +1,15 @@
-# Spec: CI template contract
+# CI template contract
 
 ## Purpose
 
 Guarantee that the CI workflow templates DevGate ships actually run every gate they document, so a consumer adopting a template gets the coverage the docs promise.
 
 ## Requirements
+
+The shipped GitHub Actions workflow templates are drop-in correct: valid YAML, honest triggers and verdicts, pinned action references, and no advertised behavior the template does not implement. A consumer copying a template gets what its header claims.
+
+
+
 
 ### Requirement: Templates run the gates they name
 <!-- id: ci-run-01 -->

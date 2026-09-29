@@ -1,10 +1,15 @@
-# Spec: Rule coverage truth
+# Rule coverage truth
 
 ## Purpose
 
 Keep the documented rule coverage honest: a rule listed as enabled must have a checker that enforces it, and docs must match what ships.
 
 ## Requirements
+
+Shipped rule data is real: every rule file that ships is loaded and enforced by a named gate, every declared rule is reachable by the scanners its file_glob names, and dead rulesets do not ship in the baseline.
+
+
+
 
 ### Requirement: Enabled means enforced
 <!-- id: rule-truth-01 -->

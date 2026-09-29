@@ -1,10 +1,15 @@
-# Spec: Gate execution contract
+# Gate execution contract
 
 ## Purpose
 
 Define how gates resolve the project they evaluate — standalone checkout versus submodule checkout — so a gate always scans the intended tree and nothing above or beside it.
 
 ## Requirements
+
+Gates execute and report honestly: a scope that evaluated zero inputs never reads as a clean pass, severity ladders agree between report text and exit codes, undiffable bases fail loud, and blocking decisions are distinguishable from advisory ones.
+
+
+
 
 ### Requirement: Project-root resolution
 <!-- id: gate-root-01 -->

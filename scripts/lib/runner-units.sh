@@ -107,6 +107,82 @@ set_unit_paths() {
     SCAN_REPORT="$(runtime_dir)/devgate-secretscan-$SLUG.json"
 }
 
+# Write the heartbeat env file (mode 600 — it holds the token).
+#
+# This file is SHARED: the image cycle's three variables live in it too
+# (design D3.1 — one EnvironmentFile per runner), and nothing here enrolls
+# them, so an operator provisions a host by adding them by hand. A plain
+# `cat >` truncated that provisioning on every re-enroll, silently, and the
+# host then reported "not provisioned" for a mount that was mounted and a
+# store that was full. So the four keys this library OWNS are rewritten and
+# everything else in the file is carried over untouched.
+#
+# The rewrite goes to a temp file inside a subshell that sets umask 077, so
+# the token is never on disk with looser permissions than it ends with —
+# `cat > f` then `chmod 600 f` leaves it readable for the length of a
+# write. The `mv` is a rename within one directory, so it is atomic.
+write_ticket_env() {
+    local hb_token="$1"
+    local preserved=""
+    if [[ -e "$TICKET_FILE" && ! -L "$TICKET_FILE" ]]; then
+        preserved="$(grep -vE '^(HUB_URL|RUNNER_NAME|HEARTBEAT_TOKEN|LAST_JOB_SEEN|SECRET_SCAN_REPORT)=' \
+            "$TICKET_FILE" 2>/dev/null || true)"
+    fi
+    (
+        umask 077
+        {
+            printf 'HUB_URL=%s\n' "$HUB_URL"
+            printf 'RUNNER_NAME=%s\n' "$RUNNER_NAME"
+            printf 'HEARTBEAT_TOKEN=%s\n' "$hb_token"
+            printf 'LAST_JOB_SEEN=%s\n' ""
+            # The report path, written here rather than there because this is
+            # where the value is computed (set_unit_paths) and because BOTH
+            # consumers read this file: the sweep unit names it in ExecStart and
+            # the heartbeat reads it to find the report. One line, two readers,
+            # and a test that the unit's copy still matches this one.
+            printf 'SECRET_SCAN_REPORT=%s\n' "$SCAN_REPORT"
+            if [[ -n "$preserved" ]]; then
+                printf '# --- not managed by runner-enroll.sh; carried over as found ---\n'
+                printf '%s\n' "$preserved"
+            fi
+        } > "$TICKET_FILE.new"
+    )
+    chmod 600 "$TICKET_FILE.new"
+    mv -f "$TICKET_FILE.new" "$TICKET_FILE"
+}
+
+# The heartbeat pair (service + timer). ExecStart is a bare path on purpose:
+# systemd expands $ in ExecStart against the unit's own environment, so an
+# inline `bash -c` body loses every variable it defines itself (DISK_OK,
+# PODMAN_OK) before bash runs: the JSON goes out malformed, the hub rejects
+# it, and the unit exits 22 on every tick while enrollment still reports
+# success (FAIL-6e7b6f84).
+write_heartbeat_units() {
+    cat > "$SERVICE_UNIT" <<EOF
+[Unit]
+Description=DevGate runner heartbeat ($SLUG)
+
+[Service]
+Type=oneshot
+EnvironmentFile=$TICKET_FILE
+ExecStart=$HB_HELPER
+EOF
+
+    # Timer unit: fires every INTERVAL seconds.
+    cat > "$TIMER_UNIT" <<EOF
+[Unit]
+Description=DevGate runner heartbeat timer ($SLUG)
+
+[Timer]
+OnBootSec=${INTERVAL}
+OnUnitActiveSec=${INTERVAL}
+AccuracySec=10
+
+[Install]
+WantedBy=timers.target
+EOF
+}
+
 # Install a helper a unit will ExecStart. It is COPIED rather than referenced
 # in place, because an inline `bash -c` body in ExecStart loses every variable
 # it defines itself before bash runs (incident #1: the JSON went out malformed

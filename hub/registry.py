@@ -10,14 +10,18 @@ so a crash mid-write cannot corrupt the fleet registry.
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import os
+import secrets
 import tempfile
 from datetime import datetime, timezone
 
 from . import tokens
 
 SCHEMA_VERSION = 1
+
 
 # UNREPORTED marks a heartbeat field the body did not mention at all.
 #
@@ -124,6 +128,7 @@ def image_missing(runner: dict) -> bool:
     return not runner.get("image_digest")
 
 
+
 def _now_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -145,7 +150,9 @@ class Registry:
         self.path = path
         self._data: dict = {}
         if not os.path.exists(path) and auto_init:
-            self._data = {"version": SCHEMA_VERSION, "enrollment_tokens": [], "runners": []}
+            self._data = {"version": SCHEMA_VERSION,
+                          "token_salt": secrets.token_hex(16),
+                          "enrollment_tokens": [], "runners": []}
             return
         self.load()
 
@@ -169,7 +176,29 @@ class Registry:
         for r in self._data.get("runners", []):
             if not r.get("committed_at") and not r.get("deferred"):
                 log.warning("registry pending-commit: runner %s has no committed_at (defer or resolve)", r.get("name"))
+        # Per-registry salt for token hashing at rest (mon-sec-02). Generated
+        # once and persisted; a volume read yields verifier hashes, not tokens.
+        self._data.setdefault("token_salt", secrets.token_hex(16))
+        # Migrate any legacy plaintext heartbeat tokens in memory: hash them
+        # with the salt so existing enrollments keep working, and drop the
+        # plaintext field. Persisted on the next save (the hub saves at
+        # startup, so the upgrade lands immediately).
+        for runner in self._data["runners"]:
+            plain = runner.pop("heartbeat_token", None)
+            if plain and not runner.get("heartbeat_token_hash"):
+                runner["heartbeat_token_hash"] = self._hash_token(plain)
 
+    # --- token hashing (mon-sec-02) -----------------------------------------
+
+    def _hash_token(self, token: str) -> str:
+        salt = self._data.get("token_salt") or ""
+        return "sha256:" + hashlib.sha256(
+            (salt + token).encode("utf-8")).hexdigest()
+
+    def _token_matches(self, presented: str, stored_hash: str | None) -> bool:
+        if not presented or not stored_hash:
+            return False
+        return hmac.compare_digest(self._hash_token(presented), stored_hash)
 
     def save(self) -> None:
         """Atomic write: tmp file in the same directory, then os.replace."""
@@ -194,10 +223,10 @@ class Registry:
 
     def prune_enrollment_tokens(self, keep) -> int:
         """Drop stored enrollment tokens `keep(token)` rejects; returns how
-        many. Startup calls it so a placeholder a previous load let in (the
-        unquoted-$NEW incident, 2026-09-26) is healed by the next restart
-        instead of riding the volume forever. `keep` is a caller predicate
-        because the shape policy belongs to the loader, not the storage."""
+        many. Startup calls it so a placeholder a previous load let in is
+        healed by the next restart instead of riding the volume forever.
+        `keep` is a caller predicate because the shape policy belongs to the
+        loader, not the storage."""
         stored = self._data["enrollment_tokens"]
         survivors = [t for t in stored if keep(t)]
         removed = len(stored) - len(survivors)
@@ -221,31 +250,32 @@ class Registry:
                 return runner
         return None
 
-    def enroll(self, runner_name: str, repo: str, labels: list[str], host_alias: str) -> dict:
-        """Record identity and mint the per-runner heartbeat token."""
+    def enroll(self, runner_name: str, repo: str, labels: list[str],
+               host_alias: str) -> tuple[dict, str]:
+        """Record identity and mint the per-runner heartbeat token.
+
+        Returns (runner_record, plaintext_token): the plaintext leaves the hub
+        exactly ONCE, in the enroll response; only its salted hash is stored
+        (mon-sec-02 — a registry read at rest yields no usable token)."""
+        heartbeat_token = tokens.mint_token()
         runner = {
             "name": runner_name,
             "repo": repo,
             "labels": labels,
             "host_alias": host_alias,
             "enrolled_at": _now_iso(),
-            "heartbeat_token": tokens.mint_token(),
+            "heartbeat_token_hash": self._hash_token(heartbeat_token),
             "last_heartbeat": None,
             "last_job_seen": None,
             "disk_ok": None,
             "podman_ok": None,
-            # Null until a heartbeat reports one: a freshly enrolled host has
-            # no image state yet, and null must never read as healthy.
+            "enrolled": True,
             "image_digest": None,
             "image_reason": None,
-            # Null until a sweep reports one, and null is UNKNOWN: a freshly
-            # enrolled host has not been swept, which is not the same fact as
-            # having been swept and found clean (secret-scan-07).
             "scan_state": None,
-            "enrolled": True,
         }
         self._data["runners"].append(runner)
-        return runner
+        return runner, heartbeat_token
 
     def heartbeat(self, runner_name: str, last_job_seen: str | None,
                   disk_ok: bool | None, podman_ok: bool | None,
@@ -254,14 +284,12 @@ class Registry:
         """Update freshness + health fields for a verified runner.
 
         The image fields and `scan_state` take UNREPORTED as their default, not
-        None: see the sentinel above. A caller that means "the host reports no
-        image" passes None explicitly and the stored ref is cleared; a caller
-        that passes nothing leaves the last report alone.
-
-        `scan_state` is the same distinction for the fleet sweep's report, and
-        it matters more here than for the image: null is a POSITIVE report that
-        this host has no scan state, which must clear a stale one to unknown —
-        whereas omitting it means the spoke has no opinion, which must not.
+        None: a caller that means "the host reports no image" passes None
+        explicitly and the stored ref is cleared; a caller that passes nothing
+        leaves the last report alone. `scan_state` is the same distinction for
+        the fleet sweep's report — null is a POSITIVE report that this host has
+        no scan state (which must clear a stale one to unknown), whereas
+        omitting it means the spoke has no opinion (which must not).
         """
         runner = self.find_runner(runner_name)
         if runner is None or not runner.get("enrolled", False):
@@ -282,18 +310,21 @@ class Registry:
         return True
 
     def verify_heartbeat_token(self, runner_name: str, presented: str) -> bool:
-        """True when the token matches an enrolled (non-revoked) runner."""
+        """True when the token matches an enrolled (non-revoked) runner.
+        Compares salted hashes with a constant-time digest compare."""
         runner = self.find_runner(runner_name)
         if runner is None or not runner.get("enrolled", False):
             return False
-        return tokens.verify(presented, runner.get("heartbeat_token"))
+        return self._token_matches(presented, runner.get("heartbeat_token_hash"))
 
     def revoke(self, runner_name: str) -> bool:
-        """Mark a runner unenrolled; subsequent heartbeats must 401 (mon-enroll-01)."""
+        """Mark a runner unenrolled; subsequent heartbeats must 401
+        (mon-enroll-01). The stored verifier is cleared too (mon-sec-02)."""
         runner = self.find_runner(runner_name)
         if runner is None:
             return False
         runner["enrolled"] = False
+        runner["heartbeat_token_hash"] = None
         return True
 
     def runners(self) -> list[dict]:

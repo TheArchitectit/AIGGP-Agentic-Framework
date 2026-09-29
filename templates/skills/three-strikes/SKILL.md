@@ -94,4 +94,4 @@ Track failure attempts on the current task. If this is the first or second failu
 ## References
 
 - `skills/halt-conditions/SKILL.md` — Full halt conditions checklist
-- `docs/AGENT_GUARDRAILS.md` — Core safety protocols
+- AGENTS.md — Core safety protocols

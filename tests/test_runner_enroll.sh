@@ -90,7 +90,7 @@ PY
 
     # Per-runner env file (coh-int-07): units and env are name-scoped so a
     # host can enroll several spokes without them clobbering each other.
-    envfile="$tmp/.config/containers/devgate-heartbeat-r1.env"
+envfile="$tmp/.config/containers/devgate-heartbeat-r1.env"
     if [ -f "$envfile" ]; then
         perms="$(stat -c '%a' "$envfile")"
         check "$label: env file is 0600" "$([ "$perms" = "600" ] && echo 0 || echo 1)" "perms=$perms"
@@ -113,6 +113,9 @@ run_case "hostile-labels" 'a, b"q\z'
 # --- 3. hostile runner name is SANITIZED, not rejected (upstream design) ------
 # The slug keeps only characters systemd accepts, so a hostile name yields a
 # usable unit AND never corrupts the heartbeat JSON (payload is json.dumps'd).
+# DROPPED: the audit side asserted that an invalid runner name is REJECTED
+# with "must match". That fork was not adopted — our implementation sanitizes
+# the slug and proceeds, so the rejection assertions would fail against it.
 tmp="$(mktemp -d)"; stub="$tmp/bin"; mkdir -p "$stub" "$tmp/config"
 cat > "$stub/curl" <<'STUB'
 #!/usr/bin/env bash

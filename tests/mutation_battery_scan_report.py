@@ -81,8 +81,8 @@ MUTATIONS = [
     # carries the old line over AND writes a new one. Two lines, and which one
     # a reader picks is an accident of the reader.
     ("S12: a re-enrollment accumulates a second report path in the env file",
-     [(ENROLL, "grep -vE '^(HUB_URL|RUNNER_NAME|HEARTBEAT_TOKEN|LAST_JOB_SEEN|SECRET_SCAN_REPORT)='",
-               "grep -vE '^(HUB_URL|RUNNER_NAME|HEARTBEAT_TOKEN|LAST_JOB_SEEN)='")],
+     [(LIB, "grep -vE '^(HUB_URL|RUNNER_NAME|HEARTBEAT_TOKEN|LAST_JOB_SEEN|SECRET_SCAN_REPORT)='",
+       "grep -vE '^(HUB_URL|RUNNER_NAME|HEARTBEAT_TOKEN|LAST_JOB_SEEN)='")],
      [T_SPOKE], {}),
 
     # S3 — the finding locations ride along. A decision, not an accident: the

@@ -1390,3 +1390,23 @@ sprints. Findings and dispositions:
 - Stdlib-only in this repository; no new secrets/tokens beyond the established env pattern; instance state never committed.
 - No sprint flips branch protection, fleet enforcement, or gate-config posture without explicit lead approval.
 - Synthetic fixtures stay labeled synthetic until provenance capture replaces them.
+
+## S4 regression entry (2026-09-19 audit, FAIL-2026091901)
+
+- [x] S4-audit-01: External audit (docs/ROADMAP-2026-09.md F1) found the S4
+  pinned image **could not evaluate any request**: the runtime resolved frozen
+  schemas through this change package's path, absent from the image, and the
+  only real-container test asserted the resulting exit 30 for an invalid
+  request — indistinguishable from an honest rejection. Remediated by
+  `fix-coherence-container-contract`: schemas moved to
+  `hub/coherence/schemas/` (see SCHEMAS-MOVED.md), package-relative
+  resolution, new in-image schema-load + valid-request-PASS smoke evidence,
+  rejection reasons asserted to name the invalid input. Unblocks S8: the
+  archive step no longer affects runtime schema resolution.
+
+- [x] S8-publish-01: The spec-publication step follows the archive ceremony
+  now codified in AGENTS.md (OpenSpec Conventions) and
+  `migrate-specs-to-openspec-conventions` task 4: `openspec archive` →
+  `openspec validate --all --strict` → traceability re-run (no requirement-ID
+  double-counting; schemas already moved to `hub/coherence/schemas/` so the
+  archive cannot affect runtime).

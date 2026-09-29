@@ -1,0 +1,4 @@
+schema: spec-driven
+# doc-truth and rule-coverage-truth already mandate documentation/tree
+# equality; this change is conformance. No spec deltas.
+skip_specs: true

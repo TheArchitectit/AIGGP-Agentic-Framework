@@ -11,12 +11,15 @@
 #   systemctl --user start devgate-hub
 #   systemctl --user status devgate-hub
 #
-# Secrets (GITHUB_TOKEN, HUB_ENROLLMENT_TOKENS) are provided via a quadlet
-# drop-in — NEVER hardcoded in this file (this repo is public):
-#   ~/.config/containers/systemd/devgate-hub.container.d/secrets.env
+# Secrets (GITHUB_TOKEN, HUB_ENROLLMENT_TOKENS) come from ONE canonical
+# mechanism, declared in this file — a raw env file read at unit start
+# (leading '-' = optional, so a hub without a PAT still starts in
+# polling-disabled mode) — NEVER hardcoded here (this repo is public):
+#   ~/.config/containers/systemd/devgate-hub.secrets.env   (chmod 600)
 #     GITHUB_TOKEN=ghp_...          # fine-grained PAT, actions:read + issues:write
 #     HUB_ENROLLMENT_TOKENS=tok1,tok2,...  # one-time enrollment tokens
-#   chmod 600 ~/.config/containers/systemd/devgate-hub.container.d/secrets.env
+#   No pepper is required: heartbeat verifiers are salted-hashed in
+#   runners.json (the salt is generated and stored in the registry itself).
 #
 # Podman quadlet format (podman 5.8+). See `podman-systemd.unit(5)`.
 
@@ -24,6 +27,11 @@
 # Build the image from the in-repo Containerfile first:
 #   podman build -t devgate-hub:local -f templates/runner-monitor/Containerfile .
 Image=devgate-hub:local
+
+# Secrets env file (optional; see header). RAW env-file format read by the
+# unit itself — NOT a quadlet drop-in (drop-ins are INI fragments and a raw
+# env file there does not parse).
+EnvironmentFile=-%h/.config/containers/systemd/devgate-hub.secrets.env
 
 # Friendly container name shown in `podman ps`.
 ContainerName=devgate-hub
@@ -46,7 +54,7 @@ Environment=HUB_ALERT_CHANNEL=github_issue
 Environment=HUB_HEARTBEAT_INTERVAL_SEC=300
 Environment=HUB_MONITOR_ONLY=true
 # GITHUB_TOKEN and HUB_ENROLLMENT_TOKENS are intentionally NOT set here —
-# provide via the secrets.env drop-in (chmod 600, never committed).
+# provide via the secrets env file above (chmod 600, never committed).
 
 # --- Persistent volume ---
 # runners.json + alerts/*.jsonl live here. Survives container recreation.

@@ -1,10 +1,15 @@
-# Spec: Gate configuration contract
+# Gate configuration contract
 
 ## Purpose
 
 Fix where gate configuration lives: a project customizes behavior through its own root-level overlay files rather than by editing the DevGate submodule.
 
 ## Requirements
+
+Gates are configured by data, not edits to the framework: rule and registry files have validated shapes, a project overlay may strengthen but never weaken the bundled baseline (merge by id), and an explicit path collapses resolution to that single source.
+
+
+
 
 ### Requirement: Configuration lives in the project overlay
 <!-- id: rule-config-01 -->

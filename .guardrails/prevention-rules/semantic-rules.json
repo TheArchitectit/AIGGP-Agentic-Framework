@@ -1,5 +1,4 @@
 {
-  "$schema": "./semantic-rules.schema.json",
   "description": "Semantic/AST-based prevention rules for complex regression detection",
   "version": "2.0.0",
   "rules": [

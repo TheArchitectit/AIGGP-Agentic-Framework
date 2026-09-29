@@ -83,7 +83,7 @@ def build_root(tmp: Path, *, declared_name="widget", approved_name="widget",
                advisory_escalation="__default__", repository=None,
                bundle_epoch=1, min_bundle_epoch=None,
                binding_expected_digest=None, grandfather_self_until=None,
-               binding=True) -> tuple:
+               binding=True, approved_signers=None) -> tuple:
     """Build subject/package/policy/context/request under `tmp`.
 
     Returns (request_path, out_dir). Every input is real on disk so resolvers
@@ -119,7 +119,7 @@ def build_root(tmp: Path, *, declared_name="widget", approved_name="widget",
         "api_version": "devgate.spec-coherence.policy/v1",
         "policy_version": "1", "bundle_epoch": bundle_epoch,
         "required_assertions": [], "approved_evaluators": [],
-        "approved_signers": [],
+        "approved_signers": list(approved_signers or []),
         "stages": stages if stages is not None else {"max_advisory_age_days": 30},
     }
     # design.md round-16: declaring `stages` owes an escalation policy. The

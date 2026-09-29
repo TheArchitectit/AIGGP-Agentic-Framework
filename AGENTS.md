@@ -68,7 +68,7 @@ DevGate scripts auto-detect your project's technology stack. You do NOT need to 
    ```bash
    grep -f <(echo "your_file.py") .devgate/.guardrails/failure-registry.jsonl
    ```
-3. **Understand the rules** — scan `.devgate/.guardrails/prevention-rules/pattern-rules.json` for the 29 prevention rules across 10+ languages
+3. **Understand the rules** — scan `.devgate/.guardrails/prevention-rules/pattern-rules.json` for the 32 prevention rules across 10+ languages
 
 ## Before You Commit
 
@@ -106,6 +106,35 @@ DevGate's scanners catch *known* failure patterns. They cannot tell whether the 
 
 Never report a check as passed when it failed, was skipped, or was never run. Use `NOT_RUN` with the blocker stated — a gate falsely reported green is worse than one that was never run, because it removes the reason to look.
 
+## OpenSpec Conventions
+
+The spec tree is the source of truth for gate behavior, and two tools must
+agree on it: the OpenSpec CLI (`openspec validate --all --strict`, which CI
+runs as a hard gate) and the marker gate (`scripts/spec_traceability.py`).
+
+- **Spec format**: every capability spec under `openspec/specs/` carries a
+  `## Purpose` section, a `## Requirements` section with `### Requirement:`
+  headings, and `#### Scenario:` blocks with **WHEN/THEN** bullets.
+- **Requirement IDs**: every requirement carries an `<!-- id: <req-id> -->`
+  marker right under its heading. ID namespaces: `mon-*` (monitor hub),
+  `gate-*`, `base-*`, `doc-*`, `pub-*`, `rel-*`, `rule-*`, `scan-*`,
+  `fw-ci-*`, `game-*`, `screen-*`, `coh-*` (spec-coherence service), and the
+  security requirements (`coh-sec-*`, `mon-sec-*`, `ci-sec-*`).
+- **Source markers**: enforcing code carries `// spec: <id>` (C-family, JS)
+  or `# spec: <id>` (Python/Ruby/shell) — both comment styles count; the
+  marker line may carry several comma-separated IDs.
+- **Changes** land through `openspec/changes/<change>/` (proposal, tasks,
+  optional design + spec deltas). While a change is ACTIVE, its spec deltas
+  are the authoritative draft for the capabilities they touch; publication
+  into `openspec/specs/` happens at archive time together with a
+  traceability re-run so requirement IDs are never double-counted. This is
+  deliberate (the coherence service's GD-3): main specs and active-change
+  deltas diverging is not drift.
+- **Archive ceremony**: mark tasks complete → `openspec archive <change>`
+  → `openspec validate --all --strict` → re-run `spec_traceability.py` →
+  update CHANGELOG. A change whose tasks are all checked but which is not
+  archived is process debt and shows up in audits.
+
 ## Gate Honesty (No Vacuous Green)
 
 A gate that evaluated zero inputs is not a passed gate:
@@ -113,6 +142,7 @@ A gate that evaluated zero inputs is not a passed gate:
 - `regression_check.py --staged` on a clean checkout has NOTHING to scan (it only sees uncommitted work). It prints a NOTHING SCANNED notice; treat that as no evidence. To audit committed content, run `--base <ref>` (e.g. `--base origin/main`) or `--all`. In CI use `--fail-if-empty` so zero-input runs fail the job.
 - `semantic-scan.mjs` without the `typescript` parser FAILS (it could not evaluate your files). If the project knowingly cannot provide the parser, set `DEVGATE_SEMANTIC_REQUIRED=0` and report the gate as SKIPPED, never as green.
 - Run the gates AT THE HEAD YOU PUSH. A green run on an earlier commit that later commits broke is a stale result — re-run after every change, before pushing.
+- **When working on DevGate itself:** CI runs your commit's gates in `.github/workflows/ci.yml` (tests, self-gates, spec traceability, image build). Watch it before calling work done — a local green run that CI never saw is not evidence the branch is clean.
 
 ## Tests That Prove Something
 
@@ -161,7 +191,10 @@ The reason text is required. Audited exceptions should be deliberate.
 
 ## Adding Custom Rules
 
-Add to `.devgate/.guardrails/prevention-rules/pattern-rules.json`:
+Add rules to YOUR PROJECT's overlay — `<project>/.guardrails/prevention-rules/pattern-rules.json`
+— never inside `.devgate/` (the submodule is upstream-owned; the overlay MERGES
+with the bundled baseline by rule id, and a same-id overlay entry replaces the
+bundled one in place). See the README's overlay contract section:
 
 ```json
 {
@@ -192,16 +225,23 @@ When a file hits the soft limit, split it. Don't squeeze toward the hard limit.
 
 ## Database Configuration (Optional)
 
-If your project uses a database, edit `scripts/schema-health-check.mjs`:
+If your project uses a database, configure the adapter via the project
+config file — `<project>/.guardrails/schema-health.json` (create it; never
+edit files inside `.devgate/`):
 
-```javascript
-const DB_ADAPTER = "postgres"; // "sqlite" | "postgres" | "mysql" | "none"
-const EXPECTED_COLUMNS = [
-    ["your_table", "your_column", "expected_type"],
-];
+```json
+{
+  "adapter": "postgres",
+  "expected_columns": [
+    ["your_table", "your_column", "expected_type"]
+  ]
+}
 ```
 
-Uncomment the adapter block for your database engine. If you don't use a database, leave `DB_ADAPTER = "none"` — the script skips gracefully.
+If no config file exists the gate skips gracefully (`DB_ADAPTER = "none"`).
+Note: until the config-file surface lands in `schema-health-check.mjs`
+(tracked in the audit roadmap), the gate reads only its built-in constants —
+do not hand-edit the script; flag the gap instead.
 
 **DevGate will NOT change your database engine or suggest one.** It only validates schema integrity for whatever engine you've chosen.
 

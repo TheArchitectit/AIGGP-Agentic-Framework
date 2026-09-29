@@ -35,8 +35,13 @@ from pathlib import Path
 REDACT = "<redacted>"
 
 # Token/secret/credential shapes that must never survive to stdout.
+# The lookarounds treat underscore as a SEPARATOR (unlike \b, which does not
+# match between `_` and a letter — RUNNER_TOKEN= must be caught) while still
+# refusing to match inside ordinary identifiers like "blacksmith-2x" or
+# "make-runner" (the old unanchored alternation redacted 40 characters from
+# such labels).
 _SECRET_PATTERNS = [
-    re.compile(r"(?i)(token|secret|password|passwd|api[_-]?key|credential|ak|sk)[^\n]{0,40}", re.I),
+    re.compile(r"(?i)(?<![a-z0-9])(?:token|secret|password|passwd|api[_-]?key|credential|ak|sk)(?![a-z0-9])[^\n]{0,40}"),
     re.compile(r"gh[pousr]_[A-Za-z0-9]{10,}"),
     re.compile(r"xox[baprs]-[A-Za-z0-9-]{10,}"),
     re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
@@ -44,6 +49,12 @@ _SECRET_PATTERNS = [
     re.compile(r"\b(?:25[0-5]|2[0-4]\d|1?\d?\d)(?:\.(?:25[0-5]|2[0-4]\d|1?\d?\d)){3}\b"),  # IPv4
     re.compile(r"https?://[^\s]+@"),  # URL with embedded auth
 ]
+
+# Directories never walked when hunting runner assets: VCS metadata,
+# dependency trees, and build output can be huge or unreadable, and the old
+# unguarded rglob crashed the drift workflow on the first unreadable file.
+_WALK_SKIP = {".git", "node_modules", "vendor", "target", "dist", "build",
+              "__pycache__", ".venv", "venv", ".devgate"}
 
 _RUNS_ON = re.compile(r"^\s*runs-on:\s*(.+?)\s*$")
 _CRON = re.compile(r"^\s*-\s*cron:\s*['\"]?(.+?)['\"]?\s*$")
@@ -85,15 +96,30 @@ def collect_workflow_info(host: Path) -> dict[str, list[str]]:
     wf_dir = host / ".github" / "workflows"
     if not wf_dir.is_dir():
         return {"runs_on": runs_on, "crons": crons}
-    for wf in sorted(wf_dir.glob("*.yml")):
-        raw = wf.read_text(encoding="utf-8", errors="replace")
+    # Both extensions: a host may name its workflows .yaml (the old glob
+    # missed them entirely and reported "no host CI found").
+    for wf in sorted(list(wf_dir.glob("*.yml")) + list(wf_dir.glob("*.yaml"))):
+        try:
+            raw = wf.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
         in_schedule = False
+        sched_indent = -1
         for line in raw.splitlines():
             if _SCHEDULE.match(line):
                 in_schedule = True
+                sched_indent = len(line) - len(line.lstrip())
                 continue
-            if in_schedule and not line.strip():
-                in_schedule = False
+            if in_schedule:
+                stripped = line.strip()
+                if not stripped:
+                    continue  # blank lines inside the block are legal YAML
+                # Indent-based block end: a sibling/parent key at or left of
+                # `schedule:` closes it. The old blank-line-only reset let a
+                # `- cron:` under a LATER list (workflow_dispatch) be
+                # misattributed to the schedule.
+                if (len(line) - len(line.lstrip())) <= sched_indent:
+                    in_schedule = False
             m = _RUNS_ON.match(line)
             if m:
                 val = redact(m.group(1).strip())
@@ -106,22 +132,47 @@ def collect_workflow_info(host: Path) -> dict[str, list[str]]:
 
 
 def collect_runner_assets(host: Path) -> dict[str, list[str]]:
-    """Containerfile / quadlet assets the host uses to self-deploy runners."""
+    """Containerfile / quadlet assets the host uses to self-deploy runners.
+
+    Walk is bounded to .github/ and the repo root's immediate tree: runner
+    assets live there by convention, and an unguarded rglob over a large
+    checkout was slow, followed symlinks, and crashed on unreadable paths."""
     images: list[str] = []
     labels: list[str] = []
-    for name in ("Containerfile", "*.container", "*Dockerfile", "*.image"):
-        for p in host.rglob(name):
-            for line in p.read_text(encoding="utf-8", errors="replace").splitlines():
-                if line.strip().startswith("#"):
+    candidates = []
+    for base in (host / ".github", host):
+        if not base.is_dir():
+            continue
+        for name in ("Containerfile", "*.container", "*Dockerfile", "*.image"):
+            for p in base.rglob(name):
+                if any(part in _WALK_SKIP for part in p.relative_to(host).parts):
                     continue
-                if line.lstrip().startswith("FROM "):
-                    img = redact(line.split(None, 1)[1].strip())
-                    if img and img not in images:
-                        images.append(img)
-                if "RUNNER_LABELS=" in line:
-                    lab = redact(line.split("=", 1)[1].strip())
-                    if lab and lab not in labels:
-                        labels.append(lab)
+                candidates.append(p)
+    for p in sorted(set(candidates)):
+        try:
+            text = p.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue  # unreadable asset: skipped, never a crash
+        for line in text.splitlines():
+            if line.strip().startswith("#"):
+                continue
+            if line.lstrip().startswith("FROM "):
+                parts = line.split(None, 2)
+                if len(parts) < 2:
+                    continue
+                img = parts[1]
+                if img.startswith("--"):
+                    # FROM --platform=... <image>
+                    if len(parts) < 3:
+                        continue
+                    img = parts[2].split()[0]
+                img = redact(img.strip())
+                if img and img not in images:
+                    images.append(img)
+            if "RUNNER_LABELS=" in line:
+                lab = redact(line.split("=", 1)[1].strip())
+                if lab and lab not in labels:
+                    labels.append(lab)
     return {"images": images, "labels": labels}
 
 

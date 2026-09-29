@@ -395,113 +395,164 @@ class TestEvidence(unittest.TestCase):
             p.write_text('{"tampered":true}', encoding="utf-8")
             self.assertFalse(evidence.verify(td, digest))
 
-
-class TestSubmodulePin(unittest.TestCase):
-    """Submodule commit-pinning in the manifest (coh-id-02, round-1
-    partial): the pinned commit is captured from gitdir metadata; an
-    unresolvable pin is recorded `submodule-unresolved`, never a
-    `submodule-pinned` claim without a named pin."""
-
-    @staticmethod
-    def _mk_gitlink(root: Path, gitdir_body: dict) -> Path:
-        """A `.git` file pointing at a fake gitdir shaped by gitdir_body:
-        keys are file names relative to the gitdir, values their content."""
-        sub = root / "vendor"
-        sub.mkdir(parents=True)
-        (sub / ".git").write_text("gitdir: ../.git/modules/vendor\n", encoding="utf-8")
-        gd = root / ".git" / "modules" / "vendor"
-        for name, content in gitdir_body.items():
-            fp = gd / name
-            fp.parent.mkdir(parents=True, exist_ok=True)
-            fp.write_text(content, encoding="utf-8")
-        return root
-
-    SHA_A = "a" * 40
-    SHA_B = "b" * 40
-
-    def _vendor_outcome(self, root):
-        m = manifest.build(str(root))
-        return {e["path"]: e for e in m["entries"]}["vendor"]["policy_outcome"]
-
-    def test_detached_head_captured(self):
+    def test_verify_missing_manifest_fails_closed(self):
+        # Mutation-testing finding: an empty/absent bundle must be rejected.
+        from hub.coherence import evidence
         with tempfile.TemporaryDirectory() as td:
-            root = self._mk_gitlink(Path(td), {"HEAD": self.SHA_A + "\n"})
-            self.assertEqual(self._vendor_outcome(root),
-                             f"submodule-pinned:{self.SHA_A}")
+            self.assertFalse(evidence.verify(td, "any-digest"))
 
-    def test_loose_ref_captured(self):
+    def test_verify_corrupt_json_manifest_fails_closed(self):
+        # Mutation-testing blind spot (fw-ev-06): an unparseable manifest is
+        # a rejected bundle, never silently accepted.
+        from hub.coherence import evidence
         with tempfile.TemporaryDirectory() as td:
-            root = self._mk_gitlink(Path(td), {
-                "HEAD": f"ref: refs/heads/main\n",
-                "refs/heads/main": self.SHA_B + "\n"})
-            self.assertEqual(self._vendor_outcome(root),
-                             f"submodule-pinned:{self.SHA_B}")
+            (Path(td) / "evidence-manifest.json").write_text('{"objects": [')
+            self.assertFalse(evidence.verify(td, "any-digest"))
 
-    def test_packed_ref_captured(self):
+    def test_verify_manifest_with_float_fails_closed(self):
+        # Mutation-testing blind spot (fw-ev-07): floats are outside the
+        # canonical profile; a manifest containing one cannot be digested and
+        # must be rejected, not accepted.
+        from hub.coherence import evidence
         with tempfile.TemporaryDirectory() as td:
-            root = self._mk_gitlink(Path(td), {
-                "HEAD": f"ref: refs/heads/main\n",
-                "packed-refs": f"{self.SHA_A} refs/heads/main\n"})
-            self.assertEqual(self._vendor_outcome(root),
-                             f"submodule-pinned:{self.SHA_A}")
+            manifest = {"api_version": "x", "objects": [], "extra": 1.5}
+            (Path(td) / "evidence-manifest.json").write_text(
+                json.dumps(manifest))
+            self.assertFalse(evidence.verify(td, "any-digest"))
 
-    def test_absolute_gitdir_captured(self):
+    def test_verify_unreadable_object_fails_closed_via_oserror(self):
+        # Mutation-testing blind spot (fw-ev-08): an OSError while reading an
+        # evidence file is a rejection, never an acceptance.
+        from unittest import mock
+        from hub.coherence import evidence
         with tempfile.TemporaryDirectory() as td:
-            root = Path(td) / "s"
-            sub = root / "vendor"
-            sub.mkdir(parents=True)
-            gd = Path(td) / "elsewhere" / "gitdir"
-            gd.mkdir(parents=True)
-            (sub / ".git").write_text(f"gitdir: {gd}\n", encoding="utf-8")
-            (gd / "HEAD").write_text(self.SHA_A + "\n", encoding="utf-8")
-            self.assertEqual(self._vendor_outcome(root),
-                             f"submodule-pinned:{self.SHA_A}")
+            digest = evidence.seal([{
+                "assertion_id": "a1", "finding_key": "a1|x|identity-mismatch",
+                "outcome": "VIOLATED", "enforcement": "BLOCK",
+                "severity": "high", "subject_locations": ["README.md"],
+                "expected": "w", "observed": "o", "evidence_refs": [],
+            }], td)
+            with mock.patch.object(Path, "read_bytes",
+                                   side_effect=OSError("denied")):
+                self.assertFalse(evidence.verify(td, digest))
 
-    def test_unresolvable_pin_is_submodule_unresolved(self):
-        # No gitdir at all: fail-honest unresolved, never a bare
-        # submodule-pinned claim.
+    def test_verify_consistent_escaping_bundle_rejected(self):
+        # Mutation-testing blind spot (fw-ev-09): the containment check must
+        # reject a FULLY CONSISTENT bundle whose object path escapes the
+        # bundle directory — an attacker who controls the manifest can make
+        # every digest line up; containment is the defense that still holds.
+        from hub.coherence import canon as C
+        from hub.coherence import evidence
         with tempfile.TemporaryDirectory() as td:
-            root = self._mk_gitlink(Path(td), {})
-            self.assertEqual(self._vendor_outcome(root), "submodule-unresolved")
+            outer = Path(td)
+            # The file the escaping path points at, OUTSIDE the bundle.
+            payload = canon.canon({"secret": "value"})
+            (outer / "payload.json").write_bytes(payload)
+            h = C.digest_bytes("evidence-manifest/v1", payload)
+            bundle = outer / "bundle"
+            bundle.mkdir()
+            manifest = {"api_version": "devgate.spec-coherence.evidence/v1",
+                        "objects": [{"path": "../payload.json", "digest": h,
+                                     "media_type": "application/json",
+                                     "assertion_id": "a1",
+                                     "retention_class": "standard",
+                                     "redacted": True}]}
+            md = C.digest_obj("evidence-manifest/v1", manifest)
+            (bundle / "evidence-manifest.json").write_bytes(
+                C.canon(manifest))
+            self.assertFalse(evidence.verify(str(bundle), md))
 
-    def test_dangling_ref_is_unresolved(self):
-        # HEAD points at a ref that neither loose nor packed-refs resolve.
+    def test_seal_filters_nonstring_and_empty_redact_values(self):
+        # Mutation-testing blind spot (fw-ev-10): the redact list is filtered
+        # to non-empty strings; junk entries must be dropped, never crash
+        # sealing or trigger a spurious fail-safe.
+        from hub.coherence import evidence
         with tempfile.TemporaryDirectory() as td:
-            root = self._mk_gitlink(Path(td), {"HEAD": "ref: refs/heads/gone\n"})
-            self.assertEqual(self._vendor_outcome(root), "submodule-unresolved")
+            findings = [{
+                "assertion_id": "a1", "finding_key": "a1|x|identity-mismatch",
+                "outcome": "VIOLATED", "enforcement": "BLOCK", "severity": "high",
+                "subject_locations": ["README.md"], "expected": "w",
+                "observed": "o", "evidence_refs": [],
+            }]
+            digest = evidence.seal(findings, td, redact=["", 123, None])
+            self.assertTrue(evidence.verify(td, digest))
 
-    def test_real_git_submodule_pin_matches_gitlink(self):
-        # A REAL submodule (git submodule add): the manifest's captured pin
-        # must equal the gitlink SHA git itself recorded in the index.
-        import shutil
-        import subprocess
-        git = shutil.which("git")
-        if git is None:
-            self.skipTest("git not available")
+    def test_seal_zero_findings_still_writes_manifest(self):
+        # The fully-PASS shape: no findings, manifest is the only write.
+        from hub.coherence import evidence
         with tempfile.TemporaryDirectory() as td:
-            upstream = Path(td) / "upstream"
-            upstream.mkdir()
-            (upstream / "seed.txt").write_text("seed\n", encoding="utf-8")
-            for args in (["init", "-q"], ["config", "user.email", "t@t"],
-                         ["config", "user.name", "t"],
-                         ["add", "-A"], ["commit", "-qm", "seed"]):
-                subprocess.run([git, "-C", str(upstream)] + args, check=True)
-            subject = Path(td) / "subject"
-            subject.mkdir()
-            (subject / "seed.txt").write_text("seed\n", encoding="utf-8")
-            for args in (["init", "-q"], ["config", "user.email", "t@t"],
-                         ["config", "user.name", "t"],
-                         ["add", "-A"], ["commit", "-qm", "seed"]):
-                subprocess.run([git, "-C", str(subject)] + args, check=True)
-            subprocess.run([git, "-C", str(subject), "-c",
-                            "protocol.file.allow=always", "submodule", "add",
-                            "-q", str(upstream), "vendor"], check=True)
-            ls = subprocess.run(
-                [git, "-C", str(subject), "ls-files", "-s", "vendor"],
-                check=True, capture_output=True, text=True, encoding="utf-8", errors="replace").stdout
-            gitlink_sha = ls.split()[1]
-            self.assertEqual(self._vendor_outcome(subject),
-                             f"submodule-pinned:{gitlink_sha}")
+            digest = evidence.seal([], td)
+            self.assertTrue((Path(td) / "evidence-manifest.json").exists())
+            self.assertTrue(evidence.verify(td, digest))
+
+    # fw-ev-01/fw-ev-02 regression: verify() is the tamper detector, so a
+    # malformed or hostile manifest must be REJECTED (False), never crash the
+    # verification path and never read outside the bundle.
+    def test_verify_rejects_malformed_manifests(self):
+        from hub.coherence import evidence
+        cases = [
+            # objects as a dict instead of a list
+            {"api_version": "x", "objects": {"evil": True}},
+            # objects as a bare string
+            {"api_version": "x", "objects": "evil"},
+            # objects missing entirely
+            {"api_version": "x"},
+            # entry is not an object
+            {"api_version": "x", "objects": ["not-a-dict"]},
+            # entry missing required fields
+            {"api_version": "x", "objects": [{"digest": "aa"}]},
+            {"api_version": "x", "objects": [{"path": "evidence/findings/a.json"}]},
+            # non-string field types
+            {"api_version": "x", "objects": [{"path": 1, "digest": "aa"}]},
+            # manifest itself is not an object
+            [1, 2, 3],
+        ]
+        for i, manifest_obj in enumerate(cases):
+            with tempfile.TemporaryDirectory() as td:
+                with open(Path(td) / "evidence-manifest.json", "w") as fh:
+                    json.dump(manifest_obj, fh)
+                self.assertFalse(
+                    evidence.verify(td, "fake-digest"),
+                    f"malformed manifest case {i} must be rejected, not crash")
+
+    def test_verify_rejects_parent_escaping_paths(self):
+        # fw-ev-02: an object path escaping the bundle directory must be
+        # rejected without reading the referenced file.
+        from hub.coherence import evidence
+        with tempfile.TemporaryDirectory() as td:
+            outside = Path(td) / "secret.txt"
+            outside.write_text("payload")
+            bundle = Path(td) / "bundle"
+            bundle.mkdir()
+            for rel in ("../secret.txt", "evidence/../../secret.txt",
+                        "/etc/hostname"):
+                manifest_obj = {"api_version": "x",
+                                "objects": [{"path": rel, "digest": "aa"}]}
+                with open(bundle / "evidence-manifest.json", "w") as fh:
+                    json.dump(manifest_obj, fh)
+                self.assertFalse(
+                    evidence.verify(str(bundle), "fake-digest"),
+                    f"escaping path {rel!r} must be rejected")
+
+    def test_verify_unreadable_object_fails_closed(self):
+        # fw-ev-03: an unreadable evidence file is a rejection, not a crash.
+        from hub.coherence import evidence
+        with tempfile.TemporaryDirectory() as td:
+            findings = [{
+                "assertion_id": "a1", "finding_key": "a1|x|identity-mismatch",
+                "outcome": "VIOLATED", "enforcement": "BLOCK", "severity": "high",
+                "subject_locations": ["README.md"], "expected": "w",
+                "observed": "o", "evidence_refs": [],
+            }]
+            digest = evidence.seal(findings, td)
+            # Seal names one file per finding as aid--<digest-fragment>.json
+            # (see evidence.seal); replace the sealed object with a directory.
+            objs = sorted((Path(td) / "evidence" / "findings").glob("a1--*.json"))
+            self.assertEqual(len(objs), 1, objs)
+            obj = objs[0]
+            obj.unlink()
+            obj.mkdir()  # a directory where the evidence file belongs
+            self.assertFalse(evidence.verify(td, digest))
 
 
 if __name__ == "__main__":

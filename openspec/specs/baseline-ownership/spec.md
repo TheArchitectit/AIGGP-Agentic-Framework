@@ -1,10 +1,15 @@
-# Spec: Baseline data ownership
+# Baseline data ownership
 
 ## Purpose
 
 Define what may live in a project's guardrails baseline: each repository's baseline records only its own suppressions, so a waiver in one repo can never silence a finding in another.
 
 ## Requirements
+
+Every file bundled in this repository is owned, accurate, and free of foreign-project data: bundled entries reference only paths that exist in this tree, leftover documents from absorbed projects are rewritten or removed, and instance data never ships in the baseline.
+
+
+
 
 ### Requirement: Baseline contains only this repo's data
 <!-- id: base-own-01 -->

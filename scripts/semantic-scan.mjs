@@ -16,7 +16,7 @@
 //
 // Supports inline allow: // guardrails-allow <RULE-ID>: <reason>
 
-import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
+import { readFileSync, readdirSync, lstatSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -104,10 +104,24 @@ function isIgnored(file) {
 }
 
 function walk(dir, acc = []) {
-	if (!existsSync(dir)) return acc;
-	for (const name of readdirSync(dir)) {
+	let entries;
+	try {
+		entries = readdirSync(dir);
+	} catch {
+		return acc; // unreadable directory (EACCES etc.) — skipped, not fatal
+	}
+	for (const name of entries) {
 		const p = join(dir, name);
-		if (statSync(p).isDirectory()) {
+		let st;
+		try {
+			st = lstatSync(p);
+		} catch {
+			continue;
+		}
+		if (st.isDirectory()) {
+			// Symlinked directories are never descended: no cycle, no escape
+			// outside the resolved project root.
+			if (st.isSymbolicLink()) continue;
 			if (!SKIP_DIRS.includes(name) && !isIgnored(p)) walk(p, acc);
 		// .mjs/.cjs are load-bearing here, not an afterthought: DevGate's own
 		// first-party modules are .mjs (8 tracked files, zero .js/.ts), so a

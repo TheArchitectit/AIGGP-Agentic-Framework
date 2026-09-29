@@ -1,10 +1,15 @@
-# Spec: Documentation truth
+# Documentation truth
 
 ## Purpose
 
 Keep shipped documentation consistent with the artifacts and contracts it describes — version artifacts agree, and instructions respect the project-overlay boundary.
 
 ## Requirements
+
+Documentation equals the tree. Rule counts, script inventories, file names, and feature claims in README, AGENTS.md, templates, and CHANGELOG must match the files that actually ship; a doc that describes a smaller or older repo is a defect, not a nitpick.
+
+
+
 
 ### Requirement: Version artifacts agree
 <!-- id: doc-version-01 -->

@@ -21,7 +21,7 @@ from hub.coherence import attest, canon, evidence, result, schemacheck
 from tests.fixtures.coherence import fixtures as fx
 
 REPO = Path(__file__).resolve().parent.parent
-SCHEMA_DIR = REPO / "openspec/changes/devgate-spec-coherence-service/schemas"
+SCHEMA_DIR = REPO / "hub" / "coherence" / "schemas"
 
 
 def _load_schema(name: str) -> dict:

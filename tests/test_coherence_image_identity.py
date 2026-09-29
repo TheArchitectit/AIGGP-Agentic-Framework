@@ -31,8 +31,8 @@ from hub.coherence.profiles import (ProfileRegistryError,  # noqa: E402
 
 REPO = Path(__file__).resolve().parent.parent
 REGISTRY = REPO / "container" / "execution-profiles.json"
-REGISTRY_SCHEMA = (REPO / "openspec/changes/devgate-spec-coherence-service"
-                          "/schemas/execution-profiles.schema.json")
+REGISTRY_SCHEMA = (REPO / "hub" / "coherence" / "schemas"
+                          "/execution-profiles.schema.json")
 
 VALID_REGISTRY = {
     "schema": "execution-profiles",

@@ -257,6 +257,12 @@ def podman_args(ctx: dict, *, output_dir: Path) -> list:
         f"--pids-limit={lim['pids']}",
         "--ulimit", f"nofile={lim['nofile']}:{lim['nofile']}",
         "--shm-size=64m",
+        # Execution identity (coh-id-04, S5/S6): the launcher KNOWS the
+        # executed image digest (the ref is digest-pinned, coh-rt-01) and
+        # injects it so the in-container runtime can self-identify instead
+        # of recording a null. Within this threat model the host launcher
+        # is the trusted injection point.
+        "-e", f"DEVGATE_IMAGE_DIGEST={ctx['image'].rsplit('@', 1)[1]}",
     ]
     for target in _TMPFS_TARGETS:
         args += ["--tmpfs", f"{target}:size={ctx['scratch_bytes']},noexec,nodev"]
@@ -309,24 +315,47 @@ def run(ctx: dict, *, output_dir: Path, container_args=None,
             break  # the cap is a limit, not a label: stop consuming
     if status != "completed":
         proc.kill()
-        # Deferred P2 / coh-rt-05 hardening: kill the CONTAINER, not just the
-        # podman client. proc.kill() stops the client; the container can
-        # outlive it. `podman kill` takes a container id/name — an image
-        # name is not resolvable and the kill silently no-ops, which is the
-        # silent-success anti-pattern this gate exists to catch. The real id
-        # comes from the --cidfile podman_args wrote. Never raises.
-        try:
-            env_ctx = (env or {}) if env is not None else (ctx.get("env") or {})
-            if env_ctx.get("PODMAN_RUN") == "1" and ctx.get("image"):
-                cid = Path(str(output_dir) + ".cid")
-                cid_s = cid.read_text(encoding="utf-8", errors="replace").strip() \
-                    if cid.is_file() else ""
-                if cid_s:
-                    subprocess.run(["podman", "kill", cid_s],
-                                   capture_output=True, timeout=2)
-        except Exception:
-            pass
     # Unconditional: a completed run must still reap the process, or
     # returncode stays None and the exit-relay contract breaks (32 not 30).
     proc.wait()
+    if status != "completed":
+        # Deferred P2 / coh-rt-05 hardening (F14): kill the CONTAINER, not
+        # just the podman client. proc.kill() stops the client; the
+        # container itself is owned by conmon and can outlive it. The real
+        # id comes from the --cidfile podman_args wrote. Gated on PODMAN_RUN
+        # so the mocked/unit path stays hermetic; never raises.
+        env_ctx = (env or {}) if env is not None else (ctx.get("env") or {})
+        if env_ctx.get("PODMAN_RUN") == "1" and ctx.get("image"):
+            _reap_container(Path(str(output_dir) + ".cid"), wait_s=10)
+    try:
+        Path(str(output_dir) + ".cid").unlink()
+    except OSError:
+        pass
     return LaunchRun(proc.returncode, bytes(buf), status)
+
+
+def _reap_container(cidfile: Path, wait_s: float = 10.0) -> None:
+    """Best-effort `podman kill` for a container whose client was killed.
+
+    Reads the cidfile podman wrote, kills the container, and polls until it
+    is gone (bounded). Failures are swallowed: the caller's status already
+    says the run did not complete, and a missing/failed reap must not turn a
+    limit-exhaustion ERROR into a crash.
+    """
+    try:
+        cid = cidfile.read_text(encoding="utf-8", errors="replace").strip()
+    except OSError:
+        return
+    if not cid:
+        return
+    try:
+        subprocess.run(["podman", "kill", cid], capture_output=True, timeout=10)
+    except (OSError, subprocess.TimeoutExpired):
+        return
+    deadline = time.monotonic() + wait_s
+    while time.monotonic() < deadline:
+        r = subprocess.run(["podman", "container", "exists", cid],
+                           capture_output=True)
+        if r.returncode != 0:
+            return
+        time.sleep(0.25)

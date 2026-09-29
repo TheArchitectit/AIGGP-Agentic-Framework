@@ -207,7 +207,7 @@ def _git_clean(path: Path) -> bool:
 def run_mutations(target: Path, test_cmd: list, timeout: float,
                   max_mutants: int, workdir: str) -> list:
     """Apply every generated mutant, run the test command, classify results."""
-    # Crash-safety first: a previous killed run may have left a mutant on
+# Crash-safety first: a previous killed run may have left a mutant on
     # disk — recover the original before reading anything.
     if _Restore.recover(target):
         source = target.read_text(encoding="utf-8")

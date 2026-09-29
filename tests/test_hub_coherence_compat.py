@@ -43,7 +43,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from hub.coherence import context, package, policy
 
 REPO = Path(__file__).resolve().parent.parent
-SCHEMAS = REPO / "openspec/changes/devgate-spec-coherence-service/schemas"
+SCHEMAS = REPO / "hub" / "coherence" / "schemas"
 
 # `<family>/vN` — the shape every version value must have, wherever it lives.
 FAMILY_RE = re.compile(r"^[a-z0-9][a-z0-9.\-]*/v[0-9]+$")

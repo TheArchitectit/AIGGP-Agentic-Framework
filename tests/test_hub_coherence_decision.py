@@ -19,8 +19,8 @@ from hub.coherence import evaluate, evaluators, package, result, schemacheck
 from tests.fixtures.coherence import fixtures as fx
 
 REPO = Path(__file__).resolve().parent.parent
-SCHEMA = (REPO / "openspec/changes/devgate-spec-coherence-service"
-          / "schemas/error-envelope.schema.json")
+SCHEMA = (REPO / "hub" / "coherence" / "schemas"
+          / "error-envelope.schema.json")
 
 
 def _run(req_path: Path, out_dir: Path):

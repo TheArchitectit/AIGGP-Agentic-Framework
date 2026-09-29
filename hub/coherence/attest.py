@@ -1,37 +1,56 @@
 # // spec: coh-ev-01, coh-ev-05
 """Detached attestation: sign and verify bound statements.
 
-Sealing order (coh-ev-01): immutable inputs -> evidence objects ->
-evidence manifest -> canonical decision -> detached attestation ->
-transport envelope. The canonical decision MUST NOT carry its own
-attestation digest or signature; the attestation is a detached object.
+Two cooperating chains (both load-bearing; both stay):
 
-Stage 0-1 observation/replay runs are non-promotion-authorizing:
-signing is skipped and labeled. From Stage 2 fresh-promotion onward,
-every promotion-authorizing result carries a signed detached attestation.
+  - Run-sealing (this module): sign() / seal_run() / verify_run() produce
+    and check a signed run directory in acyclic order (coh-ev-01).
+  - Detached S5 (attest_detached): attest() / verify() cover
+    single-attestation consumers and the anti-rollback gate (coh-pol-02).
+
+Both chains commit signature bytes to `_signed_statement` (attest_base), so
+an attestation produced by either verifies under either verifier.
+
+HONEST SCOPE: signatures are HMAC-SHA256. Keys come from
+HUB_COHERENCE_SIGNER_KEYS (detached chain) or HUB_COHERENCE_SIGNER_KEY
+(run-sealing chain) — stand-in scope until ADR-018 lands real key
+management. Verification requires the signer set; an unconfigurable
+verifier fails closed, never "accepts".
 """
 import hashlib
 import hmac
 import json
-import os
-import re
 import sys
 from pathlib import Path
 
 from . import canon, evidence, result, schemacheck
+from .attest_base import (
+    SIGNER_KEYS_ENV,
+    SIGNER_KEY_ENV,
+    SIGNER_KEY_ID_ENV,
+    SIGNER_IDENTITY_ENV,
+    SIGNATURE_PREFIX,
+    AttestationError,
+    key_id_for,
+    signer_identity,
+    signer_set_digest,
+    _keys,
+    _signed_statement,
+)
+from .attest_detached import (
+    attest,
+    check_anti_rollback,
+    verify,
+)
 
-SIGNATURE_PREFIX = "hmac-sha256:"
-SIGNER_KEY_ENV = "HUB_COHERENCE_SIGNER_KEY"
-SIGNER_KEY_ID_ENV = "HUB_COHERENCE_SIGNER_KEY_ID"
-SIGNER_IDENTITY_ENV = "HUB_COHERENCE_SIGNER_IDENTITY"
-EVALUATOR_IMAGE_ENV = "HUB_COHERENCE_EVALUATOR_IMAGE_DIGEST"
-SCHEMA_DIR = Path(__file__).resolve().parent.parent.parent / \
-    "openspec/changes/devgate-spec-coherence-service/schemas"
-_EVIDENCE_DIR_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
-
-
-class AttestationError(RuntimeError):
-    """attestation failure (exit-33 class)."""
+__all__ = [
+    "AttestationError", "SIGNER_KEYS_ENV", "SIGNER_KEY_ENV",
+    "SIGNER_KEY_ID_ENV", "SIGNER_IDENTITY_ENV", "SIGNATURE_PREFIX",
+    "attest", "check_anti_rollback", "emit_envelope",
+    "key_id_for", "load_signer_set", "required", "seal_run", "sign",
+    "signer_identity", "signer_set_digest", "verify", "verify_attestation",
+    "verify_promotion", "verify_run", "verify_run_cli",
+]
 
 
 def required(stage: int, semantics: str) -> bool:
@@ -40,7 +59,7 @@ def required(stage: int, semantics: str) -> bool:
 
 
 def _key() -> bytes | None:
-    raw = os.environ.get(SIGNER_KEY_ENV, "").strip()
+    raw = __import__("os").environ.get(SIGNER_KEY_ENV, "").strip()
     if not raw:
         return None
     try:
@@ -50,17 +69,23 @@ def _key() -> bytes | None:
 
 
 def _signer_identity() -> str:
+    import os
     return os.environ.get(SIGNER_IDENTITY_ENV, "pilot-signer")
 
 
 def _signer_key_id() -> str:
+    import os
     return os.environ.get(SIGNER_KEY_ID_ENV, "signer-1")
 
 
 def sign(decision_bytes: bytes, identities: dict,
          evaluation_time: str) -> dict:
     """Build a signed attestation dict validating against the frozen
-    attestation.schema.json. Uses only the evaluation context time."""
+    attestation.schema.json. Uses only the evaluation context time.
+
+    Signature bytes are `_signed_statement(...)` so this chain's output
+    verifies under both verify_run() and the S5 verify().
+    """
     key = _key()
     if key is None:
         raise AttestationError("signer-key-not-configured")
@@ -78,39 +103,36 @@ def sign(decision_bytes: bytes, identities: dict,
         "evaluator_image_digest": evaluator_digest,
         "evidence_manifest_digest": identities["evidence_manifest_digest"],
     }
+    signer = {
+        "key_id": _signer_key_id(),
+        "identity": _signer_identity(),
+    }
+    issued_at = evaluation_time
+    statement = _signed_statement(statement_digest, bound, signer, issued_at)
+    sig = SIGNATURE_PREFIX + hmac.new(
+        key, statement, hashlib.sha256).hexdigest()
     attestation = {
         "api_version": "devgate.spec-coherence.attestation/v1",
         "statement_digest": statement_digest,
         "bound": bound,
-        "signer": {
-            "key_id": _signer_key_id(),
-            "identity": _signer_identity(),
-        },
-        "issued_at": evaluation_time,
+        "signer": signer,
+        "issued_at": issued_at,
+        "signature": sig,
     }
-    unsigned = dict(attestation)
-    unsigned.pop("signature", None)
-    sig = SIGNATURE_PREFIX + hmac.new(
-        key, canon.canon(unsigned), hashlib.sha256).hexdigest()
-    attestation["signature"] = sig
-    errs = schemacheck.validate(attestation, _load_schema("attestation.schema.json"))
+    errs = schemacheck.validate(attestation,
+                                schemacheck.load("attestation.schema.json"))
     if errs:
         raise AttestationError("attestation-schema-validation-failed: " +
                                "; ".join(errs[:3]))
     return attestation
 
 
-def _load_schema(name: str) -> dict:
-    return json.loads((SCHEMA_DIR / name).read_text(encoding="utf-8"))
-
-
-def verify(run_dir: str, signer_set: dict) -> tuple[bool, str]:
+def verify_run(run_dir: str, signer_set: dict) -> tuple[bool, str]:
     """Verify a signed run. Returns (ok, reason).
 
     Fail-closed chain with distinct reason strings per check.
     """
     out = Path(run_dir)
-    # 1. Load/parse artifacts
     result_path = out / "result.json"
     attestation_path = out / "attestation.json"
     manifest_path = out / "evidence-manifest.json"
@@ -124,7 +146,6 @@ def verify(run_dir: str, signer_set: dict) -> tuple[bool, str]:
     except (OSError, json.JSONDecodeError):
         return False, "unparseable-artifact"
 
-    # 2-6. signer set membership, identity, revocation, window, signature
     signer_entry, reason = _check_signer(attestation_doc, signer_set)
     if reason:
         return False, reason
@@ -132,13 +153,11 @@ def verify(run_dir: str, signer_set: dict) -> tuple[bool, str]:
     if not ok:
         return False, reason
 
-    # 7. decision-digest-mismatch
     result_bytes = result_path.read_bytes()
     statement_digest = canon.digest_bytes("decision/v1", result_bytes)
     if statement_digest != attestation_doc.get("statement_digest"):
         return False, "decision-digest-mismatch"
 
-    # 8. bound-digest-mismatch (six bound identities)
     result_parsed = json.loads(result_bytes)
     bound = attestation_doc.get("bound", {})
     for key in ("subject_digest", "openspec_digest", "policy_digest",
@@ -147,7 +166,6 @@ def verify(run_dir: str, signer_set: dict) -> tuple[bool, str]:
         if result_parsed.get(key) != bound.get(key):
             return False, f"bound-digest-mismatch:{key}"
 
-    # 9. evidence tamper
     if not evidence.verify(run_dir, bound["evidence_manifest_digest"]):
         return False, "evidence-tamper"
 
@@ -158,18 +176,10 @@ def verify_promotion(run_dir: str, signer_set: dict,
                      candidate_digest: str) -> tuple[bool, str]:
     """Verify a sealed run AND that it binds the candidate being promoted.
 
-    coh-pol-07 scenario 2: "a valid PASS attestation for subject digest D1
-    presented for promotion of digest D2 MUST be refused." `verify()` cannot
-    answer that on its own — it compares `bound["subject_digest"]` against
-    the digest inside the run, which proves the run is internally consistent
-    and says nothing about what it is being presented FOR. The candidate is
-    knowledge only the caller has, so it is an argument here.
-
-    The seal chain runs first and its failure is returned verbatim: a run
-    that is tampered with must be reported as tampered, never misreported as
-    a benign wrong-candidate rejection (the two are different incidents).
+    coh-pol-07 scenario 2: a valid PASS attestation for subject digest D1
+    presented for promotion of digest D2 MUST be refused.
     """
-    ok, reason = verify(run_dir, signer_set)
+    ok, reason = verify_run(run_dir, signer_set)
     if not ok:
         return False, reason
     try:
@@ -186,8 +196,7 @@ def verify_promotion(run_dir: str, signer_set: dict,
 def _check_signer(attestation: dict, signer_set: dict) -> tuple:
     """Resolve the signing key against the approved set (coh-ev-05).
 
-    Returns (signer_entry, reason) with reason None when every check passes:
-    membership, identity, revocation, then validity window. Fail-closed.
+    Returns (signer_entry, reason) with reason None when every check passes.
     """
     signers = signer_set.get("signers", [])
     key_id = attestation.get("signer", {}).get("key_id", "")
@@ -207,12 +216,14 @@ def _check_signer(attestation: dict, signer_set: dict) -> tuple:
 
 
 def _check_signature(attestation: dict, signer_entry: dict) -> tuple:
-    """HMAC check over the canonical unsigned attestation."""
-    unsigned = dict(attestation)
-    unsigned.pop("signature", None)
+    """HMAC check over the shared signed-statement bytes."""
+    signer = attestation.get("signer", {})
+    statement = _signed_statement(attestation["statement_digest"],
+                                  attestation["bound"], signer,
+                                  attestation.get("issued_at"))
     expected = SIGNATURE_PREFIX + hmac.new(
         bytes.fromhex(signer_entry["key"]),
-        canon.canon(unsigned), hashlib.sha256).hexdigest()
+        statement, hashlib.sha256).hexdigest()
     if not hmac.compare_digest(expected, attestation.get("signature", "")):
         return False, "signature-mismatch"
     return True, None
@@ -220,11 +231,7 @@ def _check_signature(attestation: dict, signer_entry: dict) -> tuple:
 
 def verify_attestation(decision_bytes: bytes, attestation: dict,
                        signer_set: dict) -> tuple[bool, str]:
-    """Verify an attestation dict against decision bytes and a signer set.
-
-    Checks signer identity/revocation/expiry and the HMAC signature.
-    Returns (ok, reason).
-    """
+    """Verify an attestation dict against decision bytes and a signer set."""
     signer_entry, reason = _check_signer(attestation, signer_set)
     if reason:
         return False, reason
@@ -244,7 +251,7 @@ def verify_run_cli(verify_dir: str, signer_set_path: str) -> int:
     except AttestationError as e:
         print(str(e), file=sys.stderr)
         return 2
-    ok, reason = verify(verify_dir, set_doc)
+    ok, reason = verify_run(verify_dir, set_doc)
     if ok:
         print(f"verification ok: {verify_dir}")
         return 0
@@ -258,16 +265,11 @@ def load_signer_set(path: str) -> dict:
         doc = json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as e:
         raise AttestationError(f"cannot load signer set: {e}") from None
-    errs = schemacheck.validate(doc, _load_schema("signer-set.schema.json"))
+    errs = schemacheck.validate(doc, schemacheck.load("signer-set.schema.json"))
     if errs:
         raise AttestationError(
             "invalid signer-set: " + "; ".join(errs[:5]))
     return doc
-
-
-def signer_set_digest(set_doc: dict) -> str:
-    """Digest of a signer-set document."""
-    return canon.digest_obj("signer-set/v1", set_doc)
 
 
 def seal_run(out_dir: str, res: dict, ledger: list, identities: dict,
@@ -284,19 +286,22 @@ def seal_run(out_dir: str, res: dict, ledger: list, identities: dict,
     attestation_path = None
     signed = False
     if required(stage, semantics):
-        attestation = sign(
-            payload, {**identities, "evidence_manifest_digest": ev_digest},
-            ctx["evaluation_time"])
-        # Same failure contract as the decision path (round-2 B1): an
-        # unwritable output directory must yield the documented exit code,
-        # never a raw traceback on the promotion-authorizing path.
-        try:
-            result.emit(f"{out_dir}/attestation.json",
-                        result.to_canonical(attestation))
-        except OSError as e:
-            raise AttestationError(f"attestation-emit-failed:{e}") from e
-        attestation_path = "attestation.json"
-        signed = True
+        if _key() is not None:
+            attestation = sign(
+                payload, {**identities, "evidence_manifest_digest": ev_digest},
+                ctx["evaluation_time"])
+            try:
+                result.emit(f"{out_dir}/attestation.json",
+                            result.to_canonical(attestation))
+            except OSError as e:
+                raise AttestationError(f"attestation-emit-failed:{e}") from e
+            attestation_path = "attestation.json"
+            signed = True
+        elif not _keys():
+            # promotion-authorizing run and no chain can sign: fail closed,
+            # never emit an unsigned attestation (stricter of the two
+            # contracts; S5's test_stage2_no_signer_key_fails pins 33).
+            raise AttestationError("signer-key-not-configured")
 
     emit_envelope(out_dir, decision=res["decision"], exit_code=code,
                   stage=stage, semantics=semantics, signed=signed,
@@ -305,13 +310,9 @@ def seal_run(out_dir: str, res: dict, ledger: list, identities: dict,
 
 
 def emit_envelope(out_dir: str, *, decision: str, exit_code: int,
-                   stage: int, semantics: str, signed: bool,
-                   attestation_path: str | None) -> None:
-    """Write the noncanonical transport envelope (last in sealing order).
-
-    Same failure contract as the other seal writes: an unwritable location
-    yields a documented exit code, never a raw traceback (round-2 B1).
-    """
+                  stage: int, semantics: str, signed: bool,
+                  attestation_path: str | None) -> None:
+    """Write the noncanonical transport envelope (last in sealing order)."""
     envelope = {
         "api_version": "devgate.spec-coherence.envelope/v1",
         "decision": decision,

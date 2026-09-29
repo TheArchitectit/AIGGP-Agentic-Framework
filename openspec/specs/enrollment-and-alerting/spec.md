@@ -1,10 +1,15 @@
-# Spec: Enrollment, heartbeat, and alerting
+# Enrollment, heartbeat, and alerting
 
 ## Purpose
 
 Specify how runners enroll with and report to the monitoring hub over the local network, including talk-home enrollment, revocation, and alert routing.
 
 ## Requirements
+
+Spokes enroll with one-time tokens, authenticate heartbeats with per-runner revocable tokens, and the hub raises deduplicated GitHub issue alerts keyed by (repo, check-class, runner) with an append-only JSONL audit trail.
+
+
+
 
 ### Requirement: Talk-home enrollment over the local network
 <!-- id: mon-enroll-01 -->

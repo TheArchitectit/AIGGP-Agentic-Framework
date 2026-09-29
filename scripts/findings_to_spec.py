@@ -134,8 +134,10 @@ def render_requirement(f: dict, req_id: str) -> str:
         "- **WHEN** the pattern behind this requirement is reintroduced",
         "- **THEN** the guardrails/registry gate fails the commit",
         "",
-        f"> Implement, then mark the enforcing source with `// spec: {req_id}`",
-        "> so spec_traceability.py counts it covered.",
+        f"> Implement, then mark the enforcing source with a spec marker:"
+        f" `// spec: {req_id}` in C-family/JS files, `# spec: {req_id}` in"
+        "> Python/Ruby/shell — both count — so spec_traceability.py counts"
+        "> it covered.",
         "",
     ]
     return "\n".join(body) + "\n"
