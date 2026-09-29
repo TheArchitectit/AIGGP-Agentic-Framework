@@ -54,6 +54,7 @@
   "test_hub_config_and_deadcode": 3,
   "test_hub_enroll_heartbeat": 12,
   "test_hub_hardening": 5,
+  "test_hub_main": 9,
   "test_hub_monitor": 12,
   "test_hub_monitor_coherence": 3,
   "test_hub_monitor_default_deny": 4,
@@ -97,5 +98,5 @@
   "test_template_supply_chain": 4,
   "test_workflow_read": 15
  },
- "total_floor": 1138
+ "total_floor": 1147
 }
