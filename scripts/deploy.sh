@@ -100,29 +100,39 @@ node "$ROOT/scripts/guardrails-scan.mjs" || {
 }
 
 # Run project's own build/test/lint (whatever exists)
+# Package-manager detection is the shared table (gate_common.detect_package_manager)
+# so this deploy path cannot drift from regression_audit's view of the project.
 cd "$PROJECT_ROOT"
-if [ -f "package.json" ]; then
-	echo "[deploy] detected npm project — running npm scripts"
-	npm run build || { echo "[deploy] FAIL: npm build failed"; exit 1; }
-	npm test || { echo "[deploy] FAIL: npm test failed"; exit 1; }
-	npm run lint 2>/dev/null || echo "[deploy] WARN: lint skipped or not configured"
-elif [ -f "Cargo.toml" ]; then
-	echo "[deploy] detected Rust project — running cargo"
-	cargo build --release || { echo "[deploy] FAIL: cargo build failed"; exit 1; }
-	cargo test || { echo "[deploy] FAIL: cargo test failed"; exit 1; }
-	cargo clippy 2>/dev/null || echo "[deploy] WARN: clippy skipped or not configured"
-elif [ -f "pyproject.toml" ] || [ -f "setup.py" ]; then
-	echo "[deploy] detected Python project — running pytest"
-	python3 -m pytest || { echo "[deploy] FAIL: pytest failed"; exit 1; }
-elif [ -f "go.mod" ]; then
-	echo "[deploy] detected Go project — running go test"
-	go build ./... || { echo "[deploy] FAIL: go build failed"; exit 1; }
-	go test ./... || { echo "[deploy] FAIL: go test failed"; exit 1; }
-elif [ -f "project.godot" ]; then
-	echo "[deploy] detected Godot project — skipping build/test (run Godot headless tests manually)"
-else
-	echo "[deploy] no recognized project type — skipping build/test"
-fi
+PKG_MANAGER="$(python3 -c "import sys; sys.path.insert(0, '$ROOT/scripts'); import gate_common; print(gate_common.detect_package_manager('.') or '')")"
+case "$PKG_MANAGER" in
+	npm)
+		echo "[deploy] detected npm project — running npm scripts"
+		npm run build || { echo "[deploy] FAIL: npm build failed"; exit 1; }
+		npm test || { echo "[deploy] FAIL: npm test failed"; exit 1; }
+		npm run lint 2>/dev/null || echo "[deploy] WARN: lint skipped or not configured"
+		;;
+	cargo)
+		echo "[deploy] detected Rust project — running cargo"
+		cargo build --release || { echo "[deploy] FAIL: cargo build failed"; exit 1; }
+		cargo test || { echo "[deploy] FAIL: cargo test failed"; exit 1; }
+		cargo clippy 2>/dev/null || echo "[deploy] WARN: clippy skipped or not configured"
+		;;
+	pip)
+		echo "[deploy] detected Python project — running pytest"
+		python3 -m pytest || { echo "[deploy] FAIL: pytest failed"; exit 1; }
+		;;
+	go)
+		echo "[deploy] detected Go project — running go test"
+		go build ./... || { echo "[deploy] FAIL: go build failed"; exit 1; }
+		go test ./... || { echo "[deploy] FAIL: go test failed"; exit 1; }
+		;;
+	godot)
+		echo "[deploy] detected Godot project — skipping build/test (run Godot headless tests manually)"
+		;;
+	*)
+		echo "[deploy] no recognized project type — skipping build/test"
+		;;
+esac
 
 # --- 3. schema health (gated: a real failure BLOCKS the release) --------------
 # The gate's exit codes are a contract (see the header of schema-health-check.mjs):

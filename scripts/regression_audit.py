@@ -14,18 +14,19 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 from pathlib import Path
+
+# Shared package-manager table (incl. go/godot) — gate_common owns the
+# markers so deploy.sh and the audit side cannot disagree again.
+if str(Path(__file__).resolve().parent) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+from gate_common import detect_package_manager  # noqa: E402
 
 
 def _detect_package_manager(repo_root: Path) -> str | None:
-    """Detect the project's package manager. Returns 'npm', 'cargo', 'pip', or None."""
-    if (repo_root / "package.json").exists():
-        return "npm"
-    if (repo_root / "Cargo.toml").exists():
-        return "cargo"
-    if (repo_root / "pyproject.toml").exists() or (repo_root / "setup.py").exists():
-        return "pip"
-    return None
+    """Detect the project's package manager. Shared table in gate_common."""
+    return detect_package_manager(repo_root)
 
 
 def check_npm_audit(repo_root: Path) -> tuple[int, int, list[dict]]:
