@@ -1038,6 +1038,88 @@ sprints. Findings and dispositions:
       both ladder mutations killed by the drill that owns them. **The baseline shape is captured; the run
       stays synthetic** — this discharges criterion 8's demonstration, NOT the real-subject run, which
       criterion 9 still owes against an enrolled spoke.
+      **Update 2026-09-28 (later): criterion 9's enrollment write HAPPENED.** The owner chose LobsterWars;
+      the gate is enrolled (PR LobsterWars#1, merged `e793ce5` on `master`): workflow installed,
+      `.devgate` submodule bumped `438c9f7` → `ab88905` (the old pin predates `invoke.py`; the pin check
+      fails closed on it by design), submodule URL moved to the post-rename repo, push trigger wired to
+      `master` (the template shipped `[main]` — a trigger the repo could never fire, the ci-run-01 lesson
+      again). **Control-plane artifacts are provisioned** on the runner host (the
+      `devgate-runner-gamerepo02` `_work` volume, `/_work/control-plane/`): package, policy bundle, stage
+      registry, and a signed context issued by the REAL issuer (`hub.coherence.issue_context`) at stage 1
+      with an EMPTY baseline — ADR-006's entry posture; the captured 13-finding drift-scan baseline CANNOT
+      become coherence baseline entries (different class space; mapping PREVENT-011 onto a coherence
+      assertion would manufacture finding identities, the R9 prohibition). A local dry run against the
+      actual LobsterWars checkout (`f5b48a30`, the captured SHA) executed the real service end-to-end:
+      exit 10 ADVISORY with three per-assertion outcomes (identity UNRESOLVED — the subject declares no
+      identity, measured; release-claim VIOLATED — no release manifest; traceability SATISFIED) and a
+      sealed evidence bundle. Two fleet facts measured en route, both general: **runner containers carry
+      no podman**, so the container phase SKIPPEDs honestly (warning-level doctor) until the runner image
+      gains it — a fleet-wide infra item, not a pilot gap; and **default branch is `master`**, so the
+      template's `[main]` trigger needed the fix above. What remains for criterion 9's fleet half is the
+      first hosted run completing on the enrolled spoke and its canonical result agreeing with the
+      CI/local byte-identity claim.
+      **Update 2026-09-28 (latest): option A applied to the pilot runner; the
+      first hosted run measured the whole chain.** Run `36491296436` (the
+      merge-commit push) failed exactly as the fleet fact predicted: doctor
+      `podman not on PATH` → warning → SKIPPED → exit 1 (fail-closed
+      honest, coh-int-06). The owner chose option A; the
+      `devgate-runner-gamerepo02` quadlet gained: a child image
+      `localhost/devgate-runner-gamerepo02:podman` baking podman 4.9.3
+      (matching the host exactly — the launcher derives podman-specific
+      flags, so the docker CLI cannot substitute), a bind of the host
+      rootless socket (`/run/user/1000/podman/podman.sock` →
+      `/var/run/docker.sock` + `CONTAINER_HOST`; the evaluator container
+      itself never sees the socket — the launcher rejects socket binds),
+      and the work volume **mirror-mounted at its own host path** with
+      `DEVGATE_HOST_WORK_ROOT` exported — because podman resolves `-v` bind
+      sources on the HOST, where runner-visible `/_work/...` does not
+      exist. Run `36493189424` (dispatch, pre-template-fix) measured the
+      second half: doctor **ok** (the socket access works, pinned image
+      found) but the gate step failed on the bind paths — the
+      path-translation gap, fixed in the template + the enrolled workflow
+      (prefix rewrite onto `DEVGATE_HOST_WORK_ROOT` before the builder
+      runs; the builder still owns every payload field, round-18 D1). The
+      containerized `--launch-config` path was also dry-run locally
+      against the real checkout first: exit 10 ADVISORY, same three
+      per-assertion outcomes as the in-process run, bundle verifies.
+      Infra side documented in infra-info `f674f43`. Two more hosted
+      measurements followed, both teaching real lessons:
+      **run 36493334305** died in ~225ms with an empty step summary — the
+      cause was NOT the gate logic but an env-clobber trap: the workflow's
+      own job-level `env: DEVGATE_HOST_WORK_ROOT: ""` (declared to satisfy a
+      template lint) OVERRIDES the runner container's quadlet-provided
+      environment, so the translation never activated and the driver passed
+      runner-visible paths as bind sources, which the host podman daemon
+      cannot bind (container exit 125 → contract exit 32). Measured rule:
+      **job-level env overrides runner-container env** — the var must arrive
+      ONLY from the quadlet; the template now carries a comment naming the
+      trap. **Run 36494148238** then proved the whole chain end-to-end (the
+      evaluator container ran with translated paths and wrote its evidence
+      finding through the mirror mount at 22:44:33, within a 1.09s step) but
+      the gate script mislabeled the result: the driver relayed **exit 10
+      (ADVISORY)** — the frozen decision/exit matrix's non-blocking stage-1
+      verdict (result.py:15, design.md:133) — and the binary PASS/FAIL
+      handler recorded `FAIL (exit 10)` and failed the job. The gate now
+      decodes the exit against the frozen matrix AND reads the decision back
+      from `result.json`, requiring agreement (design.md:141: exit/result
+      disagreement resolves never in favor of the more permissive signal);
+      ADVISORY records without failing, disagreement fails closed. That
+      dispatch (36497952786) then exposed one more measured bash trap in
+      the fix itself: `if ! cmd; then CODE=$?; fi` captures the
+      NEGATION's status (0), never the command's — the driver's exit 10
+      read as 0, WANT=PASS disagreed with GOT=ADVISORY, and the
+      fail-closed branch fired exactly as designed. `|| CODE=$?` binds
+      the real rc (measured: `bash -c 'f(){ return 10; }; if ! f; then
+      echo $?; fi'` prints 0). **HOSTED GREEN 2026-09-29: run
+      `36501521466`** — the full option-A chain on the enrolled spoke:
+      doctor ok, builder built the seven-field request from translated
+      paths, the digest-pinned evaluator container ran (evidence finding
+      written through the mirror mount at 00:07:58.22, container-user
+      100999), the driver relayed exit 10 ADVISORY, the gate read the
+      decision back from `result.json`, found agreement, recorded
+      ADVISORY, and exited 0 — all six job steps success. PR LobsterWars#2
+      merged at 00:08:56Z; the master push-triggered run is the standing
+      confirmation. Criterion 9's fleet half is now measured.
       **(all 14 ucs03 spokes now heartbeating, 2026-09-26)** the "registered + online" state this line
       describes for gamerepo02 now holds fleet-wide: `ucs03-game` enrolled + heartbeating too, alongside
       da/mc/radical/radical-code/redeye/rtp/zdf/zombietoss/zxp (see the coh-int-07 closure above). The

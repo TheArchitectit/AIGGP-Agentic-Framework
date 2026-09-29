@@ -91,6 +91,21 @@ signer, not the evaluator's present-time standing — that separation of
 attestation-time validity from pin-time standing is the accepted
 semantics.
 
+**Q6 and Q7 — decided 2026-09-28 (owner, via structured question):**
+
+- **Q6 (offline evaluation): hardening milestone, not a launch
+  requirement.** Enforcement stages (2+) require offline verification;
+  stages 0–1 may fetch at evaluation time. This matches the design's
+  existing posture: promotion-authorizing results already require the
+  pinned image and signer set available locally.
+- **Q7 (evidence retention): adopt the shipped retention-class default
+  as-is** — short (7d, PASS runs), standard (30d, ADVISORY), extended
+  (1y, FAIL/ERROR + attested bundles). Zero new code; the fallback
+  already enforces this, so the decision ratifies shipped behavior.
+
+With these two, the open-question set reduces to Q8 (backward-compatible
+result fields) and Q10 (vision determinism, S7) — neither gates Stage 3.
+
 ## Recommended first thin slice
 
 Use one synthetic repository plus a `gamerepo01`-derived identity fixture. Resolve one approved package, evaluate three deterministic assertions, emit canonical evidence, and run in advisory mode from the pinned container. Then enable Stage 2 ratchet for LobsterWars using its 13 named findings as the fixed baseline. Do not begin with broad AI interpretation, automatic repair, or full-fleet enforcement.
