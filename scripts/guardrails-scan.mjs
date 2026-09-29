@@ -6,12 +6,20 @@
 // Supports inline `// guardrails-allow RULE-ID: <reason>` annotations and
 // file-scope `//! guardrails-allow-file RULE-ID: <reason>` declarations.
 
-import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join, dirname, resolve, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { projectRootFor } from "./lib/project-root.mjs";
+import {
+	globMatch,
+	globMatchesAny,
+	lineHasAllow,
+	loadIgnorePatterns,
+	loadSkipDirs,
+	projectRootFor,
+	walk,
+} from "./lib/gate_common.mjs";
 
 // DevGate root (where this script lives — <project>/.devgate/)
 const devgateRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -39,25 +47,9 @@ const overlayRulesPath = join(projectRoot, ".guardrails", "prevention-rules", "p
 // fix + pin: see tests/test_scanner_root_anchor.mjs section on the count 3→11).
 const SOURCE_EXTENSIONS = [".ts", ".js", ".py", ".rs", ".go", ".gd", ".java", ".kt", ".rb", ".php", ".jsx", ".tsx", ".svelte", ".zig", ".mjs", ".cjs", ".html"];
 
-// Directories to skip (DevGate's own dir + common non-source dirs)
-
 // Scope contract is DATA, single source of truth (fw-scope-01): one
-// definition in .guardrails/scope.json consumed by every gate. Resolved from
-// the LAYOUT ROOT (projectRoot / devgateRoot), never by walking up from
-// process.cwd() — a cwd walk can settle above the tree and reads scope from
-// a foreign checkout (the root-anchor-01 escape class, re-entering via data).
-function findScope() {
-  for (const candidate of [join(projectRoot, ".guardrails", "scope.json"),
-                           join(devgateRoot, ".guardrails", "scope.json")]) {
-    if (existsSync(candidate)) return candidate;
-  }
-  return null;
-}
-const SKIP_DIRS = (() => {
-  const scopePath = findScope();
-  if (!scopePath) throw new Error("scope contract missing: .guardrails/scope.json");
-  return JSON.parse(readFileSync(scopePath, "utf8")).skip_dirs;
-})();
+// definition in .guardrails/scope.json, loaded by gate_common.loadSkipDirs.
+const SKIP_DIRS = loadSkipDirs({ devgateRoot, projectRoot });
 
 function readRulesFile(path) {
 	if (!existsSync(path)) return [];
@@ -96,33 +88,6 @@ function loadRules() {
 	);
 }
 
-function globMatch(glob, path) {
-	// fnmatch-compatible translation: "*" spans path separators (".*"), which
-	// is how "*.go" reaches nested files — the Python gates (regression_diff.py
-	// glob_matches) match with fnmatch, whose "*" already crosses "/". The old
-	// "[^/]*" anchored "*" to a single segment, so glob-scoped rules silently
-	// matched nothing but project-root files. "**" stays a globstar (".*") and
-	// "**/" additionally matches zero directories, mirroring _expand_globstars.
-	const P = "\x00GS\x00";
-	let tmp = glob
-		.replace(/\*\*\//g, P + "DSLASH" + P)
-		.replace(/\*\*/g, P + "GLOBSTAR" + P)
-		.replace(/\*/g, P + "STAR" + P)
-		.replace(/\?/g, P + "QMARK" + P);
-	tmp = tmp.replace(/[.+^${}()|[\]\\]/g, "\\$&");
-	let pattern = tmp
-		.replace(new RegExp(P + "DSLASH" + P, "g"), "(?:.*/)?")
-		.replace(new RegExp(P + "GLOBSTAR" + P, "g"), ".*")
-		.replace(new RegExp(P + "STAR" + P, "g"), ".*")
-		.replace(new RegExp(P + "QMARK" + P, "g"), ".");
-	return new RegExp("^" + pattern + "$").test(path);
-}
-
-function globMatchesAny(globs, rel, base) {
-	// Parity with regression_diff.py glob_matches: basename OR relative path.
-	return globs.some((g) => globMatch(g, rel) || globMatch(g, base));
-}
-
 function ruleAppliesTo(rule, file) {
 	const globs = rule.file_glob;
 	if (!Array.isArray(globs) || globs.length === 0) return true;
@@ -134,19 +99,6 @@ function ruleAppliesTo(rule, file) {
 	const excludes = rule.exclude_glob;
 	if (Array.isArray(excludes) && excludes.length > 0 && globMatchesAny(excludes, rel, basename(file))) return false;
 	return true;
-}
-
-// Per-project scoping the gate can't know — archived legacy trees, generated
-// fixtures, anything that must not fail the gate. One fnmatch glob per line
-// ("*" crosses "/", same semantics as rule globs); trailing "/" = directory
-// prefix. Blank lines and '#' comments ignored.
-function loadIgnorePatterns(root) {
-	const p = join(root, ".guardrailsignore");
-	if (!existsSync(p)) return [];
-	return readFileSync(p, "utf-8")
-		.split("\n")
-		.map((l) => l.trim())
-		.filter((l) => l && !l.startsWith("#"));
 }
 
 function relTo(root, file) {
@@ -257,21 +209,16 @@ function trackedFiles(root) {
 	}
 }
 
-function walk(dir, acc = [], ignorePatterns = []) {
-	if (!existsSync(dir)) return acc;
-	for (const name of readdirSync(dir)) {
-		const p = join(dir, name);
-		const st = statSync(p);
-		if (st.isDirectory()) {
-			if (!SKIP_DIRS.includes(name) && !isIgnored(p, projectRoot, ignorePatterns)) walk(p, acc, ignorePatterns);
-		} else {
+function walkProject(dir, ignorePatterns = []) {
+	// Shared walk (EACCES-safe, no symlinked dirs) with this scanner's accept set.
+	return walk(dir, {
+		skipDirs: SKIP_DIRS,
+		accept: (name) => {
 			const ext = "." + name.split(".").pop();
-			if (SOURCE_EXTENSIONS.includes(ext) && !name.endsWith(".d.ts") && !isIgnored(p, projectRoot, ignorePatterns)) {
-				acc.push(p);
-			}
-		}
-	}
-	return acc;
+			return SOURCE_EXTENSIONS.includes(ext) && !name.endsWith(".d.ts");
+		},
+		isIgnored: (p) => isIgnored(p, projectRoot, ignorePatterns),
+	});
 }
 
 // Detect comment lines by file extension so marker-comment rules (TODO, FIXME)
@@ -308,7 +255,7 @@ function main() {
 	}
 	const ignorePatterns = loadIgnorePatterns(projectRoot);
 	if (ignorePatterns.length > 0) console.log(`GUARDRAILS: honoring ${ignorePatterns.length} .guardrailsignore entr(y/ies)`);
-	const files = walk(projectRoot, [], ignorePatterns);
+	const files = walkProject(projectRoot, ignorePatterns);
 	let violations = 0;
 	let warnings = 0;
 	const STRICT = process.argv.includes("--strict");
@@ -338,8 +285,7 @@ function main() {
 				// rule on their own suppression examples.
 				const ext = "." + file.split(".").pop();
 				if (!rule.scan_comments && isCommentLine(scanLine, ext)) continue;
-				const allow = new RegExp(`guardrails-allow\\s+${rule.rule_id}\\s*:\\s*\\S`);
-				if (allow.test(scanLine)) continue;
+				if (lineHasAllow(scanLine, rule.rule_id)) continue;
 				try {
 					if (new RegExp(rule.pattern).test(scanLine)) {
 						// forbidden_context suppresses the hit when the same line

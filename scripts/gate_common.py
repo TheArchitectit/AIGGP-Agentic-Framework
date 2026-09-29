@@ -64,7 +64,7 @@ from pathlib import Path
 _LIB = Path(__file__).resolve().parent / "lib"
 if str(_LIB) not in sys.path:
     sys.path.insert(0, str(_LIB))
-from project_root import project_root_for  # noqa: E402  (scripts/lib, set up above)
+from project_root import project_root_for  # noqa: E402  # guardrails-allow PREVENT-024: shared root-contract module defined in scripts/lib/project_root.py, not an external package
 
 _SCOPE = Path(".guardrails") / "scope.json"
 

@@ -16,17 +16,17 @@
  */
 
 import { spawn } from "node:child_process";
-import { readFileSync, readdirSync, lstatSync, mkdtempSync, rmSync, mkdirSync, existsSync } from "node:fs";
+import { mkdtempSync, rmSync, mkdirSync } from "node:fs";
 import { join, relative, basename, extname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import os from "node:os";
 
-import { projectRootFor } from "./lib/project-root.mjs";
+import { loadSkipDirs, projectRootFor, walk } from "./lib/gate_common.mjs";
 
 const DEVGATE_ROOT = join(fileURLToPath(import.meta.url), "..", "..");
 
-// Project root by LAYOUT CONTRACT (see scripts/lib/project-root.mjs), never a
+// Project root by LAYOUT CONTRACT (scripts/lib/project-root.mjs), never a
 // marker walk-up from an ancestor: the old findProjectRoot(resolve(root,".."))
 // settled on any parent holding package.json/.git — scanning sibling repos in
 // the directory above the checkout, discovering zero of DevGate's own tests,
@@ -38,18 +38,9 @@ const HARD_CAP_MS = PER_FILE_TIMEOUT_MS + 10_000;
 const SILENCE_MS = Number(process.env.DEVGATE_TEST_HANG_MS ?? 10_000);
 const POOL = Math.max(1, Math.min(Number(process.env.DEVGATE_TEST_POOL ?? os.cpus().length), 8));
 
-// Scope contract is DATA (fw-scope-01): .guardrails/scope.json, shared by all
-// gates. Resolved from the LAYOUT ROOT, never by walking up from process.cwd()
-// — the old walk-up started at the invocation directory, so it (a) escaped to
-// ancestor trees, (b) crashed on the first step (dirname was never imported),
-// and (c) re-broke the very contract this file's root resolution just fixed.
-const SKIP_DIRS = (() => {
-  for (const candidate of [join(PROJECT_ROOT, ".guardrails", "scope.json"),
-                           join(DEVGATE_ROOT, ".guardrails", "scope.json")]) {
-    if (existsSync(candidate)) return JSON.parse(readFileSync(candidate, "utf8")).skip_dirs;
-  }
-  throw new Error("scope contract missing: .guardrails/scope.json (under the project root or .devgate/)");
-})();
+// Scope contract is DATA (fw-scope-01): one loader, .guardrails/scope.json.
+// Resolved from the LAYOUT ROOT, never by walking up from process.cwd().
+const SKIP_DIRS = loadSkipDirs({ devgateRoot: DEVGATE_ROOT, projectRoot: PROJECT_ROOT });
 
 // Test file patterns by language. Covers both naming conventions per
 // ecosystem: suffix style (.test.js / .spec.mjs / .test.tsx …) and the
@@ -88,31 +79,13 @@ function isPrefixTestFile(filename) {
 // parallel pool because the regex required a ".test."/" .spec." middle dot.
 const SERIAL_GLOB = /(?:^|\/)(?:dashboard|perf|budget|server|integration)[^/]*(?:\.(?:test|spec)\.(?:js|mjs|cjs|ts|tsx)|_test\.py)$/i;
 
-function collectTestFiles(dir, acc = []) {
-	if (!existsSync(dir)) return acc;
-	let entries;
-	try {
-		entries = readdirSync(dir);
-	} catch {
-		return acc; // unreadable directory — skipped, not fatal
-	}
-	for (const entry of entries) {
-		const full = join(dir, entry);
-		let st;
-		try {
-			st = lstatSync(full);
-		} catch {
-			continue;
-		}
-		if (st.isDirectory()) {
-			// Symlinked directories are never descended (cycle/escape guard).
-			if (st.isSymbolicLink()) continue;
-			if (!SKIP_DIRS.includes(entry)) collectTestFiles(full, acc);
-		} else if (st.isFile() && (isTestFile(entry) || isPrefixTestFile(entry))) {
-			acc.push(full);
-		}
-	}
-	return acc;
+function collectTestFiles(dir) {
+	// Shared walk (EACCES-safe, no symlinked dirs) with this runner's test
+	// filename contract. Same SKIP_DIRS prune as every other gate.
+	return walk(dir, {
+		skipDirs: SKIP_DIRS,
+		accept: (name) => isTestFile(name) || isPrefixTestFile(name),
+	});
 }
 
 // Run a single test file using the appropriate runner

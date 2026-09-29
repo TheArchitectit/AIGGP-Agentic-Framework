@@ -60,6 +60,8 @@ function makeProject(dir, files) {
 		join(dir, ".devgate", ".guardrails", "scope.json"));
 	copyFileSync(join(repoRoot, "scripts", "lib", "project-root.mjs"),
 		join(dir, ".devgate", "scripts", "lib", "project-root.mjs"));
+	copyFileSync(join(repoRoot, "scripts", "lib", "gate_common.mjs"),
+		join(dir, ".devgate", "scripts", "lib", "gate_common.mjs"));
 	copyFileSync(rules, join(dir, ".devgate", ".guardrails", "prevention-rules", "pattern-rules.json"));
 	writeFileSync(join(dir, "go.mod"), "module example.com/fixture\n\ngo 1.21\n");
 	for (const [rel, content] of Object.entries(files)) {

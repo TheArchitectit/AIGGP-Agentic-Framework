@@ -16,80 +16,33 @@
 //
 // Supports inline allow: // guardrails-allow <RULE-ID>: <reason>
 
-import { readFileSync, readdirSync, lstatSync, existsSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { projectRootFor } from "./lib/project-root.mjs";
+import {
+	globMatch,
+	lineHasAllow,
+	loadIgnorePatterns,
+	loadSkipDirs,
+	projectRootFor,
+	walk,
+} from "./lib/gate_common.mjs";
 
 const devgateRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 
-// Project root by LAYOUT CONTRACT (see scripts/lib/project-root.mjs). The old
-// marker walk-up from .devgate's parent settled on shared directories above the
-// checkout (e.g. a "git repos" folder carrying its own package.json) and scanned
-// every sibling repo — thousands of foreign files evaluated by a gate that
-// believed it was scanning DevGate. The exact figure moves as sibling repos
-// grow (so it is not quoted as a constant), but the failure shape is stable:
-// a root chosen by "nearest marker above me" can silently be the wrong tree.
-// Same escape as run-tests.mjs had; same fix, one shared source.
-// tests/test_scanner_root_anchor.mjs locks the contract.
+// Project root by LAYOUT CONTRACT (scripts/lib/project-root.mjs). Same escape
+// class run-tests.mjs had (marker walk-up settled on a sibling-repo parent);
+// fixed in one shared source. tests/test_scanner_root_anchor.mjs locks it.
 const root = projectRootFor(devgateRoot);
 
-
-function findScope() {
-  // Scope contract resolves from the LAYOUT ROOT for BOTH layouts: a
-  // standalone checkout (.guardrails/scope.json at the root) and a consumer
-  // submodule (.devgate/.guardrails/scope.json). Never a walk-up from
-  // process.cwd() — that can settle above the tree (root-anchor-01 class).
-  for (const candidate of [join(root, ".guardrails", "scope.json"),
-                           join(devgateRoot, ".guardrails", "scope.json")]) {
-    if (existsSync(candidate)) return candidate;
-  }
-  return null;
-}
-// Scope contract is DATA (fw-scope-01): .guardrails/scope.json, shared by all gates.
-const SKIP_DIRS = (() => {
-  const scopePath = findScope();
-  if (!scopePath) throw new Error("scope contract missing: .guardrails/scope.json");
-  return JSON.parse(readFileSync(scopePath, "utf8")).skip_dirs;
-})();
-
-// Per-project scan scoping — same .guardrailsignore contract as
-// guardrails-scan.mjs: one fnmatch glob per line ("*" crosses "/"), trailing
-// "/" = directory prefix. Without this, archived trees and generated fixtures
-// the project scoped out of the pattern gate still drove semantic-scan to
-// require the typescript package (and fail) for files nobody maintains.
-function loadIgnorePatterns(r) {
-	const p = join(r, ".guardrailsignore");
-	if (!existsSync(p)) return [];
-	return readFileSync(p, "utf-8")
-		.split("\n")
-		.map((l) => l.trim())
-		.filter((l) => l && !l.startsWith("#"));
-}
+// Scope contract is DATA (fw-scope-01): .guardrails/scope.json, one loader.
+const SKIP_DIRS = loadSkipDirs({ devgateRoot, projectRoot: root });
 
 const ignorePatterns = loadIgnorePatterns(root);
 
 function rel(file) {
 	return file.startsWith(root + "/") ? file.slice(root.length + 1) : file;
-}
-
-// Mirrors guardrails-scan.mjs globMatch: fnmatch "*" spans path separators,
-// "**" is a globstar, "**/" also matches zero directories.
-function globMatch(glob, path) {
-	const P = "\x00GS\x00";
-	let tmp = glob
-		.replace(/\*\*\//g, P + "DSLASH" + P)
-		.replace(/\*\*/g, P + "GLOBSTAR" + P)
-		.replace(/\*/g, P + "STAR" + P)
-		.replace(/\?/g, P + "QMARK" + P);
-	tmp = tmp.replace(/[.+^${}()|[\]\\]/g, "\\$&");
-	const pattern = tmp
-		.replace(new RegExp(P + "DSLASH" + P, "g"), "(?:.*/)?")
-		.replace(new RegExp(P + "GLOBSTAR" + P, "g"), ".*")
-		.replace(new RegExp(P + "STAR" + P, "g"), ".*")
-		.replace(new RegExp(P + "QMARK" + P, "g"), ".");
-	return new RegExp("^" + pattern + "$").test(path);
 }
 
 function isIgnored(file) {
@@ -103,49 +56,28 @@ function isIgnored(file) {
 	);
 }
 
-function walk(dir, acc = []) {
-	let entries;
-	try {
-		entries = readdirSync(dir);
-	} catch {
-		return acc; // unreadable directory (EACCES etc.) — skipped, not fatal
-	}
-	for (const name of entries) {
-		const p = join(dir, name);
-		let st;
-		try {
-			st = lstatSync(p);
-		} catch {
-			continue;
-		}
-		if (st.isDirectory()) {
-			// Symlinked directories are never descended: no cycle, no escape
-			// outside the resolved project root.
-			if (st.isSymbolicLink()) continue;
-			if (!SKIP_DIRS.includes(name) && !isIgnored(p)) walk(p, acc);
-		// .mjs/.cjs are load-bearing here, not an afterthought: DevGate's own
-		// first-party modules are .mjs (8 tracked files, zero .js/.ts), so a
-		// walk without them reported "no files, skipped" over the whole repo —
-		// a permanently-empty gate, the S0 carry-forward's other horn.
-		} else if ((name.endsWith(".ts") || name.endsWith(".tsx") || name.endsWith(".js") || name.endsWith(".jsx") || name.endsWith(".mjs") || name.endsWith(".cjs")) && !name.endsWith(".d.ts") && !name.endsWith(".test.ts") && !name.endsWith(".spec.ts") && !isIgnored(p)) {
-			acc.push(p);
-		}
-	}
-	return acc;
-}
-
 function collectFiles() {
-	// Scan the project root for TS/JS files — NOT .devgate/ itself
-	return walk(root);
+	// Shared walk (EACCES-safe, no symlinked dirs) with this scanner's accept set.
+	// .mjs/.cjs are load-bearing here, not an afterthought: DevGate's own
+	// first-party modules are .mjs (8 tracked files, zero .js/.ts), so a
+	// walk without them reported "no files, skipped" over the whole repo.
+	return walk(root, {
+		skipDirs: SKIP_DIRS,
+		accept: (name) =>
+			(name.endsWith(".ts") || name.endsWith(".tsx") || name.endsWith(".js") ||
+				name.endsWith(".jsx") || name.endsWith(".mjs") || name.endsWith(".cjs")) &&
+			!name.endsWith(".d.ts") && !name.endsWith(".test.ts") && !name.endsWith(".spec.ts"),
+		isIgnored,
+	});
 }
 
 function loadAllowLines(sourceText, ruleId) {
+	// Shared reason-required matcher (FAIL-9231181d). Keeps the sourceLine →
+	// reason map so callers can still honor an annotate-on-the-line-above.
 	const allowMap = new Map();
 	const lines = sourceText.split("\n");
-	const re = new RegExp(`guardrails-allow\\s+${ruleId}\\s*:\\s*(.+)`);
 	for (let i = 0; i < lines.length; i++) {
-		const m = lines[i].match(re);
-		if (m) allowMap.set(i + 1, m[1].trim());
+		if (lineHasAllow(lines[i], ruleId)) allowMap.set(i + 1, lines[i]);
 	}
 	return allowMap;
 }

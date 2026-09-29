@@ -48,6 +48,7 @@ _PY_DEPS = [
     "scene_inventory.py",
     "failure_registry_check.py",
     "gate_overlay.py",
+    "gate_common.py",
     "regression_audit.py",
     "regression_diff.py",
     "regression_sizes.py",

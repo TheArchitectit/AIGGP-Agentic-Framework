@@ -10,7 +10,7 @@
   "test_findings_to_spec": 4,
   "test_fw_guards": 6,
   "test_game_regression": 6,
-  "test_gate_common": 13,
+  "test_gate_common": 14,
   "test_gate_overlay": 6,
   "test_guardrails_scan_node": 2,
   "test_hub_alerts": 8,
@@ -96,5 +96,5 @@
   "test_template_supply_chain": 4,
   "test_workflow_read": 15
  },
- "total_floor": 1130
+ "total_floor": 1131
 }
