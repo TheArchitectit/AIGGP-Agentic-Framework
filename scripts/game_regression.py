@@ -27,6 +27,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import gate_overlay  # noqa: E402
+# Shared primitives — one implementation (scripts/gate_common.py).
+from gate_common import (  # noqa: E402
+    glob_matches,
+    line_has_allow,
+    load_skip_dirs,
+    project_root,
+    nothing_scanned,
+)
 
 # Game-class patterns (regex-based, loaded from failure-registry.jsonl)
 GAME_PATTERNS = {
@@ -99,30 +107,15 @@ def detect_engine(root):
     return "unknown"
 
 def find_project_root():
-    """Project root = the directory CONTAINING .devgate/, by layout contract.
+    """Project root by layout contract, with DEVGATE_PROJECT_ROOT override.
 
-    Resolved from the script's own location, like guardrails-scan.mjs — cwd was
-    wrong two ways: run from a subdir (go/) it shrank the scan to that subdir,
-    and run from a bare directory with no markers it walked up into unrelated
-    sibling repos. DevGate standalone (script not under a .devgate/) is its own
-    project. DEVGATE_PROJECT_ROOT overrides, matching regression_check.py and
-    failure_registry_check.py (tests and CI use it to point at a fixture tree).
+    Lives in gate_common.project_root (root-anchor-01). Kept as a named
+    alias because callers and tests import it under this name.
     """
-    import os
-    env = os.environ.get("DEVGATE_PROJECT_ROOT")
-    if env:
-        return Path(env).resolve()
-    script_parent = Path(__file__).resolve().parent.parent  # <root>/.devgate
-    if script_parent.name == ".devgate":
-        return script_parent.parent
-    return script_parent
+    return project_root()
 
-# Directories that are not first-party source — mirrors SKIP_DIRS in
-# guardrails-scan.mjs. Vendored and generated code must not fail the gate.
-# fw-scope-01: single scope contract — .guardrails/scope.json, shared by all gates.
-SKIP_DIRS = set(json.loads((Path(__file__).resolve().parent.parent
-                            / ".guardrails/scope.json")
-                           .read_text(encoding="utf-8"))["skip_dirs"])
+# fw-scope-01: single scope contract — loaded, never redeclared here.
+SKIP_DIRS = load_skip_dirs()
 
 def load_ignore_patterns(root):
     """Read <root>/.guardrailsignore — per-project scoping the gate can't know.
@@ -157,10 +150,7 @@ def is_ignored(file_path, root, patterns):
             return True
     return False
 
-def glob_matches(path, globs):
-    """Basename OR path glob match — parity with regression_diff.py glob_matches."""
-    base = os.path.basename(path)
-    return any(fnmatch.fnmatch(base, g) or fnmatch.fnmatch(path, g) for g in globs)
+# glob_matches and line_has_allow are re-exported from gate_common (shared).
 
 def iter_source_files(root, ignore_patterns=()):
     """Walk the tree collecting scannable source files, skipping SKIP_DIRS and ignores."""
@@ -195,17 +185,6 @@ def get_changed_files(root, staged=True):
     if result.returncode != 0:
         return []
     return [f.strip() for f in result.stdout.splitlines() if f.strip()]
-
-def line_has_allow(line, *ids):
-    """True when the line carries a guardrails-allow for any of the given ids.
-
-    Mirrors guardrails-scan.mjs, which keys the annotation on the rule id: a
-    substring-only check would let one id's allow silence every other pattern.
-    """
-    return any(
-        re.search(rf"guardrails-allow\s+{re.escape(i)}\s*:", line)
-        for i in ids if i
-    )
 
 def scan_file_for_patterns(file_path, patterns):
     """Scan a file for game-class regression patterns."""
@@ -306,9 +285,11 @@ def main():
         # No vacuous green (gate-execution-contract): zero files is NOTHING
         # SCANNED, never a clean pass. Default stays non-blocking for
         # non-game consumers; --fail-if-empty turns it into exit 2 for CI.
-        print("[game-regression] NOTHING SCANNED — the scope evaluated zero "
-              "files. This is not evidence of health.")
-        sys.exit(2 if args.fail_if_empty else 0)
+        sys.exit(nothing_scanned(
+            "game-regression",
+            "the scope evaluated zero files. This is not evidence of health.",
+            fail_if_empty=args.fail_if_empty,
+        ))
 
     print(f"[game-regression] scanning {len(files)} file(s)")
     all_issues = []

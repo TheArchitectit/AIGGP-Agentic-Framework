@@ -42,6 +42,13 @@ def test_project_root_never_walks_parents(tmp_path, monkeypatch):
     assert gate_common.project_root_for(repo) == repo
 
 
+def test_project_root_env_override(tmp_path, monkeypatch):
+    point = tmp_path / "fixture"
+    point.mkdir()
+    monkeypatch.setenv("DEVGATE_PROJECT_ROOT", str(point))
+    assert gate_common.project_root() == point.resolve()
+
+
 def test_load_skip_dirs_reads_scope_contract(tmp_path):
     dg = tmp_path / ".devgate"
     (dg / ".guardrails").mkdir(parents=True)

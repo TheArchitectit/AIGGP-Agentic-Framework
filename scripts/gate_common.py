@@ -55,6 +55,7 @@ from __future__ import annotations
 
 import fnmatch
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -88,7 +89,13 @@ def project_root(devgate_root_: Path | str | None = None) -> Path:
 
     Submodule layout (``<project>/.devgate/``) → the project. Standalone
     checkout → DevGate itself. See ``project_root_for`` / root-anchor-01.
+
+    ``DEVGATE_PROJECT_ROOT`` overrides, matching what games, CI, and the
+    fixture suites already use to point a scanner at a non-default tree.
     """
+    env = os.environ.get("DEVGATE_PROJECT_ROOT")
+    if env:
+        return Path(env).resolve()
     return project_root_for(Path(devgate_root_) if devgate_root_ else devgate_root())
 
 
