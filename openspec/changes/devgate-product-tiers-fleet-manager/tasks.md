@@ -1,9 +1,10 @@
 # Tasks: devgate-product-tiers-fleet-manager
 
-Status: PROPOSED — SPRINT 0 IN PROGRESS. DEP-001 is evidenced; DEP-003 audit is
-published (0.2/0.3/0.4 below). Implementation of Sprints 1+ is still held on
-OD-001 and OD-002 (0.5). This file records the sprint plan from the package's
-section 12 plus Sprint 0 disposition. Full normative text: proposal.md.
+Status: PROPOSED — SPRINT 0 DONE. DEP-001 is evidenced; DEP-003 audit is
+published (0.2/0.3/0.4 below); OD-001/OD-002 decided 2026-09-29 (0.5).
+Sprint 1 is unblocked: `fleet-manager/` boundary, BSD 3-Clause only, no
+commercial split in Phase 1. This file records the sprint plan from the
+package's section 12 plus Sprint 0 disposition. Full normative text: proposal.md.
 
 ## 0. Dependency lock (Sprint 0 entry)
 
@@ -11,11 +12,11 @@ section 12 plus Sprint 0 disposition. Full normative text: proposal.md.
 - [x] 0.2 Fresh full-repository audit at new head; docs/qa/YYYY-MM-DD-product-tiers-fleet-manager-baseline.md published (DEP-003) — `docs/qa/2026-09-29-product-tiers-fleet-manager-baseline.md` at `a37f8424d933df52cf7830f2a9f7374902ba4c90` (clean tree). Commands, inventory, gates, runner caps, overlaps, license, secret classes, findings/uncertainties all recorded there. Hosted run `36527007652` on that SHA: Specs + DevGate-gates green.
 - [x] 0.3 Predecessor identity imported; dependency-review record confirms no contract redefined here — import + no-redefine disposition is baseline §2/§4: consume `coh-*` / `mon-*` / `fleet-*`; do not copy, rename, fork, or redefine. This package may only extend the hub's well-formed-envelope / `ctx-*` surface.
 - [x] 0.4 Overlaps reconciled with runner-monitoring, enrollment-and-alerting, hub-architecture, add-runner-to-fleet — dispositions table in baseline §4 (consumer vs mutator per package).
-- [ ] 0.5 Owner decisions OD-001 (commercial license text) and OD-002 (enterprise/ vs fleet-manager/ root) resolved — STAGED as architect questions with options in baseline §8. Do not tick until the owner answers.
+- [x] 0.5 Owner decisions OD-001 (commercial license text) and OD-002 (enterprise/ vs fleet-manager/ root) resolved — DECIDED 2026-09-29 by the owner. **OD-001: drop the commercial split for Phase 1** (BSD 3-Clause everywhere; Sprint 1.1 is path/package boundaries + changed-path gate + extraction rehearsal, no entitlement license text). **OD-002: `fleet-manager/`** as that package boundary root.
 
 ## 1. Sprint 1: repository and contract gates
 
-- [ ] 1.1 Commercial boundary + license manifest; dependency-direction and changed-path license gates
+- [ ] 1.1 Commercial boundary + license manifest; dependency-direction and changed-path license gates — OD-001 descoped the license grant: this is `fleet-manager/` path/package boundary + dependency direction + changed-path gate under BSD 3-Clause only
 - [ ] 1.2 Versioned contracts/v1 + bidirectional contract tests; entitlement isolation tests
 - [ ] 1.3 Extraction rehearsal in CI; core gates proven green with commercial code absent
 
