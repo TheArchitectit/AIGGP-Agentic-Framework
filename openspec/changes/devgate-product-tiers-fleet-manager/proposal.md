@@ -51,13 +51,26 @@ integration) into one sequenced, dependency-locked change.
 Full OpenSpec package
 Date: 2026-09-18
 Working change ID: devgate-product-tiers-fleet-manager
-Status: PROPOSED - BLOCKED
+Status: PROPOSED - DEP-001 EVIDENCED; implementation held for backlog queue
 Repository: TheArchitectit/AIGGP-Agentic-Framework
 Repository snapshot audited for structure: e9ea400c5bf6a6fcacf55264b82c16ebf5f1c7b0
 Predecessor package: devgate-spec-coherence-service
 Predecessor document: https://docs.google.com/document/d/1uQKm0Wurg-BTsFHKeSLyBT6FGsEaG172V1K2ErnxM4k/edit
 
 ## BLOCKING DEPENDENCY - NO WORK STARTS YET
+
+**DEP-001 EVIDENCED 2026-09-28.** Predecessor `devgate-spec-coherence-service`
+is accepted. Completion record:
+`docs/qa/2026-09-28-spec-coherence-service-acceptance.md` at accepted SHA
+`30aa60d505a36e75e46ae5a72b96f3ea2125eabb` (record landed `40d2998e132be54575a01a32a613a373d055f8be`).
+That record names sealed identity, green gates, and the known limits. DEP-001's
+completion definition is met.
+
+Implementation of this package is still held: the backlog queue is draining
+higher-priority leftover openspec work first (oldest → newest among packages
+that are implementable now), and Sprint 0 is the first act when this package's
+position is reached. The dependency-review import of the predecessor identity
+happens in Sprint 0, not before. No scaffolding (DEP-002) in the meantime.
 
 This entire package is blocked by the DevGate Spec Coherence Service OpenSpec
 package. No design implementation, scaffolding, directory creation, license
