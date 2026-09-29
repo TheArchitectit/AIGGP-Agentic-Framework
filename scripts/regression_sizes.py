@@ -20,6 +20,7 @@ so legacy debt cannot block an unrelated release.
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 from pathlib import Path
@@ -42,6 +43,10 @@ SOURCE_EXTENSIONS = (".ts", ".tsx", ".py", ".rs", ".go", ".gd", ".java", ".kt",
 # Test-file extensions for the PREFIX convention ("test_*.py" / "test_*.sh").
 # A tuple because the convention is about naming, not about Python.
 TEST_PREFIX_EXTENSIONS = (".py", ".sh", ".zig")
+
+# Standard relative path of a recorded-debt baseline in a consuming repo.
+# Absent file == no registered debt; see load_size_baseline / check_file_sizes.
+DEFAULT_SIZE_BASELINE = "quality-baselines/file-size-baseline.json"
 
 
 def format_severity(severity: str) -> str:
@@ -86,17 +91,119 @@ def _classify_file(rel_path: str) -> tuple[int | None, int | None]:
     return (SRC_SOFT, SRC_HARD)
 
 
+def discover_source_dirs(repo_root: Path) -> list[str]:
+    """Top-level directories that actually contain source files.
+
+    The candidate list that used to live in regression_check.py
+    ("src", "lib", "app", "extensions", "scripts", "internal", ...) was
+    language-agnostic only on paper: it enumerated whatever a project tended
+    to name its roots and silently omitted everything else. rad-gateway's
+    web/ and deploy/ were not on the list, so the size gate never walked them
+    while reporting a clean profile — FAIL-f6228dda one layer up. Discover from
+    the tree instead: any top-level directory (minus the skip list) that holds
+    at least one file with a tracked source extension is in scope.
+    """
+    found: list[str] = []
+    try:
+        candidates = sorted(repo_root.iterdir(), key=lambda p: p.name)
+    except OSError:
+        return ["."]
+    for entry in candidates:
+        if not entry.is_dir():
+            continue
+        name = entry.name
+        if name in FILE_SIZE_SKIP_PARTS or name.startswith("."):
+            continue
+        if _dir_has_source(entry):
+            found.append(name)
+    if not found:
+        return ["."]
+    return found
+
+
+def _dir_has_source(directory: Path, max_depth: int = 6) -> bool:
+    """True when a source-extension file exists anywhere under directory."""
+    root_parts_len = len(directory.parts)
+    for dirpath, dirnames, filenames in os.walk(directory):
+        depth = len(Path(dirpath).parts) - root_parts_len
+        if depth >= max_depth:
+            dirnames[:] = []
+            continue
+        dirnames[:] = [d for d in dirnames
+                       if d not in FILE_SIZE_SKIP_PARTS and not d.startswith(".")]
+        for name in filenames:
+            if name.endswith(SOURCE_EXTENSIONS):
+                return True
+    return False
+
+
+def resolve_size_baseline(project_root: Path, explicit: Path | None) -> dict[str, int]:
+    """Explicit path wins; otherwise DEFAULT_SIZE_BASELINE under project_root.
+
+    Absent default file yields {} (no registered debt) rather than an error —
+    a consuming repo that has not created the baseline yet keeps the old
+    touched/untouched classification.
+    """
+    path = explicit
+    if path is None:
+        candidate = project_root / DEFAULT_SIZE_BASELINE
+        path = candidate if candidate.is_file() else None
+    return load_size_baseline(path) if path else {}
+
+
+def load_size_baseline(path: Path) -> dict[str, int]:
+    """Load a recorded-debt baseline: repo-relative path -> max allowed lines.
+
+    Format (quality-baselines/file-size-baseline.json by default):
+
+        {"_comment": "...", "files": {"internal/di/modules.go": 1855}}
+
+    or a flat {"internal/di/modules.go": 1855}. Missing file returns {}. A
+    malformed file raises — a baseline the gate cannot parse must not silently
+    authorize unlimited growth.
+    """
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return {}
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"size baseline {path} is unreadable: {exc}") from exc
+    if not isinstance(raw, dict):
+        raise ValueError(f"size baseline {path} must be a JSON object")
+    table = raw.get("files", raw)
+    if not isinstance(table, dict):
+        raise ValueError(f"size baseline {path}: 'files' must be an object")
+    out: dict[str, int] = {}
+    for key, value in table.items():
+        if key.startswith("_"):
+            continue
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise ValueError(f"size baseline {path}: {key!r} must be an int line count")
+        out[key.replace("\\", "/")] = value
+    return out
+
+
 def check_file_sizes(repo_root: Path, source_dirs: list[str],
-                     touched: set[str] | None = None) -> list[dict]:
+                     touched: set[str] | None = None,
+                     baseline: dict[str, int] | None = None) -> list[dict]:
     """Size every source file; classify hard-limit breaches by touched-ness.
 
     A file OVER the hard limit that this diff actually touches is an ERROR
     (kind='hard'). A pre-existing oversize file the diff never touched stays a
     WARNING (kind='hard-untouched'). Passing touched=None preserves the original
     behaviour of treating every breach as blocking.
+
+    baseline maps repo-relative path -> recorded max lines. Recorded debt
+    (over hard but at or under the recorded count) is always a WARNING
+    (kind='hard-debt'), even when this diff touches it — a registered backlog
+    must not block an unrelated release, but it also must not grow:
+    a file past its recorded count is an ERROR (kind='hard-growth'). A file
+    over hard with no baseline entry is a new violation and keeps the
+    touched/untouched split above.
     """
     violations: list[dict] = []
     warnings: list[dict] = []
+    debts = dict(baseline or {})
 
     def _size_file(abs_path: Path, rel_path: str) -> None:
         soft, hard = _classify_file(rel_path)
@@ -114,6 +221,17 @@ def check_file_sizes(repo_root: Path, source_dirs: list[str],
         except OSError:
             return
         if line_count > hard:
+            recorded = debts.get(rel_path)
+            if recorded is not None:
+                entry = {"file": rel_path, "lines": line_count, "soft": soft,
+                         "hard": hard, "baseline": recorded}
+                if line_count > recorded:
+                    entry.update({"severity": "error", "kind": "hard-growth"})
+                    violations.append(entry)
+                else:
+                    entry.update({"severity": "warning", "kind": "hard-debt"})
+                    warnings.append(entry)
+                return
             edited = (touched is None
                       or rel_path in touched
                       or rel_path.replace("/", os.sep) in touched)
@@ -153,6 +271,8 @@ def print_file_size_report(size_issues: list[dict]) -> None:
         print("✓ All source files within soft/hard line limits")
         return
     hard_count = sum(1 for i in size_issues if i["kind"] == "hard")
+    growth_count = sum(1 for i in size_issues if i["kind"] == "hard-growth")
+    debt_count = sum(1 for i in size_issues if i["kind"] == "hard-debt")
     untouched_count = sum(1 for i in size_issues if i["kind"] == "hard-untouched")
     soft_count = sum(1 for i in size_issues if i["kind"] == "soft")
     print("\n" + "=" * 70)
@@ -163,6 +283,13 @@ def print_file_size_report(size_issues: list[dict]) -> None:
         if issue["kind"] == "hard":
             tag = "OVER HARD LIMIT"
             limit = issue["hard"]
+        elif issue["kind"] == "hard-growth":
+            tag = (f"grew past recorded debt ({issue.get('baseline')} lines) — "
+                   f"split it or shrink the growth, do not widen the baseline")
+            limit = issue.get("baseline", issue["hard"])
+        elif issue["kind"] == "hard-debt":
+            tag = "over hard limit (recorded debt; within baseline)"
+            limit = issue.get("baseline", issue["hard"])
         elif issue["kind"] == "hard-untouched":
             tag = "over hard limit (pre-existing; not touched by this diff)"
             limit = issue["hard"]
@@ -172,7 +299,9 @@ def print_file_size_report(size_issues: list[dict]) -> None:
         print(f"  {severity}  {issue['file']}  ({issue['lines']} lines, "
               f"limit {limit})  {tag}")
     print("-" * 70)
-    print(f"  {hard_count} over hard limit (blocks commit), "
+    print(f"  {hard_count} newly oversize (blocks), "
+          f"{growth_count} grew past baseline (blocks), "
+          f"{debt_count} recorded debt (warning), "
           f"{untouched_count} pre-existing oversize (warning), "
           f"{soft_count} over soft limit (warning)")
     print("=" * 70)

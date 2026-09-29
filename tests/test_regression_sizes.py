@@ -28,6 +28,8 @@ from regression_sizes import (  # noqa: E402
     SRC_HARD,
     TEST_HARD,
     check_file_sizes,
+    discover_source_dirs,
+    load_size_baseline,
 )
 
 
@@ -59,6 +61,65 @@ def _write_zig_fixture(root: Path, rel_path: str, line_count: int) -> Path:
     body = "\n".join(f"const value_{i}: u32 = {i};" for i in range(line_count - 1))
     path.write_text(f'const std = @import("std");\n{body}\n', encoding="utf-8")
     return path
+
+
+def test_baseline_records_debt_as_warning_not_block():
+    """Recorded debt stays a warning even when this diff touches it.
+
+    The untouchable-blocking rule (kind='hard' on touched files) is how new
+    violations are caught. A baseline turns a known backlog into an explicit
+    ratchet: at or under the recorded count it MUST warn (kind='hard-debt'),
+    not block — otherwise turning the gate on forces a 58-file split before
+    unrelated work can land.
+    """
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        path = _write_fixture(root, "src/legacy.py", SRC_HARD + 50)
+        issues = check_file_sizes(root, ["src"],
+                                  touched={"src/legacy.py"},
+                                  baseline={"src/legacy.py": SRC_HARD + 50})
+        assert [i["kind"] for i in issues] == ["hard-debt"], issues
+        assert issues[0]["severity"] == "warning", issues[0]
+        assert issues[0]["baseline"] == SRC_HARD + 50, issues[0]
+
+
+def test_baseline_growth_past_recorded_count_blocks():
+    """Growth past the recorded debt is an error — the baseline may shrink,
+    never widen to silence a finding."""
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        _write_fixture(root, "src/legacy.py", SRC_HARD + 80)
+        issues = check_file_sizes(root, ["src"],
+                                  touched={"src/legacy.py"},
+                                  baseline={"src/legacy.py": SRC_HARD + 50})
+        assert [i["kind"] for i in issues] == ["hard-growth"], issues
+        assert issues[0]["severity"] == "error", issues[0]
+        assert issues[0]["baseline"] == SRC_HARD + 50, issues[0]
+
+
+def test_newly_oversize_without_baseline_entry_still_blocks_when_touched():
+    """An unlisted breach is a new violation: the baseline does not blanket-allow."""
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        _write_fixture(root, "src/fresh.py", SRC_HARD + 1)
+        issues = check_file_sizes(root, ["src"],
+                                  touched={"src/fresh.py"},
+                                  baseline={"src/legacy.py": SRC_HARD + 50})
+        assert [i["kind"] for i in issues] == ["hard"], issues
+        assert issues[0]["severity"] == "error", issues[0]
+
+
+def test_load_size_baseline_reads_files_table_and_flat_maps():
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        nested = root / "nested.json"
+        nested.write_text(
+            '{"_comment": "x", "files": {"a/go.go": 700}}', encoding="utf-8")
+        assert load_size_baseline(nested) == {"a/go.go": 700}
+        flat = root / "flat.json"
+        flat.write_text('{"b/t.go": 550, "_note": "skip"}', encoding="utf-8")
+        assert load_size_baseline(flat) == {"b/t.go": 550}
+        assert load_size_baseline(root / "missing.json") == {}
 
 
 def test_oversize_test_file_is_flagged_at_test_hard():
@@ -207,8 +268,43 @@ def test_a_zig_test_file_is_judged_at_the_test_limit():
             f"test_*.zig judged as source, not as a test: {issues}")
 
 
+def test_discover_source_dirs_finds_unknown_layout_roots():
+    """MUST-flag for roots the old candidate list never named.
+
+    FAIL-f6228dda one layer up: "src, lib, app, extensions, scripts, internal"
+    enumerated what this framework's author thought a project would call its
+    roots and omitted everything else. rad-gateway's web/ and deploy/ sat
+    outside that list, so their source files were never sized while the gate
+    printed '0 over hard limit'. A discovery walk must pick up any root that
+    actually holds source extensions.
+    """
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        _write_fixture(root, "web/src/App.tsx", 10)
+        _write_sh_fixture(root, "deploy/golden-stack/env-config.sh", 10)
+        _write_fixture(root, "internal/service/x.go", 10)
+        # Skip-listed / non-source roots must not appear.
+        _write_fixture(root, "node_modules/pkg/index.ts", 10)
+        _write_fixture(root, "docs/notes.md", 10)
+        found = discover_source_dirs(root)
+        assert "web" in found, found
+        assert "deploy" in found, found
+        assert "internal" in found, found
+        assert "node_modules" not in found, found
+        assert "docs" not in found, found
+
+
+def test_discover_source_dirs_falls_back_to_root_when_nothing_matches():
+    """A tree whose files live at the repo root must still be walked."""
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        (root / "main.py").write_text("print(1)\n", encoding="utf-8")
+        _write_fixture(root, "README.md", 3)
+        assert discover_source_dirs(root) == ["."]
+
+
 def test_source_dirs_include_test_directories():
-    """FAIL-f6228dda scope defect: tests/ must be a candidate, not just hub/scripts."""
+    """FAIL-f6228dda scope defect: tests/ must be walked, not just hub/scripts."""
     for candidate in ("tests", "test"):
         if (PROJECT_ROOT / candidate).is_dir():
             assert candidate in SOURCE_DIRS, (

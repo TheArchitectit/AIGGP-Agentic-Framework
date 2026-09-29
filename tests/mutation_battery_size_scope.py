@@ -59,8 +59,11 @@ EXTENSIONS_WITHOUT_SH = '''                     ".rb", ".php", ".js", ".jsx", ".
 TEST_PREFIX_WITH_SH = 'TEST_PREFIX_EXTENSIONS = (".py", ".sh", ".zig")'
 TEST_PREFIX_WITHOUT_SH = 'TEST_PREFIX_EXTENSIONS = (".py", ".zig")'
 
-DIRS_WITH_SCRIPTS = 'SOURCE_DIRS = []\nfor candidate in ["src", "lib", "app", "extensions", "scripts", "internal", "pkg", "cmd", "game",'
-DIRS_WITHOUT_SCRIPTS = 'SOURCE_DIRS = []\nfor candidate in ["src", "lib", "app", "extensions", "internal", "pkg", "cmd", "game",'
+# S3 retarget: the walk roots are no longer a hardcoded candidate list
+# (discover_source_dirs reads the tree), so the surviving scope input is the
+# skip list that discovery still honors. Adding "scripts" there must be seen.
+SKIP_WITHOUT_SCRIPTS = 'FILE_SIZE_SKIP_PARTS = ("node_modules", "dist", ".claude", "target", "__pycache__",'
+SKIP_WITH_SCRIPTS = 'FILE_SIZE_SKIP_PARTS = ("scripts", "node_modules", "dist", ".claude", "target", "__pycache__",'
 
 MUTATIONS = [
     # S1 — the extension list. Killed by the MUST-flag test; the
@@ -77,11 +80,15 @@ MUTATIONS = [
      [(SIZES, TEST_PREFIX_WITH_SH, TEST_PREFIX_WITHOUT_SH)],
      [T_SIZES], {}),
 
-    # S3 — the directory list. `.sh` in the extension list is inert unless the
-    # walk enters scripts/, which is where every shell script here lives. This
-    # mutation is what found the missing assertion.
-    ("S3: `scripts` dropped from the SOURCE_DIRS candidates — the walk never enters it",
-     [(CHECK, DIRS_WITH_SCRIPTS, DIRS_WITHOUT_SCRIPTS)],
+    # S3 — the walk scope. `.sh` in the extension list is inert unless the
+    # walk enters scripts/. The candidate list that used to gate that is gone
+    # (FAIL-f6228dda: it omitted web/ and deploy/); discovery reads the tree
+    # and applies FILE_SIZE_SKIP_PARTS, so skip-list poisoning is the new way
+    # to turn the walk off for a named root. Killed by the fixtures that size
+    # files under scripts/ (the skip list is also consulted when classifying a
+    # path, so "scripts" there blanks the walk AND the classification).
+    ("S3: `scripts` added to FILE_SIZE_SKIP_PARTS — discovery never enters it",
+     [(SIZES, SKIP_WITHOUT_SCRIPTS, SKIP_WITH_SCRIPTS)],
      [T_SIZES], {}),
 ]
 

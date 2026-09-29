@@ -62,12 +62,15 @@ from regression_audit import (  # noqa: E402
     print_npm_audit_report,
 )
 from regression_sizes import (  # noqa: E402
+    DEFAULT_SIZE_BASELINE,
     SRC_HARD,
     SRC_SOFT,
     TEST_HARD,
     check_file_sizes,
+    discover_source_dirs,
     format_severity,
     print_file_size_report,
+    resolve_size_baseline,
 )
 from regression_diff import (  # noqa: E402
     SCANNED_STATUSES,
@@ -93,17 +96,13 @@ from project_root import project_root_for  # noqa: E402  # guardrails-allow PREV
 
 PROJECT_ROOT = project_root_for(Path(__file__).resolve().parent.parent)
 
-# --- Source directories to scan (auto-detect what exists) -------------------
-SOURCE_DIRS = []
-for candidate in ["src", "lib", "app", "extensions", "scripts", "internal", "pkg", "cmd", "game",
-                  "router", "agents", "common", "tools", "migrations", "openspec", "hub", "go",
-                  "tests", "test"]:
-    if (PROJECT_ROOT / candidate).is_dir():
-        SOURCE_DIRS.append(candidate)
-
-# If no standard dirs found, scan the project root itself
-if not SOURCE_DIRS:
-    SOURCE_DIRS = ["."]
+# --- Source directories to scan (tree-derived; see discover_source_dirs) ----
+# The old hardcoded candidate list ("src", "lib", "app", "extensions", "scripts",
+# "internal", "pkg", "cmd", ...) is the FAIL-f6228dda shape one layer up: it
+# enumerated whatever a project tended to name its roots and omitted everything
+# else. rad-gateway's web/ and deploy/ were never on that list, so the size gate
+# never walked them while CI reported a clean profile. Discover from the tree.
+SOURCE_DIRS = discover_source_dirs(PROJECT_ROOT)
 
 
 
@@ -358,6 +357,9 @@ def main():
     parser.add_argument("--pre-commit", action="store_true")
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--no-file-sizes", action="store_true")
+    parser.add_argument("--size-baseline", type=Path, default=None,
+                        help="recorded file-size debt JSON (path -> max lines); "
+                             f"default {DEFAULT_SIZE_BASELINE} if present")
     parser.add_argument("--no-audit", action="store_true")
     parser.add_argument("--verbose", "-v", action="store_true")
     parser.add_argument("--quiet", "-q", action="store_true")
@@ -406,9 +408,16 @@ def main():
 
     size_issues: list[dict] = []
     size_hard_count = 0
+    size_debt_count = 0
     if not args.no_file_sizes:
-        size_issues = check_file_sizes(PROJECT_ROOT, SOURCE_DIRS, touched=touched)
-        size_hard_count = sum(1 for i in size_issues if i["kind"] == "hard")
+        size_issues = check_file_sizes(
+            PROJECT_ROOT, SOURCE_DIRS, touched=touched,
+            baseline=resolve_size_baseline(PROJECT_ROOT, args.size_baseline))
+        # hard = newly-oversize without a baseline entry (touched).
+        # hard-growth = recorded debt that grew past its entry. Both block.
+        size_hard_count = sum(1 for i in size_issues
+                              if i["kind"] in ("hard", "hard-growth"))
+        size_debt_count = sum(1 for i in size_issues if i["kind"] == "hard-debt")
 
     soft_as_hard_count = 0
     soft_as_hard_files: list[dict] = []
@@ -439,6 +448,7 @@ def main():
         print(json.dumps({"issue_count": count, "files_scanned": files_scanned,
                            "vacuous": vacuous,
                            "size_violations_hard": size_hard_count,
+                           "size_debt_warnings": size_debt_count,
                            "soft_as_hard_blocked": soft_as_hard_count,
                            "audit_blocking": audit_blocking, "audit_warnings": audit_warnings,
                            "registry_regressions": len(registry_violations),
