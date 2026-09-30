@@ -28,7 +28,11 @@ overwrite a vendored template with upstream content.
 
 GIVEN a template whose upstream has advanced
 WHEN the refresh check runs
-THEN the alert names template, pinned sha256, and upstream sha256
+THEN the alert names the template, the version tag, and BOTH hashes
+     (each truncated to 12 hex chars, pinned listed first), consistent
+     with the drift alert shape SGR-06 uses
+AND the alert body is size-capped for the same measured 422 reason
+     SGR-11's cap exists for
 AND the tree is byte-identical to before the run.
 
 #### Scenario: adoption is a commit with a reason

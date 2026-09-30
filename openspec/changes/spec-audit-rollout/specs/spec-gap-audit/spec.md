@@ -63,6 +63,14 @@ WHEN it runs
 THEN it exits 2 naming the path
 AND no clean verdict is written anywhere.
 
+#### Scenario: an empty inventory is unknown scope, never clean
+
+GIVEN a tree with no capability anchors at all
+WHEN the scanner completes a full pass
+THEN the report says `unknown scope (no anchors found)`
+AND that wording is distinct from a zero-gaps verdict, so a reader never
+     mistakes an honest empty for a pass.
+
 ### Requirement: Coverage discovery SHALL have exactly one implementation <!-- id: SGA-05 -->
 
 The gap scanner and `spec_traceability.py` SHALL share one discovery
@@ -88,6 +96,13 @@ GIVEN a repo with no `openspec/specs/**`
 WHEN both run
 THEN traceability still exits 2 as a config error
 AND the scanner instead prints the scaffold set with evidence anchors.
+
+#### Scenario: scaffolding does not soften the refusal
+
+GIVEN the same repo scanned with `--scaffold`
+WHEN traceability runs afterwards on the pre-review tree
+THEN it still exits 2 — empty scaffolds do not count as a spec universe
+AND only reviewed, marker-bearing specs change that verdict.
 
 ### Requirement: The testbed acceptance contract is MergeKingdom <!-- id: SGA-07 -->
 

@@ -64,10 +64,23 @@ WHEN the walk alerts nightly
 THEN exactly one open issue exists for the key
 AND its comment count grows by one each night.
 
+### Requirement: Adoption into the fleet SHALL follow testbed acceptance <!-- id: SGA-15 -->
+
+The scanner and the intake gate SHALL NOT be wired into any fleet workflow
+until every criterion of the MergeKingdom testbed acceptance (SGA-07) has
+a recorded passing run.
+
+#### Scenario: gates follow proven machinery
+
+GIVEN the scanner merged but acceptance criterion 3 unproven
+WHEN a CI template would add a gap-scan row
+THEN the row is withheld
+AND adoption proceeds only after the recorded acceptance evidence lands.
+
 ### Requirement: The gate SHALL NOT write into consumer repositories <!-- id: SGA-14 -->
 
 The nightly walk SHALL report gaps and file alerts in this repository only.
-Spec files, scaffolds, or tier changes reach a consumer repository
+Spec files, scaffolds, or tier changes SHALL reach a consumer repository
 exclusively through a reviewed commit authored in that repository.
 
 #### Scenario: generation proposes in the audit, merges by hand
