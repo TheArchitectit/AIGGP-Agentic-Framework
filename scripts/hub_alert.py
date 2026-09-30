@@ -42,6 +42,14 @@ sys.path.insert(0, str(REPO_ROOT))
 # "identifier" and now means "token".
 _LOCATION_FIELDS = ("rule", "path", "line", "commit")
 
+# Upper bound on locations quoted into one issue body. Measured on the first
+# live fleet sweep: 478,452 locations produced a comment GitHub rejected with
+# HTTP 422, which dropped the dedupe marker — every subsequent night would
+# then re-search and re-file instead of commenting (SGR-11's exact failure
+# mode). The full list lives in the run's artifact; the issue says how many
+# were omitted.
+MAX_BODY_LOCATIONS = 40
+
 
 def extract_summary(report: dict) -> tuple[str, int, int, list[dict]]:
     """(summary, uncovered_total, scanned_total, safe_locations) by field name.
@@ -87,14 +95,18 @@ def detail_from_report(report: dict) -> str:
     summary, _uncovered, _scanned, locations = extract_summary(report)
     lines = [summary, ""]
     if locations:
+        shown = locations[:MAX_BODY_LOCATIONS]
         lines.append("locations (rule, path, line, commit):")
-        for loc in locations:
+        for loc in shown:
             line = loc.get("line", "?")
             commit = loc.get("commit", "?")
             lines.append(
                 f"  {loc.get('rule', '?')}  {loc.get('path', '?')}"
                 f":{line}  ({commit})"
             )
+        if len(locations) > len(shown):
+            lines.append(f"  … {len(locations) - len(shown)} more locations: "
+                         "see this run's secret-fleet-report artifact")
     else:
         lines.append("no redacted locations to list (state == "
                      "unfetchable/unscannable with no matching rule)")

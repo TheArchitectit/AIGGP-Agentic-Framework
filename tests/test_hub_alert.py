@@ -294,6 +294,89 @@ def test_the_script_is_python_and_executable():
     assert text.startswith("#!/usr/bin/env python3")
 
 
+# --- body size: the measured 422 ---------------------------------------------
+
+
+def test_a_huge_location_list_is_capped_and_says_so(tmp_path):
+    """Measured on the first live fleet sweep: 478,452 locations produced a
+    comment GitHub answered with HTTP 422. The dedupe entry was dropped, so
+    the next recurrence re-searches and re-files — SGR-11's exact failure
+    mode (a fleet that fails for a month producing thirty issues, not one
+    with thirty comments). The body must cap itself and point at the
+    artifact instead."""
+    from scripts.hub_alert import MAX_BODY_LOCATIONS  # noqa: E402
+
+    n = MAX_BODY_LOCATIONS + 60
+    report = write_report(
+        tmp_path,
+        [{
+            "name": "TheArchitectit/a",
+            "state": "findings",
+            "uncovered": n,
+            "locations": [
+                {"rule": "generic-api-key", "path": f"f{i}.txt", "line": i,
+                 "commit": f"c{i:04x}"}
+                for i in range(n)
+            ],
+        }],
+    )
+    res = run("--key", "k", "--report", report, "--dry-run")
+    assert res.returncode == 0, (res.returncode, res.stderr)
+    body = res.stdout
+    listed = [l for l in body.splitlines() if l.startswith("  ")
+              and ".txt" in l]
+    assert len(listed) == MAX_BODY_LOCATIONS, len(listed)
+    assert f"{n - MAX_BODY_LOCATIONS} more locations" in body, body
+    assert "artifact" in body, body
+    # The summary line still tells the truth about the real total:
+    assert f"uncovered_total={n}" in body, body
+
+
+def test_a_small_location_list_is_not_capped(tmp_path):
+    """The cap must not fabricate an omission line when nothing was
+    omitted — a body that lies about its own completeness is its own bug."""
+    report = write_report(
+        tmp_path,
+        [{
+            "name": "TheArchitectit/a",
+            "state": "findings",
+            "uncovered": 3,
+            "locations": [
+                {"rule": "r", "path": f"p{i}", "line": i, "commit": "c"}
+                for i in range(3)
+            ],
+        }],
+    )
+    res = run("--key", "k", "--report", report, "--dry-run")
+    assert "more locations" not in res.stdout, res.stdout
+
+
+def test_the_cap_counts_toward_the_body_the_api_will_accept(tmp_path):
+    """The cap exists to stay under GitHub's comment limit; a body built
+    from the maximum locations must stay comfortably small (well under
+    64KB) even with long paths, so the 422 class cannot return through
+    per-location size rather than count."""
+    from scripts.hub_alert import MAX_BODY_LOCATIONS, detail_from_report  # noqa: E402
+
+    report = {
+        "declared": 1, "scanned": 1, "states": {"findings": 1},
+        "repos": [{
+            "name": "TheArchitectit/a", "state": "findings",
+            "uncovered": MAX_BODY_LOCATIONS,
+            "locations": [
+                {"rule": "generic-api-key",
+                 "path": "vendor/" + "deep/" * 40 + f"file{i}.ext",
+                 "line": i, "commit": "a" * 40}
+                for i in range(MAX_BODY_LOCATIONS)
+            ],
+        }],
+    }
+    body = detail_from_report(report)
+    # GitHub's comment ceiling is 65536 bytes; a capped body must stay well
+    # under it even with pathological per-location size.
+    assert len(body.encode("utf-8")) < 16384, len(body.encode("utf-8"))
+
+
 if __name__ == "__main__":
     import pytest as _pytest
 
