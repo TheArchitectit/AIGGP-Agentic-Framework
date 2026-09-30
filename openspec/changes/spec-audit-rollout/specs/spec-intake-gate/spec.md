@@ -37,11 +37,22 @@ GIVEN a repository listed in the adoption tier file
 WHEN its openspec material fails strict validation
 THEN the run is red naming that repository's file and validator line.
 
+#### Scenario: an unparseable tier file is a fault, never an empty tier
+
+GIVEN the adoption tier file exists but cannot be parsed
+WHEN the walk applies gating
+THEN the run is red as a gate fault naming the tier file
+AND the walk does NOT silently read "no tiered repos" — a broken gate
+     reading as an empty allowlist is how every repo quietly becomes
+     unenforced.
+
 ### Requirement: An unclassifiable repository SHALL never read as spaced <!-- id: SGA-12 -->
 
 Clone failures, unreadable trees, and scanner faults SHALL be recorded
 `unscannable` with the reason, counted in the summary, and named in the
-alert body; the fleet verdict SHALL NOT treat them as passing.
+alert body; the fleet verdict SHALL NOT treat them as passing. Per-repo
+reasons in the alert body SHALL be truncated to 100 characters, the same
+cap `hub_alert.py` applies to sweep reasons since the T-14 fix.
 
 #### Scenario: a deleted repo names itself
 
