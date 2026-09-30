@@ -19,3 +19,5 @@ awesome-cline-skills  # curated list mirror; content, not code we own
 awesome-opencode-skills  # curated list mirror; content, not code we own
 TheArchitectit  # profile/org config repo; no code to sweep
 .github  # profile/org config repo; no code to sweep
+devgate-sgr-t14-probe  # Sprint-1 mutation fixture (T-08 drift); proof run 36665701043 green-verified, awaiting delete_repo scope to remove
+devgate-sgr-t15-probe  # Sprint-1 mutation fixture (T-15 canary); proof run 36665701043 green-verified, awaiting delete_repo scope to remove
