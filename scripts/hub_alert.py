@@ -50,6 +50,14 @@ _LOCATION_FIELDS = ("rule", "path", "line", "commit")
 # were omitted.
 MAX_BODY_LOCATIONS = 40
 
+# T-14: an unfetchable repository must be NAMED in the alert, not merely
+# counted — "unfetchable=4" tells the operator the fleet has a hole, the
+# names tell them which declaration line to disposition. Reasons are quoted
+# from the report (the T-31 census has already refused to commit the report
+# if any carried a value shape) and truncated per line.
+MAX_BODY_UNSCANNED = 40
+REASON_MAX_CHARS = 100
+
 
 def extract_summary(report: dict) -> tuple[str, int, int, list[dict]]:
     """(summary, uncovered_total, scanned_total, safe_locations) by field name.
@@ -110,8 +118,24 @@ def detail_from_report(report: dict) -> str:
     else:
         lines.append("no redacted locations to list (state == "
                      "unfetchable/unscannable with no matching rule)")
-    # The body is counts and locations. It is never a copy of the report,
-    # and never a field that could carry a value.
+    # T-14: name the holes. A count of unfetchable/unscannable repos without
+    # names is an un-actionable alert — the operator cannot disposition a
+    # declaration line they cannot identify.
+    holes = [e for e in (report.get("repos") or [])
+             if isinstance(e, dict)
+             and e.get("state") in ("unfetchable", "unscannable")]
+    if holes:
+        lines.append("")
+        lines.append("could not be scanned (name — reason):")
+        for e in holes[:MAX_BODY_UNSCANNED]:
+            reason = str(e.get("reason") or "")[:REASON_MAX_CHARS]
+            lines.append(f"  {e.get('name', '?')} — {e.get('state')}"
+                         f"{': ' + reason if reason else ''}")
+        if len(holes) > MAX_BODY_UNSCANNED:
+            lines.append(f"  … {len(holes) - MAX_BODY_UNSCANNED} more: "
+                         "see this run's secret-fleet-report artifact")
+    # The body is counts, locations, and unscanned names. It is never a copy
+    # of the report, and never a field that could carry a value.
     return "\n".join(lines)
 
 
