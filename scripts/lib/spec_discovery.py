@@ -30,7 +30,11 @@ DRAFT = re.compile(r"<!--\s*draft:\s*unreviewed\s*-->")
 # widened to match the shipped gate surface.
 MARKER = re.compile(r"(?://|#)\s*spec:[ \t]*([a-z0-9-]+(?:[ \t]*,[ \t]*[a-z0-9-]+)*)")
 ID = re.compile(r"[a-z0-9-]+")
-SCAN_EXTS = {".rs", ".py", ".mjs", ".js", ".ts", ".sh", ".zig"}
+# `.gd` joined the set for the gap-scanner work (SGA-07 acceptance 4): game
+# repos mark coverage in GDScript source, and a marker the discovery cannot
+# read is an uncovered requirement forever. No .gd file exists in this repo
+# and MergeKingdom has no markers yet, so no existing number shifts.
+SCAN_EXTS = {".rs", ".py", ".mjs", ".js", ".ts", ".sh", ".zig", ".gd"}
 SCAN_SKIP = {"target", "node_modules", ".git", "openspec", ".devgate"}
 
 
