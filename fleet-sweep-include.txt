@@ -29,3 +29,5 @@ https://github.com/drwhofan2k18-pixel/rad-gateway
 https://github.com/drwhofan2k18-pixel/stitcher-codereview
 https://github.com/drwhofan2k18-pixel/zombie-hero-match
 https://github.com/drwhofan2k18-pixel/pi-ithacus-agent-framework
+https://github.com/TheArchitectit/devgate-sgr-t15-probe
+https://github.com/TheArchitectit/devgate-sgr-t14-probe
