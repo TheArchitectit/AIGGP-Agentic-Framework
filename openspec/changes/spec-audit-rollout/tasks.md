@@ -2,9 +2,9 @@
 
 ## Sprint 1 — the scanner (MergeKingdom acceptance)
 
-- [ ] 1.1 Extract shared coverage discovery into `scripts/lib/spec_discovery.py`; `spec_traceability.py` imports it, numbers byte-identical before/after on this repo (SGA-05)
-- [ ] 1.2 `scripts/spec_gap_scan.py` scan mode: inventory + coverage + gap report (JSON + human table, worst-tracked first, CLAIMED-BUT-ABSENT separated); exits 0/1/2 per SGA-01/03/04
-- [ ] 1.3 `tests/test_spec_gap_scan.py`: planted-gap fixture repo, planted CLAIMED-BUT-ABSENT, planted false-claim case the generator must not turn into a requirement, unreadable-root exit 2, looked-and-found-nothing wording
+- [x] 1.1 Extract shared coverage discovery into `scripts/lib/spec_discovery.py`; `spec_traceability.py` imports it, numbers byte-identical before/after on this repo (SGA-05) — done 666a30d, 79/142 diff-clean, draft-exclusion included
+- [x] 1.2 `scripts/spec_gap_scan.py` scan mode: inventory + coverage + gap report (JSON + human table, worst-tracked first, CLAIMED-BUT-ABSENT separated); exits 0/1/2 per SGA-01/03/04 — done 9df2e19; testbed scan reproduces GAPS.md §C2 dead-event set exactly (11 templates / 6 events)
+- [x] 1.3 `tests/test_spec_gap_scan.py`: planted-gap fixture repo, planted CLAIMED-BUT-ABSENT, planted false-claim case the generator must not turn into a requirement, unreadable-root exit 2, looked-and-found-nothing wording — done 9df2e19 (16 tests; CBA cut to two provable classes after §E's production_ready lie was re-emitted)
 - [ ] 1.4 `--scaffold` (evidence stubs, empty requirement slots, no prose) and `--draft` (born `<!-- draft: unreviewed -->`); exclusion of unreviewed drafts from every coverage count, tested (SGA-02)
 - [ ] 1.5 MergeKingdom run: gap table vs GAPS.md backbone, scaffold set match, known false claims stay claims — acceptance 1–3 recorded in `docs/qa/` (SGA-07)
 - [ ] 1.6 CI row in the standard gate template (`--fail-on-gaps` off at first, advisory)
