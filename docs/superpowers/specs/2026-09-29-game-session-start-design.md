@@ -49,6 +49,21 @@ and exactly one hard check — relocated from crash-time to boot-time.
    schema validation, the seed hard rule, advisory context assembly, and the
    append-only session log write. Emits two forms of one result: machine JSON
    and a human-readable advisory block.
+   "Schema validation" here has one precedent in this repo and the brain
+   follows it: `rules_check.py` carries a hand-rolled **Draft-07 subset**
+   validator (`type`, `enum`, `pattern`, `required`, `properties`,
+   `additionalProperties:false`, `items`, `$ref`). That subset is sufficient
+   for every manifest rule the schema can express statically — required
+   fields, the one-enum `kind`, `capture.stream_id` marked required inside
+   `capture.properties` — but it is NOT sufficient for JSON-Schema conditionals
+   (`if/then`, `dependentRequired`): "when `capture` is present, `stream_id`
+   is required" cannot be delegated to the validator, because a manifest
+   without `capture` validates the `capture` sub-schema vacuously. Two honest
+   options, and the design chooses the second: extend the subset validator,
+   or express the static rules in the schema and the one conditional
+   explicitly in the brain. The schema remains the single statement of shape;
+   the brain's seed rule and the presence conditional are named in the spec so
+   a reader of the schema alone never thinks validation is complete.
 2. **Native hands — one adapter per carrier, each in its host's own idiom.**
    Adapters translate host event → manifest fields, invoke the brain, and map
    the brain's verdict to native behavior (inject context / refuse). Business
@@ -104,7 +119,17 @@ the workflow templates. They are never vendored as consumer-owned logic.
 - `scene`, `build` — play-sessions only.
 - `agent` (`carrier`, `session_id`) — work-sessions only.
 - `capture` (`stream_id`, `review`) — optional, both kinds; `stream_id` is
-  required whenever the block is present. Declares the radredeye capture stream
+  required whenever the block is present (a static-subset schema cannot express
+  this conditional — see Brain, above; the brain enforces it explicitly).
+  `stream_id` is a **name, not a derivation**: whoever opens the session
+  supplies it, and no component invents one. That is a deliberate limit, not
+  an omission — the manifest example (`mk-alpha-1337`) reads like a template
+  (`<game>-<phase>-<seed>`) because one is intended, but a derived id would put
+  the identity rule in two places (the brain's advisory and the red-eye side's
+  registry join), and this design's whole premise is that identity is *declared
+  by the opener* and judged elsewhere. `docs/REDEYE-SESSION-CONTRACT.md` is the
+  one place that states the convention; carriers and the Godot hook follow it
+  rather than each computing their own. Declares the radredeye capture stream
   this session is tied to (see Red-eye integration). A play-session passes it to
   the `radredeye_capture` addon at boot. Absent block = no capture — the advisory
   says so honestly rather than implying a stream was watched.
@@ -144,6 +169,23 @@ One hard rule, stated for the OpenSpec verbatim:
 > the Godot hook refuses to start the play-session. The same refusal applies to
 > any manifest failing `aiggp.session/v1` schema validation, on either side.
 
+### The rule's data source does not exist yet
+
+No producer or consumer of a `determinism` key in `game-manifest.json` exists
+in AIGGP today (`scene_inventory.py` and `game_regression.py` read engine and
+`scan.*` keys only; `determinism_drill.py` is unrelated). The seed rule must
+therefore land **with its field, not after it**:
+
+- Add `determinism.enabled` to the game-manifest contract in the same change
+  that lands the brain (schema + a documented default + migration note), so
+  the rule is never dead code waiting on someone else.
+- Decide the default before MergeKingdom wires up. Absent key = off is the
+  only sane choice for existing repos (no play-session that never declared a
+  policy can be broken retroactively), but then the `unknown` state the
+  missing-manifest row below introduces also applies to a manifest that
+  exists yet says nothing about determinism. A project that wants the rule
+  must opt in; the design must say so in the manifest docs, not in prose.
+
 Everything else is advisory; the brain prints it, nothing blocks. This is the
 existing determinism-evidence policy ("an unseeded crash is not comparable") —
 relocated from crash-time to boot-time, where it is cheapest. It matches the
@@ -164,6 +206,15 @@ level:**
 **Exit codes:** `0` = valid session (advisory printed); `2` = hard-rule refusal
 (matches `game_regression.py` `--fail-if-empty` "2 means refused" convention);
 `1` = brain malfunction.
+
+Note for readers who know the other vocabulary in this directory: the
+secret-scan scripts use `1` = findings (a true verdict with something to fix),
+`2` = scanner unusable (the verdict is untrustworthy). This design inverts the
+trust signal — `2` is the *trustworthy refusal*, `1` the malfunction. Both
+conventions now live in `scripts/` and a future runner wiring either into CI
+must not guess. The session-start exit block in the OpenSpec SHALL carry a
+one-line contrast comment (`2 refused a known session / 1 cannot say`); do not
+"unify" the codes, unify the documentation of the difference.
 
 ## Adapter contract
 
