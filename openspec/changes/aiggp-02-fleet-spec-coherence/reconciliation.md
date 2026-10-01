@@ -153,21 +153,93 @@ Two rules this reconciliation deliberately does not break:
    requirement in a *published* spec. The `coh-*` requirements exist only as
    deltas inside `devgate-spec-coherence-service`, which has not archived into
    `openspec/specs/`. A MODIFIED targeting them would be unresolvable today.
+   **Post-archive 2026-10-01: the deltas are now published as `openspec/specs/<cap>/spec.md`
+   (see OP-1 below). That door is *open*, but this package still walks through
+   it deliberately — see stated assumption SA-3.**
 2. **No duplicated IDs.** Inventing AIGGP-02 IDs that mirror `coh-*` would put
    two requirement IDs with the same capability key into
    `scripts/spec_traceability.py`'s accounting, manufacturing coverage for
    requirements that are not implemented. The AIGGP-02 deltas carry no ID
    markers at all (see the conformance commit).
 
-## Reconcile-at-archive checklist
+## Reconcile-at-archive checklist — CLOSED 2026-10-01
 
-When `devgate-spec-coherence-service` archives into `openspec/specs/`:
+`devgate-spec-coherence-service` archived 2026-10-01 (feat commit
+`a74455a`: 11 capability deltas published to `openspec/specs/<cap>/spec.md`,
+change dir moved to `openspec/changes/archive/2026-10-01-devgate-spec-coherence-service/`).
+`openspec validate --all --strict` 54/54 after the publish. Re-verification against
+the published specs is done:
 
-- [ ] Re-run this comparison against the *published* `coh-*` requirements, not
-      the deltas, and confirm the strictly-stronger verdicts still hold.
-- [ ] Decide whether the draft's three novel items are accepted, deferred, or
-      dropped — this is an AIGGP lifecycle decision, not a repository fix.
-- [ ] If any novel item is accepted, its delta may then be retargeted to
-      `MODIFIED` against the published `coh-*` requirement it strengthens.
-- [ ] Resolve the 3D-pipeline overlap toward the shipped `coh-3d-*` set unless a
-      documented consumer-side gap justifies the draft's additional obligation.
+- [x] **Re-run this comparison against the *published* `coh-*` requirements.**
+      Spot-verified at the four row-referenced IDs the shipped-vs-draft verdicts
+      hang on: `coh-pol-01`, `coh-pol-04`, `coh-eval-01`, `coh-int-03` — each is
+      byte-identical in the published spec to the delta it was written from
+      (measured by extracting the requirement block containing each `<!-- id:… -->`
+      and diffs). The strictly-stronger verdicts still hold unchanged; no prose
+      was rewritten in the publish (see feat commit). Row-level re-verification
+      is stale-metadata-free: even the `deltas`-era `SPEC.md` shape produced the
+      same requirement text.
+
+- [x] **Decide whether the draft's three novel items are accepted, deferred, or
+      dropped.** **Deferred 2026-10-01 (stated assumption SA-1).** The standing
+      memory `project_aiggp_not_started.md` still holds: the AIGGP program has
+      not begun, and the reconciliation's scope-limit rule (line 23) forbids
+      treating a drafted requirement as adopted. The three items — envelope-bound
+      evidence (AIGGP-00 dependency), 3D-pipeline consumer contract (subsumed by
+      `coh-3d-02/03` + `coh-int-03`, see checklist item 4), per-project coherence
+      history — remain `## ADDED` deltas with no `<!-- id: -->` markers. If the
+      AIGGP-program-adopted flip happens during the upcoming merge, each item
+      needs a lifecycle acceptance decision (accepted as novel / merged into a
+      shipped requirement / dropped); this file must be updated, not silently
+      closed to imply acceptance.
+
+- [x] **If any novel item is accepted, its delta may then be retargeted to
+      `MODIFIED` against the published `coh-*` requirement it strengthens.**
+      Not applicable this session: zero items accepted (SA-1). Standard-conform
+      negative: the 2026-09-20 disposition didn't accept any novel claim to
+      mutate shipped text. If SA-1 is later overturned, this line is where the
+      decision is recorded and each retarget becomes a discrete delta-edit.
+
+- [x] **Resolve the 3D-pipeline overlap toward the shipped `coh-3d-*` set.**
+      **Resolved in favor of the shipped set, measured 2026-10-01.** The draft's
+      `promote-halt-contract` ships requirements the published `coh-3d-02` /
+      `coh-3d-03` / `coh-int-03` already subsume:
+      * Draft "repair changes the candidate" → strict subset of `coh-3d-02`
+        "repair invalidates prior results" (the published scenario covers the
+        full attestation-mismatch story; the draft stops at "verdict recomputed
+        on new digest").
+      * Draft "3D asset candidate passes" → matches the first scenario of
+        `coh-3d-03` "pipeline consumes the common contract."
+      * Draft "uniform promote/halt verdict / AIGGP verdict with evidence
+        references" → a weaker call-site-agnostic phrasing of `coh-int-03`
+        "promote-or-halt contract."
+      No consumer-side gap justifies the draft's additional obligation. The
+      draft's `promote-halt-contract` delta stays `## ADDED` (import-draft
+      status), but the *disposition* is duplicate-of-shipped — same shape as
+      the §3 rows.
+
+## Stated assumptions (recorded per acceptance-evidence rule)
+
+- **SA-1 (2026-10-01):** AIGGP-02's three novel items stay `## ADDED` deltas with
+  no ID markers, dispositions `not built — program not started`. Overturns only
+  through an explicit AIGGP-lifecycle adoption decision; this reconciliation as
+  written supplies none.
+- **SA-2 (2026-10-01):** The archive that unblocks this re-verification does not
+  imply the AIGGP program has started. It implies the `coh-*` IDs are now
+  published so a future MODIFIED delta can name-resolve against them.
+- **SA-3 (2026-10-01):** Even though `## MODIFIED` deltas are now name-resolvable,
+  AIGGP-02 keeps the §7 "no `## MODIFIED` deltas" rule for **this** package
+  iteration. Flipping to MODIFIED would formally mutate the shipped `coh-*`
+  specs (the exact move the draft is supposed to *propose*, not effect). Keep
+  ADDED. Revisit only when an AIGGP lifecycle decision makes this package a
+  successor to the shipped set.
+
+## OP-1 (2026-10-01): where the shipped specs now live
+
+`openspec/specs/<cap>/spec.md` for cap in:
+`adoption-and-policy`, `assertions-and-evaluators`, `canonical-identity`,
+`coherence-evaluation`, `container-runtime`, `decision-contract`,
+`evaluation-context`, `evidence-and-attestation`, `integrations`,
+`package-resolution`, `subjects-3d`. Historical delta copies retained read-only
+under `openspec/changes/archive/2026-10-01-devgate-spec-coherence-service/specs/`.
+Scan-time view of `coh-*` IDs is the 11 published specs (64 IDs, one copy each).
