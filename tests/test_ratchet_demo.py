@@ -81,7 +81,8 @@ class RatchetDrillIsRealTest(unittest.TestCase):
     def test_the_captured_shape_matches_the_provenance_record(self):
         """The 13 locations are the captured ones, in emitted order."""
         src = SCRIPT.read_text(encoding="utf-8")
-        record = (REPO / "openspec" / "changes" / "devgate-spec-coherence-service"
+        record = (REPO / "openspec" / "changes" / "archive"
+                  / "2026-10-01-devgate-spec-coherence-service"
                   / "r9-provenance-capture.md").read_text(encoding="utf-8")
         for location in ("server/GameRoom.ts", "src/systems/TheaterSystem.ts",
                          "src/network/NetworkManager.ts"):
