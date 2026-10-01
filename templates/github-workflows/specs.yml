@@ -18,6 +18,12 @@
 #      — a requirement with no `// spec: <id>` marker in source is reported,
 #      not failed, until `openspec/gate-config.json` marks a capability
 #      `"blocking"`.
+#   4. Spec gap scan (`spec_gap_scan.py`), advisory — the ranked inventory of
+#      un-specced capabilities with evidence pointers. advisory here means
+#      ADVISORY: the exit code is reported, never gated, including the honest
+#      exit 2 `unknown scope` for repos whose layout the inventory roots do
+#      not match. `--fail-on-gaps` exists and stays OFF at first; a repo opts
+#      in deliberately once its scaffold set has been reviewed (SGA-02/07).
 #
 # SETUP:
 #   - DevGate must be present as `.devgate/` (submodule or clone); the control
@@ -102,3 +108,15 @@ jobs:
           set -o pipefail
           python3 .devgate/scripts/spec_traceability.py --root . --report | tail -8
           python3 .devgate/scripts/spec_traceability.py --root . | tail -2
+
+      - name: Spec gap scan (advisory)
+        # Advisory ON PURPOSE (--fail-on-gaps deliberately absent): the gap
+        # table ranks what is not yet specced; a repo adopting specs for the
+        # first time would red-flag its own CI before any review happened.
+        # Flip the flag in your own lane only after the scaffold set lands as
+        # reviewed specs. The `|| true` also swallows the honest exit 2 —
+        # "unknown scope" on a repo with no capability anchors is information,
+        # not a build failure, at this stage.
+        run: |
+          set -o pipefail
+          python3 .devgate/scripts/spec_gap_scan.py --root . | tail -30 || true
