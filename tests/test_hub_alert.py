@@ -351,6 +351,38 @@ def test_a_small_location_list_is_not_capped(tmp_path):
     assert "more locations" not in res.stdout, res.stdout
 
 
+def test_unfetchable_repos_are_named_not_just_counted(tmp_path):
+    """T-14's exit-4 alert must name WHICH declaration line is the hole.
+    A body that says `unfetchable=1` without the repo name cannot be
+    dispositioned — the operator has to open the artifact to learn what to
+    edit. Names + reasons (truncated) go in the body."""
+    report = write_report(
+        tmp_path,
+        [{"name": "TheArchitectit/definitely-not-a-repo",
+          "url": "https://github.com/TheArchitectit/definitely-not-a-repo",
+          "state": "unfetchable", "uncovered": 0,
+          "reason": "could not fetch: remote: Repository not found."}],
+    )
+    res = run("--key", "k", "--report", report, "--dry-run")
+    assert res.returncode == 0
+    body = res.stdout
+    assert "definitely-not-a-repo" in body, body
+    assert "Repository not found" in body, body
+
+
+def test_a_long_reason_is_truncated(tmp_path):
+    """The reason line is report text with a size cap; a pathological 4KB
+    reason must not return the 422 class through the back door."""
+    report = write_report(
+        tmp_path,
+        [{"name": "TheArchitectit/x", "state": "unscannable",
+          "uncovered": 0, "reason": "scanner unusable: " + "x" * 4000}],
+    )
+    body = run("--key", "k", "--report", report, "--dry-run").stdout
+    assert "x" * 4000 not in body
+    assert "could not be scanned" in body
+
+
 def test_the_cap_counts_toward_the_body_the_api_will_accept(tmp_path):
     """The cap exists to stay under GitHub's comment limit; a body built
     from the maximum locations must stay comfortably small (well under
