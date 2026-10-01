@@ -10,26 +10,21 @@ Spec discovery covers BOTH standard OpenSpec layouts:
   openspec/changes/<change>/specs/**/*.md      (change packages, archive/ skipped)
 Requirement IDs use the <!-- id: ... --> marker; heading-only specs are
 reported as "0 requirement IDs in the supported format", never as "no specs
-found" - a gate that misdescribes what it looked at cannot be trusted."""
+found" - a gate that misdescribes what it looked at cannot be trusted.
+
+Coverage discovery is shared with the gap scanner via scripts/lib/
+spec_discovery.py (SGA-05) — this script holds no regex of its own."""
 import argparse
 import json
-import re
 import sys
 from pathlib import Path
 
-REQ_ID = re.compile(r"<!--\s*id:\s*([a-z0-9-]+)\s*-->")
-# One marker line may carry several IDs: `// spec: a-01, b-02, c-03`.
-# Anchored to the ID shape and comma-separated so a trailing comment
-# (`// spec: a-01 -- why`) is not swallowed into the match. Both `//`
-# (C-family, JS) and `#` (Python, shell) comment prefixes are accepted —
-# H6: the `//`-only grammar locked Python consumers out of blocking mode.
-# `.sh` files use the same `# // spec:` shape (see
-# scripts/specs-validate-negative-control.sh); the extension list below is
-# widened to match the shipped gate surface.
-MARKER = re.compile(r"(?://|#)\s*spec:[ \t]*([a-z0-9-]+(?:[ \t]*,[ \t]*[a-z0-9-]+)*)")
-ID = re.compile(r"[a-z0-9-]+")
-SCAN_EXTS = {".rs", ".py", ".mjs", ".js", ".ts", ".sh", ".zig"}
-SCAN_SKIP = {"target", "node_modules", ".git", "openspec", ".devgate"}
+sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
+from spec_discovery import (  # noqa: E402
+    collect_markers,
+    collect_requirements,
+    find_spec_files,
+)
 
 
 def load_config(root: Path) -> dict:
@@ -37,52 +32,6 @@ def load_config(root: Path) -> dict:
     if not cfg_path.exists():
         return {"default_mode": "advisory", "specs": {}}
     return json.loads(cfg_path.read_text(encoding="utf-8"))
-
-
-def find_spec_files(root: Path) -> list[Path]:
-    """All spec files in both standard OpenSpec layouts.
-
-    openspec/specs/<capability>/spec.md plus openspec/changes/<change>/specs/**/*.md,
-    skipping archived changes (their requirements already live, or are being
-    moved, under openspec/specs/).
-    """
-    files = sorted((root / "openspec" / "specs").glob("*/spec.md"))
-    changes = root / "openspec" / "changes"
-    if changes.is_dir():
-        for spec in sorted(changes.glob("*/specs/**/*.md")):
-            if "archive" not in spec.relative_to(changes).parts:
-                files.append(spec)
-    return files
-
-
-def collect_requirements(root: Path) -> dict:
-    """capability -> {req_id: spec_path}, across both OpenSpec layouts."""
-    out = {}
-    for spec in find_spec_files(root):
-        # specs/<cap>/spec.md -> capability dir; flat change specs/<file>.md
-        # -> file stem (DevGate's own change packages use that flat layout).
-        capability = spec.parent.name if spec.name == "spec.md" else spec.stem
-        ids = REQ_ID.findall(spec.read_text(encoding="utf-8"))
-        out.setdefault(capability, {})
-        for rid in ids:
-            out[capability][rid] = spec
-    return out
-
-
-def collect_markers(root: Path) -> set:
-    markers = set()
-    for path in root.rglob("*"):
-        if not path.is_file() or path.suffix not in SCAN_EXTS:
-            continue
-        if any(part in SCAN_SKIP for part in path.parts):
-            continue
-        try:
-            text = path.read_text(errors="ignore")
-        except OSError:
-            continue
-        for group in MARKER.findall(text):
-            markers.update(ID.findall(group))
-    return markers
 
 
 def main() -> int:

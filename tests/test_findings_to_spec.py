@@ -21,8 +21,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 SCRIPT = HERE.parent / "scripts" / "findings_to_spec.py"
 
-sys.path.insert(0, str(HERE.parent / "scripts"))
-import spec_traceability  # noqa: E402  (share the gate's regexes — the point is compatibility)
+sys.path.insert(0, str(HERE.parent / "scripts" / "lib"))
+import spec_discovery as spec_traceability  # noqa: E402  (SGA-05 moved the gate's regexes here — the point is still compatibility)
 
 
 def _entry(fid, category="save", severity="warning", msg="a known bug", **kw):
