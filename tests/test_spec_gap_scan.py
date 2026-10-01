@@ -169,18 +169,71 @@ def test_scanner_does_not_soften_traceability_refusal(tmp_path):
 
 
 def test_scaffold_does_not_change_traceability_verdict(tmp_path):
-    make_repo(tmp_path)
-    gd(tmp_path / "openspec/specs/economy-manager/spec.md",
-       "### Requirement: x <!-- id: eco-01 -->\n")
-    gd(tmp_path / "src/autoload/economy_manager.gd",
-       "# spec: eco-01\nextends Node\n")
-    r = subprocess.run([sys.executable, str(SCANNER), "--root", str(tmp_path),
-                        "--scaffold"], capture_output=True, text=True)
-    # scaffold is a no-op in scan mode today (task 1.4) — must NOT fabricate specs
-    assert r.returncode in (0, 2)
+    make_repo(tmp_path)  # src/ anchor, no openspec/ at all
+    r = run(["--scaffold"], root=tmp_path)
+    assert r.returncode == 0, r.stderr
+    stub = tmp_path / "openspec/specs/economy-manager/spec.md"
+    assert stub.exists(), "--scaffold must write the evidence stub"
+    # the stub carries evidence but issues NO requirement id...
+    assert "<!-- id:" not in stub.read_text()
+    assert "src/autoload/economy_manager.gd" in stub.read_text()
+    # ...so traceability still refuses: empty scaffolds are not a spec universe
     still = subprocess.run([sys.executable, str(TRACE), "--root", str(tmp_path)],
                            capture_output=True, text=True)
-    assert "0/0" not in still.stdout  # no drafted spec silently counted
+    assert still.returncode == 2
+
+
+# --- SGA-02: drafts born unreviewed, excluded from every count -------------
+
+def test_draft_scaffold_born_unreviewed_and_excluded(tmp_path):
+    make_repo(tmp_path)
+    r = run(["--scaffold", "--draft"], root=tmp_path)
+    assert r.returncode == 0, r.stderr
+    stub = (tmp_path / "openspec/specs/economy-manager/spec.md").read_text()
+    assert "<!-- draft: unreviewed -->" in stub
+    assert "economy-manager-gap-01" in stub  # an id exists, but...
+    # ...the scanner itself must not count it as coverage
+    report = json.loads(run(["--json"], root=tmp_path).stdout)
+    assert report["coverage"]["requirement_ids"] == 0
+    tr = subprocess.run([sys.executable, str(TRACE), "--root", str(tmp_path)],
+                        capture_output=True, text=True)
+    assert tr.returncode == 2  # a drafted-only universe is still a refusal
+
+
+def test_review_admits_the_draft(tmp_path):
+    make_repo(tmp_path)
+    run(["--scaffold", "--draft"], root=tmp_path)
+    path = tmp_path / "openspec/specs/economy-manager/spec.md"
+    # reviewing a draft means deleting the marker — nothing else
+    path.write_text(path.read_text().replace("<!-- draft: unreviewed -->\n", ""))
+    report = json.loads(run(["--json"], root=tmp_path).stdout)
+    assert report["coverage"]["requirement_ids"] == 1
+    assert report["coverage"]["uncovered_ids"][0]["id"] == "economy-manager-gap-01"
+
+
+def test_scaffold_is_idempotent_over_existing_specs(tmp_path):
+    make_repo(tmp_path)
+    run(["--scaffold"], root=tmp_path)
+    stub = tmp_path / "openspec/specs/economy-manager/spec.md"
+    first = stub.read_text()
+    after = run(["--scaffold"], root=tmp_path)
+    # second scan: the capability now HAS a spec file, so it is no longer
+    # unspaced and scaffold proposes nothing — the stub is untouched
+    assert after.returncode == 0
+    assert stub.read_text() == first
+
+
+def test_scaffold_ignores_claimed_but_absent(tmp_path):
+    # rail 3 / SGA-03 scenario: a dead const is a lead, never a spec stub
+    make_repo(tmp_path)
+    gd(tmp_path / "src/autoload/hero_manager.gd",
+       "extends Node\nconst HERO_UNUSED: int = 1\nvar x = 2\n")
+    r = run(["--scaffold", "--draft"], root=tmp_path)
+    assert r.returncode == 0, r.stderr
+    assert not (tmp_path / "openspec/specs/HERO_UNUSED").exists()
+    assert not (tmp_path / "openspec/specs/hero-unused").exists()
+    caps = [p.name for p in (tmp_path / "openspec/specs").iterdir()]
+    assert set(caps) == {"economy-manager", "hero-manager"}
 
 
 # --- SGA-05: shared discovery agreement ------------------------------------

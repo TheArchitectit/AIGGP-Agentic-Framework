@@ -231,6 +231,59 @@ def human_table(report: dict) -> list[str]:
     return out
 
 
+def scaffold_stub(cap: dict, root: Path, draft: bool) -> Path:
+    """Evidence stub at openspec/specs/<capability>/spec.md — never prose.
+
+    --scaffold alone leaves the requirement slot EMPTY: no `<!-- id: -->`
+    marker, because a generated stub cannot claim coverage it has not
+    earned (SGA-01: the scanner does not author requirement prose).
+    --draft additionally fills one slot with a generated ID born
+    `<!-- draft: unreviewed -->` — spec_discovery excludes those from
+    every coverage count until a human deletes the marker (SGA-02).
+    Either way the stub keeps evidence anchors, and scaffold output can
+    never include CLAIMED-BUT-ABSENT rows (rail 3).
+    """
+    path = root / "openspec" / "specs" / cap["capability"] / "spec.md"
+    if path.exists():
+        return path  # idempotent: re-running proposes nothing over existing specs
+    evidence = "\n".join(f"- `{a['path']}:{a['line']}-{a['end_line']}` "
+                         f"({a['lines']} lines)" for a in cap["anchors"])
+    body = [f"# {cap['capability']}",
+            "",
+            "<!-- scaffolded by spec_gap_scan.py — evidence pointers only. -->",
+            "",
+            "## Purpose",
+            "",
+            "Capability anchors observed in source; this stub records where,",
+            "not what. Fill the requirement slot(s) after reading the code.",
+            "",
+            "## Requirements",
+            ""]
+    if draft:
+        rid = f"{cap['capability']}-gap-01"
+        body += [f"### Requirement: {cap['capability']} SHALL implement "
+                 "its evidenced behavior",
+                 f"<!-- id: {rid} -->",
+                 "<!-- draft: unreviewed -->",
+                 "",
+                 "TODO: reviewed prose is required before this counts (delete "
+                 "the draft marker).",
+                 "",
+                 "#### Scenario: evidence",
+                 "TODO: write the scenario.",
+                 ""]
+    else:
+        body += ["### Requirement: TODO — unreviewed scaffold, no ID issued",
+                 "(no requirement is claimed until a human authors it and "
+                 "adds an id marker; the text of this stub must never contain "
+                 "one, even as an example — discovery would parse it)",
+                 ""]
+    body += ["", "## Evidence", "", evidence, ""]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(body), encoding="utf-8")
+    return path
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path.cwd())
@@ -238,7 +291,8 @@ def main() -> int:
     parser.add_argument("--fail-on-gaps", action="store_true")
     parser.add_argument("--scaffold", action="store_true",
                         help="write openspec/specs/<capability>/spec.md "
-                             "stubs with evidence pointers (no prose)")
+                             "stubs with evidence pointers (no prose) for "
+                             "every UNSPACED capability")
     parser.add_argument("--draft", action="store_true",
                         help="with --scaffold: fill requirement slots marked "
                              "<!-- draft: unreviewed --> (excluded from counts)")
@@ -256,11 +310,26 @@ def main() -> int:
               file=sys.stderr)
         return 2
 
+    if args.draft and not args.scaffold:
+        print("spec-gap-scan: --draft only applies with --scaffold",
+              file=sys.stderr)
+        return 2
     if args.scaffold:
+        wrote = 0
         for cap in report["inventory"]["unspaced"]:
-            print(f"spec-gap-scan: --scaffold for {cap['capability']} "
-                  "not yet implemented (task 1.4)")
-            return 2
+            # unspaced means no spec file exists by construction; scaffold_stub
+            # still refuses to overwrite anything it finds there.
+            path = scaffold_stub(cap, root, args.draft)
+            wrote += 1
+            print(f"spec-gap-scan: scaffold {'draft ' if args.draft else 'stub '}"
+                  f"for {cap['capability']} -> "
+                  f"{path.relative_to(root)}")
+        print(f"spec-gap-scan: wrote {wrote}/{len(report['inventory']['unspaced'])}"
+              f" scaffold{' drafts' if args.draft else ' stubs'}; scaffolds are "
+              "not requirements — review before counting (SGA-02)")
+        # Scaffold mode writes files and exits before the report/exit-code
+        # path: the gap verdict belongs to the scan run that found them.
+        return 0
 
     if args.as_json:
         print(json.dumps(report, indent=1))
