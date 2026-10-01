@@ -18,8 +18,22 @@
       counterpart); envelope-bound evidence, the 3D-pipeline consumer contract,
       and per-project coherence history are novel and **not built — the AIGGP
       program has not started**.
-- [ ] Reconcile at coherence-service archive: re-run the comparison against the
-      published `coh-*` requirements once `devgate-spec-coherence-service`
-      archives into `openspec/specs/`, at which point a `MODIFIED` delta can
-      name-match them. Deltas stay `ADDED` until then (see `reconciliation.md`
-      §7).
+- [x] Reconcile at coherence-service archive: CLOSED 2026-10-01 (feat commit `a74455a`
+      + this ledger edit). `devgate-spec-coherence-service` archived 2026-10-01: 11
+      capability deltas published to `openspec/specs/<cap>/spec.md`, change dir moved to
+      `openspec/changes/archive/2026-10-01-devgate-spec-coherence-service/`. Re-run
+      complete per `reconciliation.md` §7 "Reconcile-at-archive checklist" — 4 of 4 items
+      dispositioned: (1) published-comparison re-verify measured byte-identical at the
+      four row-referenced IDs (`coh-pol-01`, `coh-pol-04`, `coh-eval-01`, `coh-int-03`);
+      strictly-stronger verdicts unchanged. (2) The three novel items are **deferred**
+      (`stated assumption SA-1`) — the standing rule "AIGGP program not started" still
+      holds; the reconciliation scope limit forbids adopting a drafted requirement via
+      mere archive. (3) No `## MODIFIED` deltas land this iteration (`SA-3`): even
+      though MODIFIED is now name-resolvable against the published specs, flipping
+      would formally mutate the shipped set — the thing the draft proposes, not
+      effects. (4) The 3D-pipeline overlap resolves to the shipped `coh-3d-02/03` +
+      `coh-int-03` set — the draft's `promote-halt-contract` text is strict-subsumed,
+      no consumer-side gap documented. **Net: AIGGP-02 keeps its `## ADDED` shape with
+      no `<!-- id: -->` markers; the shipped `coh-*` specs stand unchanged.** The
+      aiggp-02`reconciliation.md` file is the durable record; the §7 checkbox list is
+      now `CLOSED 2026-10-01`.
