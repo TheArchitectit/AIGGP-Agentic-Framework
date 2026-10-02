@@ -1,4 +1,16 @@
 > **Status: imported draft — not a commitment.** The AIGGP program has not started; this package is imported reference material held for future acceptance. It does not modify, supersede, or bind the shipped DevGate specification ladder, and no code, traceability ID, or gate configuration is wired to its requirements. (Added 2026-09-20 per the spec-coherence drift audit; see the AIGGP-02 reconciliation.)
+>
+> **Re-anchored 2026-10-02 (kernel retirement).** The `aiggp-00` kernel package
+> this draft cites has been retired — see
+> `openspec/changes/AIGGP-RETIREMENT-2026-10-02.md`. Every reference below to
+> the "AIGGP-00 envelope", kernel signing, the append-only ledger, or kernel
+> waivers now reads against DevGate's shipped evidence machinery: sealed
+> evidence bundles (`hub/coherence/evidence.py` +
+> `scripts/evidence-validate.py`), HMAC attestation
+> (`hub/coherence/attest.py`), the coherence run ledger, and scoped exceptions
+> (`hub/coherence/adoption.py`). References to `aiggp-09` enrollment read
+> against shipped runner enrollment (`scripts/runner-enroll.sh`,
+> `hub/schema/runners.schema.json`).
 
 ## Summary
 
@@ -12,7 +24,7 @@ The lab runs GitLab; DevGate gates GitHub only. Repos on the lab instance get no
 
 - The lab GitLab instance is discovered, documented, pinned (tailnet-only), and backup-tested before any gate work depends on it.
 - GitLab runners meet the same standard as the GitHub fleet: rootless podman, digest-pinned images, fail-closed.
-- All five CI gate templates run on GitLab as includes executing the identical scripts the GitHub templates run.
+- All seven CI gate templates run on GitLab as includes executing the identical scripts the GitHub templates run.
 - The hub monitors GitLab repos through a forge adapter with the same evidence envelope.
 - A parity drill proves identical findings on both forges over a seeded-failure corpus, and runs in CI forever after.
 

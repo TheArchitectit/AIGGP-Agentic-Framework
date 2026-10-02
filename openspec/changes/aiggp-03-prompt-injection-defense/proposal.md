@@ -1,4 +1,16 @@
 > **Status: imported draft — not a commitment.** The AIGGP program has not started; this package is imported reference material held for future acceptance. It does not modify, supersede, or bind the shipped DevGate specification ladder, and no code, traceability ID, or gate configuration is wired to its requirements. (Added 2026-09-20 per the spec-coherence drift audit; see the AIGGP-02 reconciliation.)
+>
+> **Re-anchored 2026-10-02 (kernel retirement).** The `aiggp-00` kernel package
+> this draft cites has been retired — see
+> `openspec/changes/AIGGP-RETIREMENT-2026-10-02.md`. Every reference below to
+> the "AIGGP-00 envelope", kernel signing, the append-only ledger, or kernel
+> waivers now reads against DevGate's shipped evidence machinery: sealed
+> evidence bundles (`hub/coherence/evidence.py` +
+> `scripts/evidence-validate.py`), HMAC attestation
+> (`hub/coherence/attest.py`), the coherence run ledger, and scoped exceptions
+> (`hub/coherence/adoption.py`). References to `aiggp-09` enrollment read
+> against shipped runner enrollment (`scripts/runner-enroll.sh`,
+> `hub/schema/runners.schema.json`).
 
 ## Summary
 

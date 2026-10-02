@@ -1,3 +1,5 @@
+> **Re-anchored 2026-10-02:** `aiggp-00`/`aiggp-09` are retired (see `openspec/changes/AIGGP-RETIREMENT-2026-10-02.md`); references below read against DevGate's shipped evidence machinery (`hub/coherence/`) and runner enrollment (`scripts/runner-enroll.sh`).
+
 ## Required conformance fixtures (per stage, minimum set)
 
 - Fixture A: orphan commit and orphan task - both reported.
@@ -61,14 +63,34 @@ claim from both directions.
   suite (`tests/test_guardrails_scan.mjs` 23/23 + `tests/test_guardrails_scan_node.py` 3/3).
   Per-repo scanner shape.
 - **`secret-scan-declared.sh`** — the fleet-wide secret declaration
-  sweep (131-entry declaration; T-08/T-14/T-15 mutation proofs). Fleet
-  scope shape, not per-repo.
+  sweep (declaration generator over `gh repo list`; the 2026-09-30
+  census: declared=135, scanned=131, findings=59; T-08/T-14/T-15
+  mutation proofs). Fleet scope shape, not per-repo.
 
 Two shapes, one adapter contract: the stitcher's proof-parity claim
 ("external-tool outputs reconstruct into the evidence chain with the
 same rigor as internal ones") is only credible if it survives both a
 per-repo scanner and a fleet-wide declaration sweep. A single-shape
 first-target (A alone) proves less.
+
+**Anti-laundering invariant (recorded 2026-10-01, cross-package review).**
+The proposal explicitly warns against "external tool results re-labeled
+as first-class checks." The combo above is DevGate's *own* tooling, which
+makes laundering a live risk in the other direction: a stitched
+`guardrails-scan.mjs` or `secret-scan-declared.sh` finding must not be
+re-presented as a first-class AIGGP check. Binding rule:
+
+- Every adapter-ingested finding records the **source tool identity and
+  version** (path + version/commit of the scanner, and its input digest)
+  as a first-class field on the evidence envelope.
+- Verdicts, severities, and check names stay attributed to the source
+  tool. The stitcher's contribution is the *provenance reconstruction*,
+  not the authority of the check.
+- "AIGGP check" means a check defined by an AIGGP requirement and run by
+  an AIGGP module. An adapted tool's output MAY feed an AIGGP verdict
+  (as evidence), but the finding itself is never renamed, re-keyed, or
+  counted as an AIGGP-native check. Fixture G ("ingested external result
+  - identity preserved") is the conformance expression of this rule.
 
 `spec_traceability.py` (option C) is a natural third target once the
 combo is proven — it is conceptually closest to the aiggp-00 evidence

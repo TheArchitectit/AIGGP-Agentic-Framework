@@ -18,7 +18,7 @@ Given a runner image referenced by mutable tag, when the runner standard check r
 
 ### Requirement: thin mirrored templates
 
-GitLab CI templates SHALL be includes that invoke the identical gate scripts used by the GitHub templates, for all five gates.
+GitLab CI templates SHALL be includes that invoke the identical gate scripts used by the GitHub templates, for all seven gates that ship in `templates/github-workflows/` (guardrails compliance, secret validation, file size, smoke gate, scheduled drift scan, spec-coherence, specs-validation). The set is the shipped one, counted from that directory; adding or retiring a GitHub template updates this requirement in the same change.
 
 #### Scenario: template divergence
 

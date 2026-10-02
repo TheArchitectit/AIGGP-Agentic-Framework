@@ -1,3 +1,5 @@
+> **Re-anchored 2026-10-02:** `aiggp-00`/`aiggp-09` are retired (see `openspec/changes/AIGGP-RETIREMENT-2026-10-02.md`); references below read against DevGate's shipped evidence machinery (`hub/coherence/`) and runner enrollment (`scripts/runner-enroll.sh`).
+
 ## Design principles
 
 - Preserve ancestry, not merely files.
@@ -11,11 +13,30 @@
 
 ### Canonical repository
 
-The existing Agent Guardrails repository becomes the physical host for the unified AIGGP repository. This preserves its established policy/runtime lineage and avoids creating a third source-of-truth repository. The repository is renamed to the settled AIGGP name only as a separately approved hosting operation; provider redirects SHALL be verified if a rename occurs.
+**DECIDED 2026-10-02 (owner, supersedes the draft paragraph below): this
+repository is the host.** AIGGP is the portmanteau name for pulling the agent
+guardrails system into DevGate — and the rename already happened: this repo's
+remote is `TheArchitectit/AIGGP-Agentic-Framework`. The agent guardrails
+content enters here; `agent-guardrails-template` is the predecessor to archive
+(ADR-006). See `alignment-review.md` (measured topology) and
+`openspec/changes/AIGGP-RETIREMENT-2026-10-02.md` (decision record).
+
+~~The existing Agent Guardrails repository becomes the physical host for the
+unified AIGGP repository. This preserves its established policy/runtime
+lineage and avoids creating a third source-of-truth repository. The repository
+is renamed to the settled AIGGP name only as a separately approved hosting
+operation; provider redirects SHALL be verified if a rename occurs.~~
+(retained struck for provenance; superseded by the decision above)
 
 ### History strategy
 
-DevGate SHALL enter through a non-squashed subtree merge into modules/devgate. The merge commit SHALL retain the selected DevGate cutover head as a parent, using an explicit unrelated-histories merge where required. A fresh file copy and a squashed subtree import are forbidden because they do not preserve the full reachable ancestry as migration truth.
+The agent guardrails system SHALL enter through a non-squashed subtree merge
+into `modules/guardrails/` (direction corrected 2026-10-02). The merge commit
+SHALL retain the selected guardrails cutover head as a parent, using an
+explicit unrelated-histories merge where required. A fresh file copy and a
+squashed subtree import are forbidden because they do not preserve the full
+reachable ancestry as migration truth. DevGate's own history is already here —
+it is the host and needs no import.
 
 Filter-repo rewriting is reserved for a rehearsed fallback only if provider or tooling constraints make a parent-preserving merge impossible. Any filtered import SHALL keep an untouched mirror bundle and SHALL publish old-to-new commit mapping. It is not the default because rewriting hashes expands audit and rollback cost.
 
@@ -25,15 +46,18 @@ AIGGP-01 SHALL finish first. Its cherry-pick-by-finding reconciliation produces 
 
 ### Target directory layout
 
-- modules/policy/ - Agent Guardrails policy/runtime module and policy-bundle renderer.
-- modules/devgate/ - DevGate repository, CI, and release enforcement module.
-- kernel/ - AIGGP-00 verdict, evidence, waiver, ledger, and subject contracts.
+(Layout corrected 2026-10-02: DevGate is the host and stays at the repo root;
+the `kernel/` entry is removed with the retired aiggp-00 package — shipped
+evidence machinery in `hub/coherence/` is the truth substrate.)
+
+- modules/guardrails/ - agent guardrails policy/runtime module (from `agent-guardrails-template` / `guardrail-mcp` lineage) and policy-pack renderer.
 - schemas/ - versioned public schemas shared across modules.
 - bundles/ - canonical policy-bundle sources; generated guardrail documents are build outputs, not copied source.
 - conformance/ - positive fixtures, negative controls, golden corpus, cross-module proofs.
 - integrations/ - forge, runner, coding-agent, and external-tool adapters.
 - docs/generated/ - generated documentation output for release artifacts; checked-in status follows the bundle renderer's reproducibility rule.
 - tools/migration/ - one-time manifests, verification scripts, consumer inventory, rollback runbook, and tag map; removed or frozen after stabilization by an explicit follow-up.
+- (existing DevGate tree — `hub/`, `scripts/`, `templates/`, `tests/`, `openspec/` — remains where it is; no `modules/devgate/` relocation.)
 
 The first migration commit MAY stage existing Agent Guardrails files in place if moving them and importing DevGate in one commit would make review unsafe. The terminal AIGGP-10 state SHALL match the layout above. Pure moves SHALL be isolated from behavior changes so Git rename detection and human review remain useful.
 

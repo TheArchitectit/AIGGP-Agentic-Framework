@@ -1,3 +1,5 @@
+> **Re-anchored 2026-10-02:** `aiggp-00`/`aiggp-09` are retired (see `openspec/changes/AIGGP-RETIREMENT-2026-10-02.md`); references below read against DevGate's shipped evidence machinery (`hub/coherence/`) and runner enrollment (`scripts/runner-enroll.sh`).
+
 ## Required conformance fixtures
 
 - Fixture A: credential in commit - redacted, hash recorded, block at boundary.
@@ -76,8 +78,10 @@ themselves.
 
 **Default (A) — bundle-declared routed identity.**
 `policy-bundles/[bundle].toml` declares who is authorized to close an
-escalation (by identity hash, per the hybrid-CA enrollment model from
-aiggp-00 Q1). Solo default = the deployer. Team re-points the routed
+escalation (by identity hash — CA-optional per SA-9: a key-hash allowlist
+entry when no CA runs, a CA-signed identity when one does; the retired
+aiggp-00 kernel is not the source, see AIGGP-RETIREMENT-2026-10-02.md).
+Solo default = the deployer. Team re-points the routed
 identity to a role, on-call rotation, or designee. No hardcoded routing
 lives in the code — the bundle owns it. Resolution is a signed envelope
 referencing the held-matter envelope; the resolver's identity hash

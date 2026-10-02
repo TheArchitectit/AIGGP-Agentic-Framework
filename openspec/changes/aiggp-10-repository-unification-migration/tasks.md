@@ -1,3 +1,5 @@
+> **Re-anchored 2026-10-02:** `aiggp-00`/`aiggp-09` are retired (see `openspec/changes/AIGGP-RETIREMENT-2026-10-02.md`); references below read against DevGate's shipped evidence machinery (`hub/coherence/`) and runner enrollment (`scripts/runner-enroll.sh`).
+
 ## Phase 0 - inventory and freeze design
 
 - Capture repository URLs, default branches, current heads, protections, rulesets, tags, releases, artifacts, packages, images, webhooks, environments, secret names/classes, deploy keys, submodules, open branches, and automation callers.

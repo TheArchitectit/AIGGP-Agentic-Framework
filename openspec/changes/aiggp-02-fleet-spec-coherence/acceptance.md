@@ -1,3 +1,5 @@
+> **Re-anchored 2026-10-02:** `aiggp-00`/`aiggp-09` are retired (see `openspec/changes/AIGGP-RETIREMENT-2026-10-02.md`); references below read against DevGate's shipped evidence machinery (`hub/coherence/`) and runner enrollment (`scripts/runner-enroll.sh`).
+
 ## Required conformance fixtures
 
 - Fixture A: coherent minimal repository - full green.
@@ -72,6 +74,20 @@ Concrete shape:
   copies. Consumers pin to a digest that names a specific bundle revision;
   repo-level cooldown happens by re-pointing the pinned digest (a commit,
   not a silent config change).
+- **Which bundle, and where the pin lives (terminology note).** The word
+  "bundle" is overloaded across these packages; both senses are real
+  artifacts and must not be conflated:
+  - The **spec/eval bundle** (aiggp-00 `design.md: "bundle identity"`) is
+    the artifact whose digest covers the manifest, **policy references**,
+    parameters, waiver rules, evidence categories, and rendering metadata.
+  - The **policy bundle** (this Q5) is the signed minimums artifact in
+    `TheArchitectit/policy-bundles`, named by pinned digest inside the
+    spec/eval bundle's **policy-reference field**.
+  The pin is therefore carried *by the spec/eval bundle*, not by a loose
+  config file: the spec/eval bundle's digest transitively commits to the
+  exact policy revision. "DevGate ships a pinned-digest reference" means
+  the spec/eval bundle (or a DevGate-side consumer config) names that
+  digest — never a copy of the policy text.
 - When AIGGP-02's central policy authority requirement is later
   formalized, this repo is it. No migration, no freeze step.
 
@@ -81,10 +97,26 @@ git-observable artifact, and the audit's own config-inspection findings
 ('dead configuration → silent green') say config that cannot be read is
 config that will drift.
 
-Trust root for the bundle stays within aiggp-00 Q1's hybrid-CA model: the
-bundle's own signature is Ed25519, CA-signed at enrollment; the pinned
-digest is the verifier's fetch-root until a future org CA is on the
-trust list.
+Trust root for the policy bundle follows aiggp-00 Q1's CA-optional model:
+the bundle's own signature is Ed25519. In a **CA-less deployment
+(home-lab default)** the pinned digest is the verifier's fetch-root and
+nothing else signs the bundle. In a **CA opted-in deployment** the bundle
+is additionally CA-signed at enrollment and the CA's key inventory is the
+trust list. Either way the pinned digest is what the verifier fetches
+against; the CA is an optional root of *cross-install* trust on top, not
+a requirement for standing up `policy-bundles`.
+
+**Where the pin lives (clarification 2026-10-01, alignment review).**
+CA-less does **not** mean repo-controlled. The published `coh-pol-02`
+contract still binds every deployment: policy resolves from control-plane
+trust roots outside repository-controlled input, and repository-supplied
+digests establish identity but never authority. So the pinned digest is
+carried in **control-plane configuration outside the evaluated repo** —
+the DevGate-side consumer config or the fleet's pinned bundle reference,
+which a repository's pull request cannot rewrite. A pin placed inside the
+repository under test would make the repo its own policy authority, which
+is exactly what `coh-pol-02` forbids and what Q5's option D was rejected
+for. The CA is optional; the *authority boundary* is not.
 
 ## Handoff
 

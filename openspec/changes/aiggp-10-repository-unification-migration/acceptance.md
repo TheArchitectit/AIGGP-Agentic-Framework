@@ -81,6 +81,29 @@ window plus grace. Which routes a given consumer actually uses is
 their call (same opt-in shape as elsewhere) — the shim exists for all
 four whether or not a consumer needs all four.
 
+**Two clocks, two audiences (stated assumption SA-8, 2026-10-01).**
+Cross-package review flagged a surface tension between this fixed 90d
+and Q14.2's client-chosen STS/LTS windows. It is not a conflict — the
+two clocks govern different parties:
+
+- **Q14.2's freeze/stabilization windows** are the *deployer's* rollback
+  exposure: how long the migration can be undone before the point of no
+  return. That is correctly client-chosen (STS 24-48h/14d, LTS 7d/90d)
+  because the deployer owns the risk.
+- **Q14.3's shim expiry** is a *consumer's* compatibility promise: how
+  long an external reference to an old path keeps working. That is
+  correctly fixed, because the consumer does not know or care which
+  profile the deployer picked — a promise that shrinks with the
+  deployer's profile choice is not a promise.
+
+So the recorded answers both stand as written: windows client-chosen,
+shims fixed at 90 days for every profile. An STS deployment whose
+rollback window closes at day 14 still owes its consumers the full 90
+days of shims; those shims are inert after cutover and are not a
+rollback mechanism. If a future deployment ever wants profile-relative
+shim expiry, that is a new owner decision under the Q14.2 shape, not a
+silent reinterpretation of this one.
+
 ### Q14.4 — Unified release namespace + first version number
 
 **ANSWERED 2026-10-01 (owner).**

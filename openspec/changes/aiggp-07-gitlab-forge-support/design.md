@@ -9,7 +9,7 @@
 
 - Instance posture: tailnet-only, pinned version, backup tested before reliance.
 - Runner standard: rootless podman, digest-pinned images, fail-closed registration, mirroring the GitHub fleet.
-- Template shape: GitLab includes invoking the same gate scripts as the GitHub workflow templates, 1:1 across all five gates.
+- Template shape: GitLab includes invoking the same gate scripts as the GitHub workflow templates, 1:1 across all seven gates.
 - Hub integration: forge adapter emitting AIGGP envelopes; forge identity is an envelope field.
 - Parity drill: seeded-failure corpus run on both forges; identical findings required; drill is blocking in CI.
 

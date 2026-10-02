@@ -1,3 +1,5 @@
+> **Re-anchored 2026-10-02:** `aiggp-00`/`aiggp-09` are retired (see `openspec/changes/AIGGP-RETIREMENT-2026-10-02.md`); references below read against DevGate's shipped evidence machinery (`hub/coherence/`) and runner enrollment (`scripts/runner-enroll.sh`).
+
 - Phase 0 (contract freeze): re-anchor the September 17 contracts to AIGGP-00 envelope and algebra; freeze digests.
 - Phase 1 (deterministic core): evaluator, assertion planner, determinism fixtures.
 - Phase 2 (container boundary): pinned image, ephemeral isolation, default-deny network, bounded execution.

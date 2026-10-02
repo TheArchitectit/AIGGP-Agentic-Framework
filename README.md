@@ -2,9 +2,10 @@
 
 [![Sponsor](https://img.shields.io/badge/Sponsor-TheArchitectit-FF69B4?style=flat&logo=github-sponsors)](https://github.com/sponsors/TheArchitectit)
 
-This repository is DevGate, a quality gate for AI-assisted development, on a
-settled path to merge into AIGGP — the **Agent Intelligence Gate Loop Guardrails
-Platform** (the plan is in the [AIGGP section](#aiggp--agent-intelligence-gate-loop-guardrails-platform)
+This repository is DevGate, a quality gate for AI-assisted development, and it
+is the host of AIGGP — the **Agent Intelligence Gate Loop Guardrails
+Platform**: the settled path is the agent guardrails system merging INTO this
+repo (the plan is in the [AIGGP section](#aiggp--agent-intelligence-gate-loop-guardrails-platform)
 below). The heading carries the destination now, the way a rename is announced
 before the paperwork; what ships from this repository today is still DevGate.
 
@@ -510,23 +511,31 @@ real defect, which is the entire point of having it.
 
 ## AIGGP — Agent Intelligence Gate Loop Guardrails Platform
 
-DevGate is on a path to merge into the guardrail platform. The unified product is
-AIGGP: **Agent Intelligence Gate Loop Guardrails Platform**. The plan is written
-down in [openspec/changes/aiggp-10-repository-unification-migration/](openspec/changes/aiggp-10-repository-unification-migration/)
-— DevGate is imported into the Agent Guardrails repository by a non-squashed
-subtree merge, both products sit behind explicit module boundaries, existing
-history stays reachable from documented refs in the unified repository, and the
-standalone repositories are archived with durable pointers once continuity is
-proven.
+AIGGP is a portmanteau naming one goal: **pull the agent guardrails system
+into DevGate** — one platform for AI-coding guardrails. This repository
+already carries that name. The unification plan is written down in
+[openspec/changes/aiggp-10-repository-unification-migration/](openspec/changes/aiggp-10-repository-unification-migration/)
+— the agent guardrails system (`agent-guardrails-template` / `guardrail-mcp`
+lineage) enters this repo by a non-squashed subtree merge under
+`modules/guardrails/`, existing history stays reachable, and the standalone
+predecessor is archived with a durable pointer once continuity is proven. The
+current integration mechanism is `guardrails-control-plane`, which composes
+DevGate and the guardrail engines as pinned submodules.
 
-Eleven AIGGP spec packages were imported in September 2026 and live under
-[openspec/changes/aiggp-00…10](openspec/changes/), with the sources as received
+AIGGP spec packages were imported in September 2026 and live under
+[openspec/changes/aiggp-01…10](openspec/changes/), with the sources as received
 kept for provenance in [openspec/aiggp-source/](openspec/aiggp-source/). Be clear
 about what that is: a specification, not shipped code. Nothing in those packages
-is implemented, no gate or traceability ID is wired to them, and AIGGP-02's
-overlap with the adoption ladder that does ship is an open reconciliation item.
-The sequencing is deliberate — the coherence-service specs land first, and the
-feasibility pass on the unification comes after that.
+is implemented, and no gate or traceability ID is wired to them.
+
+**Two packages were retired on 2026-10-02** — `aiggp-00` (kernel truth model:
+signed envelopes, org CA, append-only ledger, waivers) and `aiggp-09` (runner
+enrollment / fleet identity). They specified kernel-level hardening that no
+product implements, and DevGate already ships the working equivalent
+(evidence bundles, HMAC attestation, scoped exceptions, the coherence run
+ledger in `hub/coherence/`). The kept packages are re-anchored to that shipped
+machinery. Decision record and measurements:
+[AIGGP-RETIREMENT-2026-10-02.md](openspec/changes/AIGGP-RETIREMENT-2026-10-02.md).
 
 ## License
 

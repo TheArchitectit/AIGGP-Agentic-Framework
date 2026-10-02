@@ -1,3 +1,5 @@
+> **Re-anchored 2026-10-02:** `aiggp-00`/`aiggp-09` are retired (see `openspec/changes/AIGGP-RETIREMENT-2026-10-02.md`); references below read against DevGate's shipped evidence machinery (`hub/coherence/`) and runner enrollment (`scripts/runner-enroll.sh`).
+
 ## Required conformance fixtures
 
 - Fixture A: seeded broken repo on both forges - identical findings.
@@ -24,9 +26,10 @@ a product-surface question. The lab instance is Sprint-0's dev reference
 
 Concrete shape:
 - `policy-bundles/[bundle].toml` declares per forge instance: owner
-  identity (per aiggp-00's hybrid-CA enrollment model), security-patch
-  cadence (e.g. N-days-after-CVE), upgrade cadence (e.g. quarterly), and
-  the adapter-supported version.
+  identity (CA-optional per SA-9, AIGGP-RETIREMENT-2026-10-02.md — identity is a
+  key-hash allowlist entry when no CA runs, a CA-signed identity when one
+  does), security-patch cadence (e.g. N-days-after-CVE), upgrade cadence
+  (e.g. quarterly), and the adapter-supported version.
 - No hardcoded ownership or policy in the code — a deployment whose
   GitLab runs on a managed vendor cadence plugs in that cadence; an
   enterprise self-hosting plugs in theirs. Same tier-scaled shape as
@@ -48,11 +51,27 @@ in the contract.
 the deployment uses — not a scope/sequencing question.** The adapter
 must serve both shapes; which one a deployment runs is their call.
 
+**Two axes named "self-hosted" (terminology note, 2026-10-01).** The
+phrase is overloaded and the record above uses both senses:
+- **Self-hosted runners** = *runner infrastructure* (the machines that
+  execute CI jobs). GitHub Actions with self-hosted runners is what the
+  DevGate fleet runs today — that is a runner-configuration fact about a
+  GitHub deployment, and it is the first-class GitHub surface this
+  package must not regress.
+- **Self-hosted forge instance** = *the forge server itself* (a GitLab
+  instance someone operates, vs GitLab.com). That is an instance-fact
+  about the GitLab side.
+They vary independently: a deployment can be GitHub + self-hosted
+runners (today's fleet), GitLab self-hosted + its own runners, or
+GitLab.com with any runner pool. Q11.1's per-instance bundle declaration
+carries which is which; nothing in the adapter assumes the two axes
+travel together.
+
 Therefore there is no "lab-first vs .com-first" question to answer —
 that framing is wrong. The right invariant:
 - The GitLab adapter's contract covers **both self-hosted GitLab and
   GitLab.com** as surfaces of one adapter, the same way the existing
-  GitHub adapter covers self-hosted runners.
+  GitHub adapter covers GitHub regardless of its runner pool.
 - Which surface a deployment uses is declared in the bundle per
   instance (Q11.1's ownership + cadence model already carries it).
 - Sprint-0 lifts the lab-instance fog so the adapter has one documented
