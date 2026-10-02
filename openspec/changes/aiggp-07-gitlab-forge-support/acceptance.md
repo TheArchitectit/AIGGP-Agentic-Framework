@@ -12,8 +12,62 @@
 
 ## Open questions requiring owner decisions
 
-- Lab instance ownership and upgrade policy (who patches GitLab, on what cadence).
-- Whether external GitLab.com support is a launch goal or lab-first (proposal: lab-first; document external config as beta).
+### Q11.1 — Instance ownership + upgrade policy (who patches GitLab, on what cadence)
+
+**ANSWERED 2026-10-01 (owner).**
+
+**Bundle-declared per-instance.** The product must let any deployer plug
+in their own GitLab instance (self-hosted or hosted) with their own
+ownership + cadence — it is not a question about the lab instance, it is
+a product-surface question. The lab instance is Sprint-0's dev reference
+(the fog the handoff warns about), not the product's only instance.
+
+Concrete shape:
+- `policy-bundles/[bundle].toml` declares per forge instance: owner
+  identity (per aiggp-00's hybrid-CA enrollment model), security-patch
+  cadence (e.g. N-days-after-CVE), upgrade cadence (e.g. quarterly), and
+  the adapter-supported version.
+- No hardcoded ownership or policy in the code — a deployment whose
+  GitLab runs on a managed vendor cadence plugs in that cadence; an
+  enterprise self-hosting plugs in theirs. Same tier-scaled shape as
+  aiggp-05 Q9.2's ephemeral posture.
+- The forge matrix is multi-forge from day one: **GitHub (with
+  self-hosted runners — what DevGate fleet runs today) is a first-class
+  adapter alongside GitLab.** aiggp-07's scope is the GitLab adapter
+  only; it does not rewrite or regress the existing GitHub surface.
+
+Rejected: hardcoded policy (B) — different users have different
+realities. No policy at all (C) — leaves the handoff's fog permanent
+in the contract.
+
+### Q11.2 — External GitLab.com support scope
+
+**ANSWERED 2026-10-01 (owner).**
+
+**Self-hosted vs hosted is a downstream consequence of which CI platform
+the deployment uses — not a scope/sequencing question.** The adapter
+must serve both shapes; which one a deployment runs is their call.
+
+Therefore there is no "lab-first vs .com-first" question to answer —
+that framing is wrong. The right invariant:
+- The GitLab adapter's contract covers **both self-hosted GitLab and
+  GitLab.com** as surfaces of one adapter, the same way the existing
+  GitHub adapter covers self-hosted runners.
+- Which surface a deployment uses is declared in the bundle per
+  instance (Q11.1's ownership + cadence model already carries it).
+- Sprint-0 lifts the lab-instance fog so the adapter has one documented
+  dev reference; the parity drill (handoff) runs against whichever
+  surfaces the adapter claims. If the adapter claims both self-hosted
+  and .com, both surfaces are in the drill.
+- Turning on .com as a surface is still an org-scale exposure decision
+  (third-party ingress for evidence) under the aiggp-00 Q1
+  org-wide-blast-radius invariant — opt-in, never default-on, per
+  deployment. Same shape as aiggp-04 Q7's hosted-classifier opt-in.
+
+The proposal's "lab-first, external config as beta" is reinterpreted
+as: the *first documented reference* is the lab instance (fog lifting
+order), not a claim that .com is second-class. External .com is
+first-class in the adapter contract the moment the adapter claims it.
 
 ## Handoff
 

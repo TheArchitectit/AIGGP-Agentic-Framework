@@ -27,11 +27,81 @@
 
 ## Open owner decisions before implementation
 
-- Exact hosting repository names and whether the Agent Guardrails repository is renamed at cutover or after stabilization.
-- Freeze and stabilization window lengths.
-- Which consumer routes receive compatibility shims and their expiry dates.
-- Unified release namespace and first version number.
-- Whether predecessor issue trackers stay open for historical discussion or are locked after archive.
+### Q14.1 — Exact hosting repository names + rename timing
+
+**ANSWERED 2026-10-01 (owner).**
+
+**Keep `AIGGP-Agentic-Framework` as the unified name (option C) — no
+rename at cutover, no rename after stabilization.** DevGate merges into
+the existing AIGGP repo; Agent Guardrails' standalone repo is archived
+as a read-only stub. Simplest, no name-churn, and matches the
+proposal's "it does not redesign module internals merely because files
+move" — a rename is a move with no behavior change.
+
+Rejected: rename-at-cutover (A) — an extra surface of path-reference
+rewrites in an already-heavy migration. Rename-after-stabilization (B)
+— same churn deferred, and the handoff's "do not improvise or combine
+behavior changes with moves" argues against adding another move
+post-cutover.
+
+### Q14.2 — Freeze and stabilization window lengths
+
+**ANSWERED 2026-10-01 (owner).**
+
+**Client-chosen, STS or LTS.** The freeze and stabilization windows are
+not a single product decision — different clients (personal, business,
+enterprise, same tier-scaled shape as aiggp-05 Q9.2 and aiggp-07 Q11.1)
+have different tolerances for rollback exposure. The bundle declares
+which profile a given deployment runs:
+
+- **STS** (short-term): short freeze (e.g. 24-48h), short stabilization
+  (e.g. 14 days). Faster closure, less rollback exposure for solo /
+  low-consumer deployments.
+- **LTS** (long-term): longer freeze (e.g. 7 days), longer stabilization
+  (e.g. 90 days). Safer for slow-moving consumers, enterprise
+  rollouts.
+
+The migration machinery itself must honor either profile — the
+proposal's rollback fixture ("A rehearsed rollback can restore the
+pre-cutover repositories and required checks before the point of no
+return") is scoped per-profile: STS has a shorter rollback window, LTS
+a longer one, and the point of no return is defined by the chosen
+profile's stabilization window, not a hardcoded number.
+
+### Q14.3 — Which consumer routes receive compatibility shims + expiry
+
+**ANSWERED 2026-10-01 (owner).**
+
+**All four routes, expiry 90 days post-cutover (option A).** Submodules,
+reusable workflows, package paths, and pinned action references each
+get a compatibility shim. The proposal explicitly says "It does not
+remove compatibility shims before their declared window ends" — shims
+are expected, and the 90-day window matches a typical LTS stabilization
+window plus grace. Which routes a given consumer actually uses is
+their call (same opt-in shape as elsewhere) — the shim exists for all
+four whether or not a consumer needs all four.
+
+### Q14.4 — Unified release namespace + first version number
+
+**ANSWERED 2026-10-01 (owner).**
+
+**Fresh namespace, first version `1.0.0` (option A).** The first
+unified release declares both predecessor baselines in its release
+manifest (proposal: "the first unified release declares both
+predecessor baselines"). Clean break from both predecessors' version
+schemes — no ambiguity about which history a version number names.
+
+### Q14.5 — Predecessor issue trackers: stay open or lock after archive
+
+**ANSWERED 2026-10-01 (owner).**
+
+**There are none to manage.** Neither predecessor repository has an
+active issue tracker to migrate or lock — the ";p" answer is
+operative: no predecessor issue-tracker work is in scope. If either
+predecessor's tracker is discovered non-empty at cutover, the proposal's
+"divergent writes" P0 risk applies and the tracker is archived read-only
+per the standard archive posture (old repo URLs remain readable,
+clearly archived).
 
 ## Handoff
 
