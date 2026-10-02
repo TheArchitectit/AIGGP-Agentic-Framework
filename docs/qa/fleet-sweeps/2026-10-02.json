@@ -475,7 +475,7 @@
       "name": "DevGate-Agentic-Framework",
       "protection": "unprotected",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -499,7 +499,7 @@
       ],
       "name": "pi-ithacus-agent-framework",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 2,
@@ -554,7 +554,7 @@
       "locations": [],
       "name": "zombie-hero-match",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -567,7 +567,7 @@
       "name": "agent-guardrails-game-design",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -577,6 +577,12 @@
       "findings": 16,
       "gate_sha256": null,
       "locations": [
+        {
+          "commit": "2578a79b4c30",
+          "line": 26,
+          "path": "docs/troubleshooting-api-auth.md",
+          "rule": "curl-auth-header"
+        },
         {
           "commit": "2578a79b4c30",
           "line": 33,
@@ -593,12 +599,6 @@
           "commit": "2578a79b4c30",
           "line": 43,
           "path": "docs/teams/team-tools-workflows.md",
-          "rule": "curl-auth-header"
-        },
-        {
-          "commit": "2578a79b4c30",
-          "line": 26,
-          "path": "docs/troubleshooting-api-auth.md",
           "rule": "curl-auth-header"
         },
         {
@@ -663,21 +663,21 @@
         },
         {
           "commit": "6a7f4291ce49",
-          "line": 53,
-          "path": "mcp-server/internal/security/secrets_scanner_test.go",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "6a7f4291ce49",
           "line": 60,
           "path": "mcp-server/internal/security/secrets_scanner_test.go",
           "rule": "jwt"
+        },
+        {
+          "commit": "6a7f4291ce49",
+          "line": 53,
+          "path": "mcp-server/internal/security/secrets_scanner_test.go",
+          "rule": "generic-api-key"
         }
       ],
       "name": "agent-guardrails-template",
       "protection": "unprotected",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 16,
@@ -692,12 +692,6 @@
           "line": 216,
           "path": "docs/MCP_TOOLS_REFERENCE.md",
           "rule": "stripe-access-token"
-        },
-        {
-          "commit": "working tree",
-          "line": 300,
-          "path": "docs/TROUBLESHOOTING.md",
-          "rule": "curl-auth-header"
         },
         {
           "commit": "working tree",
@@ -722,6 +716,12 @@
           "line": 204,
           "path": "cpofopencode",
           "rule": "generic-api-key"
+        },
+        {
+          "commit": "working tree",
+          "line": 300,
+          "path": "docs/TROUBLESHOOTING.md",
+          "rule": "curl-auth-header"
         },
         {
           "commit": "working tree",
@@ -761,6 +761,12 @@
         },
         {
           "commit": "working tree",
+          "line": 31,
+          "path": "reports/guardrail_mcp_test_report.md",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "working tree",
           "line": 34,
           "path": "reports/guardrail_mcp_retest_report.md",
           "rule": "generic-api-key"
@@ -770,24 +776,6 @@
           "line": 265,
           "path": "reports/guardrail_mcp_retest_report.md",
           "rule": "generic-api-key"
-        },
-        {
-          "commit": "working tree",
-          "line": 31,
-          "path": "reports/guardrail_mcp_test_report.md",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "working tree",
-          "line": 330,
-          "path": "mcp-server/DEPLOYMENT_GUIDE.md",
-          "rule": "curl-auth-header"
-        },
-        {
-          "commit": "working tree",
-          "line": 592,
-          "path": "mcp-server/DEPLOYMENT_GUIDE.md",
-          "rule": "curl-auth-header"
         },
         {
           "commit": "working tree",
@@ -860,6 +848,18 @@
           "line": 963,
           "path": "mcp-server/DEPLOYMENT_GUIDE.md",
           "rule": "generic-api-key"
+        },
+        {
+          "commit": "working tree",
+          "line": 330,
+          "path": "mcp-server/DEPLOYMENT_GUIDE.md",
+          "rule": "curl-auth-header"
+        },
+        {
+          "commit": "working tree",
+          "line": 592,
+          "path": "mcp-server/DEPLOYMENT_GUIDE.md",
+          "rule": "curl-auth-header"
         },
         {
           "commit": "working tree",
@@ -941,18 +941,6 @@
         },
         {
           "commit": "2109a32c2011",
-          "line": 277,
-          "path": "mcp-server/DEPLOYMENT_GUIDE.md",
-          "rule": "curl-auth-header"
-        },
-        {
-          "commit": "2109a32c2011",
-          "line": 539,
-          "path": "mcp-server/DEPLOYMENT_GUIDE.md",
-          "rule": "curl-auth-header"
-        },
-        {
-          "commit": "2109a32c2011",
           "line": 91,
           "path": "mcp-server/DEPLOYMENT_GUIDE.md",
           "rule": "generic-api-key"
@@ -986,13 +974,25 @@
           "line": 249,
           "path": "mcp-server/DEPLOYMENT_GUIDE.md",
           "rule": "generic-api-key"
+        },
+        {
+          "commit": "2109a32c2011",
+          "line": 299,
+          "path": "mcp-server/DEPLOYMENT_GUIDE.md",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "2109a32c2011",
+          "line": 365,
+          "path": "mcp-server/DEPLOYMENT_GUIDE.md",
+          "rule": "generic-api-key"
         }
       ],
       "locations_omitted": 13,
       "name": "agent-guardrails-template-pre-forcepush",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 63,
@@ -1018,7 +1018,7 @@
       "name": "AIGGP-Agentic-Framework",
       "protection": "unprotected",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -1033,24 +1033,6 @@
           "line": 9,
           "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/dotenvy-0.15.7/tests/test-multiline.rs",
           "rule": "private-key"
-        },
-        {
-          "commit": "working tree",
-          "line": 407,
-          "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libsqlite3-sys-0.27.0/sqlcipher/sqlite3ext.h",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "working tree",
-          "line": 563,
-          "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libsqlite3-sys-0.27.0/sqlcipher/sqlite3ext.h",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "working tree",
-          "line": 655,
-          "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libsqlite3-sys-0.27.0/sqlcipher/sqlite3ext.h",
-          "rule": "generic-api-key"
         },
         {
           "commit": "working tree",
@@ -1072,14 +1054,20 @@
         },
         {
           "commit": "working tree",
-          "line": 5317,
-          "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/linux-raw-sys-0.11.0/src/csky/netlink.rs",
+          "line": 407,
+          "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libsqlite3-sys-0.27.0/sqlcipher/sqlite3ext.h",
           "rule": "generic-api-key"
         },
         {
           "commit": "working tree",
-          "line": 5317,
-          "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/linux-raw-sys-0.11.0/src/arm/netlink.rs",
+          "line": 563,
+          "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libsqlite3-sys-0.27.0/sqlcipher/sqlite3ext.h",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "working tree",
+          "line": 655,
+          "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libsqlite3-sys-0.27.0/sqlcipher/sqlite3ext.h",
           "rule": "generic-api-key"
         },
         {
@@ -1096,8 +1084,14 @@
         },
         {
           "commit": "working tree",
-          "line": 5329,
-          "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/linux-raw-sys-0.11.0/src/mips64/netlink.rs",
+          "line": 5317,
+          "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/linux-raw-sys-0.11.0/src/csky/netlink.rs",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "working tree",
+          "line": 5317,
+          "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/linux-raw-sys-0.11.0/src/arm/netlink.rs",
           "rule": "generic-api-key"
         },
         {
@@ -1114,21 +1108,21 @@
         },
         {
           "commit": "working tree",
+          "line": 5329,
+          "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/linux-raw-sys-0.11.0/src/mips64r6/netlink.rs",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "working tree",
+          "line": 5329,
+          "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/linux-raw-sys-0.11.0/src/mips64/netlink.rs",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "working tree",
           "line": 5323,
           "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/linux-raw-sys-0.11.0/src/powerpc/netlink.rs",
           "rule": "generic-api-key"
-        },
-        {
-          "commit": "working tree",
-          "line": 5325,
-          "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/linux-raw-sys-0.11.0/src/powerpc64/netlink.rs",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "working tree",
-          "line": 28,
-          "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pem-rfc7468-0.7.0/README.md",
-          "rule": "private-key"
         },
         {
           "commit": "working tree",
@@ -1138,26 +1132,8 @@
         },
         {
           "commit": "working tree",
-          "line": 5329,
-          "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/linux-raw-sys-0.11.0/src/mips64r6/netlink.rs",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "working tree",
-          "line": 23,
-          "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pkcs1-0.7.5/README.md",
-          "rule": "private-key"
-        },
-        {
-          "commit": "working tree",
-          "line": 24,
-          "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pkcs8-0.10.2/README.md",
-          "rule": "private-key"
-        },
-        {
-          "commit": "working tree",
-          "line": 42,
-          "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pkcs8-0.10.2/src/traits.rs",
+          "line": 28,
+          "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pem-rfc7468-0.7.0/README.md",
           "rule": "private-key"
         },
         {
@@ -1168,15 +1144,33 @@
         },
         {
           "commit": "working tree",
-          "line": 41,
-          "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pkcs1-0.7.5/src/traits.rs",
+          "line": 5325,
+          "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/linux-raw-sys-0.11.0/src/powerpc64/netlink.rs",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "working tree",
+          "line": 24,
+          "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pkcs8-0.10.2/README.md",
           "rule": "private-key"
         },
         {
           "commit": "working tree",
-          "line": 5339,
-          "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/linux-raw-sys-0.11.0/src/s390x/netlink.rs",
-          "rule": "generic-api-key"
+          "line": 23,
+          "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pkcs1-0.7.5/README.md",
+          "rule": "private-key"
+        },
+        {
+          "commit": "working tree",
+          "line": 42,
+          "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pkcs8-0.10.2/src/traits.rs",
+          "rule": "private-key"
+        },
+        {
+          "commit": "working tree",
+          "line": 41,
+          "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pkcs1-0.7.5/src/traits.rs",
+          "rule": "private-key"
         },
         {
           "commit": "working tree",
@@ -1192,8 +1186,8 @@
         },
         {
           "commit": "working tree",
-          "line": 5319,
-          "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/linux-raw-sys-0.11.0/src/x32/netlink.rs",
+          "line": 5339,
+          "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/linux-raw-sys-0.11.0/src/s390x/netlink.rs",
           "rule": "generic-api-key"
         },
         {
@@ -1204,8 +1198,8 @@
         },
         {
           "commit": "working tree",
-          "line": 5317,
-          "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/linux-raw-sys-0.11.0/src/x86/netlink.rs",
+          "line": 5319,
+          "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/linux-raw-sys-0.11.0/src/x32/netlink.rs",
           "rule": "generic-api-key"
         },
         {
@@ -1222,27 +1216,9 @@
         },
         {
           "commit": "working tree",
-          "line": 73,
-          "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ring-0.17.14/src/rsa/keypair.rs",
+          "line": 5317,
+          "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/linux-raw-sys-0.11.0/src/x86/netlink.rs",
           "rule": "generic-api-key"
-        },
-        {
-          "commit": "working tree",
-          "line": 81,
-          "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ring-0.17.14/src/rsa/keypair.rs",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "working tree",
-          "line": 306,
-          "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rsa-0.9.9/src/oaep.rs",
-          "rule": "private-key"
-        },
-        {
-          "commit": "working tree",
-          "line": 268,
-          "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rsa-0.9.9/src/pss.rs",
-          "rule": "private-key"
         },
         {
           "commit": "working tree",
@@ -1252,9 +1228,33 @@
         },
         {
           "commit": "working tree",
+          "line": 268,
+          "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rsa-0.9.9/src/pss.rs",
+          "rule": "private-key"
+        },
+        {
+          "commit": "working tree",
+          "line": 306,
+          "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rsa-0.9.9/src/oaep.rs",
+          "rule": "private-key"
+        },
+        {
+          "commit": "working tree",
           "line": 291,
           "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rsa-0.9.9/src/pkcs1v15.rs",
           "rule": "private-key"
+        },
+        {
+          "commit": "working tree",
+          "line": 73,
+          "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ring-0.17.14/src/rsa/keypair.rs",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "working tree",
+          "line": 81,
+          "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ring-0.17.14/src/rsa/keypair.rs",
+          "rule": "generic-api-key"
         },
         {
           "commit": "working tree",
@@ -1324,8 +1324,8 @@
         },
         {
           "commit": "working tree",
-          "line": 299,
-          "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sqlx-postgres-0.8.6/src/options/mod.rs",
+          "line": 377,
+          "path": "05-workloads/ingestion/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sqlx-postgres-0.7.4/src/options/mod.rs",
           "rule": "private-key"
         }
       ],
@@ -1333,7 +1333,7 @@
       "name": "AIREPO01",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 118,
@@ -1346,7 +1346,7 @@
       "name": "app-ingestor",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -1359,7 +1359,7 @@
       "name": "bevy-vision-review",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -1372,7 +1372,7 @@
       "name": "BiteClub",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -1385,7 +1385,7 @@
       "name": "carslidederby",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -1411,7 +1411,7 @@
       "name": "castforge",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 2,
@@ -1437,7 +1437,7 @@
       "name": "centrallogging",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 2,
@@ -1509,6 +1509,12 @@
         },
         {
           "commit": "993b49406842",
+          "line": 296,
+          "path": ".guardrails/docs/plans/MCP_SERVER_PLAN.md",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "993b49406842",
           "line": 34,
           "path": ".guardrails/reports/guardrail_mcp_retest_report.md",
           "rule": "generic-api-key"
@@ -1523,12 +1529,6 @@
           "commit": "993b49406842",
           "line": 31,
           "path": ".guardrails/reports/guardrail_mcp_test_report.md",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "993b49406842",
-          "line": 296,
-          "path": ".guardrails/docs/plans/MCP_SERVER_PLAN.md",
           "rule": "generic-api-key"
         },
         {
@@ -1617,15 +1617,15 @@
         },
         {
           "commit": "993b49406842",
-          "line": 60,
-          "path": ".guardrails/mcp-server/internal/security/secrets_scanner_test.go",
-          "rule": "jwt"
-        },
-        {
-          "commit": "993b49406842",
           "line": 53,
           "path": ".guardrails/mcp-server/internal/security/secrets_scanner_test.go",
           "rule": "generic-api-key"
+        },
+        {
+          "commit": "993b49406842",
+          "line": 60,
+          "path": ".guardrails/mcp-server/internal/security/secrets_scanner_test.go",
+          "rule": "jwt"
         },
         {
           "commit": "5517e2f0cab1",
@@ -1674,18 +1674,6 @@
           "line": 265,
           "path": ".guardrails/reports/guardrail_mcp_retest_report.md",
           "rule": "generic-api-key"
-        },
-        {
-          "commit": "5517e2f0cab1",
-          "line": 330,
-          "path": ".guardrails/mcp-server/DEPLOYMENT_GUIDE.md",
-          "rule": "curl-auth-header"
-        },
-        {
-          "commit": "5517e2f0cab1",
-          "line": 592,
-          "path": ".guardrails/mcp-server/DEPLOYMENT_GUIDE.md",
-          "rule": "curl-auth-header"
         },
         {
           "commit": "5517e2f0cab1",
@@ -1746,13 +1734,25 @@
           "line": 556,
           "path": ".guardrails/mcp-server/DEPLOYMENT_GUIDE.md",
           "rule": "generic-api-key"
+        },
+        {
+          "commit": "5517e2f0cab1",
+          "line": 962,
+          "path": ".guardrails/mcp-server/DEPLOYMENT_GUIDE.md",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "5517e2f0cab1",
+          "line": 963,
+          "path": ".guardrails/mcp-server/DEPLOYMENT_GUIDE.md",
+          "rule": "generic-api-key"
         }
       ],
       "locations_omitted": 12,
       "name": "claw-code",
       "protection": "unprotected",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 62,
@@ -1802,7 +1802,7 @@
       "name": "claw-code-archive",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 6,
@@ -1815,7 +1815,7 @@
       "name": "CMIT",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -1828,7 +1828,7 @@
       "name": "cr2-recovery",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -1841,7 +1841,7 @@
       "name": "crush-setup",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -1854,7 +1854,7 @@
       "name": "ctrl-alt-defeat",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -1884,21 +1884,21 @@
         },
         {
           "commit": "16223bcfed8c",
-          "line": 300,
-          "path": "docs/TROUBLESHOOTING.md",
-          "rule": "curl-auth-header"
-        },
-        {
-          "commit": "16223bcfed8c",
           "line": 230,
           "path": "docs/standards/PROJECT_CONTEXT_TEMPLATE.md",
           "rule": "generic-api-key"
+        },
+        {
+          "commit": "16223bcfed8c",
+          "line": 300,
+          "path": "docs/TROUBLESHOOTING.md",
+          "rule": "curl-auth-header"
         }
       ],
       "name": "datacenterbreakout",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 5,
@@ -1918,7 +1918,7 @@
       "name": "DDFGRPG",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 1,
@@ -1931,7 +1931,7 @@
       "name": "dead-air",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -1944,7 +1944,7 @@
       "name": "dflash2-glm5.3-flash",
       "protection": "unprotected",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -1957,7 +1957,7 @@
       "name": "dflash2-qwen3.8flashnext",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -1970,7 +1970,7 @@
       "name": "fishingmapflow",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -1983,7 +1983,7 @@
       "name": "game-dev-testing",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -1996,7 +1996,7 @@
       "name": "game-idea-bible",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -2009,7 +2009,7 @@
       "name": "game04",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -2022,7 +2022,7 @@
       "name": "gamerepo01",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -2070,6 +2070,12 @@
         },
         {
           "commit": "working tree",
+          "line": 230,
+          "path": "guardrails-template/docs/standards/PROJECT_CONTEXT_TEMPLATE.md",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "working tree",
           "line": 999,
           "path": "guardrails-template/docs/TEAM_TOOLS.md",
           "rule": "curl-auth-header"
@@ -2088,20 +2094,8 @@
         },
         {
           "commit": "working tree",
-          "line": 230,
-          "path": "guardrails-template/docs/standards/PROJECT_CONTEXT_TEMPLATE.md",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "working tree",
           "line": 121,
           "path": "guardrails-template/examples/regression-prevention/prevention-rules-examples.json",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "working tree",
-          "line": 31,
-          "path": "guardrails-template/reports/guardrail_mcp_test_report.md",
           "rule": "generic-api-key"
         },
         {
@@ -2121,6 +2115,24 @@
           "line": 265,
           "path": "guardrails-template/reports/guardrail_mcp_retest_report.md",
           "rule": "generic-api-key"
+        },
+        {
+          "commit": "working tree",
+          "line": 31,
+          "path": "guardrails-template/reports/guardrail_mcp_test_report.md",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "working tree",
+          "line": 277,
+          "path": "guardrails-template/mcp-server/DEPLOYMENT_GUIDE.md",
+          "rule": "curl-auth-header"
+        },
+        {
+          "commit": "working tree",
+          "line": 539,
+          "path": "guardrails-template/mcp-server/DEPLOYMENT_GUIDE.md",
+          "rule": "curl-auth-header"
         },
         {
           "commit": "working tree",
@@ -2196,18 +2208,6 @@
         },
         {
           "commit": "working tree",
-          "line": 277,
-          "path": "guardrails-template/mcp-server/DEPLOYMENT_GUIDE.md",
-          "rule": "curl-auth-header"
-        },
-        {
-          "commit": "working tree",
-          "line": 539,
-          "path": "guardrails-template/mcp-server/DEPLOYMENT_GUIDE.md",
-          "rule": "curl-auth-header"
-        },
-        {
-          "commit": "working tree",
           "line": 60,
           "path": "guardrails-template/mcp-server/internal/security/secrets_scanner_test.go",
           "rule": "jwt"
@@ -2223,12 +2223,6 @@
           "line": 216,
           "path": "guardrails-template/docs/MCP_TOOLS_REFERENCE.md",
           "rule": "stripe-access-token"
-        },
-        {
-          "commit": "ed64c5535fa5",
-          "line": 300,
-          "path": "guardrails-template/docs/TROUBLESHOOTING.md",
-          "rule": "curl-auth-header"
         },
         {
           "commit": "ed64c5535fa5",
@@ -2256,9 +2250,9 @@
         },
         {
           "commit": "ed64c5535fa5",
-          "line": 230,
-          "path": "guardrails-template/docs/standards/PROJECT_CONTEXT_TEMPLATE.md",
-          "rule": "generic-api-key"
+          "line": 300,
+          "path": "guardrails-template/docs/TROUBLESHOOTING.md",
+          "rule": "curl-auth-header"
         },
         {
           "commit": "ed64c5535fa5",
@@ -2280,20 +2274,14 @@
         },
         {
           "commit": "ed64c5535fa5",
+          "line": 230,
+          "path": "guardrails-template/docs/standards/PROJECT_CONTEXT_TEMPLATE.md",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "ed64c5535fa5",
           "line": 121,
           "path": "guardrails-template/examples/regression-prevention/prevention-rules-examples.json",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "ed64c5535fa5",
-          "line": 34,
-          "path": "guardrails-template/reports/guardrail_mcp_retest_report.md",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "ed64c5535fa5",
-          "line": 265,
-          "path": "guardrails-template/reports/guardrail_mcp_retest_report.md",
           "rule": "generic-api-key"
         },
         {
@@ -2304,9 +2292,15 @@
         },
         {
           "commit": "ed64c5535fa5",
-          "line": 31,
-          "path": "guardrails-template/reports/guardrail_mcp_test_report.md",
-          "rule": "generic-api-key"
+          "line": 277,
+          "path": "guardrails-template/mcp-server/DEPLOYMENT_GUIDE.md",
+          "rule": "curl-auth-header"
+        },
+        {
+          "commit": "ed64c5535fa5",
+          "line": 539,
+          "path": "guardrails-template/mcp-server/DEPLOYMENT_GUIDE.md",
+          "rule": "curl-auth-header"
         },
         {
           "commit": "ed64c5535fa5",
@@ -2331,13 +2325,19 @@
           "line": 148,
           "path": "guardrails-template/mcp-server/DEPLOYMENT_GUIDE.md",
           "rule": "generic-api-key"
+        },
+        {
+          "commit": "ed64c5535fa5",
+          "line": 248,
+          "path": "guardrails-template/mcp-server/DEPLOYMENT_GUIDE.md",
+          "rule": "generic-api-key"
         }
       ],
       "locations_omitted": 12,
       "name": "GlitchDungeon",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 62,
@@ -2350,7 +2350,7 @@
       "name": "goseegg",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -2386,21 +2386,21 @@
         },
         {
           "commit": "f603cea99058",
-          "line": 60,
-          "path": "internal/security/secrets_scanner_test.go",
-          "rule": "jwt"
-        },
-        {
-          "commit": "f603cea99058",
           "line": 53,
           "path": "internal/security/secrets_scanner_test.go",
           "rule": "generic-api-key"
+        },
+        {
+          "commit": "f603cea99058",
+          "line": 60,
+          "path": "internal/security/secrets_scanner_test.go",
+          "rule": "jwt"
         }
       ],
       "name": "guardrail-mcp",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 6,
@@ -2413,7 +2413,7 @@
       "name": "guardrail-policy-packs",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -2426,7 +2426,7 @@
       "name": "guardrails-control-plane",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -2439,7 +2439,7 @@
       "name": "homelabrepo01",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -2452,7 +2452,7 @@
       "name": "hubmode-cowork",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -2465,7 +2465,7 @@
       "name": "IdleDefense",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -2478,7 +2478,7 @@
       "name": "idolaigame01",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -2491,7 +2491,7 @@
       "name": "income",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -2504,7 +2504,7 @@
       "name": "infra-info",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -2517,7 +2517,7 @@
       "name": "invoice-generator",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -2530,7 +2530,7 @@
       "name": "litellmextension",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -2543,7 +2543,7 @@
       "name": "llm-rate-limiter",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -2556,7 +2556,7 @@
       "name": "LobsterWars",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -2569,7 +2569,7 @@
       "name": "LRAutomaticworkflow",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -2581,15 +2581,15 @@
       "locations": [
         {
           "commit": "working tree",
-          "line": 16,
-          "path": "docs/archive/completed_sprints/OPENCODE_AUTO_COMPACT.md",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "working tree",
           "line": 375,
           "path": "docs/OPENCODE_SWARM_SETUP.md",
           "rule": "curl-auth-header"
+        },
+        {
+          "commit": "working tree",
+          "line": 16,
+          "path": "docs/archive/completed_sprints/OPENCODE_AUTO_COMPACT.md",
+          "rule": "generic-api-key"
         },
         {
           "commit": "working tree",
@@ -2608,6 +2608,12 @@
           "line": 20,
           "path": "json.bk2",
           "rule": "generic-api-key"
+        },
+        {
+          "commit": "working tree",
+          "line": 495,
+          "path": "docs/FIELD_MANUAL.md",
+          "rule": "curl-auth-header"
         },
         {
           "commit": "working tree",
@@ -2635,12 +2641,6 @@
         },
         {
           "commit": "working tree",
-          "line": 495,
-          "path": "docs/FIELD_MANUAL.md",
-          "rule": "curl-auth-header"
-        },
-        {
-          "commit": "working tree",
           "line": 130,
           "path": "src/memory_mcp/litellm_config.md",
           "rule": "curl-auth-header"
@@ -2665,13 +2665,19 @@
         },
         {
           "commit": "working tree",
+          "line": 3777,
+          "path": "docs/sprints/WEEK_08.md",
+          "rule": "stripe-access-token"
+        },
+        {
+          "commit": "working tree",
           "line": 1332,
           "path": "docs/sprints/WEEK_06.md",
           "rule": "curl-auth-header"
         },
         {
           "commit": "working tree",
-          "line": 3777,
+          "line": 4129,
           "path": "docs/sprints/WEEK_08.md",
           "rule": "stripe-access-token"
         },
@@ -2682,10 +2688,10 @@
           "rule": "jwt"
         },
         {
-          "commit": "working tree",
-          "line": 4129,
-          "path": "docs/sprints/WEEK_08.md",
-          "rule": "stripe-access-token"
+          "commit": "d7a0a822fa49",
+          "line": 54,
+          "path": "docs/A2A_PROTOCOL.md",
+          "rule": "generic-api-key"
         },
         {
           "commit": "d7a0a822fa49",
@@ -2694,33 +2700,9 @@
           "rule": "curl-auth-header"
         },
         {
-          "commit": "d7a0a822fa49",
-          "line": 54,
-          "path": "docs/A2A_PROTOCOL.md",
-          "rule": "generic-api-key"
-        },
-        {
           "commit": "6cb99bc9d96a",
           "line": 39,
           "path": "scripts/test_swarm_integration.sh",
-          "rule": "curl-auth-header"
-        },
-        {
-          "commit": "5cfe29cf03ab",
-          "line": 1332,
-          "path": "docs/sprints/WEEK_06.md",
-          "rule": "curl-auth-header"
-        },
-        {
-          "commit": "ba5a87cf90df",
-          "line": 16,
-          "path": "docs/OPENCODE_AUTO_COMPACT.md",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "c418abaffa45",
-          "line": 277,
-          "path": "docs/SESSION_SUMMARY_2026-01-02_OPERATORS.md",
           "rule": "curl-auth-header"
         },
         {
@@ -2754,6 +2736,12 @@
           "rule": "curl-auth-header"
         },
         {
+          "commit": "ba5a87cf90df",
+          "line": 16,
+          "path": "docs/OPENCODE_AUTO_COMPACT.md",
+          "rule": "generic-api-key"
+        },
+        {
           "commit": "21a99f2d62d7",
           "line": 20,
           "path": "json.bk2",
@@ -2766,15 +2754,27 @@
           "rule": "curl-auth-header"
         },
         {
-          "commit": "a9ceec31ce6e",
-          "line": 6,
-          "path": "docs/MCP_TEST_CHECKLIST.md",
-          "rule": "generic-api-key"
+          "commit": "c418abaffa45",
+          "line": 277,
+          "path": "docs/SESSION_SUMMARY_2026-01-02_OPERATORS.md",
+          "rule": "curl-auth-header"
+        },
+        {
+          "commit": "5cfe29cf03ab",
+          "line": 1332,
+          "path": "docs/sprints/WEEK_06.md",
+          "rule": "curl-auth-header"
         },
         {
           "commit": "2db84477b54e",
           "line": 46,
           "path": "docs/HTTPS_STREAMING_COMPLETE.md",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "a9ceec31ce6e",
+          "line": 6,
+          "path": "docs/MCP_TEST_CHECKLIST.md",
           "rule": "generic-api-key"
         },
         {
@@ -2811,7 +2811,7 @@
       "name": "memory-mcp",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 38,
@@ -2824,7 +2824,7 @@
       "name": "memory-mesh",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -3139,7 +3139,7 @@
       "name": "MergeKingdom",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 57,
@@ -3152,7 +3152,7 @@
       "name": "midwesticehousefishing",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -3202,7 +3202,7 @@
       "name": "mimo-config-backup",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 6,
@@ -3286,15 +3286,15 @@
         },
         {
           "commit": "ee51590c4da7",
-          "line": 25,
-          "path": "docs/GITHUB_APP_CONFIG_IN_D1.md",
-          "rule": "private-key"
-        },
-        {
-          "commit": "ee51590c4da7",
           "line": 8,
           "path": "docs/GITHUB_APP_CONFIG_IN_D1.md",
           "rule": "generic-api-key"
+        },
+        {
+          "commit": "ee51590c4da7",
+          "line": 25,
+          "path": "docs/GITHUB_APP_CONFIG_IN_D1.md",
+          "rule": "private-key"
         },
         {
           "commit": "f842952da4c9",
@@ -3310,26 +3310,14 @@
         },
         {
           "commit": "655ccb52c1eb",
-          "line": 396,
-          "path": "openspec/AGENTS.md",
-          "rule": "curl-auth-header"
-        },
-        {
-          "commit": "655ccb52c1eb",
           "line": 67,
           "path": "openspec/project.md",
           "rule": "curl-auth-header"
         },
         {
           "commit": "655ccb52c1eb",
-          "line": 59,
-          "path": "docs/RUNBOOK.md",
-          "rule": "curl-auth-header"
-        },
-        {
-          "commit": "655ccb52c1eb",
-          "line": 61,
-          "path": "docs/RUNBOOK.md",
+          "line": 396,
+          "path": "openspec/AGENTS.md",
           "rule": "curl-auth-header"
         },
         {
@@ -3348,6 +3336,18 @@
           "commit": "655ccb52c1eb",
           "line": 210,
           "path": "AGENTS.md",
+          "rule": "curl-auth-header"
+        },
+        {
+          "commit": "655ccb52c1eb",
+          "line": 59,
+          "path": "docs/RUNBOOK.md",
+          "rule": "curl-auth-header"
+        },
+        {
+          "commit": "655ccb52c1eb",
+          "line": 61,
+          "path": "docs/RUNBOOK.md",
           "rule": "curl-auth-header"
         },
         {
@@ -3378,7 +3378,7 @@
       "name": "missioncontrol",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 27,
@@ -3391,7 +3391,7 @@
       "name": "modeltesting",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -3403,18 +3403,6 @@
       "locations": [
         {
           "commit": "working tree",
-          "line": 72,
-          "path": "src/lib/sandbox-channels.ts",
-          "rule": "slack-app-token"
-        },
-        {
-          "commit": "working tree",
-          "line": 301,
-          "path": "test/e2e/test-inference-routing.sh",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "working tree",
           "line": 338,
           "path": ".github/workflows/nightly-e2e.yaml",
           "rule": "discord-client-secret"
@@ -3424,6 +3412,18 @@
           "line": 339,
           "path": ".github/workflows/nightly-e2e.yaml",
           "rule": "discord-client-secret"
+        },
+        {
+          "commit": "working tree",
+          "line": 72,
+          "path": "src/lib/sandbox-channels.ts",
+          "rule": "slack-app-token"
+        },
+        {
+          "commit": "working tree",
+          "line": 301,
+          "path": "test/e2e/test-inference-routing.sh",
+          "rule": "generic-api-key"
         },
         {
           "commit": "working tree",
@@ -3471,7 +3471,7 @@
       "name": "NemoClaw",
       "protection": "unprotected",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 11,
@@ -3491,6 +3491,30 @@
           "commit": "c94f1e792010",
           "line": 300,
           "path": "guardrails-template/docs/TROUBLESHOOTING.md",
+          "rule": "curl-auth-header"
+        },
+        {
+          "commit": "c94f1e792010",
+          "line": 230,
+          "path": "guardrails-template/docs/standards/PROJECT_CONTEXT_TEMPLATE.md",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "c94f1e792010",
+          "line": 999,
+          "path": "guardrails-template/docs/TEAM_TOOLS.md",
+          "rule": "curl-auth-header"
+        },
+        {
+          "commit": "c94f1e792010",
+          "line": 1004,
+          "path": "guardrails-template/docs/TEAM_TOOLS.md",
+          "rule": "curl-auth-header"
+        },
+        {
+          "commit": "c94f1e792010",
+          "line": 1009,
+          "path": "guardrails-template/docs/TEAM_TOOLS.md",
           "rule": "curl-auth-header"
         },
         {
@@ -3519,30 +3543,6 @@
         },
         {
           "commit": "c94f1e792010",
-          "line": 999,
-          "path": "guardrails-template/docs/TEAM_TOOLS.md",
-          "rule": "curl-auth-header"
-        },
-        {
-          "commit": "c94f1e792010",
-          "line": 1004,
-          "path": "guardrails-template/docs/TEAM_TOOLS.md",
-          "rule": "curl-auth-header"
-        },
-        {
-          "commit": "c94f1e792010",
-          "line": 1009,
-          "path": "guardrails-template/docs/TEAM_TOOLS.md",
-          "rule": "curl-auth-header"
-        },
-        {
-          "commit": "c94f1e792010",
-          "line": 230,
-          "path": "guardrails-template/docs/standards/PROJECT_CONTEXT_TEMPLATE.md",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "c94f1e792010",
           "line": 121,
           "path": "guardrails-template/examples/regression-prevention/prevention-rules-examples.json",
           "rule": "generic-api-key"
@@ -3563,12 +3563,6 @@
           "commit": "c94f1e792010",
           "line": 31,
           "path": "guardrails-template/reports/guardrail_mcp_test_report.md",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "c94f1e792010",
-          "line": 296,
-          "path": "guardrails-template/docs/plans/MCP_SERVER_PLAN.md",
           "rule": "generic-api-key"
         },
         {
@@ -3657,8 +3651,8 @@
         },
         {
           "commit": "c94f1e792010",
-          "line": 53,
-          "path": "guardrails-template/mcp-server/internal/security/secrets_scanner_test.go",
+          "line": 296,
+          "path": "guardrails-template/docs/plans/MCP_SERVER_PLAN.md",
           "rule": "generic-api-key"
         },
         {
@@ -3666,12 +3660,18 @@
           "line": 60,
           "path": "guardrails-template/mcp-server/internal/security/secrets_scanner_test.go",
           "rule": "jwt"
+        },
+        {
+          "commit": "c94f1e792010",
+          "line": 53,
+          "path": "guardrails-template/mcp-server/internal/security/secrets_scanner_test.go",
+          "rule": "generic-api-key"
         }
       ],
       "name": "NeonDash",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 31,
@@ -3684,7 +3684,7 @@
       "name": "nixos",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -3697,7 +3697,7 @@
       "name": "nixos-3770k",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -3707,18 +3707,6 @@
       "findings": 14,
       "gate_sha256": null,
       "locations": [
-        {
-          "commit": "working tree",
-          "line": 394,
-          "path": "docs/ADR-001-QA-ARCHITECTURE-GUIDANCE.md",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "working tree",
-          "line": 395,
-          "path": "docs/ADR-001-QA-ARCHITECTURE-GUIDANCE.md",
-          "rule": "generic-api-key"
-        },
         {
           "commit": "working tree",
           "line": 161,
@@ -3735,6 +3723,18 @@
           "commit": "working tree",
           "line": 190,
           "path": "src/NciGlobalFileScanner.Wpf/Views/OperationsDashboardWindow.xaml",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "working tree",
+          "line": 394,
+          "path": "docs/ADR-001-QA-ARCHITECTURE-GUIDANCE.md",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "working tree",
+          "line": 395,
+          "path": "docs/ADR-001-QA-ARCHITECTURE-GUIDANCE.md",
           "rule": "generic-api-key"
         },
         {
@@ -3795,7 +3795,7 @@
       "name": "oldfilefinder-private",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 14,
@@ -3808,7 +3808,7 @@
       "name": "open-agentic-bench",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -3898,8 +3898,8 @@
         },
         {
           "commit": "working tree",
-          "line": 2798,
-          "path": "docs/plans/A2A_PLAN.md",
+          "line": 31,
+          "path": "reports/guardrail_mcp_test_report.md",
           "rule": "generic-api-key"
         },
         {
@@ -3916,14 +3916,8 @@
         },
         {
           "commit": "working tree",
-          "line": 31,
-          "path": "reports/guardrail_mcp_test_report.md",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "working tree",
-          "line": 53,
-          "path": "mcp-server/internal/security/secrets_scanner_test.go",
+          "line": 2798,
+          "path": "docs/plans/A2A_PLAN.md",
           "rule": "generic-api-key"
         },
         {
@@ -3933,40 +3927,16 @@
           "rule": "jwt"
         },
         {
+          "commit": "working tree",
+          "line": 53,
+          "path": "mcp-server/internal/security/secrets_scanner_test.go",
+          "rule": "generic-api-key"
+        },
+        {
           "commit": "83d9c30068bf",
           "line": 9,
           "path": "gate/gates/secret_scan_test.go",
           "rule": "aws-access-token"
-        },
-        {
-          "commit": "bed1ec101dae",
-          "line": 216,
-          "path": "docs/MCP_TOOLS_REFERENCE.md",
-          "rule": "stripe-access-token"
-        },
-        {
-          "commit": "bed1ec101dae",
-          "line": 300,
-          "path": "docs/TROUBLESHOOTING.md",
-          "rule": "curl-auth-header"
-        },
-        {
-          "commit": "bed1ec101dae",
-          "line": 999,
-          "path": "docs/TEAM_TOOLS.md",
-          "rule": "curl-auth-header"
-        },
-        {
-          "commit": "bed1ec101dae",
-          "line": 1004,
-          "path": "docs/TEAM_TOOLS.md",
-          "rule": "curl-auth-header"
-        },
-        {
-          "commit": "bed1ec101dae",
-          "line": 1009,
-          "path": "docs/TEAM_TOOLS.md",
-          "rule": "curl-auth-header"
         },
         {
           "commit": "e190a021a1e8",
@@ -4006,6 +3976,42 @@
         },
         {
           "commit": "bed1ec101dae",
+          "line": 216,
+          "path": "docs/MCP_TOOLS_REFERENCE.md",
+          "rule": "stripe-access-token"
+        },
+        {
+          "commit": "bed1ec101dae",
+          "line": 999,
+          "path": "docs/TEAM_TOOLS.md",
+          "rule": "curl-auth-header"
+        },
+        {
+          "commit": "bed1ec101dae",
+          "line": 1004,
+          "path": "docs/TEAM_TOOLS.md",
+          "rule": "curl-auth-header"
+        },
+        {
+          "commit": "bed1ec101dae",
+          "line": 1009,
+          "path": "docs/TEAM_TOOLS.md",
+          "rule": "curl-auth-header"
+        },
+        {
+          "commit": "145fef7e5520",
+          "line": 2792,
+          "path": "docs/plans/A2A_PLAN.md",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "bed1ec101dae",
+          "line": 300,
+          "path": "docs/TROUBLESHOOTING.md",
+          "rule": "curl-auth-header"
+        },
+        {
+          "commit": "bed1ec101dae",
           "line": 121,
           "path": "examples/regression-prevention/prevention-rules-examples.json",
           "rule": "generic-api-key"
@@ -4017,10 +4023,10 @@
           "rule": "generic-api-key"
         },
         {
-          "commit": "145fef7e5520",
-          "line": 2792,
-          "path": "docs/plans/A2A_PLAN.md",
-          "rule": "generic-api-key"
+          "commit": "bed1ec101dae",
+          "line": 60,
+          "path": "mcp-server/internal/security/secrets_scanner_test.go",
+          "rule": "jwt"
         },
         {
           "commit": "bed1ec101dae",
@@ -4030,9 +4036,9 @@
         },
         {
           "commit": "bed1ec101dae",
-          "line": 60,
-          "path": "mcp-server/internal/security/secrets_scanner_test.go",
-          "rule": "jwt"
+          "line": 31,
+          "path": "reports/guardrail_mcp_test_report.md",
+          "rule": "generic-api-key"
         },
         {
           "commit": "bed1ec101dae",
@@ -4045,18 +4051,12 @@
           "line": 265,
           "path": "reports/guardrail_mcp_retest_report.md",
           "rule": "generic-api-key"
-        },
-        {
-          "commit": "bed1ec101dae",
-          "line": 31,
-          "path": "reports/guardrail_mcp_test_report.md",
-          "rule": "generic-api-key"
         }
       ],
       "name": "openagentplatform",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 39,
@@ -4188,14 +4188,14 @@
         },
         {
           "commit": "working tree",
-          "line": 1273,
-          "path": "docs/gateway/config-agents.md",
+          "line": 959,
+          "path": "docs/gateway/config-channels.md",
           "rule": "discord-client-id"
         },
         {
           "commit": "working tree",
-          "line": 959,
-          "path": "docs/gateway/config-channels.md",
+          "line": 1273,
+          "path": "docs/gateway/config-agents.md",
           "rule": "discord-client-id"
         },
         {
@@ -4209,6 +4209,12 @@
           "line": 78,
           "path": "docs/tools/slash-commands.md",
           "rule": "discord-client-id"
+        },
+        {
+          "commit": "working tree",
+          "line": 111,
+          "path": "extensions/amazon-bedrock-mantle/discovery.test.ts",
+          "rule": "generic-api-key"
         },
         {
           "commit": "working tree",
@@ -4244,12 +4250,6 @@
           "commit": "working tree",
           "line": 686,
           "path": "extensions/acpx/src/codex-auth-bridge.test.ts",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "working tree",
-          "line": 111,
-          "path": "extensions/amazon-bedrock-mantle/discovery.test.ts",
           "rule": "generic-api-key"
         },
         {
@@ -4308,6 +4308,12 @@
         },
         {
           "commit": "working tree",
+          "line": 3124,
+          "path": "extensions/codex/src/app-server/auth-bridge.test.ts",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "working tree",
           "line": 624,
           "path": "extensions/codex/src/app-server/sandbox-exec-server-node-relay.test.ts",
           "rule": "generic-api-key"
@@ -4316,12 +4322,6 @@
           "commit": "working tree",
           "line": 649,
           "path": "extensions/codex/src/app-server/sandbox-exec-server-node-relay.test.ts",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "working tree",
-          "line": 3124,
-          "path": "extensions/codex/src/app-server/auth-bridge.test.ts",
           "rule": "generic-api-key"
         },
         {
@@ -4371,7 +4371,7 @@
       "name": "openclaw",
       "protection": "unprotected",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 502514,
@@ -4397,7 +4397,7 @@
       "name": "OpenLightGate",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 2,
@@ -4535,21 +4535,21 @@
         },
         {
           "commit": "1528fdde664a",
-          "line": 53,
-          "path": "mcp-server/internal/security/secrets_scanner_test.go",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "1528fdde664a",
           "line": 60,
           "path": "mcp-server/internal/security/secrets_scanner_test.go",
           "rule": "jwt"
+        },
+        {
+          "commit": "1528fdde664a",
+          "line": 53,
+          "path": "mcp-server/internal/security/secrets_scanner_test.go",
+          "rule": "generic-api-key"
         }
       ],
       "name": "OpenRawFlow",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 23,
@@ -4562,7 +4562,7 @@
       "name": "orginition",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -4642,7 +4642,7 @@
       "name": "photography-website",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 11,
@@ -4652,12 +4652,6 @@
       "findings": 8,
       "gate_sha256": null,
       "locations": [
-        {
-          "commit": "working tree",
-          "line": 96,
-          "path": "docs/MASTER_PLAN.md",
-          "rule": "generic-api-key"
-        },
         {
           "commit": "working tree",
           "line": 320,
@@ -4672,6 +4666,18 @@
         },
         {
           "commit": "working tree",
+          "line": 96,
+          "path": "docs/MASTER_PLAN.md",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "working tree",
+          "line": 91,
+          "path": "scripts/smoke-src/29-permissions.mjs",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "da353d7a7da7",
           "line": 91,
           "path": "scripts/smoke-src/29-permissions.mjs",
           "rule": "generic-api-key"
@@ -4680,12 +4686,6 @@
           "commit": "43fd04c355dc",
           "line": 320,
           "path": "docs/plans/PLAN_SPRINT_5_15_PERMISSION_MODES.md",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "da353d7a7da7",
-          "line": 91,
-          "path": "scripts/smoke-src/29-permissions.mjs",
           "rule": "generic-api-key"
         },
         {
@@ -4704,7 +4704,7 @@
       "name": "pi-ithacus-agent-framework",
       "protection": "unprotected",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 8,
@@ -4714,6 +4714,12 @@
       "findings": 34,
       "gate_sha256": null,
       "locations": [
+        {
+          "commit": "working tree",
+          "line": 1,
+          "path": "conformance/vector-cortex/v2/encoder-decision/ENC-DEC-002.json",
+          "rule": "generic-api-key"
+        },
         {
           "commit": "working tree",
           "line": 1,
@@ -4740,12 +4746,6 @@
         },
         {
           "commit": "working tree",
-          "line": 1,
-          "path": "conformance/vector-cortex/v2/encoder-decision/ENC-DEC-002.json",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "working tree",
           "line": 55,
           "path": "extensions/dashboard-server/setup-cortex-actions-vc2.ts",
           "rule": "generic-api-key"
@@ -4764,12 +4764,6 @@
         },
         {
           "commit": "working tree",
-          "line": 32,
-          "path": "scripts/vc2-model-prep/fetch-model.sh",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "working tree",
           "line": 241,
           "path": "scripts/vc2-model-prep/bench-onnx.mjs",
           "rule": "generic-api-key"
@@ -4778,6 +4772,12 @@
           "commit": "working tree",
           "line": 281,
           "path": "scripts/vc2-model-prep/bench-onnx.mjs",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "working tree",
+          "line": 32,
+          "path": "scripts/vc2-model-prep/fetch-model.sh",
           "rule": "generic-api-key"
         },
         {
@@ -4825,11 +4825,23 @@
         {
           "commit": "0e7ed311cc70",
           "line": 1,
-          "path": "conformance/vector-cortex/v2/encoder-decision/ENC-DEC-001.json",
+          "path": "conformance/vector-cortex/v2/encoder-decision/ENC-DEC-002.json",
           "rule": "generic-api-key"
         },
         {
           "commit": "0e7ed311cc70",
+          "line": 1,
+          "path": "conformance/vector-cortex/v2/encoder-decision/ENC-DEC-001.json",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "400f079085bb",
+          "line": 1,
+          "path": "conformance/vector-cortex/v2/encoder-decision/ENC-DEC-001.json",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "400f079085bb",
           "line": 1,
           "path": "conformance/vector-cortex/v2/encoder-decision/ENC-DEC-002.json",
           "rule": "generic-api-key"
@@ -4843,25 +4855,13 @@
         {
           "commit": "400f079085bb",
           "line": 1,
-          "path": "conformance/vector-cortex/v2/encoder-decision/ENC-DEC-004.json",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "400f079085bb",
-          "line": 1,
-          "path": "conformance/vector-cortex/v2/encoder-decision/ENC-DEC-002.json",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "400f079085bb",
-          "line": 1,
-          "path": "conformance/vector-cortex/v2/encoder-decision/ENC-DEC-001.json",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "400f079085bb",
-          "line": 1,
           "path": "conformance/vector-cortex/v2/encoder-decision/ENC-DEC-005.json",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "400f079085bb",
+          "line": 1,
+          "path": "conformance/vector-cortex/v2/encoder-decision/ENC-DEC-004.json",
           "rule": "generic-api-key"
         },
         {
@@ -4922,7 +4922,7 @@
       "name": "pi-mega-compact",
       "protection": "unprotected",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 34,
@@ -4935,7 +4935,7 @@
       "name": "pi-mystic-compact",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -4948,7 +4948,7 @@
       "name": "pi-neuralwatt-provider-snapshot",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -5002,6 +5002,12 @@
         },
         {
           "commit": "working tree",
+          "line": 296,
+          "path": "docs/plans/MCP_SERVER_PLAN.md",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "working tree",
           "line": 330,
           "path": "mcp-server/DEPLOYMENT_GUIDE.md",
           "rule": "curl-auth-header"
@@ -5011,18 +5017,6 @@
           "line": 592,
           "path": "mcp-server/DEPLOYMENT_GUIDE.md",
           "rule": "curl-auth-header"
-        },
-        {
-          "commit": "working tree",
-          "line": 296,
-          "path": "docs/plans/MCP_SERVER_PLAN.md",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "working tree",
-          "line": 31,
-          "path": "reports/guardrail_mcp_test_report.md",
-          "rule": "generic-api-key"
         },
         {
           "commit": "working tree",
@@ -5038,8 +5032,8 @@
         },
         {
           "commit": "working tree",
-          "line": 53,
-          "path": "mcp-server/internal/security/secrets_scanner_test.go",
+          "line": 31,
+          "path": "reports/guardrail_mcp_test_report.md",
           "rule": "generic-api-key"
         },
         {
@@ -5047,6 +5041,12 @@
           "line": 60,
           "path": "mcp-server/internal/security/secrets_scanner_test.go",
           "rule": "jwt"
+        },
+        {
+          "commit": "working tree",
+          "line": 53,
+          "path": "mcp-server/internal/security/secrets_scanner_test.go",
+          "rule": "generic-api-key"
         },
         {
           "commit": "6474f86af2f5",
@@ -5092,6 +5092,12 @@
         },
         {
           "commit": "6474f86af2f5",
+          "line": 296,
+          "path": "docs/plans/MCP_SERVER_PLAN.md",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "6474f86af2f5",
           "line": 330,
           "path": "mcp-server/DEPLOYMENT_GUIDE.md",
           "rule": "curl-auth-header"
@@ -5104,9 +5110,9 @@
         },
         {
           "commit": "6474f86af2f5",
-          "line": 296,
-          "path": "docs/plans/MCP_SERVER_PLAN.md",
-          "rule": "generic-api-key"
+          "line": 60,
+          "path": "mcp-server/internal/security/secrets_scanner_test.go",
+          "rule": "jwt"
         },
         {
           "commit": "6474f86af2f5",
@@ -5116,9 +5122,9 @@
         },
         {
           "commit": "6474f86af2f5",
-          "line": 60,
-          "path": "mcp-server/internal/security/secrets_scanner_test.go",
-          "rule": "jwt"
+          "line": 31,
+          "path": "reports/guardrail_mcp_test_report.md",
+          "rule": "generic-api-key"
         },
         {
           "commit": "6474f86af2f5",
@@ -5131,18 +5137,12 @@
           "line": 265,
           "path": "reports/guardrail_mcp_retest_report.md",
           "rule": "generic-api-key"
-        },
-        {
-          "commit": "6474f86af2f5",
-          "line": 31,
-          "path": "reports/guardrail_mcp_test_report.md",
-          "rule": "generic-api-key"
         }
       ],
       "name": "pi-provider-resume-public",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 30,
@@ -5155,7 +5155,7 @@
       "name": "pi-setup",
       "protection": "unprotected",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -5168,7 +5168,7 @@
       "name": "playgodot-pong",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -5474,16 +5474,16 @@
         },
         {
           "commit": "7333889bc487",
-          "line": 130,
-          "path": "plans/README.md",
-          "rule": "curl-auth-header"
+          "line": 7,
+          "path": "packages/backend/tests/auth.test.ts",
+          "rule": "generic-api-key"
         }
       ],
       "locations_omitted": 13,
       "name": "plexus",
       "protection": "unprotected",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 63,
@@ -5496,7 +5496,7 @@
       "name": "plexus-debug-ui",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -5509,7 +5509,7 @@
       "name": "push",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -5563,36 +5563,6 @@
         },
         {
           "commit": "working tree",
-          "line": 20,
-          "path": "docs/archive/backups/bk.json",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "working tree",
-          "line": 27,
-          "path": "docs/archive/backups/bk.json",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "working tree",
-          "line": 335,
-          "path": "docs/archive/backups/bk.json",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "working tree",
-          "line": 20,
-          "path": "docs/archive/root/bk.bk",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "working tree",
-          "line": 27,
-          "path": "docs/archive/root/bk.bk",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "working tree",
           "line": 30,
           "path": "docs/archive/root/SETUP_SUMMARY.md",
           "rule": "generic-api-key"
@@ -5606,6 +5576,18 @@
         {
           "commit": "working tree",
           "line": 20,
+          "path": "docs/archive/root/bk.bk",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "working tree",
+          "line": 27,
+          "path": "docs/archive/root/bk.bk",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "working tree",
+          "line": 20,
           "path": "docs/archive/root/bk.json",
           "rule": "generic-api-key"
         },
@@ -5619,6 +5601,48 @@
           "commit": "working tree",
           "line": 335,
           "path": "docs/archive/root/bk.json",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "working tree",
+          "line": 100,
+          "path": "docs/archive/root/MCP_TOOLS_SETUP_STATUS.md",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "working tree",
+          "line": 199,
+          "path": "docs/archive/root/MCP_TOOLS_SETUP_STATUS.md",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "working tree",
+          "line": 20,
+          "path": "docs/archive/backups/bk.json",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "working tree",
+          "line": 27,
+          "path": "docs/archive/backups/bk.json",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "working tree",
+          "line": 335,
+          "path": "docs/archive/backups/bk.json",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "working tree",
+          "line": 100,
+          "path": "docs/archive/test-reports/MCP_TOOLS_SETUP_STATUS.md",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "working tree",
+          "line": 199,
+          "path": "docs/archive/test-reports/MCP_TOOLS_SETUP_STATUS.md",
           "rule": "generic-api-key"
         },
         {
@@ -5647,44 +5671,8 @@
         },
         {
           "commit": "working tree",
-          "line": 100,
-          "path": "docs/archive/root/MCP_TOOLS_SETUP_STATUS.md",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "working tree",
-          "line": 199,
-          "path": "docs/archive/root/MCP_TOOLS_SETUP_STATUS.md",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "working tree",
-          "line": 100,
-          "path": "docs/archive/test-reports/MCP_TOOLS_SETUP_STATUS.md",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "working tree",
-          "line": 199,
-          "path": "docs/archive/test-reports/MCP_TOOLS_SETUP_STATUS.md",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "working tree",
           "line": 464,
           "path": "docs/integration/MCP_IDE_INTEGRATION.md",
-          "rule": "curl-auth-header"
-        },
-        {
-          "commit": "working tree",
-          "line": 16,
-          "path": "docs/legacy-documentation/memory-mcp/archive/completed_sprints/OPENCODE_AUTO_COMPACT.md",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "working tree",
-          "line": 495,
-          "path": "docs/legacy-documentation/memory-mcp/FIELD_MANUAL.md",
           "rule": "curl-auth-header"
         },
         {
@@ -5701,20 +5689,32 @@
         },
         {
           "commit": "working tree",
-          "line": 42,
-          "path": "docs/llm/FINAL_SETUP_SUMMARY.md",
-          "rule": "curl-auth-header"
+          "line": 16,
+          "path": "docs/legacy-documentation/memory-mcp/archive/completed_sprints/OPENCODE_AUTO_COMPACT.md",
+          "rule": "generic-api-key"
         },
         {
           "commit": "working tree",
-          "line": 23,
-          "path": "docs/llm/simple_f16_test.sh",
+          "line": 495,
+          "path": "docs/legacy-documentation/memory-mcp/FIELD_MANUAL.md",
           "rule": "curl-auth-header"
         },
         {
           "commit": "working tree",
           "line": 590,
           "path": "docs/legacy-documentation/memory-mcp/archive/HTTPSTREAM_PHASE_IMPLEMENTATION_STATUS.md",
+          "rule": "curl-auth-header"
+        },
+        {
+          "commit": "working tree",
+          "line": 54,
+          "path": "docs/legacy-documentation/memory-mcp/A2A_PROTOCOL.md",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "working tree",
+          "line": 64,
+          "path": "docs/legacy-documentation/memory-mcp/A2A_PROTOCOL.md",
           "rule": "curl-auth-header"
         },
         {
@@ -5745,6 +5745,12 @@
           "commit": "working tree",
           "line": 172,
           "path": "docs/llm/WORKING_ACCESS_PATTERNS.md",
+          "rule": "curl-auth-header"
+        },
+        {
+          "commit": "working tree",
+          "line": 23,
+          "path": "docs/llm/simple_f16_test.sh",
           "rule": "curl-auth-header"
         },
         {
@@ -5785,6 +5791,12 @@
         },
         {
           "commit": "working tree",
+          "line": 42,
+          "path": "docs/llm/FINAL_SETUP_SUMMARY.md",
+          "rule": "curl-auth-header"
+        },
+        {
+          "commit": "working tree",
           "line": 117,
           "path": "docs/llm/infrastructure.md",
           "rule": "curl-auth-header"
@@ -5803,28 +5815,16 @@
         },
         {
           "commit": "working tree",
-          "line": 93,
-          "path": "docs/llm/SUMMARY.md",
+          "line": 13,
+          "path": "docs/llm/final_verification_test.sh",
           "rule": "curl-auth-header"
-        },
-        {
-          "commit": "working tree",
-          "line": 66,
-          "path": "docs/llm/SUMMARY.md",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "working tree",
-          "line": 111,
-          "path": "docs/llm/SUMMARY.md",
-          "rule": "generic-api-key"
         }
       ],
       "locations_omitted": 174,
       "name": "R.A.D.1.C.A.1",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 224,
@@ -5884,27 +5884,27 @@
         },
         {
           "commit": "working tree",
-          "line": 4129,
-          "path": "docs/sprints/WEEK_08.md",
-          "rule": "stripe-access-token"
-        },
-        {
-          "commit": "working tree",
           "line": 4136,
           "path": "docs/sprints/WEEK_08.md",
           "rule": "jwt"
         },
         {
-          "commit": "6bb5d8b7f7fd",
-          "line": 590,
-          "path": "docs/archive/HTTPSTREAM_PHASE_IMPLEMENTATION_STATUS.md",
-          "rule": "curl-auth-header"
+          "commit": "working tree",
+          "line": 4129,
+          "path": "docs/sprints/WEEK_08.md",
+          "rule": "stripe-access-token"
         },
         {
           "commit": "6bb5d8b7f7fd",
           "line": 16,
           "path": "docs/archive/completed_sprints/OPENCODE_AUTO_COMPACT.md",
           "rule": "generic-api-key"
+        },
+        {
+          "commit": "6bb5d8b7f7fd",
+          "line": 590,
+          "path": "docs/archive/HTTPSTREAM_PHASE_IMPLEMENTATION_STATUS.md",
+          "rule": "curl-auth-header"
         },
         {
           "commit": "6bb5d8b7f7fd",
@@ -5938,6 +5938,12 @@
         },
         {
           "commit": "6bb5d8b7f7fd",
+          "line": 4136,
+          "path": "docs/sprints/WEEK_08.md",
+          "rule": "jwt"
+        },
+        {
+          "commit": "6bb5d8b7f7fd",
           "line": 3777,
           "path": "docs/sprints/WEEK_08.md",
           "rule": "stripe-access-token"
@@ -5947,18 +5953,12 @@
           "line": 4129,
           "path": "docs/sprints/WEEK_08.md",
           "rule": "stripe-access-token"
-        },
-        {
-          "commit": "6bb5d8b7f7fd",
-          "line": 4136,
-          "path": "docs/sprints/WEEK_08.md",
-          "rule": "jwt"
         }
       ],
       "name": "R.A.D.1.C.A.L",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 20,
@@ -5976,6 +5976,12 @@
         },
         {
           "commit": "working tree",
+          "line": 16,
+          "path": "docs/archive/completed_sprints/OPENCODE_AUTO_COMPACT.md",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "working tree",
           "line": 34,
           "path": "docs/archive/session_summaries/SESSION_SUMMARY_2026-01-02_OPERATORS.md",
           "rule": "curl-auth-header"
@@ -5984,18 +5990,6 @@
           "commit": "working tree",
           "line": 277,
           "path": "docs/archive/session_summaries/SESSION_SUMMARY_2026-01-02_OPERATORS.md",
-          "rule": "curl-auth-header"
-        },
-        {
-          "commit": "working tree",
-          "line": 16,
-          "path": "docs/archive/completed_sprints/OPENCODE_AUTO_COMPACT.md",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "working tree",
-          "line": 495,
-          "path": "docs/FIELD_MANUAL.md",
           "rule": "curl-auth-header"
         },
         {
@@ -6012,6 +6006,12 @@
         },
         {
           "commit": "working tree",
+          "line": 495,
+          "path": "docs/FIELD_MANUAL.md",
+          "rule": "curl-auth-header"
+        },
+        {
+          "commit": "working tree",
           "line": 39,
           "path": "scripts/test_swarm_integration.sh",
           "rule": "curl-auth-header"
@@ -6066,15 +6066,15 @@
         },
         {
           "commit": "working tree",
-          "line": 4136,
-          "path": "docs/sprints/WEEK_08.md",
-          "rule": "jwt"
-        },
-        {
-          "commit": "working tree",
           "line": 4129,
           "path": "docs/sprints/WEEK_08.md",
           "rule": "stripe-access-token"
+        },
+        {
+          "commit": "working tree",
+          "line": 4136,
+          "path": "docs/sprints/WEEK_08.md",
+          "rule": "jwt"
         },
         {
           "commit": "d7a0a822fa49",
@@ -6095,16 +6095,16 @@
           "rule": "curl-auth-header"
         },
         {
+          "commit": "5cfe29cf03ab",
+          "line": 1332,
+          "path": "docs/sprints/WEEK_06.md",
+          "rule": "curl-auth-header"
+        },
+        {
           "commit": "ba5a87cf90df",
           "line": 16,
           "path": "docs/OPENCODE_AUTO_COMPACT.md",
           "rule": "generic-api-key"
-        },
-        {
-          "commit": "c418abaffa45",
-          "line": 277,
-          "path": "docs/SESSION_SUMMARY_2026-01-02_OPERATORS.md",
-          "rule": "curl-auth-header"
         },
         {
           "commit": "beaa9f708d28",
@@ -6131,15 +6131,15 @@
           "rule": "curl-auth-header"
         },
         {
-          "commit": "6cb99bc9d96a",
-          "line": 375,
-          "path": "docs/OPENCODE_SWARM_SETUP.md",
+          "commit": "c418abaffa45",
+          "line": 277,
+          "path": "docs/SESSION_SUMMARY_2026-01-02_OPERATORS.md",
           "rule": "curl-auth-header"
         },
         {
-          "commit": "5cfe29cf03ab",
-          "line": 1332,
-          "path": "docs/sprints/WEEK_06.md",
+          "commit": "ab71ffd8b542",
+          "line": 27,
+          "path": "docs/SESSION_SUMMARY_2026-01-02_OPERATORS.md",
           "rule": "curl-auth-header"
         },
         {
@@ -6149,21 +6149,21 @@
           "rule": "generic-api-key"
         },
         {
-          "commit": "ab71ffd8b542",
-          "line": 27,
-          "path": "docs/SESSION_SUMMARY_2026-01-02_OPERATORS.md",
+          "commit": "6cb99bc9d96a",
+          "line": 375,
+          "path": "docs/OPENCODE_SWARM_SETUP.md",
           "rule": "curl-auth-header"
-        },
-        {
-          "commit": "a9ceec31ce6e",
-          "line": 6,
-          "path": "docs/MCP_TEST_CHECKLIST.md",
-          "rule": "generic-api-key"
         },
         {
           "commit": "2db84477b54e",
           "line": 46,
           "path": "docs/HTTPS_STREAMING_COMPLETE.md",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "a9ceec31ce6e",
+          "line": 6,
+          "path": "docs/MCP_TEST_CHECKLIST.md",
           "rule": "generic-api-key"
         },
         {
@@ -6180,12 +6180,6 @@
         },
         {
           "commit": "5cfe29cf03ab",
-          "line": 4136,
-          "path": "docs/sprints/WEEK_08.md",
-          "rule": "jwt"
-        },
-        {
-          "commit": "5cfe29cf03ab",
           "line": 3777,
           "path": "docs/sprints/WEEK_08.md",
           "rule": "stripe-access-token"
@@ -6195,12 +6189,18 @@
           "line": 4129,
           "path": "docs/sprints/WEEK_08.md",
           "rule": "stripe-access-token"
+        },
+        {
+          "commit": "5cfe29cf03ab",
+          "line": 4136,
+          "path": "docs/sprints/WEEK_08.md",
+          "rule": "jwt"
         }
       ],
       "name": "R.A.D.1.C.A.L-Private",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 38,
@@ -6238,7 +6238,7 @@
       "name": "R.A.D.Codicological-",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 4,
@@ -6336,7 +6336,7 @@
       "name": "rad-gateway",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 14,
@@ -6410,7 +6410,7 @@
       "name": "RAD-MCP",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 10,
@@ -6436,7 +6436,7 @@
       "name": "RAD-SEARCH",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 2,
@@ -6449,7 +6449,7 @@
       "name": "rad1ca1-liquid-tui",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -6462,7 +6462,7 @@
       "name": "radaigen",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -6486,6 +6486,12 @@
         },
         {
           "commit": "working tree",
+          "line": 55,
+          "path": "crates/cli/src/support/bundle/tests.rs",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "working tree",
           "line": 20,
           "path": "crates/cli/src/support/redaction/tests.rs",
           "rule": "generic-api-key"
@@ -6506,12 +6512,6 @@
           "commit": "working tree",
           "line": 154,
           "path": "crates/cli/src/support/redaction/tests.rs",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "working tree",
-          "line": 55,
-          "path": "crates/cli/src/support/bundle/tests.rs",
           "rule": "generic-api-key"
         },
         {
@@ -6557,15 +6557,15 @@
           "rule": "generic-api-key"
         },
         {
-          "commit": "2f11f4e7f51e",
-          "line": 114,
-          "path": "crates/cli/src/support/redaction/tests.rs",
-          "rule": "generic-api-key"
-        },
-        {
           "commit": "2da69ca75493",
           "line": 55,
           "path": "crates/cli/src/support/bundle/tests.rs",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "2f11f4e7f51e",
+          "line": 114,
+          "path": "crates/cli/src/support/redaction/tests.rs",
           "rule": "generic-api-key"
         },
         {
@@ -6609,12 +6609,6 @@
           "line": 43,
           "path": "crates/cli/src/support/redaction/keys.rs",
           "rule": "private-key"
-        },
-        {
-          "commit": "ecf775f37c2f",
-          "line": 117,
-          "path": "crates/cli/src/support/redaction/tokens.rs",
-          "rule": "generic-api-key"
         },
         {
           "commit": "ecf775f37c2f",
@@ -6665,6 +6659,12 @@
           "rule": "generic-api-key"
         },
         {
+          "commit": "ecf775f37c2f",
+          "line": 117,
+          "path": "crates/cli/src/support/redaction/tokens.rs",
+          "rule": "generic-api-key"
+        },
+        {
           "commit": "39dbd8b699ea",
           "line": 230,
           "path": "docs/guardrails/standards/PROJECT_CONTEXT_TEMPLATE.md",
@@ -6677,9 +6677,15 @@
           "rule": "generic-api-key"
         },
         {
-          "commit": "c515d991e99b",
-          "line": 83,
-          "path": "CONFIG.md",
+          "commit": "5f62da76cee4",
+          "line": 51,
+          "path": "DEPLOYMENT_STATUS.md",
+          "rule": "curl-auth-header"
+        },
+        {
+          "commit": "5f62da76cee4",
+          "line": 55,
+          "path": "DEPLOYMENT_STATUS.md",
           "rule": "curl-auth-header"
         },
         {
@@ -6701,22 +6707,16 @@
           "rule": "curl-auth-header"
         },
         {
-          "commit": "5f62da76cee4",
-          "line": 51,
-          "path": "DEPLOYMENT_STATUS.md",
-          "rule": "curl-auth-header"
-        },
-        {
-          "commit": "5f62da76cee4",
-          "line": 55,
-          "path": "DEPLOYMENT_STATUS.md",
+          "commit": "c515d991e99b",
+          "line": 83,
+          "path": "CONFIG.md",
           "rule": "curl-auth-header"
         }
       ],
       "name": "radcode",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 40,
@@ -6754,7 +6754,7 @@
       "name": "RadGameRandom01",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 4,
@@ -6814,6 +6814,12 @@
         },
         {
           "commit": "working tree",
+          "line": 61,
+          "path": "crates/permissions/src/tests/summarize_tests.rs",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "working tree",
           "line": 10,
           "path": "crates/rad_core/src/logging/redact/tests.rs",
           "rule": "generic-api-key"
@@ -6834,12 +6840,6 @@
           "commit": "working tree",
           "line": 195,
           "path": "crates/rad_core/src/logging/redact/tests.rs",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "working tree",
-          "line": 61,
-          "path": "crates/permissions/src/tests/summarize_tests.rs",
           "rule": "generic-api-key"
         },
         {
@@ -6916,18 +6916,6 @@
         },
         {
           "commit": "ecf775f37c2f",
-          "line": 29,
-          "path": "crates/cli/src/support/redaction/keys.rs",
-          "rule": "private-key"
-        },
-        {
-          "commit": "ecf775f37c2f",
-          "line": 43,
-          "path": "crates/cli/src/support/redaction/keys.rs",
-          "rule": "private-key"
-        },
-        {
-          "commit": "ecf775f37c2f",
           "line": 20,
           "path": "crates/cli/src/support/redaction/tests.rs",
           "rule": "generic-api-key"
@@ -6948,6 +6936,24 @@
           "commit": "ecf775f37c2f",
           "line": 145,
           "path": "crates/cli/src/support/redaction/tests.rs",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "ecf775f37c2f",
+          "line": 29,
+          "path": "crates/cli/src/support/redaction/keys.rs",
+          "rule": "private-key"
+        },
+        {
+          "commit": "ecf775f37c2f",
+          "line": 43,
+          "path": "crates/cli/src/support/redaction/keys.rs",
+          "rule": "private-key"
+        },
+        {
+          "commit": "ecf775f37c2f",
+          "line": 117,
+          "path": "crates/cli/src/support/redaction/tokens.rs",
           "rule": "generic-api-key"
         },
         {
@@ -6973,18 +6979,12 @@
           "line": 414,
           "path": "crates/rad_core/src/logging/redact.rs",
           "rule": "generic-api-key"
-        },
-        {
-          "commit": "ecf775f37c2f",
-          "line": 117,
-          "path": "crates/cli/src/support/redaction/tokens.rs",
-          "rule": "generic-api-key"
         }
       ],
       "name": "RADICAL-CODE",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 36,
@@ -6994,6 +6994,18 @@
       "findings": 38,
       "gate_sha256": null,
       "locations": [
+        {
+          "commit": "working tree",
+          "line": 16,
+          "path": "docs/archive/completed_sprints/OPENCODE_AUTO_COMPACT.md",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "working tree",
+          "line": 375,
+          "path": "docs/OPENCODE_SWARM_SETUP.md",
+          "rule": "curl-auth-header"
+        },
         {
           "commit": "working tree",
           "line": 34,
@@ -7008,21 +7020,15 @@
         },
         {
           "commit": "working tree",
-          "line": 375,
-          "path": "docs/OPENCODE_SWARM_SETUP.md",
-          "rule": "curl-auth-header"
-        },
-        {
-          "commit": "working tree",
-          "line": 16,
-          "path": "docs/archive/completed_sprints/OPENCODE_AUTO_COMPACT.md",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "working tree",
           "line": 20,
           "path": "json.bk2",
           "rule": "generic-api-key"
+        },
+        {
+          "commit": "working tree",
+          "line": 590,
+          "path": "docs/archive/HTTPSTREAM_PHASE_IMPLEMENTATION_STATUS.md",
+          "rule": "curl-auth-header"
         },
         {
           "commit": "working tree",
@@ -7047,12 +7053,6 @@
           "line": 54,
           "path": "docs/A2A_PROTOCOL.md",
           "rule": "generic-api-key"
-        },
-        {
-          "commit": "working tree",
-          "line": 590,
-          "path": "docs/archive/HTTPSTREAM_PHASE_IMPLEMENTATION_STATUS.md",
-          "rule": "curl-auth-header"
         },
         {
           "commit": "working tree",
@@ -7115,6 +7115,12 @@
           "rule": "generic-api-key"
         },
         {
+          "commit": "5cfe29cf03ab",
+          "line": 1332,
+          "path": "docs/sprints/WEEK_06.md",
+          "rule": "curl-auth-header"
+        },
+        {
           "commit": "6cb99bc9d96a",
           "line": 39,
           "path": "scripts/test_swarm_integration.sh",
@@ -7123,12 +7129,6 @@
         {
           "commit": "c418abaffa45",
           "line": 277,
-          "path": "docs/SESSION_SUMMARY_2026-01-02_OPERATORS.md",
-          "rule": "curl-auth-header"
-        },
-        {
-          "commit": "ab71ffd8b542",
-          "line": 27,
           "path": "docs/SESSION_SUMMARY_2026-01-02_OPERATORS.md",
           "rule": "curl-auth-header"
         },
@@ -7163,6 +7163,12 @@
           "rule": "curl-auth-header"
         },
         {
+          "commit": "ab71ffd8b542",
+          "line": 27,
+          "path": "docs/SESSION_SUMMARY_2026-01-02_OPERATORS.md",
+          "rule": "curl-auth-header"
+        },
+        {
           "commit": "6cb99bc9d96a",
           "line": 375,
           "path": "docs/OPENCODE_SWARM_SETUP.md",
@@ -7175,21 +7181,15 @@
           "rule": "generic-api-key"
         },
         {
-          "commit": "5cfe29cf03ab",
-          "line": 1332,
-          "path": "docs/sprints/WEEK_06.md",
-          "rule": "curl-auth-header"
+          "commit": "2db84477b54e",
+          "line": 46,
+          "path": "docs/HTTPS_STREAMING_COMPLETE.md",
+          "rule": "generic-api-key"
         },
         {
           "commit": "a9ceec31ce6e",
           "line": 6,
           "path": "docs/MCP_TEST_CHECKLIST.md",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "2db84477b54e",
-          "line": 46,
-          "path": "docs/HTTPS_STREAMING_COMPLETE.md",
           "rule": "generic-api-key"
         },
         {
@@ -7206,12 +7206,6 @@
         },
         {
           "commit": "5cfe29cf03ab",
-          "line": 4136,
-          "path": "docs/sprints/WEEK_08.md",
-          "rule": "jwt"
-        },
-        {
-          "commit": "5cfe29cf03ab",
           "line": 3777,
           "path": "docs/sprints/WEEK_08.md",
           "rule": "stripe-access-token"
@@ -7221,12 +7215,18 @@
           "line": 4129,
           "path": "docs/sprints/WEEK_08.md",
           "rule": "stripe-access-token"
+        },
+        {
+          "commit": "5cfe29cf03ab",
+          "line": 4136,
+          "path": "docs/sprints/WEEK_08.md",
+          "rule": "jwt"
         }
       ],
       "name": "radical-memory-mcp",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 38,
@@ -7238,14 +7238,14 @@
       "locations": [
         {
           "commit": "working tree",
-          "line": 266,
-          "path": "test-skills-extension.sh",
+          "line": 95,
+          "path": "SECURITY_SCANNER_PLUGIN_SUMMARY.md",
           "rule": "stripe-access-token"
         },
         {
           "commit": "working tree",
-          "line": 95,
-          "path": "SECURITY_SCANNER_PLUGIN_SUMMARY.md",
+          "line": 266,
+          "path": "test-skills-extension.sh",
           "rule": "stripe-access-token"
         },
         {
@@ -7334,18 +7334,6 @@
         },
         {
           "commit": "37f9dbad15eb",
-          "line": 16,
-          "path": "agent_ops/40_evidence/OUTPUT_LOG_2025-12-17.md",
-          "rule": "stripe-access-token"
-        },
-        {
-          "commit": "37f9dbad15eb",
-          "line": 17,
-          "path": "agent_ops/40_evidence/OUTPUT_LOG_2025-12-17.md",
-          "rule": "stripe-access-token"
-        },
-        {
-          "commit": "37f9dbad15eb",
           "line": 20,
           "path": "agent_ops/40_evidence/OUTPUT_LOG_2025-12-17.md",
           "rule": "generic-api-key"
@@ -7363,9 +7351,15 @@
           "rule": "generic-api-key"
         },
         {
-          "commit": "df20d1b8fb1f",
-          "line": 28,
-          "path": "vscode-extension/test-property-6.js",
+          "commit": "37f9dbad15eb",
+          "line": 16,
+          "path": "agent_ops/40_evidence/OUTPUT_LOG_2025-12-17.md",
+          "rule": "stripe-access-token"
+        },
+        {
+          "commit": "37f9dbad15eb",
+          "line": 17,
+          "path": "agent_ops/40_evidence/OUTPUT_LOG_2025-12-17.md",
           "rule": "stripe-access-token"
         },
         {
@@ -7379,6 +7373,12 @@
           "line": 27,
           "path": "vscode-extension/test-property-6.js",
           "rule": "generic-api-key"
+        },
+        {
+          "commit": "df20d1b8fb1f",
+          "line": 28,
+          "path": "vscode-extension/test-property-6.js",
+          "rule": "stripe-access-token"
         },
         {
           "commit": "b5f90b7b11e4",
@@ -7432,7 +7432,7 @@
       "name": "radical-skills-extension",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 32,
@@ -7445,7 +7445,7 @@
       "name": "radicalopenpresentation",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -7463,12 +7463,6 @@
         },
         {
           "commit": "working tree",
-          "line": 268,
-          "path": "RadicalTrainingPlatform.Legacy.WinForms/LabSimulator/Web/js/core/StateEngine.js",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "working tree",
           "line": 104,
           "path": "RadicalTrainingPlatform.Web/js/views/ai-monitoring.js",
           "rule": "generic-api-key"
@@ -7481,9 +7475,9 @@
         },
         {
           "commit": "working tree",
-          "line": 149,
-          "path": "RadicalTrainingPlatform.Legacy.WinForms/LabSimulator/Web/js/views/ai-tools.js",
-          "rule": "curl-auth-header"
+          "line": 268,
+          "path": "RadicalTrainingPlatform.Legacy.WinForms/LabSimulator/Web/js/core/StateEngine.js",
+          "rule": "generic-api-key"
         },
         {
           "commit": "working tree",
@@ -7493,8 +7487,8 @@
         },
         {
           "commit": "working tree",
-          "line": 786,
-          "path": "studyguides/NCM-MCI-LAB-WALKTHROUGH.md",
+          "line": 149,
+          "path": "RadicalTrainingPlatform.Legacy.WinForms/LabSimulator/Web/js/views/ai-tools.js",
           "rule": "curl-auth-header"
         },
         {
@@ -7558,15 +7552,21 @@
           "rule": "curl-auth-user"
         },
         {
-          "commit": "2e4f00828d94",
-          "line": 104,
-          "path": "CertForge.Legacy.WinForms/LabSimulator/Web/js/views/ai-monitoring.js",
-          "rule": "generic-api-key"
+          "commit": "working tree",
+          "line": 786,
+          "path": "studyguides/NCM-MCI-LAB-WALKTHROUGH.md",
+          "rule": "curl-auth-header"
         },
         {
           "commit": "2e4f00828d94",
           "line": 104,
           "path": "CertForge.Web/js/views/ai-monitoring.js",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "2e4f00828d94",
+          "line": 104,
+          "path": "CertForge.Legacy.WinForms/LabSimulator/Web/js/views/ai-monitoring.js",
           "rule": "generic-api-key"
         },
         {
@@ -7663,7 +7663,7 @@
       "name": "radicaltrainingplatform",
       "protection": "unprotected",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -7673,18 +7673,6 @@
       "findings": 18,
       "gate_sha256": null,
       "locations": [
-        {
-          "commit": "working tree",
-          "line": 29,
-          "path": "docs/design/developer-sdk.md",
-          "rule": "curl-auth-header"
-        },
-        {
-          "commit": "working tree",
-          "line": 51,
-          "path": "docs/design/developer-sdk.md",
-          "rule": "curl-auth-header"
-        },
         {
           "commit": "working tree",
           "line": 18,
@@ -7720,6 +7708,18 @@
           "line": 214,
           "path": "docs/design/developer-sdk.md",
           "rule": "generic-api-key"
+        },
+        {
+          "commit": "working tree",
+          "line": 29,
+          "path": "docs/design/developer-sdk.md",
+          "rule": "curl-auth-header"
+        },
+        {
+          "commit": "working tree",
+          "line": 51,
+          "path": "docs/design/developer-sdk.md",
+          "rule": "curl-auth-header"
         },
         {
           "commit": "working tree",
@@ -7785,7 +7785,7 @@
       "name": "RADIMAGEMAKER",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 18,
@@ -7798,7 +7798,7 @@
       "name": "radimagetovisio",
       "protection": "unprotected",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -7811,7 +7811,7 @@
       "name": "RADOFTheEearth",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -7824,7 +7824,7 @@
       "name": "RADPstRepairTool",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -7848,6 +7848,12 @@
         },
         {
           "commit": "working tree",
+          "line": 230,
+          "path": "docs/standards/PROJECT_CONTEXT_TEMPLATE.md",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "working tree",
           "line": 999,
           "path": "docs/TEAM_TOOLS.md",
           "rule": "curl-auth-header"
@@ -7863,12 +7869,6 @@
           "line": 1009,
           "path": "docs/TEAM_TOOLS.md",
           "rule": "curl-auth-header"
-        },
-        {
-          "commit": "working tree",
-          "line": 230,
-          "path": "docs/standards/PROJECT_CONTEXT_TEMPLATE.md",
-          "rule": "generic-api-key"
         },
         {
           "commit": "working tree",
@@ -7922,7 +7922,7 @@
       "name": "radredeye",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 14,
@@ -7937,6 +7937,12 @@
           "line": 216,
           "path": "docs/MCP_TOOLS_REFERENCE.md",
           "rule": "stripe-access-token"
+        },
+        {
+          "commit": "working tree",
+          "line": 300,
+          "path": "docs/TROUBLESHOOTING.md",
+          "rule": "curl-auth-header"
         },
         {
           "commit": "working tree",
@@ -7958,12 +7964,6 @@
         },
         {
           "commit": "working tree",
-          "line": 300,
-          "path": "docs/TROUBLESHOOTING.md",
-          "rule": "curl-auth-header"
-        },
-        {
-          "commit": "working tree",
           "line": 230,
           "path": "docs/standards/PROJECT_CONTEXT_TEMPLATE.md",
           "rule": "generic-api-key"
@@ -7976,15 +7976,15 @@
         },
         {
           "commit": "084311516d9d",
-          "line": 300,
-          "path": "docs/TROUBLESHOOTING.md",
-          "rule": "curl-auth-header"
-        },
-        {
-          "commit": "084311516d9d",
           "line": 216,
           "path": "docs/MCP_TOOLS_REFERENCE.md",
           "rule": "stripe-access-token"
+        },
+        {
+          "commit": "084311516d9d",
+          "line": 300,
+          "path": "docs/TROUBLESHOOTING.md",
+          "rule": "curl-auth-header"
         },
         {
           "commit": "084311516d9d",
@@ -8020,7 +8020,7 @@
       "name": "radredeye-vision-review",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 14,
@@ -8033,7 +8033,7 @@
       "name": "radreportgenerator",
       "protection": "unprotected",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -8046,7 +8046,7 @@
       "name": "radspotify",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -8076,12 +8076,6 @@
         },
         {
           "commit": "working tree",
-          "line": 94,
-          "path": "docs/deployment-guide.md",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "working tree",
           "line": 303,
           "path": "docs/rbac-implementation.md",
           "rule": "generic-api-key"
@@ -8094,39 +8088,21 @@
         },
         {
           "commit": "working tree",
+          "line": 94,
+          "path": "docs/deployment-guide.md",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "working tree",
           "line": 286,
           "path": "scanner/reporting/remediation_db.py",
           "rule": "curl-auth-header"
         },
         {
           "commit": "working tree",
-          "line": 178,
-          "path": "scanner/tests/api/auth.py",
-          "rule": "jwt"
-        },
-        {
-          "commit": "working tree",
-          "line": 416,
-          "path": "scanner/tests/api/auth.py",
-          "rule": "jwt"
-        },
-        {
-          "commit": "working tree",
-          "line": 342,
-          "path": "tests/test_cli_network_fingerprint.py",
-          "rule": "jwt"
-        },
-        {
-          "commit": "working tree",
-          "line": 339,
-          "path": "tests/test_cli_network_fingerprint.py",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "working tree",
-          "line": 587,
-          "path": "scanner/web/templates/auditor/api_keys.html",
-          "rule": "curl-auth-header"
+          "line": 32,
+          "path": "scanner/tests/secrets/key_detection.py",
+          "rule": "stripe-access-token"
         },
         {
           "commit": "working tree",
@@ -8142,9 +8118,21 @@
         },
         {
           "commit": "working tree",
-          "line": 32,
-          "path": "scanner/tests/secrets/key_detection.py",
-          "rule": "stripe-access-token"
+          "line": 178,
+          "path": "scanner/tests/api/auth.py",
+          "rule": "jwt"
+        },
+        {
+          "commit": "working tree",
+          "line": 416,
+          "path": "scanner/tests/api/auth.py",
+          "rule": "jwt"
+        },
+        {
+          "commit": "working tree",
+          "line": 587,
+          "path": "scanner/web/templates/auditor/api_keys.html",
+          "rule": "curl-auth-header"
         },
         {
           "commit": "working tree",
@@ -8153,9 +8141,21 @@
           "rule": "generic-api-key"
         },
         {
-          "commit": "97e48064b7bc",
+          "commit": "working tree",
+          "line": 342,
+          "path": "tests/test_cli_network_fingerprint.py",
+          "rule": "jwt"
+        },
+        {
+          "commit": "working tree",
           "line": 339,
           "path": "tests/test_cli_network_fingerprint.py",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "fca836148091",
+          "line": 343,
+          "path": "tests/test_enterprise_security.py",
           "rule": "generic-api-key"
         },
         {
@@ -8165,16 +8165,10 @@
           "rule": "jwt"
         },
         {
-          "commit": "fca836148091",
-          "line": 343,
-          "path": "tests/test_enterprise_security.py",
+          "commit": "97e48064b7bc",
+          "line": 339,
+          "path": "tests/test_cli_network_fingerprint.py",
           "rule": "generic-api-key"
-        },
-        {
-          "commit": "fe93227f4387",
-          "line": 46,
-          "path": "docs/user-guide-credentials.md",
-          "rule": "stripe-access-token"
         },
         {
           "commit": "fe93227f4387",
@@ -8186,6 +8180,12 @@
           "commit": "fe93227f4387",
           "line": 72,
           "path": "docs/api-reference.md",
+          "rule": "stripe-access-token"
+        },
+        {
+          "commit": "fe93227f4387",
+          "line": 46,
+          "path": "docs/user-guide-credentials.md",
           "rule": "stripe-access-token"
         },
         {
@@ -8252,7 +8252,7 @@
       "name": "radvulnerabilityscanner",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 32,
@@ -8265,7 +8265,7 @@
       "name": "radzengardener",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -8280,6 +8280,12 @@
           "line": 216,
           "path": "guardrails-template/docs/MCP_TOOLS_REFERENCE.md",
           "rule": "stripe-access-token"
+        },
+        {
+          "commit": "1db87bab20a0",
+          "line": 300,
+          "path": "guardrails-template/docs/TROUBLESHOOTING.md",
+          "rule": "curl-auth-header"
         },
         {
           "commit": "1db87bab20a0",
@@ -8304,12 +8310,6 @@
           "line": 204,
           "path": "guardrails-template/cpofopencode",
           "rule": "generic-api-key"
-        },
-        {
-          "commit": "1db87bab20a0",
-          "line": 300,
-          "path": "guardrails-template/docs/TROUBLESHOOTING.md",
-          "rule": "curl-auth-header"
         },
         {
           "commit": "1db87bab20a0",
@@ -8339,6 +8339,24 @@
           "commit": "1db87bab20a0",
           "line": 121,
           "path": "guardrails-template/examples/regression-prevention/prevention-rules-examples.json",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "1db87bab20a0",
+          "line": 31,
+          "path": "guardrails-template/reports/guardrail_mcp_test_report.md",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "1db87bab20a0",
+          "line": 34,
+          "path": "guardrails-template/reports/guardrail_mcp_retest_report.md",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "1db87bab20a0",
+          "line": 265,
+          "path": "guardrails-template/reports/guardrail_mcp_retest_report.md",
           "rule": "generic-api-key"
         },
         {
@@ -8427,32 +8445,8 @@
         },
         {
           "commit": "1db87bab20a0",
-          "line": 34,
-          "path": "guardrails-template/reports/guardrail_mcp_retest_report.md",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "1db87bab20a0",
-          "line": 265,
-          "path": "guardrails-template/reports/guardrail_mcp_retest_report.md",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "1db87bab20a0",
-          "line": 31,
-          "path": "guardrails-template/reports/guardrail_mcp_test_report.md",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "1db87bab20a0",
           "line": 296,
           "path": "guardrails-template/docs/plans/MCP_SERVER_PLAN.md",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "1db87bab20a0",
-          "line": 53,
-          "path": "guardrails-template/mcp-server/internal/security/secrets_scanner_test.go",
           "rule": "generic-api-key"
         },
         {
@@ -8460,12 +8454,18 @@
           "line": 60,
           "path": "guardrails-template/mcp-server/internal/security/secrets_scanner_test.go",
           "rule": "jwt"
+        },
+        {
+          "commit": "1db87bab20a0",
+          "line": 53,
+          "path": "guardrails-template/mcp-server/internal/security/secrets_scanner_test.go",
+          "rule": "generic-api-key"
         }
       ],
       "name": "RJL-Racing-Dr1ft-K1ngs",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 31,
@@ -8503,7 +8503,7 @@
       "name": "rjl-zombie-plains",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 4,
@@ -8514,22 +8514,22 @@
       "gate_sha256": null,
       "locations": [
         {
-          "commit": "503421f7c82e",
-          "line": 60,
-          "path": "src/config/constants.ts",
-          "rule": "generic-api-key"
-        },
-        {
           "commit": "555d26f3f06e",
           "line": 3,
           "path": "src/systems/SaveSystem.ts",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "503421f7c82e",
+          "line": 60,
+          "path": "src/config/constants.ts",
           "rule": "generic-api-key"
         }
       ],
       "name": "robo-z",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 2,
@@ -8577,12 +8577,6 @@
         },
         {
           "commit": "f04e853d5bfe",
-          "line": 230,
-          "path": "guardrails-template/docs/standards/PROJECT_CONTEXT_TEMPLATE.md",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "f04e853d5bfe",
           "line": 999,
           "path": "guardrails-template/docs/TEAM_TOOLS.md",
           "rule": "curl-auth-header"
@@ -8601,8 +8595,20 @@
         },
         {
           "commit": "f04e853d5bfe",
+          "line": 230,
+          "path": "guardrails-template/docs/standards/PROJECT_CONTEXT_TEMPLATE.md",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "f04e853d5bfe",
           "line": 121,
           "path": "guardrails-template/examples/regression-prevention/prevention-rules-examples.json",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "f04e853d5bfe",
+          "line": 31,
+          "path": "guardrails-template/reports/guardrail_mcp_test_report.md",
           "rule": "generic-api-key"
         },
         {
@@ -8615,18 +8621,6 @@
           "commit": "f04e853d5bfe",
           "line": 265,
           "path": "guardrails-template/reports/guardrail_mcp_retest_report.md",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "f04e853d5bfe",
-          "line": 296,
-          "path": "guardrails-template/docs/plans/MCP_SERVER_PLAN.md",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "f04e853d5bfe",
-          "line": 31,
-          "path": "guardrails-template/reports/guardrail_mcp_test_report.md",
           "rule": "generic-api-key"
         },
         {
@@ -8715,6 +8709,12 @@
         },
         {
           "commit": "f04e853d5bfe",
+          "line": 296,
+          "path": "guardrails-template/docs/plans/MCP_SERVER_PLAN.md",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "f04e853d5bfe",
           "line": 60,
           "path": "guardrails-template/mcp-server/internal/security/secrets_scanner_test.go",
           "rule": "jwt"
@@ -8729,7 +8729,7 @@
       "name": "RSON",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 31,
@@ -8742,7 +8742,7 @@
       "name": "sentinel-bevy",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -8762,7 +8762,7 @@
       "name": "sentinel-neural-defense",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 1,
@@ -8775,7 +8775,7 @@
       "name": "smallcode",
       "protection": "unprotected",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -8788,7 +8788,7 @@
       "name": "socialmediacontent",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -8801,7 +8801,7 @@
       "name": "starshipidols",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -8821,7 +8821,7 @@
       "name": "stitcher-codereview",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 1,
@@ -8834,7 +8834,7 @@
       "name": "sunset-rush",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -8902,7 +8902,7 @@
       "name": "swordofhope",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 9,
@@ -8912,12 +8912,6 @@
       "findings": 31,
       "gate_sha256": null,
       "locations": [
-        {
-          "commit": "3079dd590a5a",
-          "line": 300,
-          "path": "guardrails-template/docs/TROUBLESHOOTING.md",
-          "rule": "curl-auth-header"
-        },
         {
           "commit": "3079dd590a5a",
           "line": 216,
@@ -8950,9 +8944,9 @@
         },
         {
           "commit": "3079dd590a5a",
-          "line": 230,
-          "path": "guardrails-template/docs/standards/PROJECT_CONTEXT_TEMPLATE.md",
-          "rule": "generic-api-key"
+          "line": 300,
+          "path": "guardrails-template/docs/TROUBLESHOOTING.md",
+          "rule": "curl-auth-header"
         },
         {
           "commit": "3079dd590a5a",
@@ -8974,8 +8968,20 @@
         },
         {
           "commit": "3079dd590a5a",
+          "line": 230,
+          "path": "guardrails-template/docs/standards/PROJECT_CONTEXT_TEMPLATE.md",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "3079dd590a5a",
           "line": 121,
           "path": "guardrails-template/examples/regression-prevention/prevention-rules-examples.json",
+          "rule": "generic-api-key"
+        },
+        {
+          "commit": "3079dd590a5a",
+          "line": 296,
+          "path": "guardrails-template/docs/plans/MCP_SERVER_PLAN.md",
           "rule": "generic-api-key"
         },
         {
@@ -8988,12 +8994,6 @@
           "commit": "3079dd590a5a",
           "line": 265,
           "path": "guardrails-template/reports/guardrail_mcp_retest_report.md",
-          "rule": "generic-api-key"
-        },
-        {
-          "commit": "3079dd590a5a",
-          "line": 296,
-          "path": "guardrails-template/docs/plans/MCP_SERVER_PLAN.md",
           "rule": "generic-api-key"
         },
         {
@@ -9102,7 +9102,7 @@
       "name": "SynthGrid",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 31,
@@ -9115,7 +9115,7 @@
       "name": "terminal-coding-setup",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -9128,7 +9128,7 @@
       "name": "THEAIARCHITECT",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -9141,7 +9141,7 @@
       "name": "TowerDefense01",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -9154,7 +9154,7 @@
       "name": "trident-compact",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -9192,7 +9192,7 @@
       "name": "UCS03",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 4,
@@ -9204,12 +9204,6 @@
       "locations": [
         {
           "commit": "working tree",
-          "line": 6,
-          "path": "src/lib/firebase.ts",
-          "rule": "gcp-api-key"
-        },
-        {
-          "commit": "working tree",
           "line": 10,
           "path": "wrangler.jsonc",
           "rule": "generic-api-key"
@@ -9219,6 +9213,12 @@
           "line": 52,
           "path": "wrangler.jsonc",
           "rule": "generic-api-key"
+        },
+        {
+          "commit": "working tree",
+          "line": 6,
+          "path": "src/lib/firebase.ts",
+          "rule": "gcp-api-key"
         },
         {
           "commit": "working tree",
@@ -9263,14 +9263,14 @@
           "rule": "generic-api-key"
         },
         {
-          "commit": "16a7a46bd2a8",
-          "line": 5,
+          "commit": "22ed8b1fce60",
+          "line": 6,
           "path": "src/lib/firebase.ts",
           "rule": "gcp-api-key"
         },
         {
-          "commit": "22ed8b1fce60",
-          "line": 6,
+          "commit": "16a7a46bd2a8",
+          "line": 5,
           "path": "src/lib/firebase.ts",
           "rule": "gcp-api-key"
         },
@@ -9344,7 +9344,7 @@
       "name": "vbrainstorm",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 23,
@@ -9526,7 +9526,7 @@
       "name": "wormhole-runner",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 28,
@@ -9539,7 +9539,7 @@
       "name": "x1carbong7",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -9613,7 +9613,7 @@
       "name": "YingYangHealthSocial",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "findings",
       "uncovered": 10,
@@ -9626,7 +9626,7 @@
       "name": "zen-gardener-rust",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -9639,7 +9639,7 @@
       "name": "Zombie-Diver",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -9652,7 +9652,7 @@
       "name": "zombie-dock-fishing",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -9665,7 +9665,7 @@
       "name": "zombie-hero-match",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -9678,7 +9678,7 @@
       "name": "zombie-x-pinball",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
@@ -9691,7 +9691,7 @@
       "name": "zombietoss",
       "protection": "unknown",
       "reason": null,
-      "scanned_at": "2026-10-02T10:33:44Z",
+      "scanned_at": "2026-10-02T13:26:52Z",
       "scope": "all",
       "state": "clean",
       "uncovered": 0,
