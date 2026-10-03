@@ -1,5 +1,12 @@
 # AIGGP draft retirement — kernel-hardening packages (2026-10-02)
 
+> **Disposition update 2026-10-03:** the surviving packages listed below as
+> "kept" (aiggp-01/02/03/04/05/06/08/10) are no longer in this tree — all
+> open spec packages moved to `TheArchitectit/repo-brainstorming`
+> (`devgate-open-changes/`), owner directive. Full accounting:
+> `AIGGP-DISPOSITION-2026-10-03.md`. This record below stays as written for
+> the 2026-10-02 retirement itself.
+
 **Status: decision record.** Owner decisions from the 2026-10-01/02 architect
 review, with the measurements that support them.
 
@@ -16,10 +23,19 @@ review, with the measurements that support them.
    CA-trust, heartbeats (09). Owner rule for the cut: *"anything that is AI
    guardrails is good, like the prompt injection etc."* Neither package is an
    AI guardrail; both are security-platform infrastructure.
-3. **Kept: aiggp-01 … aiggp-08** (audit hardening, fleet spec coherence,
-   prompt-injection defense, semantic content filtering, runtime sandbox
-   isolation, indirect-injection provenance, GitLab forge support, stitcher /
-   proof parity) — all AI-guardrail or gate-correctness packages.
+3. **Kept: aiggp-01 … aiggp-06, aiggp-08** (audit hardening, fleet spec
+   coherence, prompt-injection defense, semantic content filtering, runtime
+   sandbox isolation, indirect-injection provenance, stitcher / proof
+   parity) — all AI-guardrail or gate-correctness packages.
+   **aiggp-07 (GitLab forge) was kept by this rule but then split out**
+   (owner, 2026-10-02: *"split that into a different spec"*): salvaged as
+   the DevGate-native change package
+   `openspec/changes/add-gitlab-forge-support/` (GLF- IDs, written against
+   the shipped templates/scripts/hub surface), and the draft directory
+   retired. Its two owner decisions (Q11.1 per-instance ownership, Q11.2
+   self-hosted axes) carry into the new package's `design.md` locked
+   decisions 6–7 unchanged in substance; the verbatim ANSWERED records stay
+   in `openspec/aiggp-source/aiggp-07-…-b68fd3cf.txt`.
 4. **Rewritten: aiggp-10 direction.** The guardrails system is pulled INTO
    DevGate (the repo already carries the AIGGP name). ADR-001's "Agent
    Guardrails repository is the host" is superseded — see

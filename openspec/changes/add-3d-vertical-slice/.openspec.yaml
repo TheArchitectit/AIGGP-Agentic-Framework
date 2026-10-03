@@ -1,5 +1,0 @@
-schema: spec-driven
-# Implementation package while the deltas stay with their owner:
-# no spec deltas here. "Specs: none new" — implements coh-3d-01..04 and
-# coh-assert-05 as already specified under devgate-spec-coherence-service.
-skip_specs: true

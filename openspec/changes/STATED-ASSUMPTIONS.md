@@ -1,4 +1,10 @@
-# Stated assumptions — global index (SA-1 … SA-11)
+# Stated assumptions — global index (SA-1 … SA-12)
+
+**Location note (2026-10-03):** several SA homes moved with the open-spec
+disposition to `TheArchitectit/repo-brainstorming` (`devgate-open-changes/`)
+— SA-1/2/3 (aiggp-02), SA-5 (aiggp-03), SA-6/7 (aiggp-04), SA-8 (aiggp-10).
+The assumptions still stand; their full text travels with those packages.
+See `AIGGP-DISPOSITION-2026-10-03.md`.
 
 **Status: index, not a decision record.** Numbering is global across the
 aiggp walk-through (2026-10-01) and the kernel retirement (2026-10-02). Each
@@ -24,14 +30,18 @@ decision recorded at the assumption's home location, then reflected here.
 | SA-9 | `AIGGP-RETIREMENT-2026-10-02.md` | Evidence trust is DevGate's shipped HMAC attestation (`hub/coherence/attest.py`). Asymmetric signing, CAs, and enrollment certificates are out of scope until a concrete AI-guardrail requirement demands them; if that day comes, CAs stay client-chosen optional (owner, 2026-10-01). |
 | SA-10 | `AIGGP-RETIREMENT-2026-10-02.md` | The unit of durable truth is the sealed evidence bundle plus the coherence run ledger. An append-only cross-run ledger is not required by any kept package. |
 | SA-11 | `AIGGP-RETIREMENT-2026-10-02.md` | Repository unification means the agent guardrails system moving INTO the DevGate/AIGGP repo — the reverse of ADR-001 as drafted. `guardrails-control-plane`'s submodule composition stays valid until AIGGP-10 executes. |
+| SA-12 | `AIGGP-DISPOSITION-2026-10-03.md` | Open or parked spec packages live in `TheArchitectit/repo-brainstorming`. This repo's `openspec/changes/` root holds only work scheduled to ship in tree; completed work archives; published truth lives in `openspec/specs/`. |
 
 ## Cross-cutting frame (owner, 2026-10-01; scope confirmed 2026-10-02)
 
 The product is a **guardrail framework for AI coding, not a security
 framework for an environment**. Owner cut rule (2026-10-02): *"anything that
 is AI guardrails is good, like the prompt injection etc."* — AI-guardrail
-packages stay; kernel-level hardening (envelope/CA/ledger/waivers, fleet
-enrollment/identity) was retired with `aiggp-00` and `aiggp-09`. Evidence
+material is the in-scope kind (the 03–06 packages now sit in
+`TheArchitectit/repo-brainstorming` pending routing to the guardrails
+family, per the 2026-10-03 disposition); kernel-level hardening
+(envelope/CA/ledger/waivers, fleet enrollment/identity) was retired with
+`aiggp-00` and `aiggp-09`. Evidence
 trust rides on DevGate's shipped machinery (SA-9/SA-10). AIGGP the *name*
 stands: it is the portmanteau goal of pulling the agent guardrails system
 into DevGate (SA-11) — the repo already carries it.

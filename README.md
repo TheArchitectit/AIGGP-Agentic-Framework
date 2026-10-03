@@ -317,8 +317,8 @@ runs the same evaluation inside a digest-pinned, read-only, non-root,
 network-none Podman container whose isolation is derived host-side — the
 container never self-certifies. Deterministic by construction: the same
 inputs produce byte-identical results. See
-`openspec/changes/devgate-spec-coherence-service/` for the 60+ requirement
-contract.
+`openspec/specs/` (the published coherence-service specs, 60+ requirements)
+for the requirement contract.
 
 ## Configuration
 
@@ -465,8 +465,10 @@ The pieces a human cares about:
 
 Status: Sprint 6 of 8 is in progress (adoption ladder and fleet integration);
 Sprints 0–5 delivered the decision contract, the container/evaluator boundary,
-and the attestation and evidence stack. The spec, task ledger, and design record
-are in [openspec/changes/devgate-spec-coherence-service/](openspec/changes/devgate-spec-coherence-service/).
+and the attestation and evidence stack. The published specs are in
+[openspec/specs/](openspec/specs/); the task ledger and design record are
+archived at
+[openspec/changes/archive/2026-10-01-devgate-spec-coherence-service/](openspec/changes/archive/2026-10-01-devgate-spec-coherence-service/).
 
 ## What is verified, and where
 
@@ -513,29 +515,35 @@ real defect, which is the entire point of having it.
 
 AIGGP is a portmanteau naming one goal: **pull the agent guardrails system
 into DevGate** — one platform for AI-coding guardrails. This repository
-already carries that name. The unification plan is written down in
-[openspec/changes/aiggp-10-repository-unification-migration/](openspec/changes/aiggp-10-repository-unification-migration/)
-— the agent guardrails system (`agent-guardrails-template` / `guardrail-mcp`
-lineage) enters this repo by a non-squashed subtree merge under
-`modules/guardrails/`, existing history stays reachable, and the standalone
-predecessor is archived with a durable pointer once continuity is proven. The
-current integration mechanism is `guardrails-control-plane`, which composes
-DevGate and the guardrail engines as pinned submodules.
+already carries that name. The unification plan and all other open spec
+packages live in the private staging repo
+[`TheArchitectit/repo-brainstorming`](https://github.com/TheArchitectit/repo-brainstorming)
+(`devgate-open-changes/`), moved 2026-10-03 under the rule: *this repo's
+`openspec/changes/` holds only work scheduled to ship here; completed work
+archives; published truth lives in `openspec/specs/`.* The plan itself
+(`aiggp-10`) returns to this tree when the pull-in executes: the agent
+guardrails system (`agent-guardrails-template` / `guardrail-mcp` lineage)
+enters this repo by a non-squashed subtree merge under `modules/guardrails/`,
+existing history stays reachable, and the standalone predecessor is archived
+with a durable pointer once continuity is proven. The current integration
+mechanism is `guardrails-control-plane`, which composes DevGate and the
+guardrail engines as pinned submodules.
 
-AIGGP spec packages were imported in September 2026 and live under
-[openspec/changes/aiggp-01…10](openspec/changes/), with the sources as received
-kept for provenance in [openspec/aiggp-source/](openspec/aiggp-source/). Be clear
-about what that is: a specification, not shipped code. Nothing in those packages
-is implemented, and no gate or traceability ID is wired to them.
+The AIGGP draft packages were imported in September 2026 (LLM-authored);
+their sources as received stay frozen in
+[openspec/aiggp-source/](openspec/aiggp-source/) for provenance. Nothing in
+those packages was ever implemented, and no gate or traceability ID is wired
+to them.
 
 **Two packages were retired on 2026-10-02** — `aiggp-00` (kernel truth model:
 signed envelopes, org CA, append-only ledger, waivers) and `aiggp-09` (runner
 enrollment / fleet identity). They specified kernel-level hardening that no
 product implements, and DevGate already ships the working equivalent
 (evidence bundles, HMAC attestation, scoped exceptions, the coherence run
-ledger in `hub/coherence/`). The kept packages are re-anchored to that shipped
-machinery. Decision record and measurements:
+ledger in `hub/coherence/`). Decision record and measurements:
 [AIGGP-RETIREMENT-2026-10-02.md](openspec/changes/AIGGP-RETIREMENT-2026-10-02.md).
+**The remaining open packages moved out on 2026-10-03** — record and per-package
+accounting: [AIGGP-DISPOSITION-2026-10-03.md](openspec/changes/AIGGP-DISPOSITION-2026-10-03.md).
 
 ## License
 
