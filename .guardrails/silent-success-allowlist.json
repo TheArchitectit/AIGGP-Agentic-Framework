@@ -7618,27 +7618,6 @@
       "removal": "n/a (legacy inventory - tighten opportunistically)"
     },
     {
-      "file": "internal/admin/graphql/query_resolvers.go",
-      "marker": "_ = db.QueryRowContext(ctx, countQuery).Scan(&count)",
-      "family": "go_return_nil_after_ignored_error",
-      "reason": "Idiomatic Go explicit discard (pre-existing legacy at DevGate adoption): deliberate `_ =` / `, _ =` ignore, not a swallowed production error.",
-      "removal": "n/a (legacy inventory - tighten opportunistically)"
-    },
-    {
-      "file": "internal/admin/graphql/query_resolvers.go",
-      "marker": "_ = db.QueryRowContext(ctx, countQuery, cArgs...).Scan(&count)",
-      "family": "go_return_nil_after_ignored_error",
-      "reason": "Idiomatic Go explicit discard (pre-existing legacy at DevGate adoption): deliberate `_ =` / `, _ =` ignore, not a swallowed production error.",
-      "removal": "n/a (legacy inventory - tighten opportunistically)"
-    },
-    {
-      "file": "internal/admin/graphql/query_modelroute_resolvers.go",
-      "marker": "_ = database.QueryRowContext(ctx, countQuery, cArgs...).Scan(&count)",
-      "family": "go_return_nil_after_ignored_error",
-      "reason": "Idiomatic Go explicit discard (pre-existing legacy at DevGate adoption): deliberate `_ =` / `, _ =` ignore, not a swallowed production error.",
-      "removal": "n/a (legacy inventory - tighten opportunistically)"
-    },
-    {
       "file": "internal/admin/graphql/resolver_test.go",
       "marker": "defer func() { _ = database.Close() }()",
       "family": "go_return_nil_after_ignored_error",
@@ -7683,13 +7662,6 @@
     {
       "file": "internal/admin/graphql/sprint39_test.go",
       "marker": "defer func() { _ = database.Close() }()",
-      "family": "go_return_nil_after_ignored_error",
-      "reason": "Idiomatic Go explicit discard (pre-existing legacy at DevGate adoption): deliberate `_ =` / `, _ =` ignore, not a swallowed production error.",
-      "removal": "n/a (legacy inventory - tighten opportunistically)"
-    },
-    {
-      "file": "internal/admin/graphql/target_group_resolvers.go",
-      "marker": "_ = database.QueryRowContext(ctx, countQuery, cArgs...).Scan(&count)",
       "family": "go_return_nil_after_ignored_error",
       "reason": "Idiomatic Go explicit discard (pre-existing legacy at DevGate adoption): deliberate `_ =` / `, _ =` ignore, not a swallowed production error.",
       "removal": "n/a (legacy inventory - tighten opportunistically)"
