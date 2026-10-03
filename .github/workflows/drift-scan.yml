@@ -29,6 +29,16 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0 (node24)
+        with:
+          # Full history + tags: regression_check --all resolves its window via
+          # `git describe --tags` (last tag, else HEAD~20, else EMPTY_TREE). A
+          # shallow checkout has neither, so the base silently degrades to the
+          # empty tree and EVERY line in the repo scans as "added" — the
+          # failure-registry then re-fires on months-old code (FAIL-3619d624
+          # on SOURCE_DIRS, red nightly 2026-09-28..10-03 while local --all
+          # over tag..HEAD stayed green). The gate must see the same window
+          # CI and local agree on: fetch-depth 0.
+          fetch-depth: 0
 
       # SHA-pinned like every other action in this repo: a moving `v4` tag can
       # be re-pointed upstream and swap the gate's runtime with no commit here
@@ -55,7 +65,10 @@ jobs:
           FAIL=0
           run_gate() {
             local n="$1"; shift
-            if "$@" >"$RUNNER_TEMP/drift-$n.log" 2>&1; then RES[$n]=PASS; else RES[$n]=FAIL; FAIL=1; fi
+            if "$@" >"$RUNNER_TEMP/drift-$n.log" 2>&1; then RES[$n]=PASS;
+            else RES[$n]=FAIL; FAIL=1;
+              echo "=== drift-$n.log (FAILED gate output) ==="; cat "$RUNNER_TEMP/drift-$n.log";
+            fi
           }
 
           # python-gated: regression_check.py requires >=3.9 (py3.8 crashes on list[str])
