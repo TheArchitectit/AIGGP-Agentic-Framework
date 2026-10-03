@@ -55,7 +55,10 @@ jobs:
           FAIL=0
           run_gate() {
             local n="$1"; shift
-            if "$@" >"$RUNNER_TEMP/drift-$n.log" 2>&1; then RES[$n]=PASS; else RES[$n]=FAIL; FAIL=1; fi
+            if "$@" >"$RUNNER_TEMP/drift-$n.log" 2>&1; then RES[$n]=PASS;
+            else RES[$n]=FAIL; FAIL=1;
+              echo "=== drift-$n.log (FAILED gate output) ==="; cat "$RUNNER_TEMP/drift-$n.log";
+            fi
           }
 
           # python-gated: regression_check.py requires >=3.9 (py3.8 crashes on list[str])
