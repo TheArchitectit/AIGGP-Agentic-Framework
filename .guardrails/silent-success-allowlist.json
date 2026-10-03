@@ -7632,7 +7632,7 @@
       "removal": "n/a (legacy inventory - tighten opportunistically)"
     },
     {
-      "file": "internal/admin/graphql/query_resolvers.go",
+      "file": "internal/admin/graphql/query_modelroute_resolvers.go",
       "marker": "_ = database.QueryRowContext(ctx, countQuery, cArgs...).Scan(&count)",
       "family": "go_return_nil_after_ignored_error",
       "reason": "Idiomatic Go explicit discard (pre-existing legacy at DevGate adoption): deliberate `_ =` / `, _ =` ignore, not a swallowed production error.",
@@ -12187,6 +12187,13 @@
       "family": "go_return_nil_after_ignored_error",
       "reason": "Same as activeMsgs \u2014 shadow projection discards the loss report deliberately; diffing, not dispatching.",
       "removal": "Q16 3.2 retirement review"
+    },
+    {
+      "file": "internal/routing/model_route_failover.go",
+      "marker": "tgCh, _ := r.resolveTargetGroup",
+      "family": "go_return_nil_after_ignored_error",
+      "reason": "Not an error: resolveTargetGroup returns (*domain.Channel, func() *domain.Channel) (channel_resolver.go:210). The discarded second value is the target-group fallback iterator, not an error. A nil channel is handled by the explicit fall-through to the route channel in resolveFromCandidates, so nothing is swallowed. The family regex is syntactic (blank identifier assigned from a call) and cannot tell a func value from an error.",
+      "removal": "n/a (regex false positive - second return is not an error)"
     }
   ]
 }
