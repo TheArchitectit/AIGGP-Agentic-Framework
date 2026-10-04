@@ -74,6 +74,9 @@ Cargo.lock
 tmp/
 .pi/
 
+# Sensitive operator checkout if accidentally nested here
+**/infra-info/
+
 # Machine-specific runner/fleet details (hostnames, IPs, token drop-ins,
 # volume layout, incident log) live in the operator's private infra repo.
 # The public DevGate repo stays generic by design — see the
