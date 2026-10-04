@@ -12,7 +12,7 @@ All tasks are unimplemented specification work. Gates are ordered; no later gate
 
 - [ ] 1.1 Security and runtime owners choose vetted constant-time signing provider versus stdlib-only constraint; record package provenance, supported runtime, verification profile, and independent review. Reject a decision based only on passing RFC happy-path vectors.
 - [ ] 1.2 Add adversarial tests: identity A `01` + 31 zero bytes with identity R and S=0 on multiple unrelated messages MUST fail; noncanonical y (including y >= p), low-order A/R, malformed/sign-bit encodings, S>=L, wrong message/key MUST fail; valid RFC vectors and independent-provider interop MUST pass.
-- [ ] 1.3 Resolve nested schema versus flat signer under the same v1, freeze exactly one complete signed representation and canonical bytes/field coverage, assign incompatible shape a new version; document migration/explicit rejection of ambiguous old artifacts.
+- [ ] 1.3 Implement the proposed `contract-v2.md` body/signature shape, full 64-hex key ID, domain-separated signed bytes, strict parser, and independent Go receiver; review golden vectors before freezing. Reject both incompatible v1 shapes rather than translating on receipt. Any change to these fields requires a new reviewed contract version.
 - [ ] 1.4 Pin strict raw JSON parser and resource bounds; reject nested duplicate keys, unknown critical fields, invalid UTF-8, unsupported version, and invalid schema keywords/semantics before canonicalization.
 
 ## Gate 2 — Trust and semantic verification
@@ -25,7 +25,7 @@ All tasks are unimplemented specification work. Gates are ordered; no later gate
 
 ## Gate 3 — Producer-to-receiver conformance and CI
 
-- [ ] 3.1 Exercise actual producer→bounded serialized artifact→raw parser→verifier→trust store→receiving decision with positive and every Gate 1–2 negative fixture; no mocked copy of the acceptance logic, no fixture-only PASS.
+- [ ] 3.1 Exercise actual DevGate producer→v2 bounded raw artifact→strict parser→vetted verifier→independently provisioned trust store→Go OAP observe-only consumer, with positive and every Gate 1–2 negative fixture. Freeze cross-language canonical-byte/signature vectors and an expected mandatory-check inventory; no mocked copy of acceptance logic or fixture-only PASS.
 - [ ] 3.2 Restore CI health and document evidence: reconcile pinned schema hashes deliberately (`tests/test_oap_evidence_signature.py:51-60,308-315`), run `openspec validate --all --strict` with the native `## ADDED Requirements` delta grammar, and rerun the pinned secret scan (`.github/workflows/ci.yml:158-285`). Record latest known failures as failures until reruns are green; never suppress or auto-update pins just to pass.
 - [ ] 3.3 Run focused tests, strict spec validation, traceability, and secret scan on the final remediation revision; ensure tests kill an intentionally reintroduced identity-key acceptance and duplicate-key acceptance.
 - [ ] 3.4 Independent security reviewer and OAP owner assess full producer→receiver evidence and one named operation; approve separately before any mandatory promotion/OAP effect. Otherwise keep observe-only and quarantine non-authorizing.

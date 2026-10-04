@@ -8,6 +8,26 @@ The unsafe verifier is not a trust boundary: `hub/coherence/ed25519.py:76-85` do
 
 Preferred production option: maintained, vetted Ed25519 provider with constant-time private-key signing, canonical encodings, scalar range and subgroup/low-order rejection compatible with the selected RFC 8032 verification profile. Pin dependency/version, review license, packaging, supported platforms, side-channel properties, and authoritative negative vectors. The current stdlib-only contract (`hub/coherence/ed25519.py:2-17`) conflicts with relying on such a provider: security owner and runtime owner must explicitly resolve this before adopting one. If stdlib-only is retained, require independent cryptographic review and adversarial interoperability testing; Python scalar signing is not constant-time and MUST NOT be exposed as a timing-sensitive signer. Merely patching the identity point does not close this design gate. Document the precise verification profile, including canonical A/R, subgroup handling, S<L, and non-malleability; reject identity and other low-order public keys even when a provider accepts them.
 
+## 1a. Solo-maintainer cryptography decision
+
+For the first production-capable slice, private-key signing SHALL use a vetted,
+maintained constant-time Ed25519 provider with pinned dependency/provenance and
+independently reviewed key custody. The existing pure-Python module may remain
+as an educational/test-vector implementation but SHALL NOT sign with a
+production key or qualify as the mandatory verifier until strict low-order,
+noncanonical, malleability and cross-provider vectors pass. If packaging cannot
+supply the vetted provider, the integration stays observe-only/non-authorizing
+rather than falling back to the unsafe verifier or HMAC. AIGGP's existing HMAC
+coherence attestations retain their current shared-secret integrity meaning;
+they do not become cross-product issuer attribution or OAP permission.
+
+The chosen v2 wire and testable receiver order are in `contract-v2.md`.
+An incompatible nested or flat v1 artifact is rejected, not silently migrated
+on receipt. The first slice is DevGate→Go OAP for one synthetic, observe-only
+script-dispatch subject. A reverse adapter is conditional on a second real
+consumer and a separate producer-native schema. No central service or private
+key is added to the UCS03 runner for this planning milestone.
+
 ## 2. One wire format and parse boundary
 
 Freeze a versioned signed wire object; the nested artifact schema (`openspec/changes/add-oap-evidence-consumer/schemas/oap-evidence-envelope.schema.json:8-31,67-105`) and flat signed fields (`hub/coherence/oap_evidence.py:38-48`) MUST NOT both claim `devgate.oap-evidence/v1` until one representation and a lossless, testable mapping are approved. Choose whether signature is detached from the outer nested object or covers an explicitly defined flat projection; bind every security-relevant field (including observe-only scope, operation, producer, exact result/manifest/attestation refs), reject unmapped critical fields, and assign a new version for incompatible changes. Do not change frozen canonical DevGate result/attestation bytes to repair transport. Reject duplicate keys at every JSON object depth **before** `json.loads` can erase them; cap input bytes, depth, and collections; decode UTF-8 strictly; reject unknown critical fields and unsupported versions. Canonicalization of an already-parsed dict (`hub/coherence/canon.py:29-61`) cannot detect original duplicates. Schema checking is necessary but not sufficient: test keyword coverage (including date-time and semantic relations) rather than assuming `hub/coherence/schemacheck.py:80-157` enforces the entire contract.

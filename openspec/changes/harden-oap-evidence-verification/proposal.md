@@ -9,7 +9,7 @@ At the audited revision `e4fee8c`, the pure-Python Ed25519 verifier admits an id
 ## Outcome and scope
 
 - Immediately quarantine the affected signature verifier and any artifacts depending on it as **non-authorizing**, including observe-only outputs that otherwise look like PASS. Deny mandatory promotion/effect use until independent remediation and conformance review succeed. No downgrade to unsigned, HMAC, replay, exception, or stale cached PASS.
-- Specify a single signed wire format, closed boundary validation, independent context and signer trust, exact payload/result/manifest/attestation binding, replay protection, and faithful status mapping.
+- Specify the single proposed `devgate.oap-evidence/v2` signed wire format in `contract-v2.md`, closed boundary validation, independent context and signer trust, exact payload/result/manifest/attestation binding, replay protection, and faithful status mapping. Both incompatible v1 forms remain non-authorizing.
 - Define implementation tasks and negative controls as future work; do not edit code, tests, schemas, current change package, or canonical DevGate contracts in this package.
 
 ## Exclusions
