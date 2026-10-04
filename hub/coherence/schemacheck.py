@@ -1,10 +1,9 @@
 # // spec: coh-dec-03, coh-pkg-02
-"""Minimal stdlib JSON-Schema checker for the frozen coherence contracts.
+"""Minimal stdlib JSON-Schema checker for the coherence contracts.
 
-Supports the subset the DevGate schemas actually use: type, required,
-dependentRequired, additionalProperties, properties, enum, const, pattern,
-minItems, minimum, items, and local $ref into #/definitions. Stdlib-only (no
-jsonschema dep).
+Supports type, required, dependentRequired, additionalProperties, properties,
+enum, const, pattern, minLength, maxLength, minItems, maxItems, minimum,
+items, and local $ref into #/definitions. Stdlib-only (no jsonschema dep).
 
 Purpose: wire the frozen schemas into a real gate so a result whose emitted
 shape drifts from the contract fails a test rather than reaching a consumer.
@@ -29,8 +28,8 @@ def load(name: str) -> dict:
     return json.loads((SCHEMA_DIR / name).read_text(encoding="utf-8"))
 
 SUPPORTED = {"type", "required", "additionalProperties", "properties", "enum",
-             "const", "pattern", "minItems", "minimum", "minLength", "items",
-             "$ref", "format", "dependentRequired",
+             "const", "pattern", "minItems", "maxItems", "minimum", "minLength",
+             "maxLength", "items", "$ref", "format", "dependentRequired",
              "description", "default", "$schema", "$id", "title", "definitions"}
 
 _TYPES = {
@@ -110,6 +109,9 @@ def validate(doc, schema: dict, root: dict = None, path: str = "$") -> list:
     if isinstance(doc, str) and "minLength" in schema:
         if len(doc) < schema["minLength"]:
             errs.append(f"{path}: length {len(doc)} below minLength {schema['minLength']}")
+    if isinstance(doc, str) and "maxLength" in schema:
+        if len(doc) > schema["maxLength"]:
+            errs.append(f"{path}: length {len(doc)} above maxLength {schema['maxLength']}")
     if isinstance(doc, str) and schema.get("format") in _FORMATS:
         if not _FORMATS[schema["format"]](doc):
             errs.append(f"{path}: {doc!r} is not a valid {schema['format']}")
@@ -121,6 +123,8 @@ def validate(doc, schema: dict, root: dict = None, path: str = "$") -> list:
     if isinstance(doc, list):
         if "minItems" in schema and len(doc) < schema["minItems"]:
             errs.append(f"{path}: {len(doc)} items below minItems {schema['minItems']}")
+        if "maxItems" in schema and len(doc) > schema["maxItems"]:
+            errs.append(f"{path}: {len(doc)} items above maxItems {schema['maxItems']}")
         if "items" in schema:
             for i, item in enumerate(doc):
                 errs.extend(validate(item, schema["items"], root, f"{path}[{i}]"))

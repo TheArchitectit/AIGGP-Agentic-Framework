@@ -1,0 +1,134 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/TheArchitectit/DevGate-Agentic-Framework/openspec/changes/add-oap-evidence-consumer/schemas/oap-evidence-envelope.schema.json",
+  "title": "devgate.oap-evidence/v1 observe-only artifact envelope",
+  "description": "Noncanonical artifact metadata around an existing DevGate result. This envelope carries no authorization or policy mutation capability.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "direction",
+    "producer",
+    "consumer_audience",
+    "operation_scope",
+    "tenant_or_project_id",
+    "subject",
+    "request_id",
+    "evaluation_id",
+    "idempotency_key",
+    "devgate",
+    "native_status",
+    "native_reason",
+    "redaction_class",
+    "retention_class",
+    "evidence_refs",
+    "created_at",
+    "expires_at",
+    "observe_only"
+  ],
+  "properties": {
+    "contract_version": { "const": "devgate.oap-evidence/v1" },
+    "direction": { "enum": ["devgate-to-oap", "oap-to-devgate"] },
+    "producer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["product", "version", "instance_id", "key_id"],
+      "properties": {
+        "product": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "version": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "instance_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "key_id": { "type": "string", "minLength": 1, "maxLength": 256 }
+      }
+    },
+    "consumer_audience": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "operation_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operation", "purpose", "effect_authority"],
+      "properties": {
+        "operation": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "purpose": { "enum": ["evidence-observation", "assertion-input"] },
+        "effect_authority": { "const": "none" }
+      }
+    },
+    "tenant_or_project_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "id": { "type": "string", "minLength": 1, "maxLength": 512 }
+      }
+    },
+    "request_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "evaluation_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "idempotency_key": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "devgate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "result_digest",
+        "evidence_manifest_digest",
+        "attestation_ref",
+        "decision",
+        "exit_code",
+        "semantics",
+        "identities"
+      ],
+      "properties": {
+        "result_digest": { "$ref": "#/definitions/digest" },
+        "evidence_manifest_digest": { "$ref": "#/definitions/digest" },
+        "attestation_ref": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "decision": { "enum": ["PASS", "ADVISORY", "FAIL", "ERROR"] },
+        "exit_code": { "enum": [0, 10, 20, 30, 31, 32, 33, 40] },
+        "semantics": { "enum": ["fresh-promotion", "replay"] },
+        "identities": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "subject_digest",
+            "openspec_digest",
+            "policy_digest",
+            "context_digest",
+            "evaluator_image_digest"
+          ],
+          "properties": {
+            "subject_digest": { "$ref": "#/definitions/digest" },
+            "openspec_digest": { "$ref": "#/definitions/digest" },
+            "policy_digest": { "$ref": "#/definitions/digest" },
+            "context_digest": { "$ref": "#/definitions/digest" },
+            "evaluator_image_digest": { "$ref": "#/definitions/digest" }
+          }
+        }
+      }
+    },
+    "native_status": {
+      "enum": ["PASS", "ADVISORY", "FAIL", "ERROR", "EMPTY", "SKIP", "UNKNOWN", "INCONCLUSIVE", "MALFORMED"]
+    },
+    "native_reason": { "type": "string", "minLength": 1, "maxLength": 512 },
+    "redaction_class": { "enum": ["secret-free", "redacted"] },
+    "retention_class": { "enum": ["short", "standard", "regulated"] },
+    "evidence_refs": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "digest", "purpose"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 256 },
+          "digest": { "$ref": "#/definitions/digest" },
+          "purpose": { "enum": ["canonical-result", "evidence-manifest", "attestation", "external-assertion"] }
+        }
+      }
+    },
+    "created_at": { "type": "string", "format": "date-time" },
+    "expires_at": { "type": "string", "format": "date-time" },
+    "observe_only": { "const": true }
+  },
+  "definitions": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  }
+}
