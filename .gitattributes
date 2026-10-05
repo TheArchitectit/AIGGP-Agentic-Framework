@@ -1,0 +1,5 @@
+# Frozen cross-language OAP evidence reference vectors: byte-identity to the
+# committed file IS the contract (tests/test_oap_evidence_vectors.py), so a
+# core.autocrlf checkout must not rewrite the line endings. Without this rule a
+# Windows clone would materialize CRLF and break the byte-identity pin.
+openspec/changes/add-oap-evidence-consumer/vectors/*.json text eol=lf
