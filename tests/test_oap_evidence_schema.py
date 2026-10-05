@@ -1,6 +1,7 @@
 """Conformance checks for the proposed, observe-only OAP evidence envelope."""
 import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -11,6 +12,13 @@ FIXTURES = CHANGE / "fixtures"
 sys.path.insert(0, str(REPO))
 
 from hub.coherence import canon, ed25519, oap_evidence, schemacheck, strict_parse
+from hub.coherence.trust_store import TrustStore, digest_of
+
+# Real evidence bytes the v2 fixtures' digests commit to (Gate 2.3).
+FIXTURE_PAYLOAD = b'{"decision":"PASS","subject":"fixture-subject"}'
+FIXTURE_RESULT = b'{"decision":"PASS","exit_code":0}'
+FIXTURE_MANIFEST = b'{"refs":["result.json"]}'
+FIXTURE_ATTESTATION = b"detached-attestation-bytes"
 
 
 class TestOapEvidenceEnvelope(unittest.TestCase):
@@ -99,21 +107,44 @@ class TestOapEvidenceEnvelopeV2(unittest.TestCase):
         cls.schema = json.loads(SCHEMA_V2_PATH.read_text(encoding="utf-8"))
         cls.public = ed25519.public_key(SIGNER_SEED)
         cls.key_id = strict_parse.key_id_for(cls.public)
-        cls.keyring = [{
-            "key_id": cls.key_id,
-            "public_key": cls.public.hex(),
-            "audience": "oap-observer",
-            "valid_from": "2026-01-01T00:00:00Z",
-            "valid_until": "2027-01-01T00:00:00Z",
-            "revoked": False,
-        }]
+        cls.tmp = tempfile.TemporaryDirectory()
+        cls.trust_path = Path(cls.tmp.name) / "trust.json"
+        cls.trust_path.write_text(json.dumps({
+            "snapshot_time": "2026-10-04T12:00:00Z",
+            "entries": [{
+                "producer_id": "devgate-instance-1",
+                "key_id": cls.key_id,
+                "public_key": cls.public.hex(),
+                "audience": "oap-observer",
+                "direction": "devgate-to-oap",
+                "valid_from": "2026-01-01T00:00:00Z",
+                "valid_until": "2027-01-01T00:00:00Z",
+                "revoked": False,
+                "revocation_version": 1,
+            }],
+        }, separators=(",", ":")), encoding="utf-8")
+        cls.trust = TrustStore.load(cls.trust_path)
         cls.reference_time = "2026-10-04T12:01:00Z"
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
 
     def _raw(self, name):
         return (FIXTURES_V2 / name).read_bytes()
 
     def _doc(self, name):
         return json.loads(self._raw(name).decode("utf-8"))
+
+    def _evidence(self, **overrides):
+        supplied = {
+            "payload": FIXTURE_PAYLOAD,
+            "result": FIXTURE_RESULT,
+            "evidence_manifest": FIXTURE_MANIFEST,
+            "attestation": FIXTURE_ATTESTATION,
+        }
+        supplied.update(overrides)
+        return supplied
 
     # -- schema hygiene ----------------------------------------------------
     def test_schema_uses_only_enforced_constraint_vocabulary(self):
@@ -154,29 +185,40 @@ class TestOapEvidenceEnvelopeV2(unittest.TestCase):
 
     def test_valid_fixture_verifies_signature_and_shape(self):
         ok, reason = strict_parse.verify_wire_envelope(
-            self._raw("valid-v2-envelope.json"), self.keyring,
-            reference_time=self.reference_time)
+            self._raw("valid-v2-envelope.json"), self.trust,
+            reference_time=self.reference_time, **self._evidence())
         self.assertTrue(ok, reason)
         self.assertIsNone(reason)
 
     def test_payload_digest_binding_rejects_unrelated_bytes(self):
         ok, reason = strict_parse.verify_wire_envelope(
-            self._raw("valid-v2-envelope.json"), self.keyring,
-            reference_time=self.reference_time, payload=b"not the payload")
+            self._raw("valid-v2-envelope.json"), self.trust,
+            reference_time=self.reference_time,
+            **self._evidence(payload=b"not the payload"))
         self.assertFalse(ok)
         self.assertEqual(reason, "payload-digest-mismatch")
 
     def test_verify_envelope_routes_raw_bytes_through_strict_parse(self):
         # Integration: the verification path accepts raw v2 bytes.
         ok, reason = oap_evidence.verify_envelope(
-            self._raw("valid-v2-envelope.json"), None, self.keyring,
-            reference_time=self.reference_time)
+            self._raw("valid-v2-envelope.json"), None, self.trust,
+            reference_time=self.reference_time, **self._evidence())
         self.assertTrue(ok, reason)
         # ...and a duplicate-key artifact is rejected before any crypto runs.
         ok, reason = oap_evidence.verify_envelope(
-            self._raw("invalid-duplicate-key-top.json"), None, self.keyring)
+            self._raw("invalid-duplicate-key-top.json"), None, self.trust)
         self.assertFalse(ok)
         self.assertEqual(reason, "duplicate-key:body")
+
+    def test_caller_supplied_keyring_rejected_on_wire_path(self):
+        ok, reason = strict_parse.verify_wire_envelope(
+            self._raw("valid-v2-envelope.json"), self._doc(
+                "valid-v2-envelope.json")["signature"]["key_id"] and [
+                    {"key_id": self.key_id,
+                     "public_key": self.public.hex()}],
+            reference_time=self.reference_time, **self._evidence())
+        self.assertFalse(ok)
+        self.assertEqual(reason, "caller-supplied-keyring-rejected")
 
     # -- strict-parse negatives -------------------------------------------
     def _assert_parse_reason(self, name, reason):
@@ -255,7 +297,8 @@ class TestOapEvidenceEnvelopeV2(unittest.TestCase):
         strict_parse.parse_envelope(raw)
         # ...but the receiver's authenticated time is past expiry.
         ok, reason = strict_parse.verify_wire_envelope(
-            raw, self.keyring, reference_time="2026-10-04T12:00:00Z")
+            raw, self.trust, reference_time="2026-10-04T12:00:00Z",
+            **self._evidence())
         self.assertFalse(ok)
         self.assertEqual(reason, "envelope-expired")
 

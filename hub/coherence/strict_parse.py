@@ -35,6 +35,7 @@ import re
 from datetime import datetime
 
 from . import canon, ed25519
+from .trust_store import TrustStore, digest_of
 
 # --- resource bounds (contract-v2.md §2) -----------------------------------
 MAX_BYTES = 64 * 1024
@@ -335,23 +336,29 @@ def _public_bytes(entry):
     return None
 
 
-def _lookup(keyring, key_id):
-    if isinstance(keyring, dict):
-        return keyring.get(key_id)
-    for entry in keyring or []:
-        if isinstance(entry, dict) and entry.get("key_id") == key_id:
-            return entry
-    return None
-
-
-def verify_wire_envelope(raw, keyring, *, reference_time=None, payload=None,
-                         audience=None) -> tuple:
+def verify_wire_envelope(raw, trust_store, *, reference_time=None, payload=None,
+                         audience=None, result=None, evidence_manifest=None,
+                         attestation=None) -> tuple:
     """Verify a raw v2 wire envelope. Returns (ok, reason).
 
     The strict parse/shape gate runs first; every later reason is distinct so a
-    failure at one stage cannot be smoothed into a later stage's success. The
-    verdict is NON-AUTHORIZING (Gate 0 quarantine; observe-only).
+    failure at one stage cannot be smoothed into a later stage's success.
+
+    `trust_store` MUST be a `hub.coherence.trust_store.TrustStore` loaded
+    from a provisioned trust file; a caller-supplied keyring (list, dict, or
+    any other value) is rejected outright (`caller-supplied-keyring-rejected`)
+    because caller input is not trust (Gate 2.2).
+
+    Evidence binding (Gate 2.3): `payload`, `result`, `evidence_manifest` and
+    `attestation` are the real evidence bytes. The body always declares all
+    four digests, so all four byte arguments are required; each digest is
+    recomputed and missing or mismatched bytes are non-PASS
+    (`missing-evidence-bytes:…` / `…-digest-mismatch`).
+
+    The verdict is NON-AUTHORIZING (Gate 0 quarantine; observe-only).
     """
+    if not isinstance(trust_store, TrustStore):
+        return False, "caller-supplied-keyring-rejected"
     try:
         envelope = parse_envelope(raw)
     except StrictParseError as exc:
@@ -361,36 +368,21 @@ def verify_wire_envelope(raw, keyring, *, reference_time=None, payload=None,
     signature = envelope["signature"]
     key_id = signature["key_id"]
 
-    entry = _lookup(keyring, key_id)
-    if not isinstance(entry, dict):
-        return False, f"unknown-key:{key_id}"
-    if entry.get("revoked"):
-        return False, f"revoked-key:{key_id}"
-
-    provisioned_audience = entry.get("audience")
-    if provisioned_audience is not None and \
-            provisioned_audience != body["consumer_audience"]:
-        return False, f"key-audience-mismatch:{provisioned_audience}"
-    if audience is not None and body["consumer_audience"] != audience:
-        return False, f"audience-mismatch:{body['consumer_audience']}"
-
     reference = None
     if reference_time is not None:
         reference = parse_utc_seconds(reference_time)
         if reference is None:
             return False, "reference-time-unparseable"
-        valid_from = parse_utc_seconds(entry.get("valid_from")) \
-            if entry.get("valid_from") else None
-        if entry.get("valid_from") and valid_from is None:
-            return False, "key-window-unparseable:valid_from"
-        if valid_from is not None and reference < valid_from:
-            return False, "key-not-yet-valid"
-        valid_until = parse_utc_seconds(entry.get("valid_until")) \
-            if entry.get("valid_until") else None
-        if entry.get("valid_until") and valid_until is None:
-            return False, "key-window-unparseable:valid_until"
-        if valid_until is not None and reference > valid_until:
-            return False, "key-expired"
+
+    entry, reason = trust_store.evaluate(
+        key_id, producer_id=body["producer_id"],
+        direction=body["direction"], audience=body["consumer_audience"],
+        reference_time=reference)
+    if reason:
+        return False, reason
+
+    if audience is not None and body["consumer_audience"] != audience:
+        return False, f"audience-mismatch:{body['consumer_audience']}"
 
     public = _public_bytes(entry)
     if public is None:
@@ -398,10 +390,16 @@ def verify_wire_envelope(raw, keyring, *, reference_time=None, payload=None,
     if key_id_for(public) != key_id:
         return False, f"key-id-mismatch:{key_id}"
 
-    if payload is not None:
-        actual = "sha256:" + hashlib.sha256(payload).hexdigest()
-        if body["payload_digest"] != actual:
-            return False, "payload-digest-mismatch"
+    for name, declared, supplied in (
+            ("payload", body["payload_digest"], payload),
+            ("result", body["result_digest"], result),
+            ("evidence-manifest", body["evidence_manifest_digest"],
+             evidence_manifest),
+            ("attestation", body["attestation_digest"], attestation)):
+        if supplied is None:
+            return False, f"missing-evidence-bytes:{name}"
+        if digest_of(supplied) != declared:
+            return False, f"{name}-digest-mismatch"
 
     raw_signature = bytes.fromhex(signature["value"][len(SIGNATURE_PREFIX):])
     if not ed25519.verify(public, signed_bytes(body), raw_signature):

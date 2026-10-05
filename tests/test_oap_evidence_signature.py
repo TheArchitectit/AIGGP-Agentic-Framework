@@ -13,6 +13,7 @@ import hashlib
 import json
 import re
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -21,6 +22,7 @@ CHANGE = REPO / "openspec" / "changes" / "add-oap-evidence-consumer"
 sys.path.insert(0, str(REPO))
 
 from hub.coherence import canon, ed25519, oap_evidence
+from hub.coherence.trust_store import TrustStore, TrustStoreError, digest_of
 
 try:
     from hub.coherence import ed25519_vetted
@@ -42,8 +44,39 @@ else:
 
 
 PAYLOAD = b'{"decision":"PASS","subject":"fixture-subject"}'
+# Real evidence bytes the envelope's declared digests must commit to
+# (Gate 2.3: declared digests are recomputed from supplied bytes).
+RESULT = b'{"decision":"PASS","exit_code":0}'
+MANIFEST = b'{"refs":["result.json"]}'
+ATTESTATION = b"detached-attestation-bytes"
 SEED = bytes([0x11]) * ed25519.SEED_SIZE
 KEY_ID = oap_evidence.key_id_for(ed25519.public_key(SEED))
+
+
+def _trust_file(directory, entries, *, snapshot_time=None):
+    """Write a provisioned trust file with the given entries; return path."""
+    path = Path(directory) / f"trust-{len(entries)}-{id(entries)}.json"
+    doc = {"entries": entries}
+    if snapshot_time is not None:
+        doc["snapshot_time"] = snapshot_time
+    path.write_text(json.dumps(doc, separators=(",", ":")), encoding="utf-8")
+    return path
+
+
+def _trust_entry(**overrides):
+    entry = {
+        "producer_id": "devgate-instance-1",
+        "key_id": KEY_ID,
+        "public_key": ed25519.public_key(SEED).hex(),
+        "audience": "oap-observer",
+        "direction": "devgate-to-oap",
+        "valid_from": "2026-10-01T00:00:00Z",
+        "valid_until": "2026-11-01T00:00:00Z",
+        "revoked": False,
+        "revocation_version": 1,
+    }
+    entry.update(overrides)
+    return entry
 
 
 def _seed(byte):
@@ -220,12 +253,20 @@ class TestMandatoryCheckRejectsIdentityForgery(unittest.TestCase):
         forged = "ed25519:" + (_IDENTITY_ENC + bytes(32)).hex()
         key_id = oap_evidence.key_id_for(identity_a)
         envelope = _envelope(key_id)
-        keyring = [{
-            "key_id": key_id,
-            "public_key": identity_a.hex(),
-            "revoked": False,
-        }]
-        ok, reason = oap_evidence.verify_envelope(envelope, forged, keyring)
+        with tempfile.TemporaryDirectory() as tmp:
+            trust = TrustStore.load(_trust_file(tmp, [{
+                "producer_id": "devgate-instance-1",
+                "key_id": key_id,
+                "public_key": identity_a.hex(),
+                "audience": "oap-observer",
+                "direction": "devgate-to-oap",
+                "valid_from": None,
+                "valid_until": None,
+                "revoked": False,
+                "revocation_version": 1,
+            }]))
+            ok, reason = oap_evidence.verify_envelope(
+                envelope, forged, trust, payload=PAYLOAD, result=RESULT)
         self.assertFalse(ok)
         self.assertIn(reason, ("signature-mismatch",
                                f"key-id-mismatch:{key_id}"))
@@ -446,22 +487,37 @@ class TestEnvelopeSignVerify(unittest.TestCase):
         cls.key_id = oap_evidence.key_id_for(cls.public)
         cls.envelope = _envelope(cls.key_id)
         cls.signature = oap_evidence.sign_envelope(cls.envelope, cls.seed)
-        cls.keyring = [{
+        cls.tmp = tempfile.TemporaryDirectory()
+        cls.trust_path = _trust_file(cls.tmp.name, [{
+            "producer_id": "devgate-instance-1",
             "key_id": cls.key_id,
             "public_key": cls.public.hex(),
             "audience": "oap-observer",
+            "direction": "devgate-to-oap",
             "valid_from": "2026-10-01T00:00:00Z",
             "valid_until": "2026-11-01T00:00:00Z",
             "revoked": False,
-        }]
+            "revocation_version": 1,
+        }])
+        cls.trust = TrustStore.load(cls.trust_path)
         cls.reference_time = "2026-10-04T12:30:00Z"
 
-    def _verify(self, envelope=None, signature=None, keyring=None, **kwargs):
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    def _verify(self, envelope=None, signature=None, entries=None, **kwargs):
         kwargs.setdefault("reference_time", self.reference_time)
+        kwargs.setdefault("payload", PAYLOAD)
+        kwargs.setdefault("result", RESULT)
+        if entries is None:
+            trust = self.trust
+        else:
+            trust = TrustStore.load(_trust_file(self.tmp.name, entries))
         return oap_evidence.verify_envelope(
             envelope if envelope is not None else self.envelope,
             signature if signature is not None else self.signature,
-            keyring if keyring is not None else self.keyring, **kwargs)
+            trust, **kwargs)
 
     def test_valid_envelope_verifies(self):
         ok, reason = self._verify()
@@ -491,7 +547,9 @@ class TestEnvelopeSignVerify(unittest.TestCase):
                         payload_digest="sha256:" + "00" * 32)
         ok, reason = self._verify(envelope=tampered)
         self.assertFalse(ok)
-        self.assertEqual(reason, "signature-mismatch")
+        # Gate 2.3: the recomputed digest catches the lie before the
+        # (equally valid over the tampered bytes) signature check would.
+        self.assertEqual(reason, "payload-digest-mismatch")
 
     def test_tampered_payload_bytes_fail_digest_binding(self):
         ok, reason = self._verify(payload=PAYLOAD + b"extra")
@@ -527,8 +585,7 @@ class TestEnvelopeSignVerify(unittest.TestCase):
         self.assertEqual(reason, "key-not-yet-valid")
 
     def test_revoked_key_fails(self):
-        revoked = [dict(self.keyring[0], revoked=True)]
-        ok, reason = self._verify(keyring=revoked)
+        ok, reason = self._verify(entries=[_trust_entry(revoked=True)])
         self.assertFalse(ok)
         self.assertEqual(reason, f"revoked-key:{self.key_id}")
 
@@ -538,10 +595,21 @@ class TestEnvelopeSignVerify(unittest.TestCase):
         self.assertEqual(reason, "audience-mismatch:oap-observer")
 
     def test_key_provisioned_for_other_audience_fails(self):
-        other_audience = [dict(self.keyring[0], audience="different-audience")]
-        ok, reason = self._verify(keyring=other_audience)
+        ok, reason = self._verify(
+            entries=[_trust_entry(audience="different-audience")])
         self.assertFalse(ok)
         self.assertEqual(reason, "key-audience-mismatch:different-audience")
+
+    def test_key_provisioned_for_other_producer_fails(self):
+        ok, reason = self._verify(
+            entries=[_trust_entry(producer_id="someone-else")])
+        self.assertFalse(ok)
+        self.assertEqual(reason, "key-producer-mismatch:someone-else")
+
+    def test_key_provisioned_for_other_direction_fails(self):
+        ok, reason = self._verify(entries=[_trust_entry(direction="oap-to-devgate")])
+        self.assertFalse(ok)
+        self.assertEqual(reason, "key-direction-mismatch:oap-to-devgate")
 
     def test_unknown_critical_field_fails(self):
         tampered = dict(self.envelope, unexpected_critical_field="x")
@@ -571,9 +639,9 @@ class TestEnvelopeSignVerify(unittest.TestCase):
                 self.assertEqual(reason, "signature-malformed")
 
     def test_key_entry_public_key_must_hash_to_the_declared_key_id(self):
-        mismatched = [dict(self.keyring[0],
-                           public_key=ed25519.public_key(_seed(0x44)).hex())]
-        ok, reason = self._verify(keyring=mismatched)
+        mismatched = [_trust_entry(
+            public_key=ed25519.public_key(_seed(0x44)).hex())]
+        ok, reason = self._verify(entries=mismatched)
         self.assertFalse(ok)
         self.assertEqual(reason, f"key-id-mismatch:{self.key_id}")
 
@@ -590,6 +658,191 @@ class TestEnvelopeSignVerify(unittest.TestCase):
         self.assertEqual(
             oap_evidence.key_id_for(self.public),
             oap_evidence.key_id_for(bytes(self.public)))
+
+
+class TestEvidenceBinding(unittest.TestCase):
+    """Gate 2.3: declared digests are recomputed from real bytes; missing,
+    substituted, or unverifiable evidence is non-PASS even under a valid
+    signature."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.seed = _seed(0x11)
+        cls.key_id = oap_evidence.key_id_for(ed25519.public_key(cls.seed))
+        cls.tmp = tempfile.TemporaryDirectory()
+        cls.trust = TrustStore.load(_trust_file(
+            cls.tmp.name, [_trust_entry(key_id=cls.key_id)]))
+        cls.reference_time = "2026-10-04T12:30:00Z"
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.tmp.cleanup()
+
+    def _verify(self, envelope, **kwargs):
+        kwargs.setdefault("reference_time", self.reference_time)
+        kwargs.setdefault("payload", PAYLOAD)
+        kwargs.setdefault("result", RESULT)
+        return oap_evidence.verify_envelope(
+            envelope, oap_evidence.sign_envelope(envelope, self.seed),
+            self.trust, **kwargs)
+
+    def test_complete_evidence_verifies(self):
+        ok, reason = self._verify(_envelope(self.key_id),
+                                  evidence_manifest=MANIFEST,
+                                  attestation=ATTESTATION)
+        self.assertTrue(ok, reason)
+
+    def test_substituted_result_fails(self):
+        ok, reason = self._verify(_envelope(self.key_id), result=b'{"lie":1}')
+        self.assertFalse(ok)
+        self.assertEqual(reason, "canonical-result-digest-mismatch")
+
+    def test_substituted_manifest_fails(self):
+        envelope = _envelope(self.key_id)
+        envelope["evidence_refs"] = envelope["evidence_refs"] + [
+            {"name": "manifest.json", "digest": digest_of(MANIFEST),
+             "purpose": "evidence-manifest"},
+        ]
+        ok, reason = self._verify(envelope,
+                                  evidence_manifest=b'{"refs":["lie.json"]}')
+        self.assertFalse(ok)
+        self.assertEqual(reason, "evidence-manifest-digest-mismatch")
+
+    def test_substituted_attestation_fails(self):
+        envelope = _envelope(self.key_id)
+        envelope["evidence_refs"] = envelope["evidence_refs"] + [
+            {"name": "attestation.bin", "digest": digest_of(ATTESTATION),
+             "purpose": "detached-attestation"},
+        ]
+        ok, reason = self._verify(envelope, attestation=b"other-attestation")
+        self.assertFalse(ok)
+        self.assertEqual(reason, "detached-attestation-digest-mismatch")
+
+    def test_missing_payload_is_non_pass(self):
+        ok, reason = self._verify(_envelope(self.key_id), payload=None)
+        self.assertFalse(ok)
+        self.assertEqual(reason, "missing-evidence-bytes:payload")
+
+    def test_missing_result_is_non_pass(self):
+        ok, reason = self._verify(_envelope(self.key_id), result=None)
+        self.assertFalse(ok)
+        self.assertEqual(reason, "missing-evidence-bytes:canonical-result")
+
+    def test_missing_manifest_is_non_pass(self):
+        envelope = _envelope(self.key_id)
+        envelope["evidence_refs"] = envelope["evidence_refs"] + [
+            {"name": "manifest.json", "digest": digest_of(MANIFEST),
+             "purpose": "evidence-manifest"},
+        ]
+        ok, reason = self._verify(envelope)
+        self.assertFalse(ok)
+        self.assertEqual(reason, "missing-evidence-bytes:evidence-manifest")
+
+    def test_valid_signature_over_lying_result_digest_fails(self):
+        # The signer is honest; the envelope lies that the result digest is
+        # something else. The signature over the lying envelope is valid, so
+        # only the recomputed digest stops it.
+        envelope = _envelope(self.key_id)
+        envelope["evidence_refs"] = [
+            {"name": "result.json", "digest": "sha256:" + "aa" * 32,
+             "purpose": "canonical-result"},
+        ]
+        signature = oap_evidence.sign_envelope(envelope, self.seed)
+        ok, reason = oap_evidence.verify_envelope(
+            envelope, signature, self.trust,
+            reference_time=self.reference_time, payload=PAYLOAD,
+            result=RESULT)
+        self.assertFalse(ok)
+        self.assertEqual(reason, "canonical-result-digest-mismatch")
+
+    def test_valid_signature_over_lying_payload_digest_fails(self):
+        envelope = dict(_envelope(self.key_id),
+                        payload_digest="sha256:" + "dd" * 32)
+        signature = oap_evidence.sign_envelope(envelope, self.seed)
+        ok, reason = oap_evidence.verify_envelope(
+            envelope, signature, self.trust,
+            reference_time=self.reference_time, payload=PAYLOAD)
+        self.assertFalse(ok)
+        self.assertEqual(reason, "payload-digest-mismatch")
+
+    def test_unretrievable_evidence_purpose_denies(self):
+        envelope = _envelope(self.key_id)
+        envelope["evidence_refs"] = envelope["evidence_refs"] + [
+            {"name": "remote.json", "digest": "sha256:" + "ab" * 32,
+             "purpose": "remote-artifact"},
+        ]
+        ok, reason = self._verify(envelope)
+        self.assertFalse(ok)
+        self.assertEqual(reason, "missing-evidence-bytes:remote-artifact")
+
+
+class TestCallerKeyringRejected(unittest.TestCase):
+    """Gate 2.2/2.4 wiring: the receiver never accepts a caller-supplied
+    keyring; trust comes only from the independently provisioned
+    TrustStore file."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.seed = _seed(0x11)
+        cls.public = ed25519.public_key(cls.seed)
+        cls.key_id = oap_evidence.key_id_for(cls.public)
+        cls.envelope = _envelope(cls.key_id)
+        cls.signature = oap_evidence.sign_envelope(cls.envelope, cls.seed)
+
+    def _verify_with(self, third_arg):
+        return oap_evidence.verify_envelope(
+            self.envelope, self.signature, third_arg,
+            reference_time="2026-10-04T12:30:00Z", payload=PAYLOAD,
+            result=RESULT)
+
+    def test_caller_list_keyring_is_rejected(self):
+        attacker = [{
+            "key_id": self.key_id,
+            "public_key": self.public.hex(),
+            "audience": "oap-observer",
+            "revoked": False,
+        }]
+        ok, reason = self._verify_with(attacker)
+        self.assertFalse(ok)
+        self.assertEqual(reason, "caller-supplied-keyring-rejected")
+
+    def test_caller_dict_keyring_is_rejected(self):
+        attacker = {self.key_id: {
+            "key_id": self.key_id,
+            "public_key": self.public.hex(),
+            "audience": "oap-observer",
+            "revoked": False,
+        }}
+        ok, reason = self._verify_with(attacker)
+        self.assertFalse(ok)
+        self.assertEqual(reason, "caller-supplied-keyring-rejected")
+
+    def test_attacker_key_in_caller_keyring_never_verifies(self):
+        # Even a fully self-consistent attacker keyring (their key, their
+        # signature over a well-formed envelope) is rejected as caller input.
+        attacker_seed = _seed(0x66)
+        attacker_public = ed25519.public_key(attacker_seed)
+        attacker_key_id = oap_evidence.key_id_for(attacker_public)
+        envelope = _envelope(attacker_key_id)
+        signature = oap_evidence.sign_envelope(envelope, attacker_seed)
+        ok, reason = oap_evidence.verify_envelope(envelope, signature, [{
+            "key_id": attacker_key_id,
+            "public_key": attacker_public.hex(),
+            "audience": "oap-observer",
+            "revoked": False,
+        }])
+        self.assertFalse(ok)
+        self.assertEqual(reason, "caller-supplied-keyring-rejected")
+
+    def test_trust_store_cannot_be_built_from_caller_data(self):
+        with self.assertRaises(TrustStoreError):
+            TrustStore([_trust_entry()])
+
+    def test_raw_wire_path_rejects_caller_keyring_too(self):
+        ok, reason = oap_evidence.verify_envelope(
+            b"not-even-json", None, [{"key_id": "ed25519:" + "0" * 64}])
+        self.assertFalse(ok)
+        self.assertEqual(reason, "caller-supplied-keyring-rejected")
 
 
 class TestBoundedSliceSurface(unittest.TestCase):
@@ -638,13 +891,12 @@ class TestQuarantineNonAuthorizing(unittest.TestCase):
         key_id = oap_evidence.key_id_for(public)
         envelope = _envelope(key_id)
         signature = oap_evidence.sign_envelope(envelope, seed)
-        keyring = [{
-            "key_id": key_id,
-            "public_key": public.hex(),
-            "revoked": False,
-        }]
-        ok, reason = oap_evidence.verify_envelope(
-            envelope, signature, keyring)
+        with tempfile.TemporaryDirectory() as tmp:
+            trust = TrustStore.load(_trust_file(
+                tmp, [_trust_entry(key_id=key_id,
+                                   public_key=public.hex())]))
+            ok, reason = oap_evidence.verify_envelope(
+                envelope, signature, trust, payload=PAYLOAD, result=RESULT)
         self.assertTrue(ok, reason)
         self.assertIs(oap_evidence.NON_AUTHORIZING, True,
                       "verify success is non-authorizing; it is not a grant")
@@ -684,9 +936,9 @@ def _envelope(key_id=None):
         "expires_at": "2026-10-04T13:00:00Z",
         "native_status": "ADVISORY",
         "native_reason": "observation-only fixture",
-        "payload_digest": "sha256:" + hashlib.sha256(PAYLOAD).hexdigest(),
+        "payload_digest": digest_of(PAYLOAD),
         "evidence_refs": [
-            {"name": "result.json", "digest": "sha256:" + "aa" * 32,
+            {"name": "result.json", "digest": digest_of(RESULT),
              "purpose": "canonical-result"},
         ],
     }

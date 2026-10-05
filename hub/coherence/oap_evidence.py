@@ -21,9 +21,11 @@ HONEST SCOPE — bounded slice:
   - No live service, network API, OAP authority, or policy mutation is added.
   - No transport authentication (secure-method stage 2) and no consumer
     authorization (stage 4): those belong to the consumer, not to a library.
-  - Verification is against a caller-provisioned keyring AND a caller-supplied
-    reference time, never the host clock — a producer timestamp is never proof
-    of pre-revocation issuance, so freshness is the consumer's decision.
+  - Verification is against an independently provisioned `TrustStore`
+    (`hub.coherence.trust_store`, loaded from a provisioned trust file —
+    never a caller-supplied keyring) AND a caller-supplied reference time,
+    never the host clock — a producer timestamp is never proof of
+    pre-revocation issuance, so freshness is the consumer's decision.
 
 GATE 0 QUARANTINE (openspec/changes/harden-oap-evidence-verification):
 every envelope verified through this path is NON-AUTHORIZING. A True
@@ -37,6 +39,7 @@ import hashlib
 from datetime import datetime
 
 from . import canon, ed25519, strict_parse
+from .trust_store import TrustStore, digest_of
 
 CONTRACT_VERSION = "devgate.oap-evidence/v1"
 # Gate 0 quarantine marker. True while outputs of this path remain
@@ -146,14 +149,13 @@ def _public_bytes(entry):
     return None
 
 
-def _lookup(keyring, key_id):
-    """Keyring may be a key_id -> entry mapping or a list of entries."""
-    if isinstance(keyring, dict):
-        return keyring.get(key_id)
-    for entry in keyring or []:
-        if isinstance(entry, dict) and entry.get("key_id") == key_id:
-            return entry
-    return None
+# Evidence purposes the receiver knows how to fetch bytes for, mapped to the
+# `verify_envelope` keyword that carries those bytes (Gate 2.3).
+PURPOSE_TO_PARAM = {
+    "canonical-result": "result",
+    "evidence-manifest": "evidence_manifest",
+    "detached-attestation": "attestation",
+}
 
 
 def _parse_time(value):
@@ -164,26 +166,76 @@ def _parse_time(value):
         return None
 
 
-def verify_envelope(envelope, signature, keyring, *, reference_time=None,
-                    payload=None, audience=None) -> tuple:
+def _bind_digest(declared, supplied, name):
+    """Recompute one declared digest from the supplied bytes. Fail closed.
+
+    Missing bytes for a declared digest are non-PASS; so are bytes that do
+    not hash to the declared value.
+    """
+    if supplied is None:
+        return False, f"missing-evidence-bytes:{name}"
+    if declared != digest_of(supplied):
+        return False, f"{name}-digest-mismatch"
+    return True, None
+
+
+def _bind_v1_evidence(envelope, payload, result, evidence_manifest,
+                      attestation):
+    """Recompute every declared v1 digest from supplied bytes."""
+    ok, reason = _bind_digest(envelope.get("payload_digest"), payload,
+                              "payload")
+    if not ok:
+        return False, reason
+    refs = envelope.get("evidence_refs")
+    if not isinstance(refs, list):
+        return False, "invalid-evidence-ref"
+    for ref in refs:
+        if not isinstance(ref, dict) or \
+                not all(isinstance(ref.get(k), str)
+                        for k in ("name", "digest", "purpose")):
+            return False, "invalid-evidence-ref"
+        purpose = ref["purpose"]
+        supplied = {
+            "result": result,
+            "evidence_manifest": evidence_manifest,
+            "attestation": attestation,
+        }.get(PURPOSE_TO_PARAM.get(purpose))
+        ok, reason = _bind_digest(ref["digest"], supplied, purpose)
+        if not ok:
+            return False, reason
+    return True, None
+
+
+def verify_envelope(envelope, signature, trust_store, *, reference_time=None,
+                    payload=None, audience=None, result=None,
+                    evidence_manifest=None, attestation=None) -> tuple:
     """Verify a detached envelope signature. Returns (ok, reason).
 
     Fail-closed, first failure wins, each with a distinct reason code so no
     stage's failure can be smoothed into a later stage's success:
 
-      shape/version: envelope-malformed -> unsupported-contract-version ->
-        missing-binding-field -> unknown-critical-field -> unsupported-direction
-      key:           unknown-key -> revoked-key -> key-audience-mismatch ->
-        audience-mismatch -> key-not-yet-valid -> key-expired ->
-        key-entry-missing-public-key -> key-id-mismatch
-      integrity:     payload-digest-mismatch -> signature-malformed ->
-        signature-mismatch
+      trust:   caller-supplied-keyring-rejected -> reference-time-unparseable
+               -> unknown-key -> revoked-key -> key-producer-mismatch ->
+               key-direction-mismatch -> key-audience-mismatch ->
+               key-not-yet-valid -> key-expired ->
+               key-entry-missing-public-key -> key-id-mismatch
+      context: audience-mismatch
+      binding: missing-evidence-bytes:* -> *-digest-mismatch
+      crypto:  signature-malformed -> signature-mismatch
 
-    `keyring` is the independently provisioned signer set (never learned from
-    the artifact). `reference_time` governs the key validity window and is the
-    consumer's context time, not the host clock. `payload`, when supplied, is
-    the exact bytes `payload_digest` must commit to. `audience`, when supplied,
-    is the audience the consumer believes it is.
+    `trust_store` MUST be a `hub.coherence.trust_store.TrustStore` loaded
+    from a provisioned trust file. A caller-supplied keyring (list, dict, or
+    any other non-TrustStore value) is rejected outright: caller input is
+    not trust. `reference_time` governs the key validity window and is the
+    consumer's context time, not the host clock.
+
+    Evidence binding (Gate 2.3): `payload`, `result`, `evidence_manifest`
+    and `attestation` are the real evidence bytes. Every digest the envelope
+    declares (`payload_digest`, and every `evidence_refs` entry matched by
+    purpose) is recomputed from the supplied bytes; declared-but-missing
+    bytes are non-PASS, as are bytes that do not hash to the declared
+    digest. `audience`, when supplied, is the audience the consumer
+    believes it is.
 
     Raw bytes are the v2 wire object and are routed through the strict parser
     first (`hub.coherence.strict_parse`): duplicate keys at any depth, invalid
@@ -194,8 +246,11 @@ def verify_envelope(envelope, signature, keyring, *, reference_time=None,
     """
     if isinstance(envelope, (bytes, bytearray, memoryview)):
         return strict_parse.verify_wire_envelope(
-            bytes(envelope), keyring, reference_time=reference_time,
-            payload=payload, audience=audience)
+            bytes(envelope), trust_store, reference_time=reference_time,
+            payload=payload, audience=audience, result=result,
+            evidence_manifest=evidence_manifest, attestation=attestation)
+    if not isinstance(trust_store, TrustStore):
+        return False, "caller-supplied-keyring-rejected"
     if not isinstance(envelope, dict):
         return False, "envelope-malformed"
     version = envelope.get("contract_version")
@@ -211,38 +266,21 @@ def verify_envelope(envelope, signature, keyring, *, reference_time=None,
     if direction not in SUPPORTED_DIRECTIONS:
         return False, f"unsupported-direction:{direction!r}"
 
-    key_id = envelope.get("producer_key_id")
-    entry = _lookup(keyring, key_id)
-    if not isinstance(entry, dict):
-        return False, f"unknown-key:{key_id}"
-    if entry.get("revoked"):
-        return False, f"revoked-key:{key_id}"
-
-    provisioned_audience = entry.get("audience")
-    if provisioned_audience is not None and \
-            provisioned_audience != envelope.get("consumer_audience"):
-        return False, f"key-audience-mismatch:{provisioned_audience}"
-    if audience is not None and envelope.get("consumer_audience") != audience:
-        return False, f"audience-mismatch:{envelope.get('consumer_audience')}"
-
+    reference = None
     if reference_time is not None:
         reference = _parse_time(reference_time)
         if reference is None:
             return False, "reference-time-unparseable"
-        valid_from = entry.get("valid_from")
-        if valid_from:
-            edge = _parse_time(valid_from)
-            if edge is None:
-                return False, "key-window-unparseable:valid_from"
-            if reference < edge:
-                return False, "key-not-yet-valid"
-        valid_until = entry.get("valid_until")
-        if valid_until:
-            edge = _parse_time(valid_until)
-            if edge is None:
-                return False, "key-window-unparseable:valid_until"
-            if reference > edge:
-                return False, "key-expired"
+
+    key_id = envelope.get("producer_key_id")
+    entry, reason = trust_store.evaluate(
+        key_id, producer_id=envelope.get("producer_id"), direction=direction,
+        audience=envelope.get("consumer_audience"), reference_time=reference)
+    if reason:
+        return False, reason
+
+    if audience is not None and envelope.get("consumer_audience") != audience:
+        return False, f"audience-mismatch:{envelope.get('consumer_audience')}"
 
     public = _public_bytes(entry)
     if public is None:
@@ -250,10 +288,10 @@ def verify_envelope(envelope, signature, keyring, *, reference_time=None,
     if key_id_for(public) != key_id:
         return False, f"key-id-mismatch:{key_id}"
 
-    if payload is not None:
-        actual = "sha256:" + hashlib.sha256(payload).hexdigest()
-        if envelope.get("payload_digest") != actual:
-            return False, "payload-digest-mismatch"
+    ok, reason = _bind_v1_evidence(envelope, payload, result,
+                                   evidence_manifest, attestation)
+    if not ok:
+        return False, reason
 
     raw = _signature_bytes(signature)
     if raw is None:
