@@ -32,10 +32,9 @@ def _context_check(body, expected):
     for field in fields:
         if body[field] != expected.get(field):
             return f"context-mismatch:{field}"
-    if body["native_decision"] != expected.get("native_decision", body["native_decision"]):
-        return "context-mismatch:native_decision"
-    if body["semantics"] != expected.get("semantics", body["semantics"]):
-        return "context-mismatch:semantics"
+    for field in ("native_decision", "native_exit_code", "native_status", "semantics"):
+        if body[field] != expected.get(field):
+            return f"context-mismatch:{field}"
     return None
 
 
