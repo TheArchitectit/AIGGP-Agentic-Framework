@@ -315,6 +315,48 @@ class TestBoundedSliceSurface(unittest.TestCase):
                     f"canonical DevGate schemas")
 
 
+class TestQuarantineNonAuthorizing(unittest.TestCase):
+    """Gate 0: outputs of the evidence path are explicitly non-authorizing.
+
+    See openspec/changes/harden-oap-evidence-verification/inventory-s-e0.md.
+    A successful verify is math-only and must not satisfy a mandatory,
+    promotion, release, or OAP-effect check.
+    """
+
+    def test_modules_carry_the_non_authorizing_marker(self):
+        self.assertIs(ed25519.NON_AUTHORIZING, True)
+        self.assertIs(oap_evidence.NON_AUTHORIZING, True)
+
+    def test_verified_envelope_is_still_non_authorizing(self):
+        seed = _seed(0x11)
+        public = ed25519.public_key(seed)
+        key_id = oap_evidence.key_id_for(public)
+        envelope = _envelope(key_id)
+        signature = oap_evidence.sign_envelope(envelope, seed)
+        keyring = [{
+            "key_id": key_id,
+            "public_key": public.hex(),
+            "revoked": False,
+        }]
+        ok, reason = oap_evidence.verify_envelope(
+            envelope, signature, keyring)
+        self.assertTrue(ok, reason)
+        self.assertIs(oap_evidence.NON_AUTHORIZING, True,
+                      "verify success is non-authorizing; it is not a grant")
+
+    def test_no_authorization_api_exists_on_the_quarantined_path(self):
+        self.assertEqual(
+            set(oap_evidence.__dict__) & {
+                "grant", "authorize", "authorize_evidence",
+                "promote", "allow_mandatory", "effect_authority"}, set())
+        self.assertEqual(
+            set(ed25519.__dict__) & {
+                "grant", "authorize", "promote", "allow_mandatory"}, set())
+
+
+
+
+
 def _envelope(key_id=None):
     """A minimal but complete flat envelope per the secure-method field list."""
     return {

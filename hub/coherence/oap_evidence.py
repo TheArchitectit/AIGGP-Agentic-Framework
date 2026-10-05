@@ -24,6 +24,14 @@ HONEST SCOPE — bounded slice:
   - Verification is against a caller-provisioned keyring AND a caller-supplied
     reference time, never the host clock — a producer timestamp is never proof
     of pre-revocation issuance, so freshness is the consumer's decision.
+
+GATE 0 QUARANTINE (openspec/changes/harden-oap-evidence-verification):
+every envelope verified through this path is NON-AUTHORIZING. A True
+return from `verify_envelope` means the detached signature and local key
+window checks passed; it is not authenticity, not authorization, and MUST
+NOT satisfy a mandatory, promotion, release, or OAP-effect check until that
+change's Gates 1-3 pass and an independent security reviewer plus the OAP
+owner approve. See NON_AUTHORIZING and inventory-s-e0.md.
 """
 import hashlib
 from datetime import datetime
@@ -31,6 +39,9 @@ from datetime import datetime
 from . import canon, ed25519
 
 CONTRACT_VERSION = "devgate.oap-evidence/v1"
+# Gate 0 quarantine marker. True while outputs of this path remain
+# non-authorizing (see module docstring and inventory-s-e0.md).
+NON_AUTHORIZING = True
 SUPPORTED_DIRECTIONS = frozenset({
     "devgate-to-oap", "oap-to-devgate", "guardrails-to-peer", "peer-to-guardrails",
 })

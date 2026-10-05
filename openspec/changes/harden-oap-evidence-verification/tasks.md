@@ -21,9 +21,9 @@ All tasks are unimplemented specification work. Gates are ordered; no later gate
 **Dependencies:** None (first gate; must complete before S-E1–S-E3).
 **Stop conditions:** Any production mandatory/promotion/effect still accepts unsafe-path evidence → stop and keep quarantine. Unsigned/HMAC fallback, stale-cache acceptance, exception, or legacy-key bypass introduced → reject and stop. Inventory cannot name a responsible owner for every caller → stop until owners are assigned.
 
-- [ ] 0.1 Inventory all production/test/CI callers of `hub/coherence/ed25519.py` and `hub/coherence/oap_evidence.py`, artifact consumers, and already accepted evidence at the affected revision; document scope and responsible owner.
-- [ ] 0.2 Disable mandatory/promotion/effect use of evidence verified by the unsafe path; return explicit non-authorizing status. Do not replace this with unsigned/HMAC fallback, stale-cache acceptance, exception, or legacy-key bypass.
-- [ ] 0.3 Publish rollback/reenrollment and re-verification plan for previous artifacts; only trusted fresh reevaluation after remediation can restore authority.
+- [x] 0.1 Inventory all production/test/CI callers of `hub/coherence/ed25519.py` and `hub/coherence/oap_evidence.py`, artifact consumers, and already accepted evidence at the affected revision; document scope and responsible owner. (inventory-s-e0.md)
+- [x] 0.2 Disable mandatory/promotion/effect use of evidence verified by the unsafe path; return explicit non-authorizing status. Do not replace this with unsigned/HMAC fallback, stale-cache acceptance, exception, or legacy-key bypass. (NON_AUTHORIZING markers + module docstrings; no live mandatory/promotion/effect consumer exists)
+- [x] 0.3 Publish rollback/reenrollment and re-verification plan for previous artifacts; only trusted fresh reevaluation after remediation can restore authority. (inventory-s-e0.md)
 
 ## Gate 1 — Crypto and wire decisions
 

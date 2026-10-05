@@ -15,6 +15,14 @@ Honest limitation: the scalar arithmetic is plain Python, so it is not
 constant-time. It is unsuitable where an attacker can time the signing process
 on the same host; it is adequate for detached artifact verification. Do not
 present it as more than that.
+
+GATE 0 QUARANTINE (openspec/changes/harden-oap-evidence-verification):
+every artifact produced or checked through this path is NON-AUTHORIZING.
+A True return from `verify` is a mathematical equation check only — it is
+not authenticity, not authorization, and MUST NOT satisfy a mandatory,
+promotion, release, or OAP-effect check until that change's Gates 1–3
+pass and an independent security reviewer plus the OAP owner approve.
+See NON_AUTHORIZING and inventory-s-e0.md.
 """
 import hashlib
 
@@ -26,6 +34,11 @@ _I = pow(2, (_Q - 1) // 4, _Q)
 SEED_SIZE = 32
 PUBLIC_KEY_SIZE = 32
 SIGNATURE_SIZE = 64
+
+# Gate 0 quarantine marker. True while outputs of this path remain
+# non-authorizing (see module docstring and inventory-s-e0.md). Callers
+# must treat a successful verify as math-only, never as a grant.
+NON_AUTHORIZING = True
 
 
 class Ed25519Error(ValueError):
