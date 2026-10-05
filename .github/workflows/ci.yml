@@ -182,7 +182,8 @@ jobs:
           # is what makes the pin a pin rather than a version string in a file.
           echo "${SHA256}  gitleaks.tar.gz" | sha256sum -c -
           tar xzf gitleaks.tar.gz gitleaks
-          install -m 0755 gitleaks /usr/local/bin/gitleaks
+          install -m 0755 gitleaks "$RUNNER_TEMP/gitleaks"
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
       - name: The scanner is the pinned version (an unversioned scanner is not this contract)
         run: |
           set -eu
