@@ -34,7 +34,7 @@ import json
 import re
 from datetime import datetime
 
-from . import canon, ed25519
+from . import canon, ed25519_vetted as ed25519
 from .trust_store import TrustStore, digest_of
 
 # --- resource bounds (contract-v2.md §2) -----------------------------------
