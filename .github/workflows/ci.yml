@@ -56,8 +56,8 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "20"
-      - name: Install pytest
-        run: python3 -m pip install --quiet pytest
+      - name: Install test dependencies
+        run: python3 -m pip install --quiet pytest cryptography==45.0.7
       - name: pytest suite (collection is deterministic — tests/__init__.py)
         run: python3 -m pytest tests/ -v
       - name: guardrails scanner fixture suite
