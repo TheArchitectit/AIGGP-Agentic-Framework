@@ -1,12 +1,6 @@
 # Capability: OAP Evidence Consumer Contract
 
-## Purpose
-
-Define a narrow, result-preserving adapter between AIGGP/DevGate coherence
-evidence and an OAP authority. AIGGP produces verifiable evidence; OAP decides
-whether it is required and independently authorizes effects.
-
-## Requirements
+## ADDED Requirements
 
 ### Requirement: Exact DevGate evidence binding
 <!-- id: coh-oap-01 -->
@@ -91,3 +85,25 @@ status laundering.
 - **WHEN** the contract passes conformance but mandatory owner approval is absent
 - **THEN** output remains advisory/observe-only and cannot authorize an effect,
   merge, release, or policy mutation
+
+### Requirement: Only a bounded non-authorizing local observer exists today
+<!-- id: coh-oap-08 -->
+The only consumer implemented for this contract SHALL be the bounded,
+non-authorizing local observer (`hub/coherence/oap_observer.py`,
+`NON_AUTHORIZING = True`) plus the local producer→parser→verifier→observer
+loopback. No real OAP receiver or OAP authority service SHALL be claimed to
+exist, and no cross-language canonical-byte or signature vectors against a Go
+OAP consumer SHALL be claimed to exist. The observer SHALL NOT authorize an
+OAP effect, promotion, release, merge, or policy mutation, and it SHALL NOT
+grant a principal, tenant, role, scope, credential, or exception. Its output
+SHALL be advisory/observe-only.
+
+#### Scenario: absent receiver is not reported as an integration
+- **WHEN** any result, report, or evidence note describes this change's status
+- **THEN** it states that no real Go OAP receiver and no cross-language vectors
+  exist, and does not present the local loopback as an OAP integration
+
+#### Scenario: observer attempts to authorize
+- **WHEN** the local observer's output is offered as authorization for an OAP
+  effect, promotion, release, merge, or policy mutation
+- **THEN** the attempt is refused because the observer is non-authorizing

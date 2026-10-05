@@ -61,7 +61,8 @@ npm install --no-save --no-audit --no-fund @fission-ai/openspec@1.13.0
 npx openspec validate --all --strict
 ```
 
-Observed result: **NOT green — 1 failed.** Recorded honestly, not suppressed.
+Observed result at the baseline revision (`02927bc`): **NOT green — 1 failed.**
+Recorded honestly, not suppressed.
 
 ```
 Totals: 32 passed, 1 failed (33 items)
@@ -76,11 +77,31 @@ npx openspec validate add-oap-evidence-consumer --type change --strict  →  exi
 `change/harden-oap-evidence-verification` validates **green** under the same
 command.
 
-The failing item is pre-existing at the baseline revision and is **not**
+The failing item was pre-existing at the baseline revision and was **not**
 introduced by T134: `add-oap-evidence-consumer/specs/oap-evidence-consumer/spec.md`
-uses no native `## ADDED Requirements` delta grammar. Fixing that grammar is
-this change's task 3.2 / the consumer change's own work and is left open — a
-green result was neither produced nor claimed.
+used no native `## ADDED Requirements` delta grammar.
+
+### Re-run after the delta-grammar fix
+
+That grammar was then fixed (the `oap-evidence-consumer` delta was restructured
+under `## ADDED Requirements` with `### Requirement:` / `#### Scenario:`
+blocks, and requirement `coh-oap-08` records that only a bounded non-authorizing
+local observer exists — no real Go OAP receiver and no cross-language vectors).
+The same pinned command was re-run:
+
+```
+npm install --no-save --no-audit --no-fund @fission-ai/openspec@1.13.0
+npx openspec validate --all --strict
+```
+
+Observed result: **green — 0 failed.**
+
+```
+Totals: 33 passed, 0 failed (33 items)
+```
+
+`npx openspec validate add-oap-evidence-consumer --type change --strict` →
+`Change 'add-oap-evidence-consumer' is valid` (exit 0).
 
 ## What remains absent (unchanged by this note)
 
