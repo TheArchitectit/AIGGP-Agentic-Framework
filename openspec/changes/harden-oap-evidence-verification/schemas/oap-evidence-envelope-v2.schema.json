@@ -1,0 +1,86 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/TheArchitectit/DevGate-Agentic-Framework/openspec/changes/harden-oap-evidence-verification/schemas/oap-evidence-envelope-v2.schema.json",
+  "title": "devgate.oap-evidence/v2 observe-only wire envelope",
+  "description": "Canonical signed wire object for the first DevGate->Go OAP slice. Exactly two top-level members: body (canonical JSON) and signature (detached). Observe-only; carries no authorization or policy-mutation capability.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["body", "signature"],
+  "properties": {
+    "body": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_version",
+        "direction",
+        "producer_id",
+        "consumer_audience",
+        "tenant_or_project_id",
+        "subject_kind",
+        "subject_digest",
+        "request_id",
+        "evaluation_id",
+        "nonce",
+        "idempotency_key",
+        "issued_at",
+        "expires_at",
+        "policy_digest",
+        "context_digest",
+        "evaluator_digest",
+        "native_decision",
+        "native_exit_code",
+        "semantics",
+        "native_status",
+        "native_reason",
+        "result_digest",
+        "evidence_manifest_digest",
+        "attestation_digest",
+        "payload_digest",
+        "observe_only"
+      ],
+      "properties": {
+        "contract_version": { "const": "devgate.oap-evidence/v2" },
+        "direction": { "const": "devgate-to-oap" },
+        "producer_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "consumer_audience": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "tenant_or_project_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "subject_kind": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "subject_digest": { "$ref": "#/definitions/digest" },
+        "request_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "evaluation_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "nonce": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "idempotency_key": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "issued_at": { "type": "string", "format": "date-time" },
+        "expires_at": { "type": "string", "format": "date-time" },
+        "policy_digest": { "$ref": "#/definitions/digest" },
+        "context_digest": { "$ref": "#/definitions/digest" },
+        "evaluator_digest": { "$ref": "#/definitions/digest" },
+        "native_decision": { "enum": ["PASS", "ADVISORY", "FAIL", "ERROR"] },
+        "native_exit_code": { "enum": [0, 10, 20, 30, 31, 32, 33, 40] },
+        "semantics": { "enum": ["fresh-promotion", "replay"] },
+        "native_status": {
+          "enum": ["PASS", "ADVISORY", "FAIL", "ERROR", "EMPTY", "SKIP", "UNKNOWN", "INCONCLUSIVE", "MALFORMED"]
+        },
+        "native_reason": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "result_digest": { "$ref": "#/definitions/digest" },
+        "evidence_manifest_digest": { "$ref": "#/definitions/digest" },
+        "attestation_digest": { "$ref": "#/definitions/digest" },
+        "payload_digest": { "$ref": "#/definitions/digest" },
+        "observe_only": { "const": true }
+      }
+    },
+    "signature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "key_id", "value"],
+      "properties": {
+        "algorithm": { "const": "Ed25519" },
+        "key_id": { "type": "string", "pattern": "^ed25519:[0-9a-f]{64}$" },
+        "value": { "type": "string", "pattern": "^ed25519:[0-9a-f]{128}$" }
+      }
+    }
+  },
+  "definitions": {
+    "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  }
+}

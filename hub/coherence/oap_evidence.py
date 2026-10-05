@@ -36,7 +36,7 @@ owner approve. See NON_AUTHORIZING and inventory-s-e0.md.
 import hashlib
 from datetime import datetime
 
-from . import canon, ed25519
+from . import canon, ed25519, strict_parse
 
 CONTRACT_VERSION = "devgate.oap-evidence/v1"
 # Gate 0 quarantine marker. True while outputs of this path remain
@@ -184,7 +184,18 @@ def verify_envelope(envelope, signature, keyring, *, reference_time=None,
     consumer's context time, not the host clock. `payload`, when supplied, is
     the exact bytes `payload_digest` must commit to. `audience`, when supplied,
     is the audience the consumer believes it is.
+
+    Raw bytes are the v2 wire object and are routed through the strict parser
+    first (`hub.coherence.strict_parse`): duplicate keys at any depth, invalid
+    UTF-8, unbounded resources, unknown critical fields, an unsupported
+    version/direction, invalid types and noncanonical bytes are rejected before
+    canonicalization, then the v2 shape is verified. A dict is the already
+    parsed v1 flat envelope (backward-compatible path).
     """
+    if isinstance(envelope, (bytes, bytearray, memoryview)):
+        return strict_parse.verify_wire_envelope(
+            bytes(envelope), keyring, reference_time=reference_time,
+            payload=payload, audience=audience)
     if not isinstance(envelope, dict):
         return False, "envelope-malformed"
     version = envelope.get("contract_version")
