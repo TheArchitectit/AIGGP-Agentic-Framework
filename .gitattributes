@@ -3,3 +3,12 @@
 # core.autocrlf checkout must not rewrite the line endings. Without this rule a
 # Windows clone would materialize CRLF and break the byte-identity pin.
 openspec/changes/add-oap-evidence-consumer/vectors/*.json text eol=lf
+
+# Canonical DevGate schemas: tests/test_oap_evidence_signature.py pins their
+# SHA-256 as frozen bytes ("this slice must not edit existing canonical DevGate
+# schemas"), so the checked-out bytes are the contract on every platform. The
+# pin was once taken from a CRLF checkout, which made it pass on Windows and
+# fail on Linux; normalising the checkout to LF makes one pin correct
+# everywhere. A core.autocrlf clone must not rewrite these either.
+hub/coherence/schemas/*.schema.json text eol=lf
+

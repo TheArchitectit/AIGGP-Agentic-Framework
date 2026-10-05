@@ -101,13 +101,18 @@ RFC8032 = (
 
 # Freeze pins (constraint: existing canonical DevGate schemas must not change).
 # Update deliberately, never as a side effect of an unrelated slice.
+#
+# These are the SHA-256 of the COMMITTED (LF) bytes. `.gitattributes` pins the
+# checkout to LF for exactly this reason: a pin taken from a CRLF working copy
+# passes on Windows and fails on Linux, which is a property of the checkout,
+# not of the schema. Change a schema → update its pin from the new blob.
 FROZEN_SCHEMA_SHA256 = {
     CHANGE / "schemas" / "oap-evidence-envelope.schema.json":
         "7a4e126059c45702fa44c0ca612616996db9b694107d5ac605afbcef6fe0d5b5",
     REPO / "hub" / "coherence" / "schemas" / "result.schema.json":
-        "8560e9efb9e7a5180ffc113d67d0b13537de8a40003ad256908d97bd1f5a4f33",
+        "49f8af5888615827a4b72ba726fc23fd0ccfcdf2da8aa803a92a990b49cc84cd",
     REPO / "hub" / "coherence" / "schemas" / "attestation.schema.json":
-        "553812d39fa521bf322d3fbdfc85b9a1b75d6e5375600bcdae20828a393844b6",
+        "1832be3fc841bf2c71b2ad8702bc835d346c3894ce7590fd8df11712c7fc20ae",
 }
 
 
