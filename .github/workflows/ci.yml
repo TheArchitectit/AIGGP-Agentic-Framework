@@ -405,7 +405,8 @@ jobs:
                    tests/mutation_battery_monitor_default_deny.py \
                    tests/mutation_battery_runbook_claims.py \
                    tests/mutation_battery_zig_comment.py \
-                   tests/mutation_battery_compat.py; do
+                   tests/mutation_battery_compat.py \
+                   tests/mutation_battery_oap_acceptance.py; do
             echo "::group::$b"
             python3 "$b" || exit 1
             echo "::endgroup::"
