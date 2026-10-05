@@ -95,6 +95,127 @@ class TestEd25519Primitive(unittest.TestCase):
                 ed25519.sign(bad, b"m")
 
 
+# The eight small-order edwards25519 encodings (order 1, 2, 4, or 8).
+LOW_ORDER_POINTS = (
+    "0100000000000000000000000000000000000000000000000000000000000000",
+    "ecffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f",
+    "0000000000000000000000000000000000000000000000000000000000000000",
+    "0000000000000000000000000000000000000000000000000000000000000080",
+    "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc05",
+    "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac037a",
+    "26e8958fc2b227b045c3f489f2ef98f0d5dfac05d3c63339b13802886d53fc85",
+    "c7176a703d4dd84fba3c0b760d10670f2a2053fa2c39ccc64ec7fd7792ac03fa",
+)
+
+# edwards25519 prime; y values in [P, 2**255-1] are noncanonical.
+_EDWARDS_P = 2 ** 255 - 19
+
+_IDENTITY_ENC = bytes.fromhex(LOW_ORDER_POINTS[0])
+
+
+class TestStrictPointValidation(unittest.TestCase):
+    """Adversarial encodings the pre-fix decoder accepted.
+
+    hub/coherence/ed25519.py:76-85 previously decoded y without y < p,
+    ignored the x=0/sign=1 rule, and never rejected small-order points.
+    """
+
+    def test_identity_public_key_rejected(self):
+        self.assertEqual(_IDENTITY_ENC, bytes([0x01]) + bytes(31))
+        self.assertFalse(ed25519.verify(_IDENTITY_ENC, b"", b"\x00" * 64))
+        self.assertFalse(ed25519.verify(_IDENTITY_ENC, b"m", b"\x00" * 64))
+
+    def test_identity_r_rejected_with_valid_a(self):
+        pk = ed25519.public_key(_seed(0x11))
+        self.assertFalse(ed25519.verify(pk, b"m", _IDENTITY_ENC + bytes(32)))
+
+    def test_low_order_points_rejected_as_a_or_r(self):
+        message = b"low-order-message"
+        for hexenc in LOW_ORDER_POINTS:
+            point = bytes.fromhex(hexenc)
+            other = ed25519.public_key(_seed(0x11))
+            with self.subTest(point=hexenc[:16]):
+                self.assertFalse(ed25519.verify(point, message, bytes(64)))
+                self.assertFalse(ed25519.verify(
+                    other, message, point + bytes(32)))
+
+    def test_noncanonical_y_rejected(self):
+        # y = 1 + p fits in 255 bits but is >= p; must not decode.
+        y = 1 + _EDWARDS_P
+        self.assertLess(y, 1 << 255)
+        self.assertGreaterEqual(y, _EDWARDS_P)
+        raw = y.to_bytes(32, "little")
+        self.assertFalse(ed25519.verify(raw, b"m", bytes(64)))
+        # Max 255-bit y (all bits below the sign bit set) is also noncanonical.
+        raw_max = bytes([0xFF]) * 31 + bytes([0x7F])
+        self.assertFalse(ed25519.verify(raw_max, b"m", bytes(64)))
+
+    def test_invalid_sign_bit_rejected(self):
+        # x=0 with sign=1 is not a canonical encoding (RFC 8032 5.1.3).
+        for base in (
+            bytes([0x01]) + bytes(31),  # identity, x=0
+            bytes.fromhex(LOW_ORDER_POINTS[1]),  # (0, -1), x=0
+        ):
+            signed = bytearray(base)
+            signed[31] |= 0x80
+            with self.subTest(base=base.hex()[:16]):
+                self.assertFalse(ed25519.verify(bytes(signed), b"m", bytes(64)))
+
+    def test_malformed_lengths_rejected(self):
+        pk = ed25519.public_key(_seed(0x11))
+        sig = ed25519.sign(_seed(0x11), b"m")
+        for bad_pk in (b"", b"\x00" * 31, b"\x00" * 33):
+            self.assertFalse(ed25519.verify(bad_pk, b"m", sig))
+        for bad_sig in (b"", b"\x00" * 63, b"\x00" * 65):
+            self.assertFalse(ed25519.verify(pk, b"m", bad_sig))
+
+    def test_s_greater_or_equal_l_rejected(self):
+        pk = ed25519.public_key(_seed(0x11))
+        r = ed25519.sign(_seed(0x11), b"m")[:32]
+        s_max = (2 ** 256 - 1).to_bytes(32, "little")
+        self.assertFalse(ed25519.verify(pk, b"m", r + s_max))
+        s_l = (2 ** 252 + 27742317777372353535851937790883648493).to_bytes(32, "little")
+        self.assertFalse(ed25519.verify(pk, b"m", r + s_l))
+
+
+class TestMandatoryCheckRejectsIdentityForgery(unittest.TestCase):
+    """Mandatory security check: identity A + identity R + S=0 must FAIL.
+
+    Without the strict point-validation fix this test fails — the unsafe
+    verifier accepted the forgery for arbitrary messages — so the pre-fix
+    path cannot satisfy a mandatory check (see inventory-s-e0.md).
+    """
+
+    def test_identity_a_identity_r_s_zero_fails_multiple_messages(self):
+        identity_a = _IDENTITY_ENC
+        identity_r = _IDENTITY_ENC
+        forged = identity_r + bytes(32)  # S = 0
+        for message in (b"", b"m", b"hello world", b"\x00" * 64,
+                        b'{"decision":"PASS"}', bytes(range(256))):
+            with self.subTest(message=message[:20]):
+                self.assertFalse(
+                    ed25519.verify(identity_a, message, forged),
+                    "identity-key forgery must never verify")
+
+    def test_identity_forgery_cannot_verify_envelope(self):
+        identity_a = _IDENTITY_ENC
+        forged = "ed25519:" + (_IDENTITY_ENC + bytes(32)).hex()
+        key_id = oap_evidence.key_id_for(identity_a)
+        envelope = _envelope(key_id)
+        keyring = [{
+            "key_id": key_id,
+            "public_key": identity_a.hex(),
+            "revoked": False,
+        }]
+        ok, reason = oap_evidence.verify_envelope(envelope, forged, keyring)
+        self.assertFalse(ok)
+        self.assertIn(reason, ("signature-mismatch",
+                               f"key-id-mismatch:{key_id}"))
+
+
+
+
+
 class TestEnvelopeCanonicalBytes(unittest.TestCase):
     def test_frozen_field_list_matches_secure_method(self):
         text = (CHANGE / "secure-method.md").read_text(encoding="utf-8")

@@ -8,7 +8,9 @@ keeps artifact signing and verification working with nothing installed.
 
 Scope: deterministic keygen from a 32-byte seed, deterministic sign, and strict
 (cofactorless) verification of the RFC 8032 equation `[s]B = R + [k]A`.
-Correctness is pinned by the RFC 8032 §7.1 test vectors in
+Verification rejects identity and other low-order A/R points, noncanonical
+y >= p, invalid sign bits, S >= L, and malformed lengths. Correctness is
+pinned by the RFC 8032 §7.1 test vectors in
 `tests/test_oap_evidence_signature.py`.
 
 Honest limitation: the scalar arithmetic is plain Python, so it is not
@@ -86,16 +88,41 @@ def _encode_point(point):
     return (y | ((x & 1) << 255)).to_bytes(PUBLIC_KEY_SIZE, "little")
 
 
+def _is_small_order(point):
+    """True when the point order divides the cofactor 8 (includes identity).
+
+    The edwards25519 group order is 8*L, so [8]P is the identity exactly
+    when P is one of the eight small-order points. Rejecting those closes
+    the identity-key / identity-R / S=0 forgery class.
+    """
+    return _scalarmult(point, 8) == _IDENTITY
+
+
 def _decode_point(raw):
+    """Strict RFC 8032 point decode.
+
+    Rejects malformed length, noncanonical y >= p, the invalid sign-bit
+    encoding (x=0 with sign=1), points off the curve, and low-order
+    points (including the identity). A successful decode is a canonical
+    point of order > 8.
+    """
     if len(raw) != PUBLIC_KEY_SIZE:
         raise Ed25519Error("point encoding must be 32 bytes")
     y = int.from_bytes(raw, "little") & ((1 << 255) - 1)
+    if y >= _Q:
+        raise Ed25519Error("noncanonical y coordinate")
+    sign = raw[31] >> 7
     x = _xrecover(y)
-    if (x & 1) != (raw[31] >> 7):
+    if x == 0 and sign:
+        raise Ed25519Error("invalid sign bit: x=0 with sign=1")
+    if (x & 1) != sign:
         x = _Q - x
     if (-x * x + y * y - 1 - _D * x * x * y * y) % _Q:
         raise Ed25519Error("point is not on edwards25519")
-    return (x, y)
+    point = (x, y)
+    if _is_small_order(point):
+        raise Ed25519Error("low-order point")
+    return point
 
 
 def _clamped_scalar(h32):
@@ -129,7 +156,13 @@ def sign(seed: bytes, message: bytes) -> bytes:
 
 
 def verify(public: bytes, message: bytes, signature: bytes) -> bool:
-    """Strict verification: True only when the RFC 8032 equation holds."""
+    """Strict verification: True only when the RFC 8032 equation holds.
+
+    Strict profile: exact lengths, S < L, canonical A and R encodings
+    (y < p, valid sign bit), both on-curve, and neither small-order.
+    The identity-key / identity-R / S=0 forgery is rejected. Still
+    NON-AUTHORIZING (see NON_AUTHORIZING) — math only.
+    """
     if len(public) != PUBLIC_KEY_SIZE or len(signature) != SIGNATURE_SIZE:
         return False
     s = int.from_bytes(signature[32:], "little")
