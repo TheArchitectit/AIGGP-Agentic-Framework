@@ -13,6 +13,12 @@ y >= p, invalid sign bits, S >= L, and malformed lengths. Correctness is
 pinned by the RFC 8032 §7.1 test vectors in
 `tests/test_oap_evidence_signature.py`.
 
+Production status (design §1a / S-E1): this module is a test-vector and
+educational reference only. Private-key signing for any production key MUST
+use `hub.coherence.ed25519_vetted` (constant-time vetted provider). This
+module MUST NOT be presented as the mandatory verifier until the change's
+later gates and independent review complete.
+
 Honest limitation: the scalar arithmetic is plain Python, so it is not
 constant-time. It is unsuitable where an attacker can time the signing process
 on the same host; it is adequate for detached artifact verification. Do not

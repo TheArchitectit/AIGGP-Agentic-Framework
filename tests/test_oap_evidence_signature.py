@@ -22,6 +22,24 @@ sys.path.insert(0, str(REPO))
 
 from hub.coherence import canon, ed25519, oap_evidence
 
+try:
+    from hub.coherence import ed25519_vetted
+except Exception as _vetted_import_error:  # pragma: no cover - packaging probe
+    ed25519_vetted = None
+    _VETTED_AVAILABLE = False
+    _VETTED_SKIP = (
+        f"NOT_RUN: vetted Ed25519 provider (hub.coherence.ed25519_vetted) "
+        f"unavailable: {_vetted_import_error!r}")
+else:
+    _VETTED_AVAILABLE = bool(getattr(ed25519_vetted, "AVAILABLE", False))
+    if _VETTED_AVAILABLE:
+        _VETTED_SKIP = ""
+    else:
+        _VETTED_SKIP = (
+            "NOT_RUN: vetted Ed25519 provider package "
+            f"({getattr(ed25519_vetted, 'PROVIDER', 'cryptography')}) not importable "
+            "in this runtime; production signing stays non-authorizing")
+
 
 PAYLOAD = b'{"decision":"PASS","subject":"fixture-subject"}'
 SEED = bytes([0x11]) * ed25519.SEED_SIZE
@@ -211,6 +229,172 @@ class TestMandatoryCheckRejectsIdentityForgery(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn(reason, ("signature-mismatch",
                                f"key-id-mismatch:{key_id}"))
+
+
+def _adversarial_point_vectors(pk, r_prefix):
+    """(label, public, message, signature) vectors both providers must reject.
+
+    Same strict-validation classes as hub/coherence/ed25519.py and
+    hub/coherence/ed25519_vetted.py: identity A + identity R + S=0,
+    noncanonical y, low-order A/R, S >= L, malformed lengths.
+    """
+    s_zero = bytes(32)
+    vectors = [
+        ("identity-a-identity-r-s0",
+         _IDENTITY_ENC, b"m", _IDENTITY_ENC + s_zero),
+        ("identity-a-identity-r-s0-empty-msg",
+         _IDENTITY_ENC, b"", _IDENTITY_ENC + s_zero),
+        ("identity-a-identity-r-s0-json",
+         _IDENTITY_ENC, b'{"decision":"PASS"}', _IDENTITY_ENC + s_zero),
+        ("identity-r-valid-a",
+         pk, b"m", _IDENTITY_ENC + s_zero),
+        ("s-max",
+         pk, b"m", r_prefix + (2 ** 256 - 1).to_bytes(32, "little")),
+        ("s-eq-l",
+         pk, b"m", r_prefix + (2 ** 252 + 27742317777372353535851937790883648493)
+          .to_bytes(32, "little")),
+    ]
+    # Noncanonical y (y >= p) as A and as R.
+    y_noncanon = (1 + _EDWARDS_P).to_bytes(32, "little")
+    y_max = bytes([0xFF]) * 31 + bytes([0x7F])
+    vectors.append(("noncanonical-y-a", y_noncanon, b"m", bytes(64)))
+    vectors.append(("noncanonical-y-max-a", y_max, b"m", bytes(64)))
+    vectors.append(("noncanonical-y-r", pk, b"m", y_noncanon + s_zero))
+    # Every small-order encoding as A and as R.
+    for hexenc in LOW_ORDER_POINTS:
+        point = bytes.fromhex(hexenc)
+        vectors.append((f"low-order-a:{hexenc[:8]}", point, b"m", bytes(64)))
+        vectors.append((f"low-order-r:{hexenc[:8]}", pk, b"m", point + s_zero))
+    # Invalid sign-bit encodings (x=0 with sign=1).
+    for base in (bytes([0x01]) + bytes(31),
+                 bytes.fromhex(LOW_ORDER_POINTS[1])):
+        signed = bytearray(base)
+        signed[31] |= 0x80
+        vectors.append((f"invalid-sign-bit:{bytes(signed).hex()[:8]}",
+                        bytes(signed), b"m", bytes(64)))
+        vectors.append((f"invalid-sign-bit-r:{bytes(signed).hex()[:8]}",
+                        pk, b"m", bytes(signed) + s_zero))
+    return vectors
+
+
+def _malformed_length_vectors(pk, sig):
+    """(public, signature) pairs with wrong lengths — both must reject."""
+    return [
+        (b"", sig), (b"\x00" * 31, sig), (b"\x00" * 33, sig),
+        (pk, b""), (pk, b"\x00" * 63), (pk, b"\x00" * 65),
+    ]
+
+
+@unittest.skipUnless(_VETTED_AVAILABLE, _VETTED_SKIP)
+class TestVettedProviderAdversarial(unittest.TestCase):
+    """Gate 1.2 adversarial negatives against the vetted constant-time provider.
+
+    Requires the same strict validation as hub/coherence/ed25519.py. Skipped
+    with an explicit NOT_RUN reason when the vetted provider is not packaged.
+    """
+
+    def test_identity_a_identity_r_s_zero_rejected_multiple_messages(self):
+        identity_a = _IDENTITY_ENC
+        forged = identity_a + bytes(32)  # R = identity, S = 0
+        for message in (b"", b"m", b"hello world", b"\x00" * 64,
+                        b'{"decision":"PASS"}', bytes(range(256))):
+            with self.subTest(message=message[:20]):
+                self.assertFalse(
+                    ed25519_vetted.verify(identity_a, message, forged),
+                    "identity-key forgery must never verify on the vetted provider")
+
+    def test_adversarial_vectors_match_pure_python_strict_profile(self):
+        pk = ed25519_vetted.public_key(_seed(0x11))
+        self.assertEqual(pk, ed25519.public_key(_seed(0x11)))
+        r_prefix = ed25519_vetted.sign(_seed(0x11), b"m")[:32]
+        for label, public, message, signature in _adversarial_point_vectors(
+                pk, r_prefix):
+            with self.subTest(vector=label):
+                self.assertFalse(
+                    ed25519_vetted.verify(public, message, signature),
+                    f"vetted provider accepted adversarial vector {label}")
+                self.assertFalse(
+                    ed25519.verify(public, message, signature),
+                    f"pure-Python accepted adversarial vector {label}")
+
+    def test_malformed_lengths_rejected(self):
+        pk = ed25519_vetted.public_key(_seed(0x11))
+        sig = ed25519_vetted.sign(_seed(0x11), b"m")
+        for public, signature in _malformed_length_vectors(pk, sig):
+            with self.subTest(pk_len=len(public), sig_len=len(signature)):
+                self.assertFalse(ed25519_vetted.verify(public, b"m", signature))
+
+    def test_valid_rfc8032_vectors_still_pass(self):
+        for seed_hex, pk_hex, msg_hex, sig_hex in RFC8032:
+            with self.subTest(seed=seed_hex[:16]):
+                seed = bytes.fromhex(seed_hex)
+                message = bytes.fromhex(msg_hex)
+                self.assertEqual(ed25519_vetted.public_key(seed).hex(), pk_hex)
+                self.assertEqual(ed25519_vetted.sign(seed, message).hex(), sig_hex)
+                self.assertTrue(ed25519_vetted.verify(
+                    bytes.fromhex(pk_hex), message, bytes.fromhex(sig_hex)))
+
+    def test_quarantine_marker_present(self):
+        self.assertIs(ed25519_vetted.NON_AUTHORIZING, True)
+
+
+@unittest.skipUnless(_VETTED_AVAILABLE, _VETTED_SKIP)
+class TestCrossProviderInterop(unittest.TestCase):
+    """Sign with one Ed25519 provider, verify with the other (and vice versa).
+
+    Both providers must accept the same positives and reject the same
+    adversarial vectors. If this class is NOT_RUN, the interop gap is the
+    missing vetted provider (see _VETTED_SKIP).
+    """
+
+    def test_sign_cryptography_verify_pure_python(self):
+        for seed_hex, pk_hex, msg_hex, sig_hex in RFC8032:
+            with self.subTest(seed=seed_hex[:16]):
+                seed = bytes.fromhex(seed_hex)
+                message = bytes.fromhex(msg_hex)
+                signature = ed25519_vetted.sign(seed, message)
+                self.assertEqual(signature.hex(), sig_hex)
+                self.assertTrue(ed25519.verify(
+                    bytes.fromhex(pk_hex), message, signature))
+
+    def test_sign_pure_python_verify_cryptography(self):
+        for seed_hex, pk_hex, msg_hex, sig_hex in RFC8032:
+            with self.subTest(seed=seed_hex[:16]):
+                seed = bytes.fromhex(seed_hex)
+                message = bytes.fromhex(msg_hex)
+                signature = ed25519.sign(seed, message)
+                self.assertTrue(ed25519_vetted.verify(
+                    bytes.fromhex(pk_hex), message, signature))
+
+    def test_adversarial_vectors_rejected_by_both_providers(self):
+        seed = _seed(0x11)
+        pk = ed25519_vetted.public_key(seed)
+        self.assertEqual(pk, ed25519.public_key(seed))
+        r_prefix = ed25519_vetted.sign(seed, b"m")[:32]
+        for label, public, message, signature in _adversarial_point_vectors(
+                pk, r_prefix):
+            with self.subTest(vector=label):
+                self.assertFalse(ed25519_vetted.verify(public, message, signature),
+                                 f"vetted accepted {label}")
+                self.assertFalse(ed25519.verify(public, message, signature),
+                                 f"pure-Python accepted {label}")
+
+    def test_malformed_lengths_rejected_by_both_providers(self):
+        seed = _seed(0x11)
+        pk = ed25519_vetted.public_key(seed)
+        sig = ed25519_vetted.sign(seed, b"m")
+        for public, signature in _malformed_length_vectors(pk, sig):
+            with self.subTest(pk_len=len(public), sig_len=len(signature)):
+                self.assertFalse(ed25519_vetted.verify(public, b"m", signature))
+                self.assertFalse(ed25519.verify(public, b"m", signature))
+
+    def test_tampered_message_rejected_by_both(self):
+        seed = _seed(0x11)
+        pk = ed25519_vetted.public_key(seed)
+        signature = ed25519_vetted.sign(seed, b"m")
+        for provider in (ed25519_vetted, ed25519):
+            self.assertFalse(provider.verify(pk, b"m\x00", signature))
+            self.assertFalse(provider.verify(pk, b"", signature))
 
 
 
