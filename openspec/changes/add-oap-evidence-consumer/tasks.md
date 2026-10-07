@@ -15,7 +15,8 @@
 - [x] 0.2 Confirm AIGGP canonical decision/evidence/attestation schemas and
   status precedence are unchanged and verified at the target main commit. —
   **EXERCISED (local).** Existing canonical schemas are hash-frozen and asserted
-  unchanged in `tests/test_oap_evidence_signature.py:104-111,866-873`
+  unchanged in `tests/test_oap_evidence_signature.py:109-115` and
+  `tests/test_oap_envelope_signature.py:504-507`
   (`result.schema.json`, `attestation.schema.json`).
 - [ ] 0.3 Select one exact OAP consumer operation and one DevGate subject; record
   owners, policy/profile, evaluator, freshness, outage, and rollback. —
@@ -77,7 +78,7 @@
   no-relabel property.
 - [x] 2.5 Test that the adapter has no policy, role, signer, exception, stage,
   or required-check mutation capability. — **EXERCISED (local).**
-  `tests/test_oap_evidence_signature.py:848-864` (`TestBoundedSliceSurface`:
+  `tests/test_oap_envelope_signature.py:486-513` (`TestBoundedSliceSurface`:
   closed public API, no I/O or policy-mutation imports, no policy-grant verbs);
   `hub/coherence/oap_evidence.py` `__all__`.
 

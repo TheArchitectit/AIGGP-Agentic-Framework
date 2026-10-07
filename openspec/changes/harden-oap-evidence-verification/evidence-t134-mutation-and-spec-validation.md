@@ -103,12 +103,42 @@ Totals: 33 passed, 0 failed (33 items)
 `npx openspec validate add-oap-evidence-consumer --type change --strict` →
 `Change 'add-oap-evidence-consumer' is valid` (exit 0).
 
+## Re-verification at the remediation head (2026-10-06)
+
+All controls re-run at `3d92411` (`main`):
+
+- Mutation battery: `python tests/mutation_battery_oap_acceptance.py` under the
+  same documented no-op `fcntl` stub — **3/3 killed, negative control N1
+  survived** (unchanged from the recorded run above).
+- Strict OpenSpec validation (`npx @fission-ai/openspec@1.13.0 validate --all
+  --strict`): **33 passed, 0 failed**.
+- Secret scan (gitleaks 8.30.1, checksum-pinned): full-history + working-tree
+  sweep → 68 findings, all 20 allowlist dispositions matched,
+  **0 uncovered / 0 stale**. (Run through Git-bash on a Windows host, the
+  script's own report hand-off loses gitleaks' temp-file report to a
+  POSIX/Windows path mismatch; the numbers above come from running gitleaks
+  directly and diffing rule+path against `.guardrails/secret-allowlist.json`.
+  CI's Linux lane runs the script as written.)
+- OAP-focused suite: `pytest tests/ -k oap` → **146 passed, 147 subtests**;
+  the single skip is the POSIX-only `tests/test_mutation_harness.py` fcntl lane.
+- Traceability: `scripts/spec_traceability.py` → **advisory, 76/132
+  requirements covered** (56 uncovered; advisory, not a pass claim).
+- CI on the same revision: [run 37354967182](https://github.com/TheArchitectit/AIGGP-Agentic-Framework/actions/runs/37354967182) — success.
+
 ## What remains absent (unchanged by this note)
 
-- No real Go OAP receiver exists. The only consumer is the non-authorizing local
-  observer (`hub/coherence/oap_observer.py`, `NON_AUTHORIZING = True`). The
-  loopback in `tests/test_oap_v2_conformance.py` is a bounded local path, **not**
-  an OAP integration claim.
-- No cross-language canonical-byte/signature vectors against a Go consumer.
+- No Go OAP receiver exists in this repository. The only in-repo consumer is
+  the non-authorizing local observer (`hub/coherence/oap_observer.py`,
+  `NON_AUTHORIZING = True`). The loopback in `tests/test_oap_v2_conformance.py`
+  is a bounded local path, **not** an OAP integration claim.
+- The cross-language canonical-byte/signature vectors
+  (`openspec/changes/add-oap-evidence-consumer/vectors/oap-evidence-v2-vectors.json`)
+  are now frozen and byte-pinned, but they are Python-produced; consumption of
+  the vector FILE by a Go implementation is NOT_EXERCISED
+  (`vectors/README.md`). The independent Go receiver
+  (`cmd/oap-observer`, sibling `openagentplatform` repo) exercised the live
+  producer's output over a local file transport (S-E4,
+  `../add-oap-evidence-consumer/evidence-se4-local-pipe.md`) — observe-only,
+  no deployed transport, no full negative-fixture parity.
 - Independent security-reviewer and OAP-owner approval (task 3.4) remain
   NOT_EXERCISED. Everything here stays observe-only and non-authorizing.
