@@ -7,11 +7,13 @@ ships test isolation, regression scanning, deploy gates, scheduled drift scans,
 CI workflow templates, a self-hosted runner standard, agent-behavior skills,
 and runner-fleet monitoring.
 
-**AIGGP (Agent Intelligence Gate Loop Guardrails Platform) is a proposed
-unification direction, not the product currently shipped by this repository.**
-The distinction is intentional: the gates and evidence described below are
-DevGate capabilities; the cross-product guardrails unification and OAP
-integration remain proposals with separate prerequisites.
+**AIGGP (Agent Intelligence Gate Loop Guardrails Platform) names a unification
+direction; the cross-product guardrails unification itself is still a
+proposal.** The distinction is intentional: the gates and evidence described
+below are DevGate capabilities. The one OAP-adjacent capability that ships
+today is the observe-only OAP evidence v2 pipeline described under
+[OAP evidence v2 pipeline](#oap-evidence-v2-pipeline-observe-only) — it is
+non-authorizing by construction and is not an OAP integration.
 
 DevGate does not rearrange your code. It imposes no directory layout, language,
 package manager, or test framework. It looks at what you have and gates it.
@@ -102,6 +104,7 @@ pull-request-style range.
 | `schema-health-check.mjs` | Adapter-based SQLite, PostgreSQL, and MySQL schema validation; skips when unconfigured. |
 | `findings_to_spec.py` | Converts registry entries and live findings into OpenSpec requirement skeletons. |
 | `hub/` | Shipped runner-fleet monitoring and spec-coherence services. |
+| `tools/oap_produce.py` | Observe-only OAP evidence v2 producer CLI — NDJSON envelopes over stdout for a co-located receiver; no socket, no effect. |
 
 ### Rules and test evidence
 
@@ -240,6 +243,101 @@ and launch without a container; `--dry-run` prints the commands. The template's
 command is replayed and byte-compared so local and CI paths are checked rather
 than merely asserted to match.
 
+## OAP evidence v2 pipeline (observe-only)
+
+DevGate ships a complete, strictly-parsed, signature-verified **evidence
+pipeline** for the `devgate.oap-evidence/v2` wire — and nothing on that path
+authorizes anything. Every module carries `NON_AUTHORIZING = True`; a verified
+envelope is a mathematical and binding statement about fixed bytes, never
+authenticity, authorization, or permission to act.
+
+The path: a DevGate evaluation seals result, evidence-manifest, and
+detached-attestation bytes → `hub/coherence/oap_v2_producer.py` binds their
+digests into a canonical v2 envelope and signs it →
+`hub/coherence/strict_parse.py` parses the raw bytes under resource bounds and
+rejects duplicate keys, unknown critical fields, invalid UTF-8, out-of-window
+timestamps, unsupported versions, and status laundering **before
+canonicalization** → the vetted Ed25519 verifier
+(`hub/coherence/ed25519_vetted.py`, PyCA `cryptography`, strict cofactorless
+profile; a pure-Python reference implementation with the same strict point
+validation lives in `ed25519.py`) checks domain-separated signed bytes bound
+to a 64-hex key id → `hub/coherence/trust_store.py` authorizes a key only from
+a provisioned file (never from the artifact or caller input), with revocation
+snapshots and key windows → `hub/coherence/replay_guard.py` enforces durable,
+atomic replay/idempotency → `hub/coherence/oap_observer.py` renders a
+non-authorizing observation.
+
+Canonical JSON profile (`hub/coherence/canon.py`): sorted keys, ASCII
+escaping, no duplicate keys, int64-only integers, floats rejected.
+
+The producer CLI `tools/oap_produce.py` emits contract-v2 NDJSON envelopes
+(`python tools/oap_produce.py --all`) so a co-located consumer can read them
+from a real pipe. It opens no socket and performs no effect.
+
+### Frozen cross-language vectors
+
+`openspec/changes/add-oap-evidence-consumer/vectors/oap-evidence-v2-vectors.json`
+freezes 13 canonical-byte / signature / verdict cases — one valid artifact,
+the rest forgery, structural, timestamp-window, context, binding, and replay
+negatives. The file is locked to LF by `.gitattributes`: byte-identity to the
+committed file IS the contract. `tests/test_oap_evidence_vectors.py`
+regenerates the vectors from the current code and asserts byte-identity plus a
+SHA-256 pin, so silent drift in the producer, parser, trust store, or observer
+fails CI. The vectors are Python-produced reference material; a second
+implementation must reproduce them exactly.
+
+### Mutation testing battery
+
+`tests/mutation_battery_oap_acceptance.py` reintroduces the unsafe acceptances
+the verifier exists to prevent — identity/low-order key acceptance in both
+Ed25519 implementations and duplicate-key acceptance in the strict parser —
+and requires the existing suite to kill each one (observed 3/3 killed, with
+the negative control surviving). It is one of thirteen mutation batteries CI
+runs on every push, alongside mutation-strength checks on the evidence module
+and negative controls.
+
+### Signature test split
+
+The signature suite is split to stay under the file-size limit, with a
+deliberate seam: `tests/test_oap_evidence_signature.py` pins the Ed25519
+primitive itself (RFC 8032 positives, strict point validation, adversarial
+forgery, cross-provider interop); `tests/test_oap_envelope_signature.py` pins
+the envelope half (canonical bytes, sign/verify, evidence binding,
+caller-keyring refusal, the bounded public surface, and the frozen schema
+bytes).
+
+### Schema pinning
+
+The canonical DevGate schemas (`hub/coherence/schemas/*.schema.json`) and the
+vector file are pinned twice: `.gitattributes` forces LF so a `core.autocrlf`
+checkout materializes the committed bytes, and the tests carry SHA-256 pins
+over those committed LF bytes. A pin once taken from a CRLF checkout passed on
+Windows and failed on Linux; the LF rule makes one pin correct everywhere.
+
+### Secret-scan allowlist model
+
+The pinned gitleaks scan (`scripts/secret-scan.sh`, checksum-verified binary,
+version-pinned in CI) reports findings as locations only — rule, path, line,
+commit; never the secret value. Synthetic OAP fixtures that deliberately carry
+credential-shaped placeholders are dispositioned by rule+path entries in
+`.guardrails/secret-allowlist.json`, each with a reason on file. In a
+full-history sweep an unmatched entry is reported **stale** rather than
+silently ignored, so the allowlist cannot grow into a suppress-anything list.
+
+### Honest limitation — the Go receiver is not here
+
+This repository has no Go OAP receiver or consumer. Cross-language
+conformance is exercised by the independent Go receiver (`cmd/oap-observer`)
+in the sibling `openagentplatform` repository (branch
+`feat/oap-evidence-v2-receiver`), which consumed this repo's producer output
+across a process/language boundary with the expected verdicts for its cases —
+local file transport, observe-only (see
+`openspec/changes/add-oap-evidence-consumer/evidence-se4-local-pipe.md`).
+That exercise stops short of deployed transport, full negative-fixture parity,
+and acceptance: independent review has not happened. The frozen vectors in
+this repository remain the conformance fixtures a second implementation must
+reproduce exactly.
+
 ## Configuration and project overlays
 
 All source file types are checked. The defaults in `scripts/regression_check.py`
@@ -297,6 +395,10 @@ they are not claims that every proposed integration is deployed.
 | A pushed commit cannot carry a credential into `main` | `secrets` job → `scripts/secret-scan.sh` | **GREEN** — [run 36048653103](https://github.com/TheArchitectit/AIGGP-Agentic-Framework/actions/runs/36048653103) |
 | The evaluator image builds reproducibly with frozen schemas | `container-image` job → `podman build` and schema load | **GREEN** |
 | The recorded identity is fetchable by consumers | `container-image` job → anonymous pull by recorded digest | **GREEN** — [run 36055148205](https://github.com/TheArchitectit/AIGGP-Agentic-Framework/actions/runs/36055148205) |
+| The OAP v2 producer→parser→verifier→observer loopback rejects every recorded negative | `tests` job → `tests/test_oap_v2_conformance.py` and the OAP suite (146 tests, 147 subtests at `3d92411`) | **GREEN** — [run 37354967182](https://github.com/TheArchitectit/AIGGP-Agentic-Framework/actions/runs/37354967182) |
+| The frozen OAP vectors are byte-identical to the current code | `tests` job → `tests/test_oap_evidence_vectors.py` | **GREEN** — [run 37354967182](https://github.com/TheArchitectit/AIGGP-Agentic-Framework/actions/runs/37354967182) |
+| Reintroduced unsafe OAP acceptance is killed by a named test | `evaluator-integrity` job → `tests/mutation_battery_oap_acceptance.py` (3/3 killed, negative control survives) | **GREEN** — [run 37354967182](https://github.com/TheArchitectit/AIGGP-Agentic-Framework/actions/runs/37354967182) |
+| No credential-shaped finding is left uncovered by a disposition | `secrets` job → `scripts/secret-scan.sh` (0 uncovered on the pushed range in CI; 0 uncovered / 0 stale on a full-history sweep re-verified locally at `3d92411`) | **GREEN** — [run 37354967182](https://github.com/TheArchitectit/AIGGP-Agentic-Framework/actions/runs/37354967182) |
 
 ## Proposed integrations and roadmap
 
@@ -324,19 +426,46 @@ are not those proposed organization-security-kernel capabilities. See the
 [retirement record](openspec/changes/AIGGP-RETIREMENT-2026-10-02.md) and
 [disposition record](openspec/changes/AIGGP-DISPOSITION-2026-10-03.md).
 
-### OAP evidence integration — proposed and observe-only
+### OAP evidence integration — shipped observe-only, not authorized
 
-The OAP evidence consumer is a proposed change, not a deployed OAP integration
-or effect-authority path. The current hardening package states that its
-remediation is specification-only: no OAP grant, identity issuer, effect engine,
-new network service, or production enablement is shipped. A valid DevGate
-receipt would be evidence; OAP would independently own action authorization.
+The OAP evidence v2 pipeline ships (see
+[OAP evidence v2 pipeline](#oap-evidence-v2-pipeline-observe-only)) — as an
+observe-only, non-authorizing evidence path. It is still not a deployed OAP
+integration or an effect-authority path: no OAP grant, identity issuer, effect
+engine, network service, or production enablement ships, and the Go
+receiver's acceptance is pending independent review.
 
 Mandatory enablement remains blocked until the real producer → serialized
 artifact → parser → cryptographic verifier → independent trust store → receiver
-path is proven with malicious cases and approved by independent security and OAP
-owners for one exact operation. Observe-only fixtures or a unit-level signature
-pass are not OAP integration.
+path is proven end-to-end (deployed transport, full negative-fixture parity on
+the Go receiver) with malicious cases and approved by independent security and
+OAP owners for one exact operation. Observe-only fixtures, the frozen vectors,
+or a unit-level signature pass are not OAP integration.
+
+## Development setup
+
+The framework is a stdlib-first Python tree with a pytest suite and a Node
+scanner lane. There is no package manifest; dependencies are pinned in CI
+(Python 3.12, Node 20, TypeScript 5):
+
+```bash
+# pip
+python3 -m pip install pytest cryptography==45.0.7
+# or, with uv
+uv pip install pytest cryptography==45.0.7
+
+python3 -m pytest tests/          # full suite
+python3 -m pytest tests/ -k oap   # the OAP evidence v2 suite alone
+```
+
+`cryptography` is pinned at 45.0.7 in both the suite job and the
+evaluator-integrity job because the vetted Ed25519 provider behind the OAP
+evidence v2 signature path must be the same version where tests run and where
+mutations are killed — a skipped provider test cannot kill a mutation.
+
+Strict OpenSpec validation uses the pinned CLI:
+`npm install --no-save --no-audit --no-fund @fission-ai/openspec@1.13.0`
+then `npx openspec validate --all --strict`.
 
 ## License
 
