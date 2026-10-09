@@ -1,0 +1,39 @@
+# valid_artifact (file)
+/tmp/oap-w2/oap-observer -dev-keys /tmp/oap-parity/keys-default.json -reference-time 2026-10-05T12:01:00Z -audience oap-observer -payload /tmp/oap-parity/payload.bin -manifest /tmp/oap-parity/manifest.bin -attestation /tmp/oap-parity/attestation.bin -result /tmp/oap-parity/result.bin -file /tmp/oap-parity/raw.bin
+
+# identity_low_order_key_forgery (file)
+/tmp/oap-w2/oap-observer -dev-keys /tmp/oap-parity/keys-identity-key.json -reference-time 2026-10-05T12:01:00Z -audience oap-observer -payload /tmp/oap-parity/payload.bin -manifest /tmp/oap-parity/manifest.bin -attestation /tmp/oap-parity/attestation.bin -result /tmp/oap-parity/result.bin -file /tmp/oap-parity/raw.bin
+
+# duplicate_json_key (file)
+/tmp/oap-w2/oap-observer -dev-keys /tmp/oap-parity/keys-default.json -reference-time 2026-10-05T12:01:00Z -audience oap-observer -payload /tmp/oap-parity/payload.bin -manifest /tmp/oap-parity/manifest.bin -attestation /tmp/oap-parity/attestation.bin -result /tmp/oap-parity/result.bin -file /tmp/oap-parity/raw.bin
+
+# wrong_domain_separation_tag (file)
+/tmp/oap-w2/oap-observer -dev-keys /tmp/oap-parity/keys-default.json -reference-time 2026-10-05T12:01:00Z -audience oap-observer -payload /tmp/oap-parity/payload.bin -manifest /tmp/oap-parity/manifest.bin -attestation /tmp/oap-parity/attestation.bin -result /tmp/oap-parity/result.bin -file /tmp/oap-parity/raw.bin
+
+# expired_timestamp (file)
+/tmp/oap-w2/oap-observer -dev-keys /tmp/oap-parity/keys-default.json -reference-time 2026-10-05T12:05:00Z -audience oap-observer -payload /tmp/oap-parity/payload.bin -manifest /tmp/oap-parity/manifest.bin -attestation /tmp/oap-parity/attestation.bin -result /tmp/oap-parity/result.bin -file /tmp/oap-parity/raw.bin
+
+# not_yet_valid_timestamp (file)
+/tmp/oap-w2/oap-observer -dev-keys /tmp/oap-parity/keys-default.json -reference-time 2026-10-05T11:59:00Z -audience oap-observer -payload /tmp/oap-parity/payload.bin -manifest /tmp/oap-parity/manifest.bin -attestation /tmp/oap-parity/attestation.bin -result /tmp/oap-parity/result.bin -file /tmp/oap-parity/raw.bin
+
+# key_out_of_window (file)
+/tmp/oap-w2/oap-observer -dev-keys /tmp/oap-parity/keys-default.json -reference-time 2027-06-01T00:00:00Z -audience oap-observer -payload /tmp/oap-parity/payload.bin -manifest /tmp/oap-parity/manifest.bin -attestation /tmp/oap-parity/attestation.bin -result /tmp/oap-parity/result.bin -file /tmp/oap-parity/raw.bin
+
+# wrong_audience (file)
+/tmp/oap-w2/oap-observer -dev-keys /tmp/oap-parity/keys-default.json -reference-time 2026-10-05T12:01:00Z -audience other-audience -payload /tmp/oap-parity/payload.bin -manifest /tmp/oap-parity/manifest.bin -attestation /tmp/oap-parity/attestation.bin -result /tmp/oap-parity/result.bin -file /tmp/oap-parity/raw.bin
+
+# key_audience_mismatch (file)
+/tmp/oap-w2/oap-observer -dev-keys /tmp/oap-parity/keys-other-audience.json -reference-time 2026-10-05T12:01:00Z -payload /tmp/oap-parity/payload.bin -manifest /tmp/oap-parity/manifest.bin -attestation /tmp/oap-parity/attestation.bin -result /tmp/oap-parity/result.bin -file /tmp/oap-parity/raw.bin
+
+# lying_digest (file)
+/tmp/oap-w2/oap-observer -dev-keys /tmp/oap-parity/keys-default.json -reference-time 2026-10-05T12:01:00Z -audience oap-observer -payload /tmp/oap-parity/payload.bin -manifest /tmp/oap-parity/manifest.bin -attestation /tmp/oap-parity/attestation.bin -result /tmp/oap-parity/lying_digest_result.bin -file /tmp/oap-parity/raw.bin
+
+# lying_cross_link (file)
+/tmp/oap-w2/oap-observer -dev-keys /tmp/oap-parity/keys-default.json -reference-time 2026-10-05T12:01:00Z -payload /tmp/oap-parity/payload.bin -manifest /tmp/oap-parity/manifest.bin -attestation /tmp/oap-parity/attestation.bin -result /tmp/oap-parity/tampered_result.bin -full -expected /tmp/oap-parity/expected.json -file /tmp/oap-parity/raw.bin
+
+# wrong_tenant (file)
+/tmp/oap-w2/oap-observer -dev-keys /tmp/oap-parity/keys-default.json -reference-time 2026-10-05T12:01:00Z -payload /tmp/oap-parity/payload.bin -manifest /tmp/oap-parity/manifest.bin -attestation /tmp/oap-parity/attestation.bin -result /tmp/oap-parity/result.bin -full -expected /tmp/oap-parity/expected-wrong-tenant.json -file /tmp/oap-parity/raw.bin
+
+# replayed_jti (stdin(2x same line))
+/tmp/oap-w2/oap-observer -dev-keys /tmp/oap-parity/keys-default.json -reference-time 2026-10-05T12:01:00Z -payload /tmp/oap-parity/payload.bin -manifest /tmp/oap-parity/manifest.bin -attestation /tmp/oap-parity/attestation.bin -result /tmp/oap-parity/result.bin -full -expected /tmp/oap-parity/expected.json
+
