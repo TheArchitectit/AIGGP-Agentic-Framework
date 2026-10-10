@@ -125,7 +125,7 @@ write_ticket_env() {
     local hb_token="$1"
     local preserved=""
     if [[ -e "$TICKET_FILE" && ! -L "$TICKET_FILE" ]]; then
-        preserved="$(grep -vE '^(HUB_URL|RUNNER_NAME|HEARTBEAT_TOKEN|LAST_JOB_SEEN|SECRET_SCAN_REPORT)=' \
+        preserved="$(grep -vE '^(HUB_URL|RUNNER_NAME|HEARTBEAT_TOKEN|LAST_JOB_SEEN|SECRET_SCAN_REPORT|ADDRESS)=' \
             "$TICKET_FILE" 2>/dev/null || true)"
     fi
     (
@@ -141,6 +141,9 @@ write_ticket_env() {
             # the heartbeat reads it to find the report. One line, two readers,
             # and a test that the unit's copy still matches this one.
             printf 'SECRET_SCAN_REPORT=%s\n' "$SCAN_REPORT"
+            # Service discovery (mon-svcdisco-01): the heartbeat publishes this
+            # each tick; empty until the spoke resolves a routable address.
+            printf 'ADDRESS=%s\n' "$ADDRESS"
             if [[ -n "$preserved" ]]; then
                 printf '# --- not managed by runner-enroll.sh; carried over as found ---\n'
                 printf '%s\n' "$preserved"

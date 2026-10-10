@@ -230,10 +230,8 @@ if [[ "$MODE" == "enroll" ]]; then
 [[ "$INTERVAL" =~ ^[0-9]+$ && "$INTERVAL" -ge 10 && "$INTERVAL" -le 3600 ]] || die "--interval must be integer 10-3600, got: $INTERVAL" 1
     [[ "$REPO" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || die "--repo must be OWNER/REPO, got: $REPO" 1
     [[ "$HUB_URL" =~ ^https?:// ]] || die "hub URL must start with http(s)://, got: $HUB_URL" 1
-    # Publish a routable address so the hub can resolve services for this
-    # runner's host_alias (service discovery). Default to the node's tailnet
-    # IPv4; --address overrides. Empty is allowed (the hub then reports the
-    # service as resolved-but-no-address and consumers fail closed).
+    # mon-svcdisco-01: default ADDRESS to the tailnet IPv4; --address
+    # overrides. Empty is allowed (discovery reports resolved-but-no-address).
     if [[ -z "$ADDRESS" ]] && command -v tailscale >/dev/null 2>&1; then
         ADDRESS="$(tailscale ip -4 2>/dev/null | head -1 || true)"
     fi
@@ -344,15 +342,6 @@ install_timer() {
     # unit bodies are part of this script's install decision (img-cycle-02).
     write_ticket_env "$hb_token"
     write_heartbeat_units
-    # Service discovery (mon-svcdisco-01): persist the runner's routable
-    # address into the ticket env so the heartbeat publishes it each tick.
-    # Appended after write_ticket_env (which preserves unmanaged lines), in
-    # the same umask-077 atomic style the lib uses.
-    (
-        umask 077
-        { printf 'ADDRESS=%s\n' "$ADDRESS"; } >> "$TICKET_FILE"
-    )
-    chmod 600 "$TICKET_FILE"
 
     # The image cycle (img-cycle-02, design D3). The gate never pulls
     # (coh-rt-01), so the pinned bytes have to be on the host before the job
@@ -416,18 +405,15 @@ if [[ "$MODE" == "enroll" ]]; then
         die "slug '$SLUG' already belongs to '$SLUG_OWNER' — refusing to overwrite; pick a distinct --runner-name so the two do not share one token" 1
     fi
 
-    # Built by json.dumps (audit hardening): a quote or backslash in a
-    # label produces valid JSON and can never break out of the string.
+    # Built by json.dumps (audit hardening): quotes/backslashes stay inside
+    # the string — labels and the tailnet address can never break out.
     PAYLOAD="$(python3 - "$RUNNER_NAME" "$REPO" "$ENROLL_TOKEN" "$LABELS" "$HOST_ALIAS" "$ADDRESS" <<'PY'
 import json, sys
 labels = [x.strip() for x in sys.argv[4].split(",") if x.strip()]
 print(json.dumps({
-    "runner_name": sys.argv[1],
-    "repo": sys.argv[2],
-    "enrollment_token": sys.argv[3],
-    "labels": labels,
-    "host_alias": sys.argv[5],
-    "address": sys.argv[6] or None,
+    "runner_name": sys.argv[1], "repo": sys.argv[2],
+    "enrollment_token": sys.argv[3], "labels": labels,
+    "host_alias": sys.argv[5], "address": sys.argv[6] or None,
 }))
 PY
 )"
