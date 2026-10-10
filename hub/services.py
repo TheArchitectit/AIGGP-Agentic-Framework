@@ -148,9 +148,24 @@ class Services:
         }
 
     def _enrolled_runner_for(self, host_alias: str) -> dict | None:
+        """Return the best enrolled runner providing ``host_alias``.
+
+        Several runners can share one host_alias (many repos on one host).
+        Prefer an enrolled runner that publishes an ``address`` — a usable
+        provider — and only fall back to an address-less enrolled runner so
+        ``resolved`` still reflects enrollment when no address is known yet.
+        Without this, resolution would depend on runners.json order and could
+        report host=null even when a sibling runner on the same host publishes
+        an address.
+        """
         if self.registry is None or not host_alias:
             return None
+        fallback = None
         for runner in self.registry.runners():
             if runner.get("host_alias") == host_alias and runner.get("enrolled", False):
-                return runner
-        return None
+                address = runner.get("address")
+                if isinstance(address, str) and address:
+                    return runner
+                if fallback is None:
+                    fallback = runner
+        return fallback
