@@ -63,6 +63,13 @@ def main() -> int:
         state.registry.add_enrollment_token(raw.strip())
     state.registry.save()
 
+    # Service-discovery map: create an empty one at startup if missing, same
+    # spirit as the registry auto-init. The file is operator-managed instance
+    # state (mon-svcdisco-01); we only guarantee it exists and is valid so
+    # GET /services answers an empty map rather than 500s on a fresh volume.
+    if not os.path.exists(config.services_path):
+        state.services.save()
+
     stop = threading.Event()
 
     def _shutdown(signum, _frame):

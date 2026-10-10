@@ -59,6 +59,11 @@ class Config:
         return os.path.join(self.data_dir, "runners.json")
 
     @property
+    def services_path(self) -> str:
+        """Discovery metadata map (service name -> host_alias:port)."""
+        return os.path.join(self.data_dir, "services.json")
+
+    @property
     def alerts_dir(self) -> str:
         return os.path.join(self.data_dir, "alerts")
 

@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Hub service discovery:** `GET /services` and `GET /services/<name>` on the
+  runner-monitor hub resolve a stable service *name* to the enrolled runner's
+  `host_alias` + port, so CI stops baking literal IPs into repo variables
+  (`mon-svcdisco-01`). Backed by `hub/services.py` (atomic `services.json`
+  load/save, schema-validated) and `hub/schema/services.{schema,example}.json`.
+  `resolve()` reports `resolved` from live enrollment and only sets `host` when
+  an enrolled runner publishes an address — never an invented IP. The
+  `templates/ci/service-endpoint.sh` wrapper prints `host:port` for a named
+  service (fail-closed on unknown/unresolved) with an optional checked-in
+  fallback map.
+
 ### Fixed
 
 - **Runner enrollment:** the heartbeat unit no longer uses an inline `bash -c`

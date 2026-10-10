@@ -1,0 +1,23 @@
+{
+  "_comment": [
+    "Redacted EXAMPLE of the hub service-discovery map — placeholder host_alias",
+    "values only. No IPs, hostnames-with-credentials, or tokens. The live map is",
+    "instance state on the hub volume and is NEVER committed (mon-svcdisco-01).",
+    "See services.schema.json for the shape."
+  ],
+  "version": 1,
+  "services": {
+    "ci-postgres": {
+      "host_alias": "example-service-host",
+      "port": 5432,
+      "protocol": "tcp",
+      "description": "Example shared Postgres for CI."
+    },
+    "llama": {
+      "host_alias": "example-gpu-host",
+      "port": 8080,
+      "protocol": "http",
+      "description": "Example OpenAI-compatible inference endpoint."
+    }
+  }
+}
