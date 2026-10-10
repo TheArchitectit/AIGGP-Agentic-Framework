@@ -6,6 +6,16 @@ Endpoint contract (archived design D4):
   POST /heartbeat freshness + host health for a verified runner
                   200 ok | 401 unknown_or_revoked_token
   GET  /health    no auth; liveness + dead-man-switch timestamps (risk table)
+  GET  /services  no auth; the full service-discovery map (see below)
+  GET  /services/<name>  no auth; one resolved service entry
+
+Service discovery (mon-svcdisco-01): CI resolves host:port from the fleet at
+run time instead of baking literal IPs into repo variables. These endpoints
+carry discovery metadata ONLY — the service map is name -> host_alias:port and
+the resolution consult the runner registry for enrollment; no token, credential,
+or secret is ever part of a service entry, which is why the endpoints need no
+auth (the response is exactly what a CI job would learn from the map file it
+replaced, and it is already reachable over the tailnet-only hub bind).
 
 The server never echoes secrets. Token verification lives in hub/tokens.py;
 this handler stays thin.
@@ -25,6 +35,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from . import tokens
 from .config import Config
 from .registry import UNREPORTED, Registry
+from .services import Services
 
 # A strict owner/name: the repo string flows into API paths
 # (f"/repos/{repo}/...") and the registry schema. The old `[^/]+` accepted
@@ -114,6 +125,9 @@ class HubState:
     def __init__(self, config: Config) -> None:
         self.config = config
         self.registry = Registry(config.registry_path)
+        # Discovery metadata; resolve() consults the registry for enrollment
+        # state so host/resolved reflect the live fleet (mon-svcdisco-01).
+        self.services = Services(config.services_path, registry=self.registry)
         self.started_at = datetime.now(timezone.utc)
         self.last_poll_at: datetime | None = None
         self.last_alert_at: datetime | None = None
@@ -220,8 +234,28 @@ class HubHandler(BaseHTTPRequestHandler):
                 "polling_enabled": state.polling_enabled,
                 "poll_interval_sec": state.config.poll_interval_sec,
             })
+        elif self.path == "/services":
+            self._handle_services_list()
+        elif self.path.startswith("/services/"):
+            name = self.path[len("/services/"):]
+            self._handle_services_one(name)
         else:
             self._send(404, {"ok": False, "error": "not_found"})
+
+    # --- /services (mon-svcdisco-01) -----------------------------------------
+
+    def _handle_services_list(self) -> None:
+        """All registered services, keyed by name, as stored."""
+        services = self.server.hub_state.services.all()  # type: ignore[attr-defined]
+        self._send(200, {"ok": True, "count": len(services), "services": services})
+
+    def _handle_services_one(self, name: str) -> None:
+        """One resolved service entry, or 404 unknown_service."""
+        resolved = self.server.hub_state.services.resolve(name)  # type: ignore[attr-defined]
+        if resolved is None:
+            self._send(404, {"ok": False, "error": "unknown_service"})
+            return
+        self._send(200, resolved)
 
     def do_POST(self):  # noqa: N802 (http.server API)
         state: HubState = self.server.hub_state
@@ -259,6 +293,7 @@ class HubHandler(BaseHTTPRequestHandler):
         presented = data.get("enrollment_token")
         labels = data.get("labels") or []
         host_alias = data.get("host_alias") or ""
+        address = data.get("address") or None
         if not isinstance(runner_name, str) or not runner_name \
                 or not REPO_RE.match(repo or ""):
             self._send(400, {"ok": False, "error": "bad_request",
@@ -291,7 +326,7 @@ class HubHandler(BaseHTTPRequestHandler):
                 return ALREADY_ENROLLED
             if not reg.consume_enrollment_token(presented or ""):
                 return False
-            runner, heartbeat_token = reg.enroll(runner_name, repo, labels, host_alias)
+            runner, heartbeat_token = reg.enroll(runner_name, repo, labels, host_alias, address)
             return {"ok": True, "runner_name": runner_name,
                     "heartbeat_token": heartbeat_token}
 
@@ -341,7 +376,8 @@ class HubHandler(BaseHTTPRequestHandler):
                           data.get("image_digest", UNREPORTED),
                           data.get("image_reason", UNREPORTED),
                           data.get("image_pin_divergence", UNREPORTED),
-                          data.get("scan_state", UNREPORTED))
+                          data.get("scan_state", UNREPORTED),
+                          data.get("address"))
             return {"ok": True}
 
         result = state.with_registry(do_heartbeat)

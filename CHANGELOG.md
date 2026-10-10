@@ -477,6 +477,16 @@ The fw-* readiness program adds a permanent evaluator-integrity CI job:
 mutation testing with a self-check, ten negative controls through the real
 CLI, a both-direction-validated benchmark corpus, fleet and determinism
 drills, an allowlist-growth monitor, and test-count floors.
+- **Hub service discovery:** `GET /services` and `GET /services/<name>` on the
+  runner-monitor hub resolve a stable service *name* to the enrolled runner's
+  `host_alias` + port, so CI stops baking literal IPs into repo variables
+  (`mon-svcdisco-01`). Backed by `hub/services.py` (atomic `services.json`
+  load/save, schema-validated) and `hub/schema/services.{schema,example}.json`.
+  `resolve()` reports `resolved` from live enrollment and only sets `host` when
+  an enrolled runner publishes an address — never an invented IP. The
+  `templates/ci/service-endpoint.sh` wrapper prints `host:port` for a named
+  service (fail-closed on unknown/unresolved) with an optional checked-in
+  fallback map.
 
 ### Fixed
 

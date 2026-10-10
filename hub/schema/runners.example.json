@@ -1,20 +1,25 @@
 {
   "_comment": [
-    "Redacted EXAMPLE of the runner-monitor registry — placeholder values only.",
+    "Redacted EXAMPLE of the runner-monitor registry \u2014 placeholder values only.",
     "The live registry is instance state on the hub volume on monitor-hub and is",
     "NEVER committed (mon-registry-01). See runners.schema.json for the shape.",
-    "heartbeat_token_hash is a salted sha256 — the plaintext token exists only",
+    "heartbeat_token_hash is a salted sha256 \u2014 the plaintext token exists only",
     "in the /enroll response and the spoke's 0600 env file (mon-sec-02)."
   ],
   "version": 1,
   "token_salt": "example-salt-PLACEHOLDER",
-  "enrollment_tokens": ["example-enrollment-token-PLACEHOLDER"],
+  "enrollment_tokens": [
+    "example-enrollment-token-PLACEHOLDER"
+  ],
   "runners": [
     {
       "name": "example-runner",
       "repo": "OWNER/REPO",
-      "labels": ["devgate"],
+      "labels": [
+        "devgate"
+      ],
       "host_alias": "monitor-hub",
+      "address": "100.64.0.10",
       "enrolled_at": "2026-09-13T00:00:00Z",
       "heartbeat_token_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
       "last_heartbeat": "2026-09-13T00:05:00Z",
@@ -32,11 +37,13 @@
       "_comment": [
         "Two shapes of the same field, because the null one is the one that gets",
         "misread: a host that cannot serve the pinned image still heartbeats, and",
-        "its null is UNKNOWN — not healthy, and not ready to gate (img-cycle-03)."
+        "its null is UNKNOWN \u2014 not healthy, and not ready to gate (img-cycle-03)."
       ],
       "name": "example-runner-no-image",
       "repo": "OWNER/REPO",
-      "labels": ["devgate"],
+      "labels": [
+        "devgate"
+      ],
       "host_alias": "ucs03",
       "enrolled_at": "2026-09-13T00:00:00Z",
       "heartbeat_token_hash": "sha256:00000000000000000000000000000000000000000000000000000000000000ff",
@@ -46,7 +53,7 @@
       "podman_ok": false,
       "image_digest": null,
       "image_reason": "not provisioned: COHERENCE_IMAGE, COHERENCE_IMAGE_MANIFEST_DIGEST, COHERENCE_PODMAN_STORE not set",
-      "image_pin_divergence": "served ghcr.io/owner/repo/devgate-coherence:main is sha256:1111111111111111111111111111111111111111111111111111111111111111 but the record is sha256:0000000000000000000000000000000000000000000000000000000000000000 — a re-pin is due",
+      "image_pin_divergence": "served ghcr.io/owner/repo/devgate-coherence:main is sha256:1111111111111111111111111111111111111111111111111111111111111111 but the record is sha256:0000000000000000000000000000000000000000000000000000000000000000 \u2014 a re-pin is due",
       "enrolled": true,
       "queue_threshold_min": 30,
       "drift_period_min": 1440

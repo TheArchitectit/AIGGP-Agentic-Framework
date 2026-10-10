@@ -181,6 +181,7 @@ RUNNER_NAME="$(hostname)"
 REPO=""
 LABELS="devgate"
 HOST_ALIAS="$(hostname)"
+ADDRESS=""
 INTERVAL=300
 REVOKE_HB_TOKEN=""
 REVOKE_RUNNER=""
@@ -192,6 +193,7 @@ while [[ $# -gt 0 ]]; do
         --repo) REPO="$2"; shift 2 ;;
         --labels) LABELS="$2"; shift 2 ;;
         --host-alias) HOST_ALIAS="$2"; shift 2 ;;
+        --address) ADDRESS="$2"; shift 2 ;;
         --interval) INTERVAL="$2"; shift 2 ;;
         -h|--help) usage ;;
         -*) die "unknown option: $1" 1 ;;
@@ -228,6 +230,13 @@ if [[ "$MODE" == "enroll" ]]; then
 [[ "$INTERVAL" =~ ^[0-9]+$ && "$INTERVAL" -ge 10 && "$INTERVAL" -le 3600 ]] || die "--interval must be integer 10-3600, got: $INTERVAL" 1
     [[ "$REPO" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || die "--repo must be OWNER/REPO, got: $REPO" 1
     [[ "$HUB_URL" =~ ^https?:// ]] || die "hub URL must start with http(s)://, got: $HUB_URL" 1
+    # Publish a routable address so the hub can resolve services for this
+    # runner's host_alias (service discovery). Default to the node's tailnet
+    # IPv4; --address overrides. Empty is allowed (the hub then reports the
+    # service as resolved-but-no-address and consumers fail closed).
+    if [[ -z "$ADDRESS" ]] && command -v tailscale >/dev/null 2>&1; then
+        ADDRESS="$(tailscale ip -4 2>/dev/null | head -1 || true)"
+    fi
     set_unit_paths "$RUNNER_NAME"
 elif [[ "$MODE" == "revoke" ]]; then
     [[ -n "$HUB_URL" ]] || { usage; }
@@ -335,6 +344,15 @@ install_timer() {
     # unit bodies are part of this script's install decision (img-cycle-02).
     write_ticket_env "$hb_token"
     write_heartbeat_units
+    # Service discovery (mon-svcdisco-01): persist the runner's routable
+    # address into the ticket env so the heartbeat publishes it each tick.
+    # Appended after write_ticket_env (which preserves unmanaged lines), in
+    # the same umask-077 atomic style the lib uses.
+    (
+        umask 077
+        { printf 'ADDRESS=%s\n' "$ADDRESS"; } >> "$TICKET_FILE"
+    )
+    chmod 600 "$TICKET_FILE"
 
     # The image cycle (img-cycle-02, design D3). The gate never pulls
     # (coh-rt-01), so the pinned bytes have to be on the host before the job
@@ -400,7 +418,7 @@ if [[ "$MODE" == "enroll" ]]; then
 
     # Built by json.dumps (audit hardening): a quote or backslash in a
     # label produces valid JSON and can never break out of the string.
-    PAYLOAD="$(python3 - "$RUNNER_NAME" "$REPO" "$ENROLL_TOKEN" "$LABELS" "$HOST_ALIAS" <<'PY'
+    PAYLOAD="$(python3 - "$RUNNER_NAME" "$REPO" "$ENROLL_TOKEN" "$LABELS" "$HOST_ALIAS" "$ADDRESS" <<'PY'
 import json, sys
 labels = [x.strip() for x in sys.argv[4].split(",") if x.strip()]
 print(json.dumps({
@@ -409,6 +427,7 @@ print(json.dumps({
     "enrollment_token": sys.argv[3],
     "labels": labels,
     "host_alias": sys.argv[5],
+    "address": sys.argv[6] or None,
 }))
 PY
 )"

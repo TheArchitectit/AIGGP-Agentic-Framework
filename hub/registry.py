@@ -251,18 +251,25 @@ class Registry:
         return None
 
     def enroll(self, runner_name: str, repo: str, labels: list[str],
-               host_alias: str) -> tuple[dict, str]:
+               host_alias: str, address: str | None = None) -> tuple[dict, str]:
         """Record identity and mint the per-runner heartbeat token.
 
         Returns (runner_record, plaintext_token): the plaintext leaves the hub
         exactly ONCE, in the enroll response; only its salted hash is stored
-        (mon-sec-02 — a registry read at rest yields no usable token)."""
+        (mon-sec-02 — a registry read at rest yields no usable token).
+
+        ``address`` is the runner's routable (tailnet) address, published by
+        the spoke at enroll time and refreshed on every heartbeat. It is what
+        service discovery resolves a service's ``host_alias`` against, so a
+        service can move hosts without any repo or workflow change.
+        """
         heartbeat_token = tokens.mint_token()
         runner = {
             "name": runner_name,
             "repo": repo,
             "labels": labels,
             "host_alias": host_alias,
+            "address": address,
             "enrolled_at": _now_iso(),
             "heartbeat_token_hash": self._hash_token(heartbeat_token),
             "last_heartbeat": None,
@@ -282,7 +289,8 @@ class Registry:
                   disk_ok: bool | None, podman_ok: bool | None,
                   image_digest=UNREPORTED, image_reason=UNREPORTED,
                   image_pin_divergence=UNREPORTED,
-                  scan_state=UNREPORTED) -> bool:
+                  scan_state=UNREPORTED,
+                  address: str | None = None) -> bool:
         """Update freshness + health fields for a verified runner.
 
         The image fields and `scan_state` take UNREPORTED as their default, not
@@ -295,6 +303,10 @@ class Registry:
         the fleet sweep's report — null is a POSITIVE report that this host has
         no scan state (which must clear a stale one to unknown), whereas
         omitting it means the spoke has no opinion (which must not).
+
+        ``address`` (the runner's current routable address) is refreshed on
+        every heartbeat when the spoke publishes one, so a host that changes
+        tailnet address stays discoverable without re-enrolling.
         """
         runner = self.find_runner(runner_name)
         if runner is None or not runner.get("enrolled", False):
@@ -314,6 +326,8 @@ class Registry:
             runner["image_pin_divergence"] = image_pin_divergence
         if scan_state is not UNREPORTED:
             runner["scan_state"] = scan_state
+        if address is not None:
+            runner["address"] = address
         return True
 
     def verify_heartbeat_token(self, runner_name: str, presented: str) -> bool:

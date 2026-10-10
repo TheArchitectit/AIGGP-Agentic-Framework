@@ -9,6 +9,9 @@
 #
 # Required env (supplied by the unit's per-runner EnvironmentFile):
 #   HUB_URL, RUNNER_NAME, HEARTBEAT_TOKEN
+# Optional env:
+#   ADDRESS  this runner's routable (tailnet) address, published so the hub
+#            can resolve services for this runner's host_alias
 #
 # Optional env, all three or none (the image cycle's, supplied by the same
 # EnvironmentFile once the host is provisioned) — see the image probe below:
@@ -234,6 +237,7 @@ print(json.dumps({
     "image_reason": sys.argv[4] or None,
     "image_pin_divergence": sys.argv[5] or None,
     "scan_state": scan_state(os.environ.get("SECRET_SCAN_REPORT", "")),
+    "address": os.environ.get("ADDRESS") or None,
 }))' "$disk_ok" "$podman_ok" "$image_digest" "$image_reason" "$image_pin_divergence")"
 
 # The response is kept for diagnosis, so its filename must be filesystem-safe.

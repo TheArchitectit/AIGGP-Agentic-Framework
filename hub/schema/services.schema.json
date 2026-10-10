@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/TheArchitectit/DevGate-Agentic-Framework/hub/schema/services.schema.json",
+  "title": "DevGate hub service-discovery map (instance state, never committed)",
+  "description": "Maps a stable service name to the host_alias of the enrolled runner that provides it plus a port. No IPs, credentials, or tokens belong here; CI resolves host:port from the hub at run time (mon-svcdisco-01).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "services"],
+  "properties": {
+    "version": { "const": 1 },
+    "services": {
+      "type": "object",
+      "description": "Service name -> endpoint descriptor.",
+      "additionalProperties": { "$ref": "#/definitions/service" }
+    }
+  },
+  "definitions": {
+    "service": {
+      "type": "object",
+      "required": ["host_alias", "port"],
+      "additionalProperties": false,
+      "properties": {
+        "host_alias": {
+          "type": "string",
+          "description": "Stable fleet alias of the enrolled runner hosting the service."
+        },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "protocol": { "enum": ["tcp", "http"], "default": "tcp" },
+        "description": { "type": "string" }
+      }
+    }
+  }
+}
