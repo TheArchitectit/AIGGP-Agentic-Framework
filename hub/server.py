@@ -169,6 +169,7 @@ class HubHandler(BaseHTTPRequestHandler):
         presented = data.get("enrollment_token")
         labels = data.get("labels") or []
         host_alias = data.get("host_alias") or ""
+        address = data.get("address") or None
         if not runner_name or not REPO_RE.match(repo or ""):
             self._send(400, {"ok": False, "error": "bad_request",
                              "detail": "runner_name and repo OWNER/REPO required"})
@@ -180,7 +181,7 @@ class HubHandler(BaseHTTPRequestHandler):
         def do_enroll(reg):
             if not reg.consume_enrollment_token(presented or ""):
                 return False
-            runner = reg.enroll(runner_name, repo, labels, host_alias)
+            runner = reg.enroll(runner_name, repo, labels, host_alias, address)
             return {"ok": True, "runner_name": runner_name,
                     "heartbeat_token": runner["heartbeat_token"]}
 
@@ -204,7 +205,8 @@ class HubHandler(BaseHTTPRequestHandler):
             if not reg.verify_heartbeat_token(runner_name, presented):
                 return False
             reg.heartbeat(runner_name, data.get("last_job_seen"),
-                          data.get("disk_ok"), data.get("podman_ok"))
+                          data.get("disk_ok"), data.get("podman_ok"),
+                          data.get("address"))
             return {"ok": True}
 
         result = state.with_registry(do_heartbeat)

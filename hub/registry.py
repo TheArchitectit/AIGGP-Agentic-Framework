@@ -91,13 +91,21 @@ class Registry:
                 return runner
         return None
 
-    def enroll(self, runner_name: str, repo: str, labels: list[str], host_alias: str) -> dict:
-        """Record identity and mint the per-runner heartbeat token."""
+    def enroll(self, runner_name: str, repo: str, labels: list[str], host_alias: str,
+               address: str | None = None) -> dict:
+        """Record identity and mint the per-runner heartbeat token.
+
+        ``address`` is the runner's routable (tailnet) address, published by
+        the spoke at enroll time and refreshed on every heartbeat. It is what
+        service discovery resolves a service's ``host_alias`` against, so a
+        service can move hosts without any repo or workflow change.
+        """
         runner = {
             "name": runner_name,
             "repo": repo,
             "labels": labels,
             "host_alias": host_alias,
+            "address": address,
             "enrolled_at": _now_iso(),
             "heartbeat_token": tokens.mint_token(),
             "last_heartbeat": None,
@@ -110,8 +118,14 @@ class Registry:
         return runner
 
     def heartbeat(self, runner_name: str, last_job_seen: str | None,
-                  disk_ok: bool | None, podman_ok: bool | None) -> bool:
-        """Update freshness + health fields for a verified runner."""
+                  disk_ok: bool | None, podman_ok: bool | None,
+                  address: str | None = None) -> bool:
+        """Update freshness + health fields for a verified runner.
+
+        ``address`` (the runner's current routable address) is refreshed on
+        every heartbeat when the spoke publishes one, so a host that changes
+        tailnet address stays discoverable without re-enrolling.
+        """
         runner = self.find_runner(runner_name)
         if runner is None or not runner.get("enrolled", False):
             return False
@@ -122,6 +136,8 @@ class Registry:
             runner["disk_ok"] = disk_ok
         if podman_ok is not None:
             runner["podman_ok"] = podman_ok
+        if address is not None:
+            runner["address"] = address
         return True
 
     def verify_heartbeat_token(self, runner_name: str, presented: str) -> bool:

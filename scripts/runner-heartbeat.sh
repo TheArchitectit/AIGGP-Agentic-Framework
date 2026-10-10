@@ -9,6 +9,9 @@
 #
 # Required env (supplied by the unit's per-runner EnvironmentFile):
 #   HUB_URL, RUNNER_NAME, HEARTBEAT_TOKEN
+# Optional env:
+#   ADDRESS  this runner's routable (tailnet) address, published so the hub
+#            can resolve services for this runner's host_alias
 #
 # Exit codes:
 #   0   hub accepted the heartbeat (HTTP 200)
@@ -39,6 +42,7 @@ print(json.dumps({
     "heartbeat_token": os.environ["HEARTBEAT_TOKEN"],
     "disk_ok": sys.argv[1] == "true",
     "podman_ok": sys.argv[2] == "true",
+    "address": os.environ.get("ADDRESS") or None,
 }))' "$disk_ok" "$podman_ok")"
 
 # The response is kept for diagnosis, so its filename must be filesystem-safe.

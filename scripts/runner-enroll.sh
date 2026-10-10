@@ -133,6 +133,7 @@ RUNNER_NAME="$(hostname)"
 REPO=""
 LABELS="devgate"
 HOST_ALIAS="$(hostname)"
+ADDRESS=""
 INTERVAL=300
 REVOKE_HB_TOKEN=""
 REVOKE_RUNNER=""
@@ -144,6 +145,7 @@ while [[ $# -gt 0 ]]; do
         --repo) REPO="$2"; shift 2 ;;
         --labels) LABELS="$2"; shift 2 ;;
         --host-alias) HOST_ALIAS="$2"; shift 2 ;;
+        --address) ADDRESS="$2"; shift 2 ;;
         --interval) INTERVAL="$2"; shift 2 ;;
         -h|--help) usage ;;
         -*) die "unknown option: $1" 1 ;;
@@ -163,6 +165,13 @@ if [[ "$MODE" == "enroll" ]]; then
     [[ -n "$HUB_URL" ]] || { usage; }
     [[ -n "$ENROLL_TOKEN" ]] || die "enrollment token required" 1
     [[ -n "$REPO" ]] || die "--repo OWNER/REPO is required for enrollment" 1
+    # Publish a routable address so the hub can resolve services for this
+    # runner's host_alias (service discovery). Default to the node's tailnet
+    # IPv4; --address overrides. Empty is allowed (the hub then reports the
+    # service as resolved-but-no-address and consumers fail closed).
+    if [[ -z "$ADDRESS" ]] && command -v tailscale >/dev/null 2>&1; then
+        ADDRESS="$(tailscale ip -4 2>/dev/null | head -1 || true)"
+    fi
     set_unit_paths "$RUNNER_NAME"
 elif [[ "$MODE" == "revoke" ]]; then
     [[ -n "$HUB_URL" ]] || { usage; }
@@ -265,6 +274,7 @@ install_timer() {
 HUB_URL=$HUB_URL
 RUNNER_NAME=$RUNNER_NAME
 HEARTBEAT_TOKEN=$hb_token
+ADDRESS=$ADDRESS
 LAST_JOB_SEEN=""
 EOF
     chmod 600 "$TICKET_FILE"
@@ -382,7 +392,7 @@ if [[ "$MODE" == "enroll" ]]; then
         die "slug '$SLUG' already belongs to '$SLUG_OWNER' — refusing to overwrite; pick a distinct --runner-name so the two do not share one token" 1
     fi
 
-    PAYLOAD="{\"runner_name\":\"$RUNNER_NAME\",\"repo\":\"$REPO\",\"enrollment_token\":\"$ENROLL_TOKEN\",\"labels\":[$LABELS_JSON],\"host_alias\":\"$HOST_ALIAS\"}"
+    PAYLOAD="{\"runner_name\":\"$RUNNER_NAME\",\"repo\":\"$REPO\",\"enrollment_token\":\"$ENROLL_TOKEN\",\"labels\":[$LABELS_JSON],\"host_alias\":\"$HOST_ALIAS\",\"address\":\"$ADDRESS\"}"
 
     RESPONSE="$(post_json "$HUB_URL/enroll" "$PAYLOAD")" || {
         die "hub enrollment failed: $RESPONSE" 2
