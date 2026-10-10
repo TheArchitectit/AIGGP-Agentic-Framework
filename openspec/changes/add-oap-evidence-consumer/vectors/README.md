@@ -11,10 +11,18 @@ verdict facts a second, cross-language implementation of the
   (`hub/coherence/oap_v2_producer.produce` → `hub/coherence/strict_parse` →
   `hub/coherence.oap_observer`), test fixtures are in
   `tests/fixtures/oap/oap_vectors.py`.
-- **No Go OAP receiver exists yet.** An independent Go implementation is the
-  intended future consumer of this file; there is none in this repository.
-- **Consumption of these vectors by a Go implementation is `NOT_EXERCISED`.**
-  Nothing here proves a receiver read, agreed with, or acted on them.
+- **No Go OAP receiver exists in this repository.** An independent Go
+  implementation lives in the sibling `openagentplatform` repo
+  (`cmd/oap-observer`, branch `feat/oap-evidence-v2-receiver`).
+- **Consumption of these vectors by the Go implementation is now `EXERCISED`**
+  for the frozen set: the independent Go observer read this exact file
+  (byte-identical, SHA-256 pinned) and reproduced the expected verdict for all
+  13 cases — 1 positive + every Gate 1-2 negative. See
+  `PARITY-go-oap-observer.md`, `PARITY-COMMANDS.txt`, and
+  `PARITY-OBSERVER-OUTPUT.jsonl`. This proves a receiver read and agreed with
+  them over a real process/language boundary; it is still observe-only and
+  non-authorizing, and does NOT exercise deployed transport or independent
+  review.
 - Everything is **NON-AUTHORIZING / observe-only**. A passing vector is a
   mathematical + binding verdict over fixed bytes. It is **not** authenticity,
   **not** authorization, and grants **no** OAP effect.

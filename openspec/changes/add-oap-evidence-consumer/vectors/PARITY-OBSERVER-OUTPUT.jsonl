@@ -1,0 +1,27 @@
+# valid_artifact
+{"index": 0, "ok": true, "reason": ""}
+# identity_low_order_key_forgery
+{"index": 0, "ok": false, "reason": "signature-mismatch"}
+# duplicate_json_key
+{"index": 0, "ok": false, "reason": "duplicate-key:body"}
+# wrong_domain_separation_tag
+{"index": 0, "ok": false, "reason": "signature-mismatch"}
+# expired_timestamp
+{"index": 0, "ok": false, "reason": "envelope-expired"}
+# not_yet_valid_timestamp
+{"index": 0, "ok": false, "reason": "envelope-not-yet-valid"}
+# key_out_of_window
+{"index": 0, "ok": false, "reason": "key-expired"}
+# wrong_audience
+{"index": 0, "ok": false, "reason": "audience-mismatch:oap-observer"}
+# key_audience_mismatch
+{"index": 0, "ok": false, "reason": "key-audience-mismatch:other-audience"}
+# lying_digest
+{"index": 0, "ok": false, "reason": "result-digest-mismatch"}
+# lying_cross_link
+{"index": 0, "ok": false, "reason": "result-binding-mismatch:subject_digest"}
+# wrong_tenant
+{"index": 0, "ok": false, "reason": "context-mismatch:tenant_or_project_id"}
+# replayed_jti
+{"index": 0, "ok": true, "outcome": "non-authorizing:observed", "reason": "non-authorizing:observed", "replay_status": "admitted"}
+{"index": 1, "ok": false, "reason": "replay:duplicate", "replay_status": "duplicate"}
