@@ -81,8 +81,8 @@ MUTATIONS = [
     # carries the old line over AND writes a new one. Two lines, and which one
     # a reader picks is an accident of the reader.
     ("S12: a re-enrollment accumulates a second report path in the env file",
-     [(LIB, "grep -vE '^(HUB_URL|RUNNER_NAME|HEARTBEAT_TOKEN|LAST_JOB_SEEN|SECRET_SCAN_REPORT)='",
-       "grep -vE '^(HUB_URL|RUNNER_NAME|HEARTBEAT_TOKEN|LAST_JOB_SEEN)='")],
+     [(LIB, "grep -vE '^(HUB_URL|RUNNER_NAME|HEARTBEAT_TOKEN|LAST_JOB_SEEN|SECRET_SCAN_REPORT|ADDRESS)='",
+       "grep -vE '^(HUB_URL|RUNNER_NAME|HEARTBEAT_TOKEN|LAST_JOB_SEEN|ADDRESS)='")],
      [T_SPOKE], {}),
 
     # S3 — the finding locations ride along. A decision, not an accident: the
@@ -153,8 +153,8 @@ MUTATIONS = [
     # that is null, so every poster that never mentions scanning clears the
     # host's real report.
     ("S9: the server cannot tell a body that omits scan_state from one that sends null",
-     [(SERVER, '                          data.get("scan_state", UNREPORTED))',
-                '                          data.get("scan_state"))')],
+     [(SERVER, '                          data.get("scan_state", UNREPORTED),',
+                '                          data.get("scan_state"),')],
      [T_HTTP], {}),
 
     # S10 — an unreadable report counts as a usable verdict. The predicate is
