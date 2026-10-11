@@ -285,6 +285,10 @@ jobs:
           set -o pipefail
           python3 scripts/spec_traceability.py --root . --report | tail -8
           python3 scripts/spec_traceability.py --root . | tail -2
+          # Enforcement, not just a report: --ratchet fails (exit 1) when
+          # covered requirement IDs drop below .guardrails/traceability-ratchet.json.
+          # Without this the floor was decorative — a regression still read green.
+          python3 scripts/spec_traceability.py --root . --ratchet
 
   container-image:
     name: Evaluator image builds with its contracts (coh-rt-08)

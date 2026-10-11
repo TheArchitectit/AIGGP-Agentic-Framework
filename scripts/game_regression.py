@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Game-class regression scanner (engine-aware).
+# spec: zig-regress-01
 
 Ported from Sword of Hope's regression_check.py + failure-registry.jsonl patterns.
 Adds game-specific failure classes beyond DevGate's generic scanner:

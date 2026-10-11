@@ -1,7 +1,13 @@
 # Zig + OpenGL Engine Support
 
-Status: Proposed. Adds quality gates for Zig + OpenGL game projects. Enforcement
-layer invoked by game-type-phase-matrix, alongside the Godot scanner.
+Status: Implemented (3 of 4 requirements shipped + marked 2026-10-11). Adds
+quality gates for Zig + OpenGL game projects. Enforcement layer invoked by
+game-type-phase-matrix, alongside the Godot scanner. Requirements zig-engine-01
+(engine detection), zig-ui-inv-01 (src/ui inventory) and zig-regress-01
+(Zig/OpenGL regression classes) are enforced in scripts/scene_inventory.py and
+scripts/game_regression.py. Requirement 'scan scope is declared by the project
+manifest' (scan.exclude_dirs union) remains NOT implemented and carries no id
+marker.
 
 ## Purpose
 
@@ -13,6 +19,7 @@ Godot only; a Zig project with no `.tscn` files was reported as empty and passed
 ## Requirements
 
 ### Requirement: engine detection follows the manifest then project files
+<!-- id: zig-engine-01 -->
 
 The scanners SHALL detect the project engine from `game-manifest.json`'s `engine`
 field, falling back to project markers (`project.godot` → Godot, `build.zig` →
@@ -25,6 +32,7 @@ guessing, so both game gates agree on which pattern set applies.
 - **THEN** the scanners report engine `Zig + OpenGL` and apply the Zig pattern set
 
 ### Requirement: Zig UI screens are inventoried under src/ui
+<!-- id: zig-ui-inv-01 -->
 
 The scene inventory SHALL discover `.zig` screens under `src/ui/`, extract
 `.label = "..."` buttons with their adjacent `.handler = "..."` bindings, and
@@ -50,6 +58,7 @@ findings nobody can fix.
 - **THEN** findings inside the vendored package are not reported
 
 ### Requirement: Zig + OpenGL regression classes block staged changes
+<!-- id: zig-regress-01 -->
 
 The regression scanner SHALL apply the Zig + OpenGL pattern classes
 (`ZIG_COMPILE`, `ZIG_MEMORY`, `OPENGL_CTX`, `SHADER_FAIL`, `INPUT_CAPTURE`) to
