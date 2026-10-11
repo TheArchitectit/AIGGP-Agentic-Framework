@@ -4,21 +4,14 @@
   "title": "DevGate runner-monitor registry (instance state, never committed)",
   "type": "object",
   "additionalProperties": false,
-  "required": [
-    "version",
-    "runners"
-  ],
+  "required": ["version", "runners"],
   "properties": {
     "_comment": {
-      "description": "Explanatory prose for a human reading the redacted example. Declared here because the example carries it and this schema closes itself to undeclared keys \u2014 an example that violates its own schema teaches the wrong shape.",
+      "description": "Explanatory prose for a human reading the redacted example. Declared here because the example carries it and this schema closes itself to undeclared keys — an example that violates its own schema teaches the wrong shape.",
       "type": "array",
-      "items": {
-        "type": "string"
-      }
+      "items": { "type": "string" }
     },
-    "version": {
-      "const": 1
-    },
+    "version": { "const": 1 },
     "token_salt": {
       "description": "Per-registry salt for heartbeat-token hashing (mon-sec-02). Generated on first use and persisted; heartbeat verifiers are stored only as salted hashes.",
       "type": "string"
@@ -26,184 +19,82 @@
     "enrollment_tokens": {
       "description": "One-time enrollment tokens; consumed on successful /enroll.",
       "type": "array",
-      "items": {
-        "type": "string"
-      }
+      "items": { "type": "string" }
     },
     "runners": {
       "type": "array",
-      "items": {
-        "$ref": "#/definitions/runner"
-      }
+      "items": { "$ref": "#/definitions/runner" }
     }
   },
   "definitions": {
     "runner": {
       "type": "object",
-      "required": [
-        "name",
-        "repo",
-        "enrolled_at",
-        "heartbeat_token_hash"
-      ],
+      "required": ["name", "repo", "enrolled_at", "heartbeat_token_hash"],
       "properties": {
-        "_comment": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "name": {
-          "type": "string"
-        },
-        "repo": {
-          "type": "string",
-          "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
-        },
-        "labels": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "host_alias": {
-          "type": "string"
-        },
+        "_comment": { "type": "array", "items": { "type": "string" } },
+        "name": { "type": "string" },
+        "repo": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" },
+        "labels": { "type": "array", "items": { "type": "string" } },
+        "host_alias": { "type": "string" },
         "address": {
           "description": "The runner's routable (tailnet) address, published by the spoke at enroll and refreshed on every heartbeat. Service discovery resolves a service's host_alias against this; null until the spoke publishes one (mon-svcdisco-01).",
-          "type": [
-            "string",
-            "null"
-          ]
+          "type": ["string", "null"]
         },
-        "enrolled_at": {
-          "type": "string",
-          "format": "date-time"
-        },
+        "enrolled_at": { "type": "string", "format": "date-time" },
         "heartbeat_token_hash": {
-          "description": "Salted sha256 of the heartbeat token \u2014 the plaintext token is never stored (mon-sec-02). Null after revocation.",
-          "type": [
-            "string",
-            "null"
-          ],
+          "description": "Salted sha256 of the heartbeat token — the plaintext token is never stored (mon-sec-02). Null after revocation.",
+          "type": ["string", "null"],
           "pattern": "^sha256:[0-9a-f]{64}$"
         },
-        "last_heartbeat": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "format": "date-time"
-        },
-        "last_job_seen": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "disk_ok": {
-          "type": [
-            "boolean",
-            "null"
-          ]
-        },
-        "podman_ok": {
-          "type": [
-            "boolean",
-            "null"
-          ]
-        },
+        "last_heartbeat": { "type": ["string", "null"], "format": "date-time" },
+        "last_job_seen": { "type": ["string", "null"] },
+        "disk_ok": { "type": ["boolean", "null"] },
+        "podman_ok": { "type": ["boolean", "null"] },
         "image_digest": {
           "description": "The digest-qualified evaluator ref this host would gate with, or null when it cannot serve the pinned image (img-cycle-03). Null is UNKNOWN, never healthy.",
-          "type": [
-            "string",
-            "null"
-          ]
+          "type": ["string", "null"]
         },
         "image_reason": {
           "description": "Why image_digest is null, in the host's own words. The vocabulary the shipped probe uses, one fault per fix: 'not provisioned: <vars> not set' | 'podman not on PATH' | 'store does not exist: <path>' | 'podman info failed for the configured store' | 'store mismatch: podman reports <a>, configured <b>' | 'pinned image absent from the store (not pulled)'. Free text from an untrusted-as-input host, so consumers must render it, never match on it.",
-          "type": [
-            "string",
-            "null"
-          ]
+          "type": ["string", "null"]
         },
         "image_pin_divergence": {
-          "description": "The host's report that the registry's served digest for the published tag no longer equals the recorded image_manifest_digest (img-cycle-05). Non-empty string names both digests ('served <image>:<tag> is <served> but the record is <record> \u2014 a re-pin is due'). Null means the host checked and they agree, OR it could not check \u2014 the two are deliberately the same value here because both mean 'no divergence was observed', and the check itself is a repository-reachable fact the publish job and the hub also carry. A key left out entirely means an older helper that does not report this field. Free text from an untrusted-as-input host, so consumers must render it, never match on it. Divergence is a fact about the repository, not a fault on the host (design D6): the tick still succeeds.",
-          "type": [
-            "string",
-            "null"
-          ]
+          "description": "The host's report that the registry's served digest for the published tag no longer equals the recorded image_manifest_digest (img-cycle-05). Non-empty string names both digests ('served <image>:<tag> is <served> but the record is <record> — a re-pin is due'). Null means the host checked and they agree, OR it could not check — the two are deliberately the same value here because both mean 'no divergence was observed', and the check itself is a repository-reachable fact the publish job and the hub also carry. A key left out entirely means an older helper that does not report this field. Free text from an untrusted-as-input host, so consumers must render it, never match on it. Divergence is a fact about the repository, not a fault on the host (design D6): the tick still succeeds.",
+          "type": ["string", "null"]
         },
         "scan_state": {
           "description": "The last fleet secret sweep this host reported (secret-scan-07), or null when it has no scan state to report. Null is UNKNOWN, never healthy: a host that has never been swept is not a swept-and-clean host. 'unreadable' is set when a report exists on the host and would not parse, and it is NOT an empty fleet.",
-          "type": [
-            "object",
-            "null"
-          ],
+          "type": ["object", "null"],
           "properties": {
             "repos": {
               "description": "One record per declared repository. A repository the sweep could not fetch appears here with its state and reason rather than being omitted.",
               "type": "array",
               "items": {
                 "type": "object",
-                "required": [
-                  "name",
-                  "state"
-                ],
+                "required": ["name", "state"],
                 "properties": {
-                  "name": {
-                    "type": "string"
-                  },
+                  "name": { "type": "string" },
                   "state": {
                     "description": "The sweep's own vocabulary: clean | findings | unfetchable | unscannable.",
                     "type": "string"
                   },
-                  "reason": {
-                    "type": [
-                      "string",
-                      "null"
-                    ]
-                  },
-                  "scope": {
-                    "type": [
-                      "string",
-                      "null"
-                    ]
-                  },
-                  "scanned_at": {
-                    "type": [
-                      "string",
-                      "null"
-                    ]
-                  },
-                  "findings": {
-                    "type": "integer"
-                  },
-                  "uncovered": {
-                    "type": "integer"
-                  }
+                  "reason": { "type": ["string", "null"] },
+                  "scope": { "type": ["string", "null"] },
+                  "scanned_at": { "type": ["string", "null"] },
+                  "findings": { "type": "integer" },
+                  "uncovered": { "type": "integer" }
                 }
               }
             },
             "unreadable": {
               "description": "Why this host's report could not be read, or null when it was read. Free text from an untrusted-as-input host, so consumers must render it, never match on it.",
-              "type": [
-                "string",
-                "null"
-              ]
+              "type": ["string", "null"]
             }
           }
         },
-        "enrolled": {
-          "type": "boolean",
-          "default": true
-        },
-        "queue_threshold_min": {
-          "type": "number"
-        },
-        "drift_period_min": {
-          "type": "number"
-        }
+        "enrolled": { "type": "boolean", "default": true },
+        "queue_threshold_min": { "type": "number" },
+        "drift_period_min": { "type": "number" }
       }
     }
   }
