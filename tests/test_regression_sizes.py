@@ -28,6 +28,7 @@ from regression_sizes import (  # noqa: E402
     SRC_HARD,
     TEST_HARD,
     check_file_sizes,
+    check_scope_coverage,
 )
 
 
@@ -283,6 +284,69 @@ def test_source_dirs_include_the_directory_the_shell_scripts_live_in():
         f"scripts/ exists under the project root but SOURCE_DIRS skips it — no "
         f"shell script in this repository is sized ({SOURCE_DIRS})"
     )
+
+
+def test_source_dirs_include_web_and_infra():
+    """2026-10-11 gap: `web`/`infra` were absent from the candidate list, so
+    web/render3d.js (1470) and web/index.html (685) sat past SRC_HARD while the
+    walk never entered web/ — the FAIL-f6228dda shape, one directory short.
+    Frontend and infra roots must be candidates even when this repository
+    happens not to have them, or the next consumer's game host is invisible."""
+    from gate_common import DEFAULT_SOURCE_DIR_CANDIDATES
+    for candidate in ("web", "infra"):
+        assert candidate in DEFAULT_SOURCE_DIR_CANDIDATES, (
+            f"{candidate}/ must be a size-gate candidate ({DEFAULT_SOURCE_DIR_CANDIDATES})")
+        if (PROJECT_ROOT / candidate).is_dir():
+            assert candidate in SOURCE_DIRS, (
+                f"{candidate}/ exists but SOURCE_DIRS skips it ({SOURCE_DIRS})")
+
+
+def test_scope_coverage_flags_uncovered_source_dir():
+    """MUST-flag: a top-level dir holding source files but sitting outside the
+    walk is reported. This is the class fix — a new source root must not hide
+    just because nobody added it to the candidate list."""
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        _write_fixture(root, "src/ok.py", 10)
+        _write_fixture(root, "web/engine.js", 10)
+        gaps = check_scope_coverage(root, ["src"])
+        assert [g["file"] for g in gaps] == ["web/"], gaps
+        assert gaps[0]["kind"] == "scope-gap", gaps[0]
+        assert gaps[0]["severity"] == "warning", gaps[0]
+        # Covered, skipped, and submodule dirs are not gaps.
+        assert check_scope_coverage(root, ["src", "web"]) == []
+        (root / "node_modules").mkdir()
+        _write_fixture(root, "node_modules/dep.js", 5)
+        assert check_scope_coverage(root, ["src", "web"]) == []
+        (root / "vendorish").mkdir()
+        (root / "vendorish" / ".git").write_text("gitdir: ../.git/modules/x\n")
+        _write_fixture(root, "vendorish/mod.js", 5)
+        assert check_scope_coverage(root, ["src", "web"]) == []
+
+
+def test_size_overrides_raise_the_limit_and_stay_visible():
+    """A reasoned override widens hard for one file, never silently. The
+    finding keeps the reason so an auditor sees why."""
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        _write_html_fixture(root, "web/app.html", SRC_HARD + 100)
+        overrides = {"web/app.html": {
+            "hard": SRC_HARD + 200,
+            "reason": "single-file game host; split queued",
+        }}
+        issues = check_file_sizes(root, ["web"], overrides=overrides)
+        assert all(i["kind"] != "hard" for i in issues), issues
+        over = [i for i in issues if i["kind"] == "overridden"]
+        assert len(over) == 1, issues
+        assert over[0]["hard"] == SRC_HARD + 200, over[0]
+        assert "split queued" in over[0]["reason"], over[0]
+        # Over the raised limit is still a hard error.
+        _write_html_fixture(root, "web/toobig.html", SRC_HARD + 300)
+        overrides["web/toobig.html"] = {
+            "hard": SRC_HARD + 200, "reason": "still not enough"}
+        issues = check_file_sizes(root, ["web"], overrides=overrides)
+        assert any(i["kind"] == "hard" and i["file"] == "web/toobig.html"
+                   for i in issues), issues
 
 
 def main() -> int:

@@ -15,7 +15,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > statement is the recorded intent for doc-truth (`doc-version-01`); no retroactive
 > tag was cut.
 
+### Fixed
+
+- **Size-gate directory scope covered `web`/`infra`.** The walk roots were a
+  hardcoded candidate list that omitted `web` and `infra`, so
+  `web/render3d.js` (1470) and `web/index.html` (685) sat past SRC_HARD while
+  the FILE-SIZE CHECK reported clean — the FAIL-f6228dda / FAIL-8f9249ca shape,
+  one directory short. `gate_common.load_source_dirs()` now builds the list
+  (candidates including `web`/`infra`/frontend roots, minus submodules), with
+  scope.json `source_dirs` (replace) and `extra_source_dirs` (extend) so a
+  consumer grows scope without forking. `check_scope_coverage` additionally
+  warns on any top-level dir holding source files that the walk does not
+  enter — the class fix, not just the instance.
+
 ### Added
+
+- **Reasoned size overrides.** scope.json `size_overrides`
+  (`{"web/render3d.js": {"hard": 1600, "reason": "..."}}`) raises one file's
+  limit. `reason` is required and non-empty (same contract as
+  `guardrails-allow`); a breach under an override still reports
+  `kind='overridden'` with the reason so the exception stays visible. Over the
+  raised limit remains a blocking error.
 
 - **Silent-success scan: two Zig families.** The baseline globbed `*.go`, `*.py`,
   `hub/**/*` and `scripts/**/*`, so a Zig consumer was scanned by none of its

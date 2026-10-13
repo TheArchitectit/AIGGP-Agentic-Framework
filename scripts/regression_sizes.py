@@ -29,7 +29,7 @@ from pathlib import Path
 # about worktrees; scope.json alone knew about .crew/.git).
 if str(Path(__file__).resolve().parent) not in sys.path:
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-from gate_common import load_skip_dirs  # noqa: E402
+from gate_common import load_size_overrides, load_skip_dirs  # noqa: E402
 
 SKIP_DIRS = load_skip_dirs()
 FILE_SIZE_SKIP_SUFFIXES = (".d.ts", ".min.js", ".min.mjs", ".map")
@@ -59,8 +59,14 @@ def format_severity(severity: str) -> str:
     return severity.upper()
 
 
-def _classify_file(rel_path: str) -> tuple[int | None, int | None]:
+def _classify_file(rel_path: str,
+                   overrides: dict[str, dict] | None = None) -> tuple[int | None, int | None]:
     """Return (soft, hard) line limits for a repo-relative path."""
+    if overrides:
+        key = rel_path.replace(os.sep, "/")
+        spec = overrides.get(key)
+        if spec is not None:
+            return (spec.get("soft"), spec["hard"])
     parts = rel_path.split(os.sep)
     for skip in SKIP_DIRS:
         if skip in parts:
@@ -92,19 +98,26 @@ def _classify_file(rel_path: str) -> tuple[int | None, int | None]:
 
 
 def check_file_sizes(repo_root: Path, source_dirs: list[str],
-                     touched: set[str] | None = None) -> list[dict]:
+                     touched: set[str] | None = None,
+                     overrides: dict[str, dict] | None = None) -> list[dict]:
     """Size every source file; classify hard-limit breaches by touched-ness.
 
     A file OVER the hard limit that this diff actually touches is an ERROR
     (kind='hard'). A pre-existing oversize file the diff never touched stays a
     WARNING (kind='hard-untouched'). Passing touched=None preserves the original
     behaviour of treating every breach as blocking.
+
+    ``overrides`` (from ``load_size_overrides``) raises the limit for named
+    files; a breach under an override reports ``kind='overridden'`` as a
+    warning carrying the reason, so the exception stays visible.
     """
+    if overrides is None:
+        overrides = load_size_overrides()
     violations: list[dict] = []
     warnings: list[dict] = []
 
     def _size_file(abs_path: Path, rel_path: str) -> None:
-        soft, hard = _classify_file(rel_path)
+        soft, hard = _classify_file(rel_path, overrides)
         if hard is None:
             return
         try:
@@ -118,6 +131,8 @@ def check_file_sizes(repo_root: Path, source_dirs: list[str],
                 line_count = sum(1 for _ in f)
         except OSError:
             return
+        default_soft, default_hard = _classify_file(rel_path, {})
+        override = (overrides or {}).get(rel_path.replace(os.sep, "/"))
         if line_count > hard:
             edited = (touched is None
                       or rel_path in touched
@@ -129,6 +144,12 @@ def check_file_sizes(repo_root: Path, source_dirs: list[str],
                 warnings.append({"file": rel_path, "lines": line_count, "soft": soft,
                                  "hard": hard, "severity": "warning",
                                  "kind": "hard-untouched"})
+        elif override and default_hard is not None and line_count > default_hard:
+            # Under the raised limit but over the default — keep the exception
+            # visible (reason travels with the finding).
+            warnings.append({"file": rel_path, "lines": line_count, "soft": soft,
+                             "hard": hard, "severity": "warning",
+                             "kind": "overridden", "reason": override.get("reason", "")})
         elif soft is not None and line_count > soft:
             warnings.append({"file": rel_path, "lines": line_count, "soft": soft,
                              "hard": hard, "severity": "warning", "kind": "soft"})
@@ -150,9 +171,47 @@ def check_file_sizes(repo_root: Path, source_dirs: list[str],
                     continue
                 _size_file(abs_path, rel_path)
 
+    warnings.extend(check_scope_coverage(repo_root, source_dirs))
     violations.sort(key=lambda d: d["lines"], reverse=True)
-    warnings.sort(key=lambda d: d["lines"], reverse=True)
+    warnings.sort(key=lambda d: d.get("lines", 0), reverse=True)
     return violations + warnings
+
+
+def check_scope_coverage(repo_root: Path, source_dirs: list[str]) -> list[dict]:
+    """Flag top-level dirs that hold source files but sit outside the walk.
+
+    This is the class fix for the directory-scope gap: a new source root
+    (``web/``, ``infra/``, …) must not hide from the size gate just because
+    nobody remembered to add it to the candidate list. Returns one
+    ``kind='scope-gap'`` warning per uncovered directory. Submodule checkouts
+    (a directory containing ``.git``) are first-party-exempt by definition.
+    """
+    covered = {d.replace(os.sep, "/") for d in source_dirs}
+    if "." in covered:
+        return []
+    skip = set(SKIP_DIRS)
+    gaps: list[dict] = []
+    try:
+        entries = sorted(repo_root.iterdir())
+    except OSError:
+        return []
+    for p in entries:
+        if not p.is_dir() or p.name.startswith(".") or p.name in skip:
+            continue
+        if p.name in covered:
+            continue
+        if (p / ".git").exists():
+            continue  # submodule or nested repo — never first-party scope
+        count = 0
+        for dirpath, dirnames, filenames in os.walk(p):
+            dirnames[:] = [d for d in dirnames if d not in skip]
+            for name in filenames:
+                if name.endswith(SOURCE_EXTENSIONS):
+                    count += 1
+        if count:
+            gaps.append({"file": f"{p.name}/", "lines": count, "soft": None,
+                         "hard": None, "severity": "warning", "kind": "scope-gap"})
+    return gaps
 
 
 def print_file_size_report(size_issues: list[dict]) -> None:
@@ -162,6 +221,8 @@ def print_file_size_report(size_issues: list[dict]) -> None:
     hard_count = sum(1 for i in size_issues if i["kind"] == "hard")
     untouched_count = sum(1 for i in size_issues if i["kind"] == "hard-untouched")
     soft_count = sum(1 for i in size_issues if i["kind"] == "soft")
+    over_count = sum(1 for i in size_issues if i["kind"] == "overridden")
+    gap_count = sum(1 for i in size_issues if i["kind"] == "scope-gap")
     print("\n" + "=" * 70)
     print("FILE-SIZE CHECK")
     print("=" * 70)
@@ -173,6 +234,13 @@ def print_file_size_report(size_issues: list[dict]) -> None:
         elif issue["kind"] == "hard-untouched":
             tag = "over hard limit (pre-existing; not touched by this diff)"
             limit = issue["hard"]
+        elif issue["kind"] == "overridden":
+            tag = f"over default limit (override: {issue.get('reason', '')})"
+            limit = issue["hard"]
+        elif issue["kind"] == "scope-gap":
+            print(f"  {severity}  {issue['file']}  ({issue['lines']} source files)  "
+                  f"NOT IN SIZE-GATE SCOPE — add to source_dirs or extra_source_dirs")
+            continue
         else:
             tag = "over soft limit"
             limit = issue["soft"]
@@ -181,5 +249,7 @@ def print_file_size_report(size_issues: list[dict]) -> None:
     print("-" * 70)
     print(f"  {hard_count} over hard limit (blocks commit), "
           f"{untouched_count} pre-existing oversize (warning), "
-          f"{soft_count} over soft limit (warning)")
+          f"{soft_count} over soft limit (warning), "
+          f"{over_count} reasoned overrides (warning), "
+          f"{gap_count} scope gaps (warning)")
     print("=" * 70)

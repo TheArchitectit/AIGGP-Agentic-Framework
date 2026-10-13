@@ -49,6 +49,7 @@ import mutation_harness  # noqa: E402  (sibling module, tests/ is sys.path[0])
 
 SIZES = "scripts/regression_sizes.py"
 CHECK = "scripts/regression_check.py"
+COMMON = "scripts/gate_common.py"
 T_SIZES = "tests/test_regression_sizes.py"
 
 EXTENSIONS_WITH_SH = '''                     ".rb", ".php", ".js", ".jsx", ".swift", ".c", ".cpp", ".h", ".cs",
@@ -59,8 +60,12 @@ EXTENSIONS_WITHOUT_SH = '''                     ".rb", ".php", ".js", ".jsx", ".
 TEST_PREFIX_WITH_SH = 'TEST_PREFIX_EXTENSIONS = (".py", ".sh", ".zig")'
 TEST_PREFIX_WITHOUT_SH = 'TEST_PREFIX_EXTENSIONS = (".py", ".zig")'
 
-DIRS_WITH_SCRIPTS = 'SOURCE_DIRS = []\nfor candidate in ["src", "lib", "app", "extensions", "scripts", "internal", "pkg", "cmd", "game",'
-DIRS_WITHOUT_SCRIPTS = 'SOURCE_DIRS = []\nfor candidate in ["src", "lib", "app", "extensions", "internal", "pkg", "cmd", "game",'
+# The candidate list moved to gate_common.load_source_dirs (2026-10-11) so the
+# overlay can extend it without forking. Anchors track that literal.
+DIRS_WITH_SCRIPTS = '"src", "lib", "app", "extensions", "scripts", "internal", "pkg", "cmd",'
+DIRS_WITHOUT_SCRIPTS = '"src", "lib", "app", "extensions", "internal", "pkg", "cmd",'
+DIRS_WITH_WEB = '    "web", "www", "public", "static"'
+DIRS_WITHOUT_WEB = '    "www", "public", "static"'
 
 MUTATIONS = [
     # S1 — the extension list. Killed by the MUST-flag test; the
@@ -81,7 +86,13 @@ MUTATIONS = [
     # walk enters scripts/, which is where every shell script here lives. This
     # mutation is what found the missing assertion.
     ("S3: `scripts` dropped from the SOURCE_DIRS candidates — the walk never enters it",
-     [(CHECK, DIRS_WITH_SCRIPTS, DIRS_WITHOUT_SCRIPTS)],
+     [(COMMON, DIRS_WITH_SCRIPTS, DIRS_WITHOUT_SCRIPTS)],
+     [T_SIZES], {}),
+
+    # S4 — the 2026-10-11 gap, on purpose this time. `web` dropped again must
+    # be killed by the candidate pin + the coverage test, not by luck.
+    ("S4: `web` dropped from the SOURCE_DIRS candidates — game host invisible again",
+     [(COMMON, DIRS_WITH_WEB, DIRS_WITHOUT_WEB)],
      [T_SIZES], {}),
 ]
 

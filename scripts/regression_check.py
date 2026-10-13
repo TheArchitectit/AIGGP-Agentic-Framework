@@ -59,6 +59,7 @@ from pathlib import Path
 # sibling module (keeps both files under DevGate's own 500-line hard limit).
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import gate_overlay  # noqa: E402
+from gate_common import load_source_dirs  # noqa: E402
 from regression_audit import (  # noqa: E402
     _detect_package_manager,
     check_npm_audit,
@@ -96,19 +97,9 @@ from project_root import project_root_for  # noqa: E402  # guardrails-allow PREV
 
 PROJECT_ROOT = project_root_for(Path(__file__).resolve().parent.parent)
 
-# --- Source directories to scan (auto-detect what exists) -------------------
-SOURCE_DIRS = []
-for candidate in ["src", "lib", "app", "extensions", "scripts", "internal", "pkg", "cmd", "game",
-                  "router", "agents", "common", "tools", "migrations", "openspec", "hub", "go",
-                  "tests", "test"]:
-    if (PROJECT_ROOT / candidate).is_dir():
-        SOURCE_DIRS.append(candidate)
-
-# If no standard dirs found, scan the project root itself
-if not SOURCE_DIRS:
-    SOURCE_DIRS = ["."]
-
-
+# --- Source directories to scan (fw-scope-01; overlay-extensible) -----------
+# Candidates + scope.json extra_source_dirs/source_dirs — see gate_common.
+SOURCE_DIRS = load_source_dirs()
 
 # --- Git / failure registry / pattern rules (unchanged logic) ---------------
 

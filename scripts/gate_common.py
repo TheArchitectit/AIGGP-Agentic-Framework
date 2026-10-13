@@ -15,6 +15,8 @@ Public surface (stdlib-only; safe to `import gate_common` after putting
     devgate_root()                  the .devgate/ or standalone checkout
     project_root([devgate])         layout-contract project root
     load_skip_dirs([devgate])       canonical SKIP_DIRS from .guardrails/scope.json
+    load_source_dirs([devgate])     size-gate walk roots (candidates + overlay)
+    load_size_overrides([devgate])  reasoned per-file hard/soft limit overrides
     read_jsonl_registry(path)       (entries, parse_errors)
     load_ignore_patterns(root)      .guardrailsignore
     is_ignored(file, root, pats)    relpath / basename / dir-prefix match
@@ -47,6 +49,14 @@ Loaded, never redeclared. Names:
 
 Deliberately NOT in the list: ``pkg/`` — commonly first-party Go source.
 The Go module cache lives outside the repo.
+
+``load_source_dirs`` extends the size-gate walk the same way: a candidate
+list (now including ``web`` / ``infra``) plus a scope.json
+``extra_source_dirs`` overlay, so a consumer's new source root cannot silently
+stay out of size scope (FAIL-f6228dda / FAIL-8f9249ca class — the 2026-10-11
+gap where ``web/render3d.js`` at 1470 lines never reached the gate).
+``load_size_overrides`` is the reasoned exception form (``reason`` required,
+same contract as ``guardrails-allow``) — never a silent skip.
 
 ``line_has_allow`` requires reason text after the colon. That is the strictest
 of the three historical matchers (guardrails-scan.mjs / semantic-scan.mjs /
@@ -102,6 +112,22 @@ def project_root(devgate_root_: Path | str | None = None) -> Path:
     return project_root_for(Path(devgate_root_) if devgate_root_ else devgate_root())
 
 
+def _load_scope(devgate_root_: Path | str | None = None) -> tuple[dict, Path]:
+    """Read the winning ``.guardrails/scope.json`` (project overlay first).
+
+    Returns ``(data, path)``. Missing/invalid contract raises — a gate that
+    silently scans the wrong tree is worse than one that refuses to run.
+    """
+    dg = Path(devgate_root_) if devgate_root_ else devgate_root()
+    for candidate in (project_root(dg) / _SCOPE, dg / _SCOPE):
+        if candidate.exists():
+            data = json.loads(candidate.read_text(encoding="utf-8"))
+            return data, candidate
+    raise FileNotFoundError(
+        "scope contract missing: .guardrails/scope.json (project root or .devgate/)"
+    )
+
+
 def load_skip_dirs(devgate_root_: Path | str | None = None) -> frozenset[str]:
     """Canonical SKIP_DIRS from ``.guardrails/scope.json`` (fw-scope-01).
 
@@ -109,17 +135,101 @@ def load_skip_dirs(devgate_root_: Path | str | None = None) -> frozenset[str]:
     scope without editing DevGate. Missing/invalid contract raises — a gate
     that silently scans the wrong tree is worse than one that refuses to run.
     """
-    dg = Path(devgate_root_) if devgate_root_ else devgate_root()
-    for candidate in (project_root(dg) / _SCOPE, dg / _SCOPE):
-        if candidate.exists():
-            data = json.loads(candidate.read_text(encoding="utf-8"))
-            dirs = data.get("skip_dirs")
-            if not isinstance(dirs, list):
-                raise ValueError(f"{candidate}: skip_dirs must be a list")
-            return frozenset(str(d) for d in dirs)
-    raise FileNotFoundError(
-        "scope contract missing: .guardrails/scope.json (project root or .devgate/)"
-    )
+    data, path = _load_scope(devgate_root_)
+    dirs = data.get("skip_dirs")
+    if not isinstance(dirs, list):
+        raise ValueError(f"{path}: skip_dirs must be a list")
+    return frozenset(str(d) for d in dirs)
+
+
+# Size-gate walk roots. Historical gap (2026-10-11): `web` and `infra` were
+# absent, so web/render3d.js (1470) and web/index.html (685) sat past SRC_HARD
+# while the walk never entered web/ — the FAIL-f6228dda shape again, one
+# directory short. Frontend/infra roots are listed explicitly so a consumer
+# does not have to know the contract to get sized.
+DEFAULT_SOURCE_DIR_CANDIDATES: tuple[str, ...] = (
+    "src", "lib", "app", "extensions", "scripts", "internal", "pkg", "cmd",
+    "game", "router", "agents", "common", "tools", "migrations", "openspec",
+    "hub", "go", "tests", "test",
+    "web", "www", "public", "static", "client", "frontend", "backend", "server",
+    "api", "infra", "components", "pages", "modules", "packages", "apps",
+    "include", "bin", "examples", "utils", "services", "core", "shared",
+)
+
+
+def load_source_dirs(devgate_root_: Path | str | None = None) -> list[str]:
+    """Source directories the size gate walks (fw-scope-01).
+
+    Candidates that exist under the project root, then scope.json
+    ``extra_source_dirs`` (overlay extension), then ``source_dirs`` (explicit
+    replacement). Falls back to ``["."]`` when nothing matches. Submodule
+    checkouts (a directory containing ``.git``) are never first-party scope.
+    """
+    data, _path = _load_scope(devgate_root_)
+    root = project_root(devgate_root_)
+    skip = {str(d) for d in data.get("skip_dirs", [])}
+
+    explicit = data.get("source_dirs")
+    if explicit is not None:
+        if not isinstance(explicit, list):
+            raise ValueError(f"{_path}: source_dirs must be a list")
+        return [str(d) for d in explicit] or ["."]
+
+    found: list[str] = []
+    for candidate in DEFAULT_SOURCE_DIR_CANDIDATES:
+        p = root / candidate
+        if p.is_dir() and (p / ".git").exists() is False:
+            found.append(candidate)
+
+    extra = data.get("extra_source_dirs")
+    if extra is not None:
+        if not isinstance(extra, list):
+            raise ValueError(f"{_path}: extra_source_dirs must be a list")
+        for d in extra:
+            name = str(d)
+            if name not in found and name not in skip and (root / name).is_dir():
+                found.append(name)
+
+    return found or ["."]
+
+
+def load_size_overrides(devgate_root_: Path | str | None = None) -> dict[str, dict]:
+    """Per-file size-limit overrides from ``.guardrails/scope.json``.
+
+    Shape: ``{"web/render3d.js": {"hard": 1600, "soft": 800, "reason": "..."}}``.
+    ``reason`` is required and must be non-empty — the same contract as
+    ``guardrails-allow`` (FAIL-9231181d). ``hard`` is required. Paths are
+    posix repo-relative. Unknown keys are rejected so a typo cannot silently
+    widen a limit.
+    """
+    data, path = _load_scope(devgate_root_)
+    raw = data.get("size_overrides")
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        raise ValueError(f"{path}: size_overrides must be an object")
+    allowed = {"hard", "soft", "reason"}
+    out: dict[str, dict] = {}
+    for rel, spec in raw.items():
+        if not isinstance(spec, dict):
+            raise ValueError(f"{path}: size_overrides[{rel!r}] must be an object")
+        unknown = set(spec) - allowed
+        if unknown:
+            raise ValueError(f"{path}: size_overrides[{rel!r}] unknown keys {sorted(unknown)}")
+        reason = spec.get("reason")
+        if not isinstance(reason, str) or not reason.strip():
+            raise ValueError(f"{path}: size_overrides[{rel!r}] requires a non-empty reason")
+        hard = spec.get("hard")
+        if not isinstance(hard, int) or hard <= 0:
+            raise ValueError(f"{path}: size_overrides[{rel!r}] requires a positive int hard")
+        entry = {"hard": hard, "reason": reason.strip()}
+        if "soft" in spec:
+            soft = spec["soft"]
+            if not isinstance(soft, int) or soft < 0:
+                raise ValueError(f"{path}: size_overrides[{rel!r}] soft must be a non-negative int")
+            entry["soft"] = soft
+        out[str(rel).replace("\\", "/")] = entry
+    return out
 
 
 def read_jsonl_registry(path: Path | str) -> tuple[list[dict], list[str]]:

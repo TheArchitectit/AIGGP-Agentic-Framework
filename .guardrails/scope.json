@@ -8,7 +8,12 @@
     "Note: 'pkg' is deliberately NOT excluded \u2014 it is commonly first-party Go source; the module cache lives outside the repo (and .sandbox-home covers the reported divergence case).",
     "'worktrees' added 2026-09-28 (consolidate-shared-gate-logic): agent-created",
     "git worktree checkouts are not first-party gate scope (was only in",
-    "regression_sizes.FILE_SIZE_SKIP_PARTS, so walks disagreed)."
+    "regression_sizes.FILE_SIZE_SKIP_PARTS, so walks disagreed).",
+    "2026-10-11: size-gate walk roots are now overlay-extensible.",
+    "source_dirs replaces the candidate list entirely; extra_source_dirs",
+    "extends it (e.g. add 'web' or 'infra' without forking).",
+    "size_overrides raises hard/soft for one file and REQUIRES a non-empty",
+    "reason (same contract as guardrails-allow) \u2014 the finding stays visible."
   ],
   "skip_dirs": [
     ".claude",
