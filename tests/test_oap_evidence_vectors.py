@@ -26,7 +26,7 @@ sys.path.insert(0, str(REPO))
 from tests.fixtures.oap.oap_vectors import build_vectors, dumps  # noqa: E402
 from hub.coherence import ed25519_vetted  # noqa: E402
 
-VECTORS = (REPO / "openspec" / "changes" / "add-oap-evidence-consumer"
+VECTORS = (REPO / "openspec" / "changes" / "archive" / "2026-10-13-add-oap-evidence-consumer"
            / "vectors" / "oap-evidence-v2-vectors.json")
 
 # Deliberate freeze pin. Update only as part of a reviewed regeneration.

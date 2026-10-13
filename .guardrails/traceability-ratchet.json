@@ -1,3 +1,4 @@
 {
- "min_covered": 79
+ "min_covered": 75,
+ "note": "2026-10-13: 79->75 recalibration. The 4 delta (coh-oap / harden-gate requirement IDs) lived in the two OAP-evidence change packages archived to openspec/changes/archive/2026-10-13-*; spec_traceability skips archive/ by design, so denominator 124->120 and covered 79->75. No id marker removed; ratio unchanged."
 }

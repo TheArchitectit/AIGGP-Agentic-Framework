@@ -16,7 +16,7 @@ import unittest
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-CHANGE = REPO / "openspec" / "changes" / "add-oap-evidence-consumer"
+CHANGE = REPO / "openspec" / "changes" / "archive" / "2026-10-13-add-oap-evidence-consumer"
 sys.path.insert(0, str(REPO))
 
 from hub.coherence import canon, ed25519, oap_evidence
@@ -514,7 +514,7 @@ class TestBoundedSliceSurface(unittest.TestCase):
 class TestQuarantineNonAuthorizing(unittest.TestCase):
     """Gate 0: outputs of the evidence path are explicitly non-authorizing.
 
-    See openspec/changes/harden-oap-evidence-verification/inventory-s-e0.md.
+    See openspec/changes/archive/2026-10-13-harden-oap-evidence-verification/inventory-s-e0.md.
     A successful verify is math-only and must not satisfy a mandatory,
     promotion, release, or OAP-effect check.
     """

@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-CHANGE = REPO / "openspec" / "changes" / "add-oap-evidence-consumer"
+CHANGE = REPO / "openspec" / "changes" / "archive" / "2026-10-13-add-oap-evidence-consumer"
 SCHEMA_PATH = CHANGE / "schemas" / "oap-evidence-envelope.schema.json"
 FIXTURES = CHANGE / "fixtures"
 sys.path.insert(0, str(REPO))
@@ -86,7 +86,7 @@ class TestOapEvidenceEnvelope(unittest.TestCase):
         self.assertTrue(any("above maxItems" in error for error in errors), errors)
 
 
-CHANGE_V2 = REPO / "openspec" / "changes" / "harden-oap-evidence-verification"
+CHANGE_V2 = REPO / "openspec" / "changes" / "archive" / "2026-10-13-harden-oap-evidence-verification"
 SCHEMA_V2_PATH = CHANGE_V2 / "schemas" / "oap-evidence-envelope-v2.schema.json"
 FIXTURES_V2 = CHANGE_V2 / "fixtures"
 SIGNER_SEED = bytes([0x11]) * ed25519.SEED_SIZE

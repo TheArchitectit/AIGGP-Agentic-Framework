@@ -5,7 +5,7 @@
 This is the Python *reference* producer/verifier for the cross-language golden
 vectors frozen at::
 
-    openspec/changes/add-oap-evidence-consumer/vectors/oap-evidence-v2-vectors.json
+    openspec/changes/archive/2026-10-13-add-oap-evidence-consumer/vectors/oap-evidence-v2-vectors.json
 
 Scope and honesty (read before trusting anything here):
 
