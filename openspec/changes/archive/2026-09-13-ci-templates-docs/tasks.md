@@ -1,3 +1,9 @@
+> **CLOSURE ANNOTATION 2026-10-13 (owner disposition ④, board audit 2026-10-10).** The
+> capabilities in this package SHIPPED and were verified in code within 14 days of
+> archiving; the checkboxes below were left unticked — they lag the shipped tree and are
+> intentionally NOT retro-ticked. Treat shipped-truth as the code evidence cited in
+> SPEC-CLOSURE-BOARD.md (AIGGP section), not the checkbox state.
+
 # Tasks: CI templates, repo CI, docs (dependency-ordered)
 
 ## Sprint 1 — self-clean (unblocks D3)

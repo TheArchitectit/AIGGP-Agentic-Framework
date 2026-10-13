@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+> **Version-truth statement (doc-truth closure, 2026-10-13):** `VERSION` reads
+> `1.3.0` and this Unreleased section carries post-1.3.0 work; the newest git tag
+> remains `v1.2.0`. No release has been cut since 1.3.0's changelog entry
+> (2026-09-23) — the version artifact and the tag intentionally disagree until the
+> next tagged release, at which point Unreleased is folded into the new tag. This
+> statement is the recorded intent for doc-truth (`doc-version-01`); no retroactive
+> tag was cut.
+
 ### Added
 
 - **Silent-success scan: two Zig families.** The baseline globbed `*.go`, `*.py`,

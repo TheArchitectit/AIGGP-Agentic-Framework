@@ -1,3 +1,10 @@
+> **ARCHIVED 2026-10-13 as observe-only specs-of-record (owner disposition, QUEUE §A10/B9).**
+> This change is NOT shippable as-is and was never promoted: the only consumer is a
+> non-authorizing local observer; deployed transport + Gate 3.4 independent review are
+> NOT_EXERCISED. Archived per SA-12 (changes/ root holds only ship-scheduled work).
+> Remaining open tasks record what a future enablement change would need. See
+> SPEC-CLOSURE-BOARD.md 2026-10-10 audit for the full evidence trail.
+
 # Tasks: Add OAP Evidence Consumer Contract
 
 > **UNSHIPPED PROPOSAL.** This change is not shipped and promotes nothing. The
