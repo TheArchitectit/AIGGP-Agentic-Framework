@@ -1,4 +1,4 @@
 {
- "min_covered": 75,
- "note": "2026-10-13: 79->75 recalibration. The 4 delta (coh-oap / harden-gate requirement IDs) lived in the two OAP-evidence change packages archived to openspec/changes/archive/2026-10-13-*; spec_traceability skips archive/ by design, so denominator 124->120 and covered 79->75. No id marker removed; ratio unchanged."
+ "min_covered": 76,
+ "note": "2026-10-13: 79->75 recalibration. The 4 delta (coh-oap / harden-gate requirement IDs) lived in the two OAP-evidence change packages archived to openspec/changes/archive/2026-10-13-*; spec_traceability skips archive/ by design, so denominator 124->120 and covered 79->75. No id marker removed; ratio unchanged. 2026-10-14: 75->76 \u2014 zig-opengl-engine zig-scope-01 (scan.exclude_dirs) shipped and marked; floor raised to the live covered count."
 }

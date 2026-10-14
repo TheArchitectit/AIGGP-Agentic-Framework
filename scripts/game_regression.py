@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Game-class regression scanner (engine-aware).
-# spec: zig-regress-01
+# spec: zig-regress-01, zig-scope-01
 
 Ported from Sword of Hope's regression_check.py + failure-registry.jsonl patterns.
 Adds game-specific failure classes beyond DevGate's generic scanner:
@@ -21,9 +21,17 @@ INPUT_CAPTURE) were imported from the former devgate-game-framework repository
 
 Reads .guardrails/failure-registry.jsonl and scans staged/unstaged changes
 against known game-class patterns. Exit 1 on hard violations with --pre-commit.
+
+Spec coverage:
+  zig-regress-01 — the Zig + OpenGL regression classes block staged changes.
+  zig-scope-01  — scan scope is declared by the project manifest:
+                  game-manifest.json `scan.exclude_dirs` unions with the built-in
+                  defaults (a project may add exclusions, never remove them),
+                  matched on whole path components; a missing `scan` key means
+                  "defaults apply", not an error.
 """
 import json, os, re, sys, subprocess
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import gate_overlay  # noqa: E402
@@ -87,6 +95,69 @@ ENGINE_PATTERNS = {
     "Godot": GAME_PATTERNS,
     "Zig + OpenGL": ZIG_PATTERNS,
 }
+
+# zig-scope-01: whole path components that the scanner never descends into,
+# independent of any project declaration (third-party caches, toolchains,
+# editor state). `scan.exclude_dirs` unions with this set — a project may
+# add exclusions, never remove them.
+BUILTIN_EXCLUDE_DIRS = frozenset({
+    ".zig-cache", ".zig-o", "zig-out", "node_modules", ".git",
+    ".venv", "venv", "__pycache__",
+})
+
+
+def load_scan_config(root):
+    """zig-scope-01: read the project's declared scan scope from
+    game-manifest.json.
+
+    Returns (exclude_dirs, non_screen_files):
+      exclude_dirs      — `scan.exclude_dirs`, matched on WHOLE path
+                          components (a declared `zig-pkg` excludes
+                          `zig-pkg/src/x.zig`, not a file named `zig-pkg.txt`
+                          nor `libs/zig-pkg-extra`). Missing `scan` key (or
+                          missing manifest) = defaults apply, not an error.
+      non_screen_files  — `scan.non_screen_files` (the UI-inventory carve-out;
+                          validated here so the manifest contract fails closed
+                          for both game gates; scene_inventory's loader stays
+                          authoritative for the UI inventory itself).
+
+    Malformed types are rejected (fail closed) — a manifest that lies about
+    its scope must stop the gate, not shrink it silently.
+    """
+    root = Path(root)
+    manifest_path = root / "game-manifest.json"
+    if not manifest_path.exists():
+        return frozenset(), []
+    try:
+        data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except Exception:
+        # Unreadable manifest: no declared scope; the built-in defaults still
+        # apply. detect_engine already tolerates this for the engine field.
+        return frozenset(), []
+    if not isinstance(data, dict):
+        return frozenset(), []
+    scan = data.get("scan")
+    if scan is None:
+        return frozenset(), []
+    if not isinstance(scan, dict):
+        raise ValueError(f"{manifest_path}: 'scan' must be an object")
+    exclude = scan.get("exclude_dirs") or []
+    non_screen = scan.get("non_screen_files") or []
+    if not isinstance(exclude, list) or not all(isinstance(d, str) for d in exclude):
+        raise ValueError(f"{manifest_path}: scan.exclude_dirs must be a list of strings")
+    if not isinstance(non_screen, list) or not all(isinstance(f, str) for f in non_screen):
+        raise ValueError(f"{manifest_path}: scan.non_screen_files must be a list of strings")
+    return frozenset(exclude), list(non_screen)
+
+
+def path_excludes_excluded_dir(rel_path: str, exclude_dirs) -> bool:
+    """zig-scope-01: whole-component matching. True when any segment of the
+    file's path equals a declared exclusion. Segment-wise, so `zig-pkg` does
+    not exclude `zig-pkg.txt` or `libs/zig-pkg-extra/main.zig`."""
+    if not exclude_dirs:
+        return False
+    parts = PurePosixPath(rel_path.replace("\\", "/")).parts
+    return any(seg in exclude_dirs for seg in parts[:-1])
 
 def detect_engine(root):
     """Detect the project engine from game-manifest.json, else by project files.
@@ -244,12 +315,23 @@ def main():
     if ignore_patterns:
         print(f"[game-regression] .guardrailsignore: {len(ignore_patterns)} entries")
 
+    # zig-scope-01: the project may declare extra exclusions; they union with
+    # the built-in defaults (a project adds, never removes).
+    exclude_dirs, _non_screen = load_scan_config(root)
+    if exclude_dirs:
+        print(f"[game-regression] scan.exclude_dirs: {len(exclude_dirs)} declared")
+
     # Determine which files to scan
     if args.staged or args.unstaged:
         files = [str(root / f) for f in get_changed_files(root, staged=args.staged)]
     else:
         files = iter_source_files(root, ignore_patterns)
     files = [f for f in files if not is_ignored(f, root, ignore_patterns)]
+    files = [
+        f for f in files
+        if not path_excludes_excluded_dir(
+            os.path.relpath(f, str(root)), exclude_dirs)
+    ]
 
     if not files:
         # No vacuous green (gate-execution-contract): zero files is NOTHING

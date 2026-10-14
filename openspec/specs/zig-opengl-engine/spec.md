@@ -1,13 +1,13 @@
 # Zig + OpenGL Engine Support
 
-Status: Implemented (3 of 4 requirements shipped + marked 2026-10-11). Adds
+Status: Implemented (4 of 4 requirements shipped + marked 2026-10-14). Adds
 quality gates for Zig + OpenGL game projects. Enforcement layer invoked by
 game-type-phase-matrix, alongside the Godot scanner. Requirements zig-engine-01
-(engine detection), zig-ui-inv-01 (src/ui inventory) and zig-regress-01
-(Zig/OpenGL regression classes) are enforced in scripts/scene_inventory.py and
-scripts/game_regression.py. Requirement 'scan scope is declared by the project
-manifest' (scan.exclude_dirs union) remains NOT implemented and carries no id
-marker.
+(engine detection), zig-ui-inv-01 (src/ui inventory), zig-regress-01
+(Zig/OpenGL regression classes) and zig-scope-01 (manifest-declared scan
+scope: `scan.exclude_dirs` unions with the built-in defaults, whole path
+components) are enforced in scripts/scene_inventory.py and
+scripts/game_regression.py.
 
 ## Purpose
 
@@ -45,6 +45,7 @@ that fails the gate.
 - **THEN** the gate fails and names the screen and the orphaned handler
 
 ### Requirement: scan scope is declared by the project manifest
+<!-- id: zig-scope-01 -->
 
 The regression scanner SHALL union the project's `scan.exclude_dirs` with its
 built-in defaults (a project may add exclusions, never remove them), match

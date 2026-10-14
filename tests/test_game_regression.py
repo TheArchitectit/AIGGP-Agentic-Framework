@@ -33,7 +33,6 @@ from game_regression import (  # noqa: E402
     scan_failure_registry_patterns,
     scan_file_for_patterns,
 )
-
 # --- registry entry mirroring FAIL-fc601f4b (a real .go-scoped pattern) ------
 FC_ENTRY = {
     "failure_id": "FAIL-fc601f4b",
@@ -113,7 +112,99 @@ def test_guardrailsignore_scans(tmp_path=None):
         assert not is_ignored(str(tmp / "go/internal/keep.go"), str(tmp), pats)
 
 
-_TESTS = [v for k, v in sorted(globals().items()) if k.startswith("test_") and callable(v)]
+# zig-scope-01: the regression scanner honors the project's declared scan
+# scope (scan.exclude_dirs) on whole path components.
+from game_regression import (  # noqa: E402  (zig-scope-01)
+    BUILTIN_EXCLUDE_DIRS,
+    load_scan_config,
+    path_excludes_excluded_dir,
+)
+
+
+def _zig_hit_file(tmp: Path, rel: str) -> str:
+    p = tmp / rel
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text("const s = std.mem.alloc(u8, 8);\n", encoding="utf-8")
+    return str(p)
+
+
+def test_load_scan_config_missing_manifest_and_missing_scan_key():
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        # No manifest at all: defaults apply, not an error.
+        assert load_scan_config(tmp) == (frozenset(), [])
+        # Manifest without a `scan` key: defaults apply, not an error.
+        (tmp / "game-manifest.json").write_text('{"engine": "Zig + OpenGL"}', encoding="utf-8")
+        assert load_scan_config(tmp) == (frozenset(), [])
+
+
+def test_load_scan_config_reads_declared_exclusions():
+    import tempfile, json
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        (tmp / "game-manifest.json").write_text(json.dumps(
+            {"engine": "Zig + OpenGL",
+             "scan": {"exclude_dirs": ["zig-pkg", "vendor/third"],
+                      "non_screen_files": ["src/ui/dispatch.zig"]}}),
+            encoding="utf-8")
+        exclude, non_screen = load_scan_config(tmp)
+        assert exclude == frozenset({"zig-pkg", "vendor/third"})
+        assert non_screen == ["src/ui/dispatch.zig"]
+
+
+def test_load_scan_config_fails_closed_on_malformed_scope():
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        (tmp / "game-manifest.json").write_text(
+            '{"scan": {"exclude_dirs": "zig-pkg"}}', encoding="utf-8")
+        try:
+            load_scan_config(tmp)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("a manifest that lies about its scope must fail closed")
+
+
+def test_path_excludes_whole_components_only():
+    excl = frozenset({"zig-pkg"})
+    assert path_excludes_excluded_dir("zig-pkg/src/main.zig", excl), "declared dir must be excluded"
+    assert path_excludes_excluded_dir("libs/zig-pkg/x.zig", excl), "nested declared segment excludes"
+    assert not path_excludes_excluded_dir("zig-pkg.txt", excl), "a FILE named zig-pkg.txt is not the dir"
+    assert not path_excludes_excluded_dir("libs/zig-pkg-extra/main.zig", excl), "prefix must not match"
+    assert not path_excludes_excluded_dir("src/main.zig", excl)
+    assert not path_excludes_excluded_dir("src/main.zig", frozenset()), "empty exclusions exclude nothing"
+
+
+def test_builtin_excludes_apply_without_declaration():
+    # The built-in defaults apply even with no manifest: a project adds, never removes.
+    assert ".zig-cache" in BUILTIN_EXCLUDE_DIRS
+    assert path_excludes_excluded_dir(".zig-cache/p/q.zig", BUILTIN_EXCLUDE_DIRS)
+
+
+def test_declared_exclusion_unions_with_defaults_and_filters_scan(tmp_path=None):
+    # Integration shape: the same filter main() applies removes the vendored
+    # tree from the scan scope while an identical file outside it still scans.
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        (tmp / "game-manifest.json").write_text(
+            '{"scan": {"exclude_dirs": ["zig-pkg"]}}', encoding="utf-8")
+        exclude_dirs, _ = load_scan_config(tmp)
+        scope = BUILTIN_EXCLUDE_DIRS | exclude_dirs  # union: add, never remove
+        vendored = _zig_hit_file(tmp, "zig-pkg/cache/dep.zig")
+        live = _zig_hit_file(tmp, "src/engine/main.zig")
+        kept = [f for f in (vendored, live)
+                if not path_excludes_excluded_dir(
+                    os.path.relpath(f, str(tmp)), scope)]
+        assert kept == [live], "vendored findings must not be reported; live tree must still scan"
+        # And the live file genuinely fires the Zig pattern class:
+        hits = scan_file_for_patterns(live, {"ZIG_MEMORY": [r"std\.mem\.alloc\("]})
+        assert len(hits) == 1
+
+
+_TESTS = [v for k, v, in sorted(globals().items()) if k.startswith("test_") and callable(v)]
 
 if __name__ == "__main__":
     failed = 0
