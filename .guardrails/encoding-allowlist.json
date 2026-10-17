@@ -1,0 +1,15 @@
+{
+  "api_version": "devgate.encoding/v1",
+  "note": [
+    "fw-encoding-01: reviewed files whose RAW BYTES are the contract, so",
+    "their line endings / encoding are deliberate and not drift.",
+    "Each entry needs a reason. A missing/malformed file is a hard error.",
+    "Prefer fixing real drift; add an entry only when the bytes ARE the test."
+  ],
+  "entries": [
+    {
+      "path": "tests/fixtures/coherence/hello_crlf.txt",
+      "reason": "Golden canonicalization vector. Its CRLF bytes are SHA-256-pinned in tests/fixtures/coherence/vectors.json (hello_crlf_raw) and reproduced by compute_golden.py; the CRLF is the input under test, not drift. Normalising it would break the byte-identity contract (coh-id-01/coh-id-05)."
+    }
+  ]
+}

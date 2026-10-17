@@ -148,6 +148,23 @@ jobs:
       # glyph is denied in .guardrails/charset-allowlist.json.
       - name: Charset standard (ASCII text; no non-ASCII glyphs)
         run: python3 scripts/check_charset.py --repo .
+      # fw-encoding-01: encoding + line-ending drift (BOM, non-UTF-8, CRLF/LF
+      # mismatch, .gitattributes declaration). Ratcheted; byte-exact fixtures
+      # are allowlisted with a reason.
+      - name: Encoding drift (BOM / non-UTF-8 / line endings)
+        run: python3 scripts/check_encoding.py --repo .
+      # fw-corruption-01: damaged bytes (U+FFFD, mojibake, control/bidi chars)
+      # in content, plus the bad-flip / bulk-mutation (ransomware) shape in the
+      # pushed range. Ratcheted for content; the diff scan is fail-closed.
+      - name: Data corruption (content + pushed-range flip scan)
+        run: |
+          python3 scripts/check_corruption.py --repo .
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="origin/${{ github.base_ref }}"
+          else
+            BASE="${{ github.event.before }}"
+          fi
+          python3 scripts/check_corruption.py --repo . --range "$BASE..HEAD"
       # fw-floor-01 (R9): a suite that silently shrinks below its recorded
       # floor FAILS. Floors are data (tests/expected-counts.json).
       - name: Test-count floors

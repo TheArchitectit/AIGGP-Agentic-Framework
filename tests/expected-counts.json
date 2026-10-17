@@ -2,6 +2,8 @@
  "note": "fw-floor-01: per-suite test-count floors (90% of the recorded suite). Update deliberately; a suite dropping below its floor FAILS CI. Regenerate: python3 tests/gen_floors.py --update",
  "floors": {
   "test_check_charset": 9,
+  "test_check_corruption": 11,
+  "test_check_encoding": 9,
   "test_coherence_image_identity": 13,
   "test_coherence_local_wrapper": 12,
   "test_coherence_workflow_template": 12,
@@ -101,5 +103,5 @@
   "test_template_supply_chain": 4,
   "test_workflow_read": 15
  },
- "total_floor": 1195
+ "total_floor": 1215
 }

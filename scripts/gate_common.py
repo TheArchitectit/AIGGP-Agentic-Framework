@@ -374,3 +374,30 @@ def detect_package_manager(repo_root: Path | str) -> str | None:
         if any((root / m).exists() for m in markers):
             return name
     return None
+
+
+# First-party text file classification (fw-charset-01, fw-encoding-01,
+# fw-corruption-01). One table so the charset, encoding-drift and
+# corruption gates agree on what a "text file" is; a per-gate private list
+# is the divergence class gate_common exists to prevent.
+TEXT_EXTS: frozenset[str] = frozenset({
+    ".md", ".markdown", ".txt", ".rst",
+    ".py", ".go", ".rs", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs",
+    ".sh", ".bash", ".zsh", ".bat", ".cmd", ".ps1",
+    ".yml", ".yaml", ".json", ".jsonl", ".toml", ".ini", ".cfg", ".env",
+    ".sql", ".proto", ".html", ".css", ".hbs", ".xml", ".csv",
+})
+TEXT_BASENAMES: frozenset[str] = frozenset({
+    ".gitignore", ".gitattributes", ".editorconfig", "dockerfile",
+    "makefile", "license", "notice",
+})
+
+
+def is_text_file(path: str | Path) -> bool:
+    """True when ``path`` is first-party text by extension or basename.
+
+    Classification only; scope (SKIP_DIRS) is applied separately via
+    ``load_skip_dirs``. Binary and vendored trees are never text.
+    """
+    p = Path(path)
+    return p.suffix.lower() in TEXT_EXTS or p.name.lower() in TEXT_BASENAMES
