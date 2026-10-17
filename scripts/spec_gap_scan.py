@@ -106,16 +106,16 @@ TRACK_EMIT = re.compile(r'track_event\(\s*"([a-z_][a-z0-9_]*)"')
 
 
 def claimed_but_absent(root: Path) -> list[dict]:
-    """§C leads: mechanical, evidence-pointed claims with no code.
+    """Sec.C leads: mechanical, evidence-pointed claims with no code.
 
     Two classes, both verified as IDENTIFIER ABSENCE in a defined search
     surface — never behavior inference. Deliberately dropped after the
     first testbed run: `signal-orphan` (a signal with no textual listener
     is NOT provably dead — Godot binds via .tscn ConnectSignal and via
-    dynamic access, and this class re-emitted GAPS.md §E's retired
+    dynamic access, and this class re-emitted GAPS.md Sec.E's retired
     production_ready lie) and prose `doc-claim` (backtick tokens in docs
     are names, not claims; the harvest picked up the fixture's own
-    strikethrough §E text and file names). Under-claiming is honest;
+    strikethrough Sec.E text and file names). Under-claiming is honest;
     these two were not.
 
     Classes kept:

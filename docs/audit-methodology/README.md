@@ -26,7 +26,7 @@ one-time checklist.
 | 12 Resource governance | `hub/coherence/resource_limits.py` (budgets, runaway detection, capped backoff) |
 | 13 Regression memory | `scripts/regression_corpus.py` (relevance selection + staleness audit) |
 | 14 Multi-solver evaluation | `.benchmarks/multi_solver.py` (+ shipped GAMING negative control) |
-| 15 Final zero-trust audit | `orchestrator.md` §14 (run per release) |
+| 15 Final zero-trust audit | `orchestrator.md` Sec.14 (run per release) |
 | 16 Master Orchestrator | [`orchestrator.md`](./orchestrator.md) |
 
 ## The two ideas that make it work

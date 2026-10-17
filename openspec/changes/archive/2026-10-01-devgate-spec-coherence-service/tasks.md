@@ -32,7 +32,7 @@ Dependency-ordered sprint plan for the full program. Sprint S0–S1 gate everyth
 - [x] Lead review of `review.md` findings R1–R9 and design v2 amendment log — **PERFORMED 2026-09-28 (owner-approved lead review, in-session).** Each R1–R9 checked against shipped code, not prose: R1 CLOSED (acyclic seal, `attest.seal_run`; re-sign invariance `test_resign_leaves_decision_unchanged`), R2 CLOSED (context-bound semantics, `context.is_promotion_authorizing`; no caller mode), R3 CLOSED (single decision/exit matrix + per-assertion ledger), R4 CLOSED with one recorded finding (anti-rollback `policy.check_anti_rollback` with named refusal codes; the EXTERNAL enforcement boundary — required status check/ruleset — does not exist in-tree and is a repo-settings act, recorded at :620), R5 CLOSED-AS-DECIDED (built-in evaluators only; sandbox deliberately deferred — the deferral itself is why ADR-015 stays unaccepted), R6 CLOSED (restricted RFC 8785 + domain-separated digests, `canon.py`), R7 CLOSED (operational assertion schema: refs, owners, typed selectors, finding keys), R8 PARTIALLY CLOSED (signing milestone implemented and tested `attest.required`; retention clause coded but unwired pending Q7 — why ADR-018 stays unaccepted), R9 CLOSED (both halves: fingerprint lifecycle tests named and green; LobsterWars provenance captured 2026-09-28, gamerepo01 synthetic by measurement). 93 tests + 13 subtests green at review time (conformance + adoption-policy + attestation suites).
 - [x] Accept or amend ADR-001 through ADR-010 — **ACCEPTED 2026-09-28** (owner, in-session): ADR-001…014 and 016/017/019 accepted as written (clause-by-clause mapping onto R1–R9 precedes acceptance; see `adrs.md` header). ADR-015 and ADR-018 deliberately UNACCEPTED: 015's acceptance would ratify the plugin-sandbox deferral as a decision (held open; the sandbox ADR is its acceptance condition), 018's retention clause waits on Q7. The amendment log in design.md v2 is consistent with the accepted set — no divergence found between proposed amendments and shipped code.
 - [x] Record repo defaults: `coh-*` requirement namespace; no `openspec/gate-config.json` yet (advisory); stdlib slice-1 runtime with pinned container deferred — recorded in `next-phase-plan.md`.
-- [x] Owner decisions on acceptance.md questions Q1–Q5, Q9 — proposed defaults in `s1-freeze-record.md` §7; unconfirmed.
+- [x] Owner decisions on acceptance.md questions Q1–Q5, Q9 — proposed defaults in `s1-freeze-record.md` Sec.7; unconfirmed.
       **CONFIRMED 2026-09-26 by the owner** (in-session, explicit): all six proposed defaults accepted
       as written — Q1 detached control-plane approval record (package digest + authority + repo scope +
       validity window; ADR-011/014), Q2 enforced core = product-identity consistency + traceability
@@ -52,7 +52,7 @@ Dependency-ordered sprint plan for the full program. Sprint S0–S1 gate everyth
 
 ## Sprint S1 — contract freeze
 
-- [x] Freeze design.md v2 as the contract — `s1-freeze-record.md` §1. Lead-reviewed 2026-09-28 with the S0 R1–R9 pass (the process debt this line once named).
+- [x] Freeze design.md v2 as the contract — `s1-freeze-record.md` Sec.1. Lead-reviewed 2026-09-28 with the S0 R1–R9 pass (the process debt this line once named).
 - [x] Publish versioned JSON schemas (12) — `schemas/`. (Result schema amended 2026-09-17 to permit explicit nulls per coh-dec-02.)
       COUNT NOW SUPERSEDED — do not read "12" as the directory's size. The freeze shipped exactly 12
       (`git log --diff-filter=A` shows 12 files added 2026-09-17); three more were added after the freeze
@@ -63,7 +63,7 @@ Dependency-ordered sprint plan for the full program. Sprint S0–S1 gate everyth
 - [x] Commit golden canonicalization and digest vectors — `tests/fixtures/coherence/`, reproducible.
 - [x] Write the decision/exit matrix — `decision-exit-matrix.md`.
 - [x] Define the execution-profile registry — `execution-profile-registry.md`.
-- [x] Map coherence result against hub check-class shapes — `s1-freeze-record.md` §6.
+- [x] Map coherence result against hub check-class shapes — `s1-freeze-record.md` Sec.6.
 - [x] Record R8/R9 decisions in design and specs.
 - [x] Lead review of the frozen contract — **CLOSED 2026-09-28** by the S0 line above (`.1` lead review of `review.md` findings R1–R9 and the design v2 amendment log, owner-approved in-session). The S1 freeze artifacts were the subject of that review: design.md v2 is the frozen contract and its amendment log is what was checked against shipped code. Q1–Q5/Q9 were confirmed 2026-09-26 (see the S0 decision record). No separate freeze-artifact act remains.
 
@@ -1224,7 +1224,7 @@ not as implemented. Do not re-add the six checkpoints here.
       resources (timeout/overflow → 32, container + launcher suites), bad signatures
       (attestation/verify_cli/tamper suites), evidence loss
       (`test_missing_result_bundle_is_error`, captured-fact-content-missing). Scenario 7 was
-      **not** shipped: design §2 and the exit-32 matrix both committed to "mutation mid-run is
+      **not** shipped: design Sec.2 and the exit-32 matrix both committed to "mutation mid-run is
       ERROR, never a mixed-content pass", but `manifest.verify_read` had **zero production
       callers** and a live probe showed an evaluator reading post-snapshot bytes and returning a
       clean VIOLATED. Closed this sprint: `manifest.first_mutation` (whole-tree re-walk diffing
@@ -1302,7 +1302,7 @@ not as implemented. Do not re-add the six checkpoints here.
       enforced exactly 30, so no code change was needed; this half is
       CLOSED. (2)
       *Evaluation availability* cannot be pinned today because the service
-      cannot be measured: design.md §Observability commits to operational
+      cannot be measured: design.md Sec.Observability commits to operational
       metrics (duration, resource use, cache behavior, evaluator failure
       rate, advisory age, exception age, findings by class) with the
       invariant "metrics never affect deterministic classification", but the
@@ -1323,7 +1323,7 @@ not as implemented. Do not re-add the six checkpoints here.
       Four were already covered by
       shipped, drill- or test-verified runbooks: outage (`hub-outage.md` +
       `fleet_drill.py`, closed at :818), rollback
-      (`policy-rollback-and-key-rotation.md` §policy-rollback, `nc-09`),
+      (`policy-rollback-and-key-rotation.md` Sec.policy-rollback, `nc-09`),
       policy recovery (the same runbook's three-branch recovery — restore
       from the control plane / re-issue the binding / grandfather window,
       with the "do NOT edit the binding" rule stated), and key rotation

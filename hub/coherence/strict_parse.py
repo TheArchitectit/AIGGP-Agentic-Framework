@@ -37,7 +37,7 @@ from datetime import datetime
 from . import canon, ed25519_vetted as ed25519
 from .trust_store import TrustStore, digest_of
 
-# --- resource bounds (contract-v2.md §2) -----------------------------------
+# --- resource bounds (contract-v2.md Sec.2) -----------------------------------
 MAX_BYTES = 64 * 1024
 MAX_DEPTH = 32
 MAX_STRING = 1024
@@ -49,7 +49,7 @@ SUPPORTED_DIRECTIONS = frozenset({"devgate-to-oap"})
 
 TOP_LEVEL_FIELDS = frozenset({"body", "signature"})
 
-# Exact `body` member set (contract-v2.md §2). All required, none optional.
+# Exact `body` member set (contract-v2.md Sec.2). All required, none optional.
 BODY_FIELDS = frozenset({
     "contract_version", "direction", "producer_id", "consumer_audience",
     "tenant_or_project_id", "subject_kind", "subject_digest", "request_id",
@@ -67,7 +67,7 @@ KEY_ID_PREFIX = "ed25519:"
 DOMAIN_TAG = b"devgate.oap-evidence/v2"
 KEY_ID_TAG = "devgate.oap-evidence.key-id/v2"
 
-# Bounded identifier / reason sizes (contract-v2.md §2).
+# Bounded identifier / reason sizes (contract-v2.md Sec.2).
 IDENTIFIER_MAX = 256
 REASON_MAX = 512
 MAX_LIFETIME_SECONDS = 300  # maximum lifetime for the first pilot ≤ 5 minutes
@@ -89,7 +89,7 @@ STATUSES = frozenset({
     "PASS", "ADVISORY", "FAIL", "ERROR", "EMPTY", "SKIP", "UNKNOWN",
     "INCONCLUSIVE", "MALFORMED",
 })
-# native_decision -> admissible native_exit_code values (contract-v2.md §2).
+# native_decision -> admissible native_exit_code values (contract-v2.md Sec.2).
 DECISION_EXIT_CODES = {
     "PASS": frozenset({0}),
     "ADVISORY": frozenset({10}),

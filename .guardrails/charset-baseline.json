@@ -1,0 +1,19 @@
+{
+ "api_version": "devgate.charset-baseline/v1",
+ "note": [
+  "fw-charset-01 ratchet: grandfathered non-ASCII counts.",
+  "May only DECREASE. Fix files as you touch them, then rerun",
+  "python3 scripts/check_charset.py --write-baseline to tighten."
+ ],
+ "files": {
+  "README.md": 1,
+  "actions/stitcher-codereview/src/reporter.ts": 6,
+  "actions/stitcher-codereview/src/vcs.ts": 3,
+  "docs/WRITE_AUDIT_REVIEW.md": 5,
+  "openspec/changes/archive/2026-10-01-devgate-spec-coherence-service/design.md": 2,
+  "openspec/changes/archive/2026-10-01-devgate-spec-coherence-service/tasks.md": 1,
+  "scripts/regression_check.py": 7,
+  "scripts/run-tests.mjs": 5,
+  "tests/test_oap_v2_conformance.py": 1
+ }
+}

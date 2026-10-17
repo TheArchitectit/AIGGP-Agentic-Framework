@@ -1,7 +1,7 @@
 # Spec gap scanner — MergeKingdom testbed acceptance (SGA-07, task 1.5)
 
 The work-order acceptance list (`MergeKingdom/docs/SPEC-GAP-SCANNER-WORK-ORDER.md`
-§Testbed acceptance, five criteria) run against the live testbed. Criteria 1–3
+Sec.Testbed acceptance, five criteria) run against the live testbed. Criteria 1–3
 are recorded here; criteria 4–5 are the post-review lane (see "Deferred").
 Scanner commit: 25d18b3 (`--scaffold`/`--draft` complete). Testbed HEAD:
 `a2fa6b2`.
@@ -11,22 +11,22 @@ Scanner commit: 25d18b3 (`--scaffold`/`--draft` complete). Testbed HEAD:
 `spec_gap_scan.py --root . --json` on MergeKingdom @ a2fa6b2 exits **0** and
 prints 70 capabilities, **70 unspaced**, 0 partially-tracked, 0 uncovered IDs,
 2 CLAIMED-BUT-ABSENT. Exit 0 with the table (not exit 2) because the tree HAS
-anchors — the §A config-refusal wedge is correctly attributed: 0 requirement
+anchors — the Sec.A config-refusal wedge is correctly attributed: 0 requirement
 IDs but 70 real anchors, so "unknown scope" would be a lie.
 
 Worst-tracked-first ordering holds: `iap-manager` (449 lines) and `save-manager`
 (444) lead, `hero-manager` (216) mid-pack — the biggest un-specced surfaces
-first, matching the §B table's own emphasis.
+first, matching the Sec.B table's own emphasis.
 
 ## Criterion 2 — scaffold set names GAPS.md's capabilities with evidence
 
 `--scaffold --draft` wrote 70 stubs under `openspec/specs/<cap>/spec.md` (run on
 a working copy so the user's tree stays untouched), each carrying its evidence
 anchor (`src/autoload/economy_manager.gd:20-107` style) and a
-`<!-- draft: unreviewed -->` requirement slot. Every GAPS.md §B concept maps to
+`<!-- draft: unreviewed -->` requirement slot. Every GAPS.md Sec.B concept maps to
 a scaffold stem:
 
-| GAPS.md §B | scaffold stem(s) |
+| GAPS.md Sec.B | scaffold stem(s) |
 |---|---|
 | merge-engine | merge-engine ✓ |
 | grid-state | grid-state ✓ |
@@ -65,12 +65,12 @@ never invented). `main.gd` exclusion is the scanner's stated scene-entry rule.
 
 `--draft` output on the copy passed the "no known false claim reappears as fact"
 check: the report JSON contains **none** of `production_ready`, `merge_sparkle`,
-or `HERO_MERGE_COST_MULT` (§E retired claims + §C1). Two independent reasons:
+or `HERO_MERGE_COST_MULT` (Sec.E retired claims + Sec.C1). Two independent reasons:
 rail 3 (CLAIMED-BUT-ABSENT never scaffolds — `test_scaffold_ignores_claimed_but_absent`)
 and the mechanical classes only emit on *current* source absence. `HERO_MERGE_COST_MULT`
 is gone because the testbed retired it in commit `f4fe20d` ("fix: retire
 HERO_MERGE_COST_MULT"), and the 6 dead quest events were wired in `004f0cb`, so
-the event-claimed class correctly reports **0** dead templates now vs GAPS.md §C2's
+the event-claimed class correctly reports **0** dead templates now vs GAPS.md Sec.C2's
 11 — the scanner tracks the code, not the stale doc. The 2 surviving const-dead
 claims (`INVASION_POPUP_SCENE`, `MAX_HEROES`) are genuine current-tree findings
 the handoff predates.

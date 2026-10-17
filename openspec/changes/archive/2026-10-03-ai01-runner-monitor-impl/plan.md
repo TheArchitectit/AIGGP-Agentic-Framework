@@ -21,19 +21,19 @@ markers use the Python workaround form `# // spec: <id>` (matches
 | `hub/config.py` | mon-hub-01 (partial) | `Config.from_env()`; dataclass of every knob with env-var defaults + argparse long flags. Holds the Q1–Q3 defaults: `ALERT_CHANNEL=github_issue`, `HEARTBEAT_INTERVAL_SEC=300`, `MONITOR_ONLY=true`. Also `BIND_HOST` default **`127.0.0.1`** (never 0.0.0.0 — D7 firewall step), `BIND_PORT=8443`. |
 | `hub/registry.py` | mon-registry-01, mon-enroll-01 | `runners.json` load/save (atomic: write tmp + `os.replace`), schema validation against `hub/schema/runners.schema.json`, enrollment-token store, per-runner heartbeat-token issue/revoke. Never commits instance data. |
 | `hub/tokens.py` | mon-enroll-01 | Enrollment + heartbeat token mint/verify/revoke. Constant-time compare (`hmac.compare_digest`). Token = `secrets.token_urlsafe(32)`. |
-| `hub/server.py` | mon-hub-01, mon-channels-01 | `ThreadingHTTPServer` + `BaseHTTPRequestHandler`. Routes `/enroll`, `/heartbeat`, `/health`. Token verification flow. Returns JSON; error codes per §2. |
-| `hub/ghapi.py` | mon-online-01, mon-queue-01, mon-gates-01, mon-drift-01 | Thin `urllib.request` wrapper over GitHub REST (no deps). Per-repo sequential polling with backoff (§4). One function per evidence channel. |
+| `hub/server.py` | mon-hub-01, mon-channels-01 | `ThreadingHTTPServer` + `BaseHTTPRequestHandler`. Routes `/enroll`, `/heartbeat`, `/health`. Token verification flow. Returns JSON; error codes per Sec.2. |
+| `hub/ghapi.py` | mon-online-01, mon-queue-01, mon-gates-01, mon-drift-01 | Thin `urllib.request` wrapper over GitHub REST (no deps). Per-repo sequential polling with backoff (Sec.4). One function per evidence channel. |
 | `hub/monitor.py` | mon-channels-01, mon-online-01, mon-queue-01, mon-gates-01, mon-drift-01 | Orchestrator: for each registered repo, run the four checks, combine API + heartbeat (independent per D2), emit `Alert`s. This is where "polling alone sufficient / heartbeats alone mark stale" lives. |
 | `hub/alerts.py` | mon-alert-01 | Dedupe key `(repo, check_class, runner)`; append-only JSONL log on hub volume; recurrence → comment vs new issue. |
 | `hub/notifier.py` | mon-alert-01 (partial) | `Notifier` ABC + `GitHubIssueNotifier` (label-create fallback) + `NullNotifier` stub for future channels. **Not a `pass # TODO` body** — the silent-success family (`python_pass_todo_body`, enabled) would fail drift scan; stub raises `NotImplementedError`. |
 | `hub/main.py` | mon-hub-01 | Entry point: argparse (long flags + env defaults), wires config → registry → server + poll loop. Exit codes documented in docstring (0/1/2). |
-| `hub/schema/runners.schema.json` | mon-registry-01 | JSON Schema for the registry (§3). Committed; instance file is not. |
+| `hub/schema/runners.schema.json` | mon-registry-01 | JSON Schema for the registry (Sec.3). Committed; instance file is not. |
 | `hub/schema/runners.example.json` | mon-registry-01 | Redacted example, placeholder values only (safe via PREVENT-003 `forbidden_context`). |
 
 **Marker placement:** put each `# // spec: <id>` on the first function/class in the
 module that implements it. This is what lifts coverage from 0/34 toward covering all
 10 mon-* IDs. Note: `hub/` is **not** in `regression_check.py`'s `SOURCE_DIRS`
-(line ~91) — see §12 trap list; add `"hub"` (one line) so the file-size gate and
+(line ~91) — see Sec.12 trap list; add `"hub"` (one line) so the file-size gate and
 pattern rules actually scan it.
 
 ---
@@ -387,7 +387,7 @@ step exists → Usage). Sections:
 6. **Rotation & revocation** — token rotation steps; `--revoke`.
 7. **Q1–Q3 owner-confirmation flags** — call out that alert channel (GitHub issues),
    heartbeat interval (5 min), and monitor-only are **defaults, confirm before go-live**.
-8. **Dead-man switch** — enable the committed workflow template (§4.3) to watch `/health`.
+8. **Dead-man switch** — enable the committed workflow template (Sec.4.3) to watch `/health`.
 
 **No step may read a secret from this repo** (mon-ai01-01 scenario). All tokens minted
 on monitor-hub.
@@ -463,14 +463,14 @@ isolation.
   needed, `os.environ.get("HUB_DEBUG","false")=="true"`. *Chosen: env-gated.*
 - **Silent-success family** (`python_pass_todo_body`, enabled) — the future-channel
   notifier stub must `raise NotImplementedError`, never `pass # TODO`. *Chosen: raise.*
-- **.gitignore has no runners.json entry** → add it (mon-registry-01). *Chosen: added §3.*
+- **.gitignore has no runners.json entry** → add it (mon-registry-01). *Chosen: added Sec.3.*
 - **PREVENT-029/031 don't cover hub Python**, but bind explicitly: default `HUB_BIND_HOST=127.0.0.1`, never 0.0.0.0 (D7). *Chosen: loopback default.*
 - **`log_failure.py DEFAULT_REGISTRY` writes into the submodule baseline** (QA H8) — new
   failures from this work should go to the project overlay, not the baseline. *Flagged in
   runbook/closeout; do not point log_failure at the submodule default for hub bugs.*
 - **Drift-scan workflow name is ambiguous** — spec doesn't name it. *Chosen: config-provided
   name pattern (default `drift`), overridable per repo; period from registry override or
-  inferred run cadence (§4).*
+  inferred run cadence (Sec.4).*
 - **"Suite green" must not be overclaimed** — 2 pre-existing node failures + broken
   `run-tests.mjs`. *Chosen: define green as pytest suite + new hub tests passing, with the
   pre-existing node failures explicitly noted as not-regressed.*

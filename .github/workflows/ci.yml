@@ -142,6 +142,12 @@ jobs:
       # shebang'd script committed 100644 breaks hosted checkouts.
       - name: Exec-bit integrity (shebang implies 100755 in the index)
         run: python3 scripts/check_exec_bits.py
+      # fw-charset-01: tracked text is ASCII. Non-ASCII glyphs (e.g. U+00A7
+      # SECTION SIGN, which renders as a dollar-ish glyph in some clients) are
+      # a defect. Ratcheted via .guardrails/charset-baseline.json; the reported
+      # glyph is denied in .guardrails/charset-allowlist.json.
+      - name: Charset standard (ASCII text; no non-ASCII glyphs)
+        run: python3 scripts/check_charset.py --repo .
       # fw-floor-01 (R9): a suite that silently shrinks below its recorded
       # floor FAILS. Floors are data (tests/expected-counts.json).
       - name: Test-count floors

@@ -58,7 +58,7 @@ None. No ledger [x] claim references an artifact that doesn't exist or contradic
 2. **[x] Package committed — `eac440a`** — Verified: `git log --oneline eac440a` exists and contains the coherence package.
 
 ### S1 items checked:
-3. **[x] Freeze design.md v2** — Verified: `s1-freeze-record.md §1` exists; design.md v2 content matches the frozen contract (exit-code matrix matches `decision-exit-matrix.md`).
+3. **[x] Freeze design.md v2** — Verified: `s1-freeze-record.md Sec.1` exists; design.md v2 content matches the frozen contract (exit-code matrix matches `decision-exit-matrix.md`).
 4. **[x] Publish versioned JSON schemas (12)** — 15 schemas found (see MAJOR-1 above); schemas exist and are loadable.
 5. **[x] Commit golden canonicalization and digest vectors** — Verified: `tests/fixtures/coherence/` exists with `canonical_sample.json`, `compute_golden.py`, `fixtures.py`, `vectors.json`.
 6. **[x] Write decision/exit matrix** — Verified: `decision-exit-matrix.md` exists with complete matrix (8 outcome classes, 5 stage interplay rows, 5 tie-breaking rules).

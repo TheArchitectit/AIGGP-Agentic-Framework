@@ -26,7 +26,7 @@ shipped test, drill, or measured run — not prose intent.
 
 ## The ten owner-decision open questions (acceptance.md) — status
 
-**UPDATE 2026-09-26: the owner accepted all six §7 defaults (Q1–Q5, Q9)** —
+**UPDATE 2026-09-26: the owner accepted all six Sec.7 defaults (Q1–Q5, Q9)** —
 recorded in `acceptance.md` ("Decided") and tasks.md:35. The rows below are
 retained as the pre-decision record, marked with the answers.
 

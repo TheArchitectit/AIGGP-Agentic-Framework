@@ -10,10 +10,10 @@ Scope: deterministic keygen from a 32-byte seed, deterministic sign, and strict
 (cofactorless) verification of the RFC 8032 equation `[s]B = R + [k]A`.
 Verification rejects identity and other low-order A/R points, noncanonical
 y >= p, invalid sign bits, S >= L, and malformed lengths. Correctness is
-pinned by the RFC 8032 §7.1 test vectors in
+pinned by the RFC 8032 Sec.7.1 test vectors in
 `tests/test_oap_evidence_signature.py`.
 
-Production status (design §1a / S-E1): this module is a test-vector and
+Production status (design Sec.1a / S-E1): this module is a test-vector and
 educational reference only. Private-key signing for any production key MUST
 use `hub.coherence.ed25519_vetted` (constant-time vetted provider). This
 module MUST NOT be presented as the mandatory verifier until the change's

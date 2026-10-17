@@ -1,5 +1,5 @@
 # // spec: coh-id-02
-"""Mid-run input mutation (S8 tasks.md:919, measured 2026-09-26): design.md §2
+"""Mid-run input mutation (S8 tasks.md:919, measured 2026-09-26): design.md Sec.2
 commits to "Snapshots or re-verifies digests at evaluator read time; mutation
 mid-run is ERROR (exit 32), never a mixed-content pass", and the exit-32
 matrix row names "input mutation" — but the guarantee was documented, not

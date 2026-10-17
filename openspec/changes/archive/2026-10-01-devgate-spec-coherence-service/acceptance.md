@@ -69,7 +69,7 @@ The first production release is acceptable only when:
 ### Decided (2026-09-26)
 
 **Q1, Q2, Q3, Q4, Q5, Q9 were answered by the owner** — all six proposed
-defaults from `s1-freeze-record.md` §7 accepted as written: (1) detached
+defaults from `s1-freeze-record.md` Sec.7 accepted as written: (1) detached
 control-plane approval record binding package digest + authority + repo
 scope + validity window; (2) enforced core = product-identity consistency,
 traceability completeness, release-claim consistency; (3) max advisory

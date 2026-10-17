@@ -115,7 +115,7 @@ def run(planned: list, package: dict, subject_root: str, limits: dict = None,
                          "reason": f"evaluator-crash:{type(e).__name__}:{a['id']}"}
 
         if subject is not None:
-            # coh-id-02 (design §2): mutation mid-run is ERROR, never a
+            # coh-id-02 (design Sec.2): mutation mid-run is ERROR, never a
             # mixed-content pass. Re-verify the CLOSED snapshot after this
             # assertion's reads: if ANY path drifted, its result was computed
             # against content the subject digest never committed to — the row

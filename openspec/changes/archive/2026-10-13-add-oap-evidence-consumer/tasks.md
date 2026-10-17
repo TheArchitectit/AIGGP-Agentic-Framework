@@ -1,4 +1,4 @@
-> **ARCHIVED 2026-10-13 as observe-only specs-of-record (owner disposition, QUEUE §A10/B9).**
+> **ARCHIVED 2026-10-13 as observe-only specs-of-record (owner disposition, QUEUE Sec.A10/B9).**
 > This change is NOT shippable as-is and was never promoted: the only consumer is a
 > non-authorizing local observer; deployed transport + Gate 3.4 independent review are
 > NOT_EXERCISED. Archived per SA-12 (changes/ root holds only ship-scheduled work).

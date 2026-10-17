@@ -6,7 +6,7 @@ the peer-side method (openspec/changes/add-oap-evidence-consumer/secure-method.m
 
 The signature is Ed25519 implemented in stdlib (`hub.coherence.ed25519`, no
 third-party dependency); its correctness is pinned here against the RFC 8032
-§7.1 vectors. The negative controls required by the slice are: tampered
+Sec.7.1 vectors. The negative controls required by the slice are: tampered
 payload/digest, wrong key id, expired key, revoked key.
 """
 import hashlib
@@ -83,7 +83,7 @@ def _seed(byte):
     return bytes([byte]) * ed25519.SEED_SIZE
 
 
-# RFC 8032 §7.1 test vectors: (seed, public key, message, signature), all hex.
+# RFC 8032 Sec.7.1 test vectors: (seed, public key, message, signature), all hex.
 RFC8032 = (
     ("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60",
      "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a", "",

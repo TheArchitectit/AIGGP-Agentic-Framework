@@ -23,7 +23,7 @@ scaffolding (DEP-002), redefines no `coh-*` contract, and ticks no owner decisio
 | `npx openspec validate --all --strict` (`@fission-ai/openspec@1.13.0`) | **44 passed, 0 failed** |
 | `python3 scripts/spec_traceability.py --root . --report` | 79/142 covered, **advisory** (no blocking mode configured) |
 | `python3 scripts/regression_check.py --staged --pre-commit --fail-if-empty` (clean tree) | **exit 2** — WORKING AS DESIGNED zero-input refusal ("NOT evidence of a clean tree") |
-| Hosted CI on this SHA (`36527007652`) | Specs + DevGate-gates + secret-scan + publish + evaluator-image **green**; fw-* and Test-suite in progress at write time (jobs listed in §1.1) |
+| Hosted CI on this SHA (`36527007652`) | Specs + DevGate-gates + secret-scan + publish + evaluator-image **green**; fw-* and Test-suite in progress at write time (jobs listed in Sec.1.1) |
 
 ### 1.1 Hosted jobs at write time (`gh run view 36527007652`)
 
@@ -157,7 +157,7 @@ do not re-derive private topology here):
 
 **Consequence:** Sprint 1.1 (commercial boundary + license manifest + changed-
 path license gate) has nothing to extract yet. OD-001 and OD-002 were decided
-2026-09-29 (see §8): no commercial split in Phase 1, and the package boundary
+2026-09-29 (see Sec.8): no commercial split in Phase 1, and the package boundary
 root is `fleet-manager/`. Sprint 1.1 therefore starts that root under BSD only.
 
 ## 6. Secret classes and entry points
@@ -188,7 +188,7 @@ only); container binds are tailnet/loopback by house rule.
   (INT-001..003) requires read-only views, mediated commands with receipts, and
   proof that rad-gateway is absent from the trust path. That verification is
   deferred to Sprint 9 and remains an **uncertainty** while those integrations
-  stay in scope (see §9).
+  stay in scope (see Sec.9).
 
 ## 8. Sprint 0 checklist disposition at this SHA
 
@@ -196,8 +196,8 @@ only); container binds are tailnet/loopback by house rule.
 |---|---|
 | 0.1 DEP-001 predecessor accepted | **EVIDENCED** (this record cites the acceptance document + SHA). Tick against the evidence. |
 | 0.2 DEP-003 fresh audit + baseline doc | **This document.** |
-| 0.3 Predecessor identity imported; no contract redefined here | **Imported** in §2 and §4: sealed identity cited; `coh-*` consumed not redefined; this package's stage-3 envelope surface is a hub `ctx-*` well-formedness extension only. |
-| 0.4 Overlaps reconciled | **Recorded** in §4 with consumer-vs-mutator dispositions per package. |
+| 0.3 Predecessor identity imported; no contract redefined here | **Imported** in Sec.2 and Sec.4: sealed identity cited; `coh-*` consumed not redefined; this package's stage-3 envelope surface is a hub `ctx-*` well-formedness extension only. |
+| 0.4 Overlaps reconciled | **Recorded** in Sec.4 with consumer-vs-mutator dispositions per package. |
 | 0.5 OD-001 / OD-002 | **DECIDED 2026-09-29.** OD-001: drop the commercial split (Phase 1 stays BSD 3-Clause). OD-002: `fleet-manager/`. Tick against the decision record below. |
 
 ### 0.5 owner decisions (decided 2026-09-29)

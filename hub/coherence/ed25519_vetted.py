@@ -1,5 +1,5 @@
 # // spec: coh-oap-01
-"""Vetted constant-time Ed25519 provider wrapper (Gate 1, design §1a).
+"""Vetted constant-time Ed25519 provider wrapper (Gate 1, design Sec.1a).
 
 Production signing SHALL use this module (cryptography.hazmat Ed25519), not
 `hub.coherence.ed25519`. The pure-Python module remains a test-vector /
