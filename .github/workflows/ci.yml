@@ -169,6 +169,16 @@ jobs:
       # floor FAILS. Floors are data (tests/expected-counts.json).
       - name: Test-count floors
         run: python3 tests/gen_floors.py
+      # fw-manifest-join-01: a capability declared in one place and wired in
+      # another is joined by NAME, and a drifted join fails silently - the item
+      # is advertised and unreachable, or wired and invisible. Measured origin:
+      # guardrail-mcp 2026-10-18, seven registered MCP tools absent from the
+      # authorization table (every credential refused, tools/list still
+      # advertised them) while the repo's own guard reported green over a
+      # 39-of-61 enumeration. Joins are reviewed data in
+      # .guardrails/manifest-joins.json; a stale join FAILS, never skips.
+      - name: Declared-vs-wired name joins (fw-manifest-join-01)
+        run: python3 scripts/check_manifest_join.py --repo .
 
   # The repository shipped a secret-scanning template for consumers and did not
   # run one on itself: every push to main passed six jobs and none of them

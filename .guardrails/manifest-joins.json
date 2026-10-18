@@ -1,0 +1,40 @@
+{
+  "api_version": "devgate.manifest-joins/v1",
+  "note": [
+    "fw-manifest-join-01: reviewed joins between a DECLARED set and a WIRED set,",
+    "both keyed by name. scripts/check_manifest_join.py checks each in both",
+    "directions and fails closed.",
+    "",
+    "Why a manifest: a language-agnostic gate cannot know that 'Name:' in a Go",
+    "literal is a registry and 'case \"x\":' is a switch. That knowledge is",
+    "reviewed data here. A stale join (path gone, or zero names extracted) is a",
+    "FAILURE, never a skip - that is how the gates this framework replaced went",
+    "blind.",
+    "",
+    "Origin: guardrail-mcp 2026-10-18 - seven registered MCP tools were absent",
+    "from the authorization action table, so every credential was refused while",
+    "tools/list still advertised them. The repo's own guard enumerated only what",
+    "a zero-value server exposed (39 of 61) and reported green over the gap."
+  ],
+  "joins": [
+    {
+      "id": "test-suite-floor",
+      "reason": "Every collected test suite must carry a floor row, or it can shrink to zero silently: gen_floors only iterates rows that already exist, so a suite with no row is never compared to anything. This join is the missing half of fw-floor-01.",
+      "declared": {
+        "paths": [
+          "tests"
+        ],
+        "source": "filename",
+        "pattern": "^(test_[a-z0-9_]+)\\.py$"
+      },
+      "wired": {
+        "paths": [
+          "tests/expected-counts.json"
+        ],
+        "pattern": "\"(test_[a-z0-9_]+)\":\\s*[0-9]+"
+      },
+      "bidirectional": true,
+      "allow_undeclared": []
+    }
+  ]
+}
