@@ -1,0 +1,147 @@
+# Text Integrity — Reusable CI Template (fw-charset-01, fw-encoding-01, fw-corruption-01)
+#
+# Consumer-facing counterpart to DevGate's own `text-integrity` job. This is the
+# template a fleet repo copies so the three text gates actually RUN there. Until
+# 2026-10-19 they ran only in DevGate's own CI, so every consumer repo —
+# openagentrails, OpenAgentPlatform, radicalopenmcpplatform — shipped text with
+# no gate at all and drifted freely.
+#
+# WHY THIS EXISTS (measured, not theoretical): a U+00A7 SECTION SIGN landed in
+# agent-guardrails-template spec 16 on 2026-10-18 and sat in `main` for a day.
+# The gate that denies that exact codepoint existed and was green — in a repo
+# the character was never written to. A gate is only fleet-wide when every
+# consumer runs it.
+#
+# WHAT IT DOES
+#   1. fw-charset-01 — tracked text is ASCII. The reported defect (U+00A7) is
+#      DENIED by name; an allowlist preserves reviewed typography that carries
+#      structural meaning (box drawing, arrows, dashes, status glyphs). A
+#      malformed allowlist row is a hard error, and `deny` always beats `allow`.
+#   2. fw-encoding-01 — encoding and line-ending drift: BOM, non-UTF-8 bytes,
+#      CRLF/LF mismatch, and .gitattributes declaration.
+#   3. fw-corruption-01 — damaged bytes in content (U+FFFD, mojibake, control
+#      and bidi characters) plus the bad-flip / bulk-mutation shape in the
+#      pushed range.
+#
+# NON-VACUITY: every gate fails if it scans zero files. A scan that evaluated
+# nothing must never read as green — that is the failure mode these gates exist
+# to prevent, and it applies to the gates themselves first.
+#
+# RATCHET, NOT EXEMPTION: existing debt is grandfathered per file via
+# `.guardrails/charset-baseline.json` and may only DECREASE. A repo adopting
+# this template on a drifted tree goes green at its current count and then can
+# never grow. Scopes listed in `strict_zero` are NOT grandfatherable — new text
+# in those trees must be clean on the first commit.
+#
+# SETUP:
+#   - DevGate must be present as `.devgate/` (submodule or clone); the scripts
+#     are resolved from there, so a submodule install works unchanged. A repo
+#     that vendors its own copies passes `scripts_dir: scripts`.
+#   - Copy this file into your repo at `.github/workflows/text-integrity.yml`.
+#   - First run: the charset gate writes a baseline when `--write-baseline` is
+#     passed. Run it once locally, review the diff, commit the baseline.
+#     Without a baseline the gate is strict-zero across the whole tree.
+#   - CUSTOMIZE: the `runs-on` label (defaults to ubuntu-latest), and
+#     `strict_zero` if you have a tree that must never carry non-ASCII.
+
+name: Text Integrity
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: text-integrity-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  text-integrity:
+    name: "Text integrity (charset / encoding / corruption)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      # CUSTOMIZE: point at .devgate/scripts for a submodule install, or
+      # scripts/ for a repo that vendors its own copies.
+      SCRIPTS_DIR: .devgate/scripts
+
+    steps:
+      - name: Checkout code (with DevGate submodule)
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          submodules: recursive
+          # The corruption gate scans the pushed range, so history is needed
+          # beyond the default single commit.
+          fetch-depth: 0
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+
+      # The gates refuse to run against a missing scope contract; fail here with
+      # a clear message rather than mid-scan.
+      - name: Verify gate tooling is present
+        run: |
+          set -euo pipefail
+          for g in check_charset.py check_encoding.py check_corruption.py gate_common.py; do
+            if [ ! -f "$SCRIPTS_DIR/$g" ]; then
+              echo "::error::$SCRIPTS_DIR/$g is missing — is DevGate vendored at .devgate/?"
+              exit 1
+            fi
+          done
+          echo "gate tooling present in $SCRIPTS_DIR"
+
+      # fw-charset-01: tracked text is ASCII. U+00A7 is DENIED by name; the
+      # allowlist preserves reviewed typography and may narrow the standard but
+      # never disable it.
+      - name: Charset standard (ASCII text; no non-ASCII glyphs)
+        run: python3 "$SCRIPTS_DIR/check_charset.py" --repo .
+
+      # fw-encoding-01: BOM, non-UTF-8 bytes, CRLF/LF mismatch, missing
+      # .gitattributes declaration.
+      - name: Encoding drift (BOM / non-UTF-8 / line endings)
+        run: python3 "$SCRIPTS_DIR/check_encoding.py" --repo .
+
+      # fw-corruption-01: damaged bytes in content, plus the pushed-range
+      # bad-flip / bulk-mutation scan. The range scan is fail-closed: a base
+      # ref that cannot be resolved is an error, never a silent skip.
+      - name: Data corruption (content + pushed-range flip scan)
+        run: |
+          set -uo pipefail
+          python3 "$SCRIPTS_DIR/check_corruption.py" --repo .
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="origin/${{ github.base_ref }}"
+          elif [ "${{ github.event_name }}" = "push" ] && [ -n "${{ github.event.before }}" ] \
+               && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+            BASE="${{ github.event.before }}"
+          else
+            # No usable base (workflow_dispatch, first push). Skip the RANGE
+            # scan only; the content scan above already ran over the full tree.
+            echo "no pushed range to scan for this event — content scan above is authoritative"
+            exit 0
+          fi
+          if ! git rev-parse --verify --quiet "$BASE^{commit}" >/dev/null; then
+            echo "::error::base $BASE does not resolve — refusing to report a range scan that did not run"
+            exit 1
+          fi
+          python3 "$SCRIPTS_DIR/check_corruption.py" --repo . --range "$BASE..HEAD"
+
+      - name: Gate self-tests (red-on-drift control)
+        # The controls ship with DevGate. They prove each gate CAN fail; without
+        # them a green step only proves the tree is clean, not that the gate
+        # would refuse anything.
+        run: |
+          set -euo pipefail
+          for t in test_check_charset.py test_check_encoding.py test_check_corruption.py; do
+            if [ -f ".devgate/tests/$t" ]; then
+              python3 ".devgate/tests/$t"
+            else
+              echo "::error::control .devgate/tests/$t is missing — a gate with no red-on-drift proof is unverified"
+              exit 1
+            fi
+          done
