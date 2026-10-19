@@ -143,13 +143,28 @@ def load_policy(root: Path):
                   file=sys.stderr)
             sys.exit(EXIT_USAGE)
 
+    # strict_zero: path prefixes the ratchet baseline may NOT grandfather.
+    # The baseline exists to land a standard on a drifted tree without a mass
+    # rewrite; it must never become the reason a tree that keeps regressing is
+    # exempt. A gate that prescribes a fix also refuses to let its own subject
+    # area accumulate debt forever.
+    strict_paths: set[str] = set()
+    for row in data.get("strict_zero", []) or []:
+        _reason(row)
+        p = row.get("path") if isinstance(row, dict) else None
+        if not isinstance(p, str) or not p.strip():
+            print(f"check-charset: FAIL - strict_zero row needs a 'path': {row!r}",
+                  file=sys.stderr)
+            sys.exit(EXIT_USAGE)
+        strict_paths.add(p.strip().strip("/"))
+
     # A deny entry that is also allowed is a policy contradiction: refuse to run.
     conflict = allowed & denied
     if conflict:
         print("check-charset: FAIL - codepoints both allowed and denied: "
               + ", ".join(f"U+{c:04X}" for c in sorted(conflict)), file=sys.stderr)
         sys.exit(EXIT_USAGE)
-    return allowed, denied
+    return allowed, denied, strict_paths
 
 
 def load_baseline(root: Path) -> dict[str, int]:
@@ -203,8 +218,17 @@ def is_text(path: str) -> bool:
     return p.suffix.lower() in TEXT_EXTS or p.name.lower() in TEXT_BASENAMES
 
 
+def is_strict(rel: str, strict_paths: set[str]) -> bool:
+    """True when ``rel`` sits inside a strict-zero scope (prefix, path-boundary)."""
+    for p in strict_paths:
+        if rel == p or rel.startswith(p + "/"):
+            return True
+    return False
+
+
 def scan(root: Path, allowed: set[int], denied: set[int], max_report: int,
-         baseline: dict[str, int] | None = None) -> int:
+         baseline: dict[str, int] | None = None,
+         strict_paths: set[str] | None = None) -> int:
     gate_common = _load_gate_common()
     try:
         skip_dirs = gate_common.load_skip_dirs()
@@ -218,8 +242,10 @@ def scan(root: Path, allowed: set[int], denied: set[int], max_report: int,
     files = [f for f in files
              if not any(part in skip_dirs for part in Path(f).parts)]
 
+    strict_paths = strict_paths or set()
     violations = []
     artifacts = []
+    strict_hits: list[tuple[str, int, int, int, str]] = []
     scanned = 0
     per_file: dict[str, int] = {}
     for rel in files:
@@ -245,8 +271,11 @@ def scan(root: Path, allowed: set[int], denied: set[int], max_report: int,
                 if cp <= 0x7F:
                     continue
                 if cp in denied or (cp not in allowed):
-                    violations.append((rel, lineno, col, cp, ch))
+                    violation = (rel, lineno, col, cp, ch)
+                    violations.append(violation)
                     per_file[rel] = per_file.get(rel, 0) + 1
+                    if is_strict(rel, strict_paths):
+                        strict_hits.append(violation)
 
     if scanned == 0:
         print("check-charset: FAIL - zero text files scanned (no vacuous green)",
@@ -279,6 +308,21 @@ def scan(root: Path, allowed: set[int], denied: set[int], max_report: int,
               "tokens before substituting; a per-glyph replace turns one "
               "marker into two words. This gate rejects the doubled form, "
               "including in its own hint text.")
+        return EXIT_VIOLATIONS
+
+    # Strict scopes: zero tolerance, the baseline does not apply. Checked
+    # BEFORE the ratchet so a grandfathered count cannot mask them.
+    if strict_hits:
+        print(f"check-charset: FAIL - {len(strict_hits)} non-ASCII codepoint(s) "
+              f"inside a strict-zero scope (fw-charset-01); the ratchet "
+              f"baseline does not apply to these paths")
+        for rel, lineno, col, cp, ch in strict_hits[:max_report]:
+            shown = ch if ch.isprintable() else "?"
+            hint = FIX_HINTS.get(cp)
+            tail = f"  -> {hint!r}" if hint else ""
+            print(f"  {rel}:{lineno}:{col}  U+{cp:04X}  {shown!r}{tail}")
+        print("  fix: these paths must be ASCII on the first commit; a "
+              "baseline entry for them is ignored on purpose")
         return EXIT_VIOLATIONS
 
     if over:
@@ -315,7 +359,8 @@ def scan(root: Path, allowed: set[int], denied: set[int], max_report: int,
     return EXIT_OK
 
 
-def write_baseline(root: Path, allowed: set[int], denied: set[int]) -> int:
+def write_baseline(root: Path, allowed: set[int], denied: set[int],
+                   strict_paths: set[str] | None = None) -> int:
     """Regenerate the ratchet baseline from the current tree."""
     gate_common = _load_gate_common()
     skip_dirs = gate_common.load_skip_dirs()
@@ -335,7 +380,7 @@ def write_baseline(root: Path, allowed: set[int], denied: set[int]) -> int:
             continue
         n = sum(1 for line in text.splitlines() for ch in line
                 if ord(ch) > 0x7F and (ord(ch) in denied or ord(ch) not in allowed))
-        if n:
+        if n and not is_strict(rel, strict_paths or set()):
             per[rel] = n
     doc = {
         "api_version": "devgate.charset-baseline/v1",
@@ -367,12 +412,12 @@ def main() -> int:
                     help="regenerate the baseline from the current tree and exit")
     args = ap.parse_args()
     root = Path(args.repo).resolve()
-    allowed, denied = load_policy(root)
+    allowed, denied, strict_paths = load_policy(root)
     if args.write_baseline:
-        return write_baseline(root, allowed, denied)
+        return write_baseline(root, allowed, denied, strict_paths)
     baseline = {} if args.no_baseline else load_baseline(root)
     return scan(root, allowed, denied, 10**9 if args.list else args.max_report,
-                baseline)
+                baseline, strict_paths)
 
 
 if __name__ == "__main__":
