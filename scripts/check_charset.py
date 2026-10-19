@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -56,6 +57,26 @@ FIX_HINTS = {
     0x201C: '"', 0x201D: '"', 0x2026: "...", 0x2192: "->", 0x2190: "<-",
     0x00D7: "x", 0x00A0: " ",
 }
+
+# Substitution artifacts (fw-charset-01, added 2026-10-19).
+#
+# The failure this closes: a sweep that replaces each glyph INDEPENDENTLY
+# turns a doubled source token into a doubled replacement. Two section signs
+# before a number list became the duplicated-word form in GR specs 11 and 15
+# and in OMCP's s27-0 ledger - a typo-looking defect Roger has now reported
+# twice. The charset gate could not see it because the output is pure ASCII:
+# this gate checks CODEPOINTS, and the replacement word has none to complain
+# about.
+#
+# So the gate that PRESCRIBES the substitution also refuses its degenerate
+# output. These are literal-ASCII defects, so the ratchet baseline does NOT
+# grandfather them: an artifact is never accepted debt.
+SUBSTITUTION_ARTIFACTS = (
+    (re.compile(r"\bSec\.\s+Sec\."), "doubled section marker after U+00A7 substitution"),
+    (re.compile(r"\b(Section|Figure|Table|Chapter|Clause|Appendix|Article)"
+                r"\.\s+\1\."), "doubled cross-reference token"),
+    (re.compile(r"\.\.\.\.+"), "doubled ellipsis after U+2026 substitution"),
+)
 
 
 def _load_gate_common():
@@ -198,6 +219,7 @@ def scan(root: Path, allowed: set[int], denied: set[int], max_report: int,
              if not any(part in skip_dirs for part in Path(f).parts)]
 
     violations = []
+    artifacts = []
     scanned = 0
     per_file: dict[str, int] = {}
     for rel in files:
@@ -213,6 +235,11 @@ def scan(root: Path, allowed: set[int], denied: set[int], max_report: int,
             per_file[rel] = per_file.get(rel, 0) + 1
             continue
         for lineno, line in enumerate(text.splitlines(), 1):
+            for pat, why in SUBSTITUTION_ARTIFACTS:
+                m = pat.search(line)
+                if m:
+                    artifacts.append((rel, lineno, m.start() + 1,
+                                      m.group(0), why))
             for col, ch in enumerate(line, 1):
                 cp = ord(ch)
                 if cp <= 0x7F:
@@ -236,6 +263,24 @@ def scan(root: Path, allowed: set[int], denied: set[int], max_report: int,
         if rel not in per_file:
             improved[rel] = 0
 
+    # Substitution artifacts first: they are ASCII, so they are never
+    # grandfathered by the ratchet baseline and must be reported even when the
+    # non-ASCII counts are within budget. Baselines grandfather legacy debt,
+    # not defects the standard itself creates.
+    if artifacts:
+        print(f"check-charset: FAIL - {len(artifacts)} substitution "
+              f"artifact(s) (fw-charset-01); the ASCII replacement of a "
+              f"doubled source token produced a duplicated word")
+        for rel, lineno, col, shown, why in artifacts[:max_report]:
+            print(f"  {rel}:{lineno}:{col}  {shown!r}  ({why})")
+        print("  fix: replace each source glyph ONCE and rewrite the "
+              "reference, e.g. two section signs 3, 5 becomes 'Sec. 3 and "
+              "Sec. 5' - never the duplicated-word form. Collapse doubled "
+              "tokens before substituting; a per-glyph replace turns one "
+              "marker into two words. This gate rejects the doubled form, "
+              "including in its own hint text.")
+        return EXIT_VIOLATIONS
+
     if over:
         print(f"check-charset: FAIL - {len(over)} file(s) exceed their "
               f"charset baseline (fw-charset-01); "
@@ -252,7 +297,10 @@ def scan(root: Path, allowed: set[int], denied: set[int], max_report: int,
               "(U+00A7 -> 'Sec.', em/en dash -> '-', arrow -> '->', "
               "curly quotes -> straight, ellipsis -> '...'); add a reasoned "
               "row to .guardrails/charset-allowlist.json only for reviewed "
-              "formatting that must stay non-ASCII")
+              "formatting that must stay non-ASCII. Replace each glyph ONCE "
+              "and collapse doubled markers: two section signs before a "
+              "number list is 'Sec. 3 and Sec. 5', not the doubled form "
+              "(which this gate rejects)")
         return EXIT_VIOLATIONS
 
     if improved:

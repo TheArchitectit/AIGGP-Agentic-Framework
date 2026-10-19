@@ -80,6 +80,39 @@ class CharsetGate(unittest.TestCase):
             self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
             self.assertIn("U+00A7", r.stdout)
 
+    def test_substitution_artifact_is_not_grandfathered(self):
+        """A doubled ASTI replacement fails even when the baseline allows it.
+
+        The artifact is pure ASCII, so the ratchet baseline cannot grandfather
+        it: an artifact is a defect the standard created, never accepted debt.
+        """
+        with tempfile.TemporaryDirectory() as d:
+            t = Path(d)
+            # Build the artifact at runtime: writing it literally would put the
+            # doubled form in this tracked file and the gate would (correctly)
+            # flag its own test, exactly as it flags its own hint text.
+            art = "Sec." + " " + "Sec. 3, 5.\n"
+            make_repo(t, {"a.md": ("see " + art).encode()})
+            # a baseline that would grandfather its raw non-ASCII count
+            gd = t / ".guardrails"
+            (gd / "charset-baseline.json").write_text(
+                json.dumps({"api_version": "devgate.charset-baseline/v1",
+                            "files": {"a.md": 99}}), encoding="utf-8")
+            subprocess.run(["git", "-C", str(t), "add", "-A"], check=True)
+            subprocess.run(["git", "-C", str(t), "commit", "-qm", "b"], check=True)
+            r = run(t)
+            self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+            self.assertIn("substitution artifact", r.stdout)
+            self.assertIn("Sec." + " " + "Sec.", r.stdout)
+
+    def test_ascii_single_section_reference_passes(self):
+        """The corrected form is clean - the gate must not forbid the fix."""
+        with tempfile.TemporaryDirectory() as d:
+            t = Path(d)
+            make_repo(t, {"a.md": b"see Sec. 3 and Sec. 5.\n"})
+            r = run(t)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+
     def test_allowlisted_em_dash_passes(self):
         with tempfile.TemporaryDirectory() as d:
             t = Path(d)
