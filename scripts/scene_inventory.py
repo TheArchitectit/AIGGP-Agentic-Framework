@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Scene inventory + button handler validation scanner.
-# spec: zig-engine-01, zig-ui-inv-01
+# spec: zig-engine-01, zig-ui-inv-01, screen-inv-01, screen-inv-02
 
 Engine-aware: detects the project engine (game-manifest.json, else project
 files) and dispatches to the matching scanner.

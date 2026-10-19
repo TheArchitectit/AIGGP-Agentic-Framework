@@ -1,5 +1,20 @@
 # Per-screen feature tracking
 
+Status: Closed (2 of 2 requirements terminal 2026-10-19). `screen-inv-01`:
+the gate in `scripts/scene_inventory.py` discovers `.tscn` scenes under
+`src/`, `scenes/` and the project root, parses them as Godot text scenes (per
+gate-tscn-01), reports every Button and `pressed` connection, and exits 1
+naming the orphan. `screen-inv-02`: a zero-scene scope prints NOTHING SCANNED
+rather than a clean pass, `--fail-if-empty` turns it into exit 2, and the
+default empty-scope exit stays 0. Both halves are locked by
+`tests/test_scene_inventory.py` (8 tests), including the QA C1 regression that
+the parser reads Godot TEXT scenes and not XML. Neither requirement carried a
+source marker before 2026-10-19, so `spec_traceability` reported them
+UNCOVERED while the behaviour and the tests shipped; the markers now sit in
+the scanner header and the ratchet floor moved 76 -> 78. The engine-execution
+gates named in Purpose remain planned work for consuming game repos and are
+explicitly NOT implemented here; they are not requirement IDs of this spec.
+
 ## Purpose
 
 The absorbed scene-inventory tooling lives in this framework as
