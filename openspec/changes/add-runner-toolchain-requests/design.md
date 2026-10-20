@@ -2,7 +2,7 @@
 
 > Revised after external architecture review (v2) and Mission Control fit
 > review, 2026-10-03 CDT. Findings F1–F11 and M1–M6 are addressed below; the
-> six questions the review left open are answered in §Decisions taken.
+> six questions the review left open are answered in Sec. Decisions taken.
 
 ## Context
 

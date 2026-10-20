@@ -12,7 +12,7 @@ settled **hub-side before MC implements**, because MC's proxy shapes follow
 `mon-tc-02`/`mon-tc-03`/`mon-tc-05` and two of the gaps live exactly in those
 shapes. Settling them here is cheaper than during implementation.
 
-## Gaps to resolve hub-side (design.md §Decisions amendment)
+## Gaps to resolve hub-side (design.md Sec. Decisions amendment)
 
 ### G1 — Actor-claim protocol is undefined where MC's tier pattern cannot carry it
 
@@ -85,7 +85,7 @@ payloads. MC will mirror one sentence into its scenario.
 ## Landing sequence (unchanged, reconfirmed)
 
 1. Hub branch `feature/runner-toolchain-requests` lands **with G1–G3 amended
-   into design.md §Decisions** — this is the pin `69c16b5` → new SHA.
+   into design.md Sec. Decisions** — this is the pin `69c16b5` → new SHA.
 2. MC branch re-pins the dependency to the amended hub SHA, mirrors the one
    G3 sentence into its spec scenario, applies the three correction items.
 3. MC implements against S0–S6 as written; gates 6.3/6.4 are the acceptance

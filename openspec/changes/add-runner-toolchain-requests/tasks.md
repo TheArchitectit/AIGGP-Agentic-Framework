@@ -18,7 +18,7 @@ yet.
       `image_reason`, or `image_pin_divergence` — they are evaluator-image
       fields (schema lines 49–60).
 - [ ] 0.4 Define the credential classes and the builder/operator split from
-      `design.md` §Credentials. Operator auth is **decided there**, not here.
+      `design.md` Sec. Credentials. Operator auth is **decided there**, not here.
 - [ ] 0.5 Set the numeric staleness threshold and fulfillment window in the
       spec; no operator judgement.
 - [ ] 0.6 Record the single-principal v1 attribution limit in the audit-record

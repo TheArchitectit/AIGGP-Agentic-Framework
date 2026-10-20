@@ -1,7 +1,7 @@
 # Proposal: runner-toolchain-requests
 
 > Revised after external architecture review, 2026-10-03 CDT. See `design.md`
-> §Findings this revision corrects.
+> Sec. Findings this revision corrects.
 
 ## Why
 
@@ -81,7 +81,7 @@ editing a workflow or rebuilding an image by hand.
 - **Explicitly unchanged:** the registry's evaluator image fields
   (`image_digest`, `image_pin_divergence`) and the img-cycle-05 divergence
   check. Those describe the coherence evaluator image, not runner lane images;
-  lane image identity gets separate fields. See `design.md` §F1.
+  lane image identity gets separate fields. See `design.md` Sec. F1.
 - Out of scope: running any installation on a live runner, merging the two
   runner registries, per-operator accounts, and changing the existing
   evaluator-image semantics.

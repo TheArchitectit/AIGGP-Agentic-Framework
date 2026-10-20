@@ -16,7 +16,7 @@
 ### Proposal: runner-toolchain-requests
 
 > Revised after external architecture review, 2026-10-03 CDT. See `design.md`
-> §Findings this revision corrects.
+> Sec. Findings this revision corrects.
 
 #### Why
 
@@ -96,7 +96,7 @@ editing a workflow or rebuilding an image by hand.
 - **Explicitly unchanged:** the registry's evaluator image fields
   (`image_digest`, `image_pin_divergence`) and the img-cycle-05 divergence
   check. Those describe the coherence evaluator image, not runner lane images;
-  lane image identity gets separate fields. See `design.md` §F1.
+  lane image identity gets separate fields. See `design.md` Sec. F1.
 - Out of scope: running any installation on a live runner, merging the two
   runner registries, per-operator accounts, and changing the existing
   evaluator-image semantics.
@@ -118,7 +118,7 @@ the audit trail, not on the runner.
 
 > Revised after external architecture review (v2) and Mission Control fit
 > review, 2026-10-03 CDT. Findings F1–F11 and M1–M6 are addressed below; the
-> six questions the review left open are answered in §Decisions taken.
+> six questions the review left open are answered in Sec. Decisions taken.
 
 #### Context
 
@@ -673,7 +673,7 @@ yet.
       `image_reason`, or `image_pin_divergence` — they are evaluator-image
       fields (schema lines 49–60).
 - [ ] 0.4 Define the credential classes and the builder/operator split from
-      `design.md` §Credentials. Operator auth is **decided there**, not here.
+      `design.md` Sec. Credentials. Operator auth is **decided there**, not here.
 - [ ] 0.5 Set the numeric staleness threshold and fulfillment window in the
       spec; no operator judgement.
 - [ ] 0.6 Record the single-principal v1 attribution limit in the audit-record
