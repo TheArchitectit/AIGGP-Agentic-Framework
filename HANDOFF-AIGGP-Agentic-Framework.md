@@ -1,5 +1,11 @@
 # HANDOFF — AIGGP-Agentic-Framework (DevGate upstream)
 
+> **Project:** `AIGGP-Agentic-Framework`  ·  **Default branch:** `main`
+> **Scope:** DevGate upstream: the framework the fleet consumes as .devgate/
+> **This file:** `HANDOFF-AIGGP-Agentic-Framework.md` — a `HANDOFF-<project>` file. If the project name in this
+> filename does not match the work you are doing, you have the wrong handoff.
+> **Spec index:** [`openspec/INDEX.md`](openspec/INDEX.md)
+
 > **Spec status lives in the index: [`openspec/INDEX.md`](openspec/INDEX.md).**
 > Generated from each spec's own `Status:` line, its closure-table census, or a
 > matching archived change. It is the single answer to "which specs are closed
