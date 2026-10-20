@@ -196,5 +196,101 @@ class CorruptionDiff(unittest.TestCase):
         self.assertEqual(cc.scan_diff("", {}, 30), 1)
 
 
+class CorruptionFlipPairing(unittest.TestCase):
+    """fw-corruption-01 flip pairing is per -/+ RUN, not per file.
+
+    Measured origin 2026-10-19: a commit that inserted a 15-line comment block
+    above one edited return statement was reported as three substitution flips
+    (scripts/check_charset.py:149,151,152). The inserted comments removed
+    nothing; the old pairing matched them line-for-line against unrelated lines
+    removed by later hunks. A pure insertion cannot corrupt a line it never
+    replaced.
+    """
+
+    def _load(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("cc", str(SCRIPT))
+        cc = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cc)
+        return cc
+
+    def test_pure_insertion_is_not_a_flip(self):
+        cc = self._load()
+        # The MEASURED shape (scripts/check_charset.py, 2026-10-19): a 15-line
+        # comment block inserted above one edited line, plus the style edits
+        # the same commit made elsewhere. Removals are short code lines, so the
+        # old file-wide pairing matched inserted prose against them and called
+        # three of them flips (78% / 70% / 64% changed). No line here
+        # substitutes characters in a line it replaced.
+        comments = "".join(
+            f"+    # strict zero comment {i} for the gate baseline rule\n"
+            for i in range(15))
+        diff = (
+            "diff --git a/scripts/g.py b/scripts/g.py\n"
+            "--- a/scripts/g.py\n"
+            "+++ b/scripts/g.py\n"
+            "@@ -145,0 +146,15 @@ def load_policy(root):\n"
+            + comments +
+            "@@ -152 +167 @@ def load_policy(root):\n"
+            "-    return allowed, denied\n"
+            "+    return allowed, denied, strict_paths\n"
+            "@@ -207 +230,2 @@\n"
+            "-         baseline: dict[str, int] | None = None) -> int:\n"
+            "+         baseline: dict[str, int] | None = None,\n"
+            "+         strict_paths: set[str] | None = None) -> int:\n"
+            "@@ -248 +274,2 @@\n"
+            "-                    violations.append((rel, lineno, col, cp, ch))\n"
+            "+                    violation = (rel, lineno, col, cp, ch)\n"
+            "+                    violations.append(violation)\n"
+            "@@ -283,0 +313,2 @@\n"
+            "+    if strict_hits:\n"
+            "+        return EXIT_VIOLATIONS\n"
+        )
+        self.assertEqual(cc.scan_diff(diff, {}, 30), 0)
+
+    def test_substitution_flip_in_one_run_still_fails(self):
+        # Negative control for the fix: a genuine character-for-character
+        # substitution inside a single run must still FAIL.
+        cc = self._load()
+        diff = (
+            "diff --git a/x.md b/x.md\n--- a/x.md\n+++ b/x.md\n"
+            "@@ -1 +1 @@\n"
+            "-alpha bravo charlie delta echo foxtrot golf\n"
+            "+qwerty uiopas dfghjkl zxcvbnm nm,./ poiuyt\n"
+        )
+        self.assertEqual(cc.scan_diff(diff, {}, 30), 1)
+
+    def test_insert_then_substitute_fails_on_the_substitution(self):
+        # Both shapes in one diff: the insertion must stay silent and the real
+        # flip must still be reported -- the fix narrows scope, not detection.
+        cc = self._load()
+        inserted = "".join(
+            f"+    # unrelated comment {i} that removes nothing at all\n"
+            for i in range(12))
+        diff = (
+            "diff --git a/x.py b/x.py\n--- a/x.py\n+++ b/x.py\n"
+            "@@ -1,0 +2,12 @@\n" + inserted +
+            "@@ -40 +52 @@\n"
+            "-alpha bravo charlie delta echo foxtrot golf\n"
+            "+qwerty uiopas dfghjkl zxcvbnm nm,./ poiuyt\n"
+        )
+        self.assertEqual(cc.scan_diff(diff, {}, 30), 1)
+
+    def test_removed_line_starting_with_dashes_is_content(self):
+        # A removed Markdown rule ("--- a note") is data, not a file header.
+        # Asserted as a POSITIVE: the removed line must be seen as a removed
+        # line, so a character-for-character substitution of it is reported. If
+        # the parser swallows it as a header, the flip goes undetected and this
+        # fails -- which is what the old parser did.
+        cc = self._load()
+        diff = (
+            "diff --git a/doc.md b/doc.md\n--- a/doc.md\n+++ b/doc.md\n"
+            "@@ -1 +1 @@\n"
+            "---- alpha bravo charlie delta echo foxtrot golf\n"
+            "+--- qwerty uiopas dfghjkl zxcvbnm nm,./ poiuyt\n"
+        )
+        self.assertEqual(cc.scan_diff(diff, {}, 30), 1)
+
+
 if __name__ == "__main__":
     unittest.main()

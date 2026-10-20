@@ -207,46 +207,111 @@ def scan_content(root: Path, gc, skip_dirs, allow: dict[str, str],
     return EXIT_OK
 
 
+def _diff_hunks(diff: str):
+    """Yield ``(path, [(kind, lineno, text), ...])`` once per hunk.
+
+    The single diff parser in this gate. ``kind`` is ``+``, ``-`` or a space
+    (context). Header lines are recognised ONLY before the first hunk of a
+    file, so a removed line whose content begins with ``--`` (``--- a note``
+    in Markdown) is data, not a file header.
+
+    Hunks stay separate because the flip judgement is about a place in a file,
+    not about a file: see ``_replacement_runs``.
+    """
+    path = None
+    old_path = None
+    hunk: list[tuple[str, int, str]] = []
+    old_no = new_no = 0
+    seen_plus = False
+    for line in diff.splitlines():
+        if line.startswith("diff --git "):
+            if hunk and path is not None:
+                yield path, hunk
+            hunk = []
+            path = old_path = None
+            seen_plus = False
+            continue
+        if not seen_plus and not line.startswith("@@"):
+            if line.startswith("--- "):
+                p = line[6:].strip()
+                old_path = p[2:] if p.startswith("a/") else p
+            elif line.startswith("+++ "):
+                p = line[6:].strip()
+                newp = p[2:] if p.startswith("b/") else p
+                path = old_path if newp == "/dev/null" else newp
+                seen_plus = True
+            continue                    # index/new-file-mode/binary metadata
+        seen_plus = True
+        if line.startswith("@@"):
+            if hunk and path is not None:
+                yield path, hunk
+            hunk = []
+            m = re.search(r"-(\d+)(?:,\d+)? \+(\d+)", line)
+            old_no = int(m.group(1)) if m else 0
+            new_no = int(m.group(2)) if m else 0
+        elif line.startswith("\\"):
+            continue                    # "\ No newline at end of file"
+        elif line.startswith("+"):
+            hunk.append(("+", new_no, line[1:]))
+            new_no += 1
+        elif line.startswith("-"):
+            hunk.append(("-", old_no, line[1:]))
+            old_no += 1
+        else:
+            hunk.append((" ", new_no, line[1:]))
+            old_no += 1
+            new_no += 1
+    if hunk and path is not None:
+        yield path, hunk
+
+
 def _added_lines(diff: str):
     """Yield (path, new_lineno, text) for added lines, hunk-accurate."""
-    path = None
-    new_no = 0
-    for line in diff.splitlines():
-        if line.startswith("+++ "):
-            path = line[6:].strip()
-            if path.startswith("b/"):
-                path = path[2:]
-        elif line.startswith("@@"):
-            m = re.search(r"\+(\d+)", line)
-            new_no = int(m.group(1)) if m else 0
-        elif line.startswith("+") and not line.startswith("+++"):
-            yield path, new_no, line[1:]
-            new_no += 1
-        elif line.startswith("-") and not line.startswith("---"):
-            continue
-        else:
-            new_no += 1
+    for path, hunk in _diff_hunks(diff):
+        for kind, lineno, text in hunk:
+            if kind == "+":
+                yield path, lineno, text
 
 
 def _removed_lines(diff: str):
-    """Yield (path, old_lineno, text) for removed lines."""
-    path = None
-    old_no = 0
-    for line in diff.splitlines():
-        if line.startswith("--- "):
-            path = line[6:].strip()
-            if path.startswith("a/"):
-                path = path[2:]
-        elif line.startswith("@@"):
-            m = re.search(r"-(\d+)", line)
-            old_no = int(m.group(1)) if m else 0
-        elif line.startswith("-") and not line.startswith("---"):
-            yield path, old_no, line[1:]
-            old_no += 1
-        elif line.startswith("+") and not line.startswith("+++"):
-            continue
+    """Yield (path, old_lineno, text) for removed lines, hunk-accurate."""
+    for path, hunk in _diff_hunks(diff):
+        for kind, lineno, text in hunk:
+            if kind == "-":
+                yield path, lineno, text
+
+
+def _replacement_runs(hunk):
+    """Yield ``(removed_lines, added_lines)`` for each contiguous -/+ run.
+
+    A substitution flip can only exist where git says a line was REPLACED, so
+    the two sides are paired inside one run and nowhere else. Pairing across a
+    file (or across hunks) invents replacements: a block of inserted comment
+    lines removes nothing, yet a file-wide pairing matches it line-for-line
+    against the unrelated lines a later hunk removed and reports each match as
+    a flip.
+
+    Measured origin (2026-10-19): a 15-line comment insertion above one edited
+    return statement produced three false fw-corruption-01 findings at
+    scripts/check_charset.py:149,151,152 -- the inserted comments paired with
+    the removed `return`/signature/append lines from other hunks.
+    """
+    rems: list[str] = []
+    adds: list[tuple[int, str]] = []
+    for kind, lineno, text in hunk:
+        if kind == "-":
+            if adds:                    # a new run: the last one had no + side
+                yield rems, adds
+                rems, adds = [], []
+            rems.append(text)
+        elif kind == "+":
+            adds.append((lineno, text))
         else:
-            old_no += 1
+            if rems or adds:
+                yield rems, adds
+                rems, adds = [], []
+    if rems or adds:
+        yield rems, adds
 
 
 def scan_diff(diff: str, allow: dict[str, str], max_report: int,
@@ -261,39 +326,45 @@ def scan_diff(diff: str, allow: dict[str, str], max_report: int,
     fails: list[str] = []
     warnings: list[str] = []
 
-    # Flip detection: pair removed/added lines per file in order; a same-length
-    # line with a high character-level difference is a substitution flip.
+    # Flip detection: pair removed/added lines ONLY inside the contiguous -/+
+    # run git reports, in order; a same-length line with a high character-level
+    # difference is a substitution flip. A run is scoped to a hunk, because a
+    # pure insertion replaces nothing and must not be paired with anything.
     from collections import defaultdict
-    rem_by_file: dict[str, list[str]] = defaultdict(list)
-    add_by_file: dict[str, list[tuple[int, str]]] = defaultdict(list)
-    for p, _, t in removed:
-        rem_by_file[p].append(t)
-    for p, ln, t in added:
-        add_by_file[p].append((ln, t))
+    rem_by_file: dict[str, int] = defaultdict(int)
+    add_by_file: dict[str, int] = defaultdict(int)
+    for p, _ln, _t in removed:
+        rem_by_file[p] += 1
+    for p, _ln, _t in added:
+        add_by_file[p] += 1
 
-    bulk_files = 0
-    for path, adds in add_by_file.items():
+    for path, hunk in _diff_hunks(diff):
         if path in allow:
             continue
-        rems = rem_by_file.get(path, [])
-        n = min(len(adds), len(rems))
-        for i in range(n):
-            ln, new = adds[i]
-            old = rems[i]
-            if len(old) < 8:
-                continue
-            ratio = 1.0 - SequenceMatcher(None, old, new).ratio()
-            len_delta = abs(len(new) - len(old)) / max(1, len(old))
-            if len_delta <= FLIP_LEN_TOLERANCE and ratio >= FLIP_DIFF_RATIO:
-                fails.append(
-                    f"{path}:{ln}: substitution flip "
-                    f"({ratio*100:.0f}% of characters changed, "
-                    f"length within {len_delta*100:.0f}%)")
+        for rems, adds in _replacement_runs(hunk):
+            for i in range(min(len(rems), len(adds))):
+                ln, new = adds[i]
+                old = rems[i]
+                if len(old) < 8:
+                    continue
+                ratio = 1.0 - SequenceMatcher(None, old, new).ratio()
+                len_delta = abs(len(new) - len(old)) / max(1, len(old))
+                if len_delta <= FLIP_LEN_TOLERANCE and ratio >= FLIP_DIFF_RATIO:
+                    fails.append(
+                        f"{path}:{ln}: substitution flip "
+                        f"({ratio*100:.0f}% of characters changed, "
+                        f"length within {len_delta*100:.0f}%)")
+
+    bulk_files = 0
+    for path in sorted(add_by_file):
+        if path in allow:
+            continue
         # A whole-file rewrite: many added AND many removed lines at once.
-        if len(adds) >= MASS_REWRITE_MIN_LINES and len(rems) >= MASS_REWRITE_MIN_LINES:
+        if (add_by_file[path] >= MASS_REWRITE_MIN_LINES
+                and rem_by_file[path] >= MASS_REWRITE_MIN_LINES):
             bulk_files += 1
-            msg = (f"{path}: MASS REWRITE - {len(adds)} added / {len(rems)} "
-                   f"removed line(s) in one change")
+            msg = (f"{path}: MASS REWRITE - {add_by_file[path]} added / "
+                   f"{rem_by_file[path]} removed line(s) in one change")
             (fails if strict_mass_rewrite else warnings).append(msg)
 
     if bulk_files >= BULK_MUTATION_FILES:
