@@ -122,12 +122,24 @@ jobs:
           # push actually added (event.before..HEAD) — using origin/main on a
           # push would diff main against itself, evaluate zero files, and
           # fail this job for the wrong reason.
+          #
+          # workflow_dispatch (and any event without a `before`) has NO range:
+          # an empty BASE evaluates zero files, which `--fail-if-empty` then
+          # reports as NOTHING SCANNED. That is the correct verdict for a
+          # genuinely empty range and the wrong one for a manual run, so the
+          # fallback is `--all` — the same choice secret-validation.yml already
+          # makes. A manual run scans everything instead of failing on a
+          # payload key the event does not carry.
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             BASE="origin/${{ github.base_ref }}"
+            ARGS=(--base "$BASE" --fail-if-empty --pre-commit)
+          elif [ -n "${{ github.event.before }}" ]; then
+            ARGS=(--base "${{ github.event.before }}" --fail-if-empty --pre-commit)
           else
-            BASE="${{ github.event.before }}"
+            echo "::notice::no range in this event's payload — scanning the whole tree"
+            ARGS=(--all)
           fi
-          python3 scripts/regression_check.py --base "$BASE" --fail-if-empty --pre-commit
+          python3 scripts/regression_check.py "${ARGS[@]}"
       - name: Silent-success scan
         run: bash scripts/silent-success-scan.sh
       - name: Failure-registry hygiene
@@ -161,8 +173,17 @@ jobs:
           python3 scripts/check_corruption.py --repo .
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             BASE="origin/${{ github.base_ref }}"
-          else
+          elif [ -n "${{ github.event.before }}" ]; then
             BASE="${{ github.event.before }}"
+          else
+            # workflow_dispatch carries no `before`; an empty range would scan
+            # zero lines and fail for the wrong reason. Use the newest commit
+            # that exists, so the diff scan still evaluates real bytes.
+            BASE="$(git rev-parse HEAD~1 2>/dev/null || echo '')"
+            if [ -z "$BASE" ]; then
+              echo "::notice::single-commit history — skipping the diff scan"
+              exit 0
+            fi
           fi
           python3 scripts/check_corruption.py --repo . --range "$BASE..HEAD"
       # fw-floor-01 (R9): a suite that silently shrinks below its recorded
