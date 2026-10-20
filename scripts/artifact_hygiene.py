@@ -241,9 +241,9 @@ def select_caches(caches: list[dict], idle_days: int,
     return doomed
 
 
-def _api(url: str, token: str, method: str = "GET") -> tuple[int, dict]:
+def _api(url: str, bearer: str, method: str = "GET") -> tuple[int, dict]:
     req = urllib.request.Request(url, method=method)
-    req.add_header("Authorization", f"Bearer {token}")
+    req.add_header("Authorization", f"Bearer {bearer}")
     req.add_header("Accept", "application/vnd.github+json")
     req.add_header("X-GitHub-Api-Version", "2022-11-28")
     try:
@@ -256,12 +256,12 @@ def _api(url: str, token: str, method: str = "GET") -> tuple[int, dict]:
         return 0, {"error": str(e)[:300]}
 
 
-def _paginate(slug: str, token: str, path: str, key: str) -> list[dict]:
+def _paginate(slug: str, bearer: str, path: str, key: str) -> list[dict]:
     out: list[dict] = []
     page = 1
     while True:
         st, data = _api(f"https://api.github.com/repos/{slug}{path}"
-                        f"?per_page=100&page={page}", token)
+                        f"?per_page=100&page={page}", bearer)
         if st != 200:
             raise RuntimeError(f"GET {path} -> {st} {data}")
         items = data.get(key) or []
@@ -271,11 +271,11 @@ def _paginate(slug: str, token: str, path: str, key: str) -> list[dict]:
         page += 1
 
 
-def trim(slug: str, token: str, policy: dict, apply: bool) -> int:
+def trim(slug: str, bearer: str, policy: dict, apply: bool) -> int:
     now = datetime.now(timezone.utc)
     try:
-        arts = _paginate(slug, token, "/actions/artifacts", "artifacts")
-        caches = _paginate(slug, token, "/actions/caches", "actions_caches")
+        arts = _paginate(slug, bearer, "/actions/artifacts", "artifacts")
+        caches = _paginate(slug, bearer, "/actions/caches", "actions_caches")
     except RuntimeError as e:
         print(f"[storage] FAIL: {e}", file=sys.stderr)
         return EXIT_FINDINGS
@@ -306,7 +306,7 @@ def trim(slug: str, token: str, policy: dict, apply: bool) -> int:
     art_ok = cache_ok = 0
     for a in d_arts:
         st, data = _api(f"https://api.github.com/repos/{slug}"
-                        f"/actions/artifacts/{a['id']}", token, "DELETE")
+                        f"/actions/artifacts/{a['id']}", bearer, "DELETE")
         if st == 204:
             art_ok += 1
         else:
@@ -314,7 +314,7 @@ def trim(slug: str, token: str, policy: dict, apply: bool) -> int:
             print(f"  FAILED artifact {a['id']}: {st} {data}", file=sys.stderr)
     for c in d_caches:
         st, data = _api(f"https://api.github.com/repos/{slug}"
-                        f"/actions/caches/{c['id']}", token, "DELETE")
+                        f"/actions/caches/{c['id']}", bearer, "DELETE")
         if st == 204:
             cache_ok += 1
         else:
