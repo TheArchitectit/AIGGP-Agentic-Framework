@@ -276,6 +276,50 @@ class CorruptionFlipPairing(unittest.TestCase):
         )
         self.assertEqual(cc.scan_diff(diff, {}, 30), 1)
 
+    def test_unequal_block_is_not_paired_by_index(self):
+        # The second measured defect. git emits all removals then all additions
+        # in one block, so rewriting a function is ONE run of N removals and M
+        # additions. Index pairing drifts when N != M and compares unrelated
+        # lines: on scripts/check_corruption.py itself,
+        # 'elif line.startswith("@@@"):' was paired with
+        # 'path = old_path = None' and called a 65% substitution flip.
+        #
+        # The first pair below is deliberately tuned to trip the flip
+        # thresholds (71% changed, 11% length delta) so that an index-pairing
+        # implementation reports a finding here and fails this test. Without
+        # that tuning the test passes for the wrong reason and pins nothing.
+        cc = self._load()
+        removed = [
+            "-        elif line.startswith('+++ '):",
+            "-            path = line[6:].strip()",
+            "-                path = path[2:]",
+        ]
+        added = [
+            "+    qwerty uiopas dfghjkl zxcvbnm",
+            "+    poiuyt lkjhg fdsaa mnbvc",
+            "+    aqwedrftyu ghjkloiuyt",
+            "+    zxcvb nmqwe rtyui opasd",
+            "+    lkjhgf dsapoi uytrew qzxcv",
+        ]
+        diff = ("diff --git a/g.py b/g.py\n--- a/g.py\n+++ b/g.py\n"
+                "@@ -1,3 +1,5 @@\n" + "\n".join(removed) + "\n"
+                + "\n".join(added) + "\n")
+        self.assertEqual(cc.scan_diff(diff, {}, 30), 0)
+
+    def test_equal_size_replacement_still_fails(self):
+        # Control in the other direction: when the sizes DO match, the pair is
+        # a real replacement and a character substitution must still be caught.
+        cc = self._load()
+        diff = (
+            "diff --git a/x.md b/x.md\n--- a/x.md\n+++ b/x.md\n"
+            "@@ -1,2 +1,2 @@\n"
+            "-alpha bravo charlie delta echo foxtrot golf\n"
+            "-the second line is untouched here\n"
+            "+qwerty uiopas dfghjkl zxcvbnm nm,./ poiuyt\n"
+            "+the second line is untouched here\n"
+        )
+        self.assertEqual(cc.scan_diff(diff, {}, 30), 1)
+
     def test_removed_line_starting_with_dashes_is_content(self):
         # A removed Markdown rule ("--- a note") is data, not a file header.
         # Asserted as a POSITIVE: the removed line must be seen as a removed

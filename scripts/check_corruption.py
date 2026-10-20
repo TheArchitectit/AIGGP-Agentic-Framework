@@ -216,7 +216,7 @@ def _diff_hunks(diff: str):
     in Markdown) is data, not a file header.
 
     Hunks stay separate because the flip judgement is about a place in a file,
-    not about a file: see ``_replacement_runs``.
+    not about a file: see ``_replacement_blocks``.
     """
     path = None
     old_path = None
@@ -281,37 +281,46 @@ def _removed_lines(diff: str):
                 yield path, lineno, text
 
 
-def _replacement_runs(hunk):
-    """Yield ``(removed_lines, added_lines)`` for each contiguous -/+ run.
+def _replacement_blocks(hunk):
+    """Yield ``(removed_lines, added_lines)`` for each ALIGNED replacement.
 
-    A substitution flip can only exist where git says a line was REPLACED, so
-    the two sides are paired inside one run and nowhere else. Pairing across a
-    file (or across hunks) invents replacements: a block of inserted comment
-    lines removes nothing, yet a file-wide pairing matches it line-for-line
-    against the unrelated lines a later hunk removed and reports each match as
-    a flip.
+    A substitution flip can only exist where a line was actually replaced by a
+    line. Two things are therefore required before two lines may be compared:
 
-    Measured origin (2026-10-19): a 15-line comment insertion above one edited
-    return statement produced three false fw-corruption-01 findings at
-    scripts/check_charset.py:149,151,152 -- the inserted comments paired with
-    the removed `return`/signature/append lines from other hunks.
+    1. They must sit in the same hunk. A pure insertion replaces nothing, so
+       pairing it against lines a later hunk removed invents replacements
+       (measured: a 15-line comment block above one edited line produced three
+       false findings at scripts/check_charset.py:149,151,152).
+    2. They must be ALIGNED to each other. Within one change block git emits
+       every removal then every addition, so a rewritten function is a single
+       run of N removals and M additions; pairing those by index drifts as
+       soon as N != M and compares unrelated lines (measured on
+       scripts/check_corruption.py itself: ``elif line.startswith("@@@"):``
+       was paired with ``path = old_path = None``).
+
+    The alignment is a line-level SequenceMatcher over the hunk's two sides.
+    Only a ``replace`` opcode whose sides have EQUAL length is paired, because
+    a character substitution replaces k lines with k lines in place. A
+    same-length pair is compared index-wise inside that block and nowhere
+    else.
+
+    Named limit: an in-place substitution buried inside a block whose line
+    counts differ is NOT compared, and so is not reported. That is a deliberate
+    false-negative for the false-positive this gate shipped; whole-file
+    rewrites remain covered by the mass-rewrite rule below.
     """
-    rems: list[str] = []
-    adds: list[tuple[int, str]] = []
-    for kind, lineno, text in hunk:
-        if kind == "-":
-            if adds:                    # a new run: the last one had no + side
-                yield rems, adds
-                rems, adds = [], []
-            rems.append(text)
-        elif kind == "+":
-            adds.append((lineno, text))
-        else:
-            if rems or adds:
-                yield rems, adds
-                rems, adds = [], []
-    if rems or adds:
-        yield rems, adds
+    rems = [text for kind, _ln, text in hunk if kind == "-"]
+    adds = [(ln, text) for kind, ln, text in hunk if kind == "+"]
+    if not rems or not adds:
+        return
+    matcher = SequenceMatcher(None, rems, [text for _ln, text in adds],
+                              autojunk=False)
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag != "replace":
+            continue
+        if (i2 - i1) != (j2 - j1):
+            continue        # unequal sizes: no correspondence to assert
+        yield rems[i1:i2], adds[j1:j2]
 
 
 def scan_diff(diff: str, allow: dict[str, str], max_report: int,
@@ -341,7 +350,7 @@ def scan_diff(diff: str, allow: dict[str, str], max_report: int,
     for path, hunk in _diff_hunks(diff):
         if path in allow:
             continue
-        for rems, adds in _replacement_runs(hunk):
+        for rems, adds in _replacement_blocks(hunk):
             for i in range(min(len(rems), len(adds))):
                 ln, new = adds[i]
                 old = rems[i]
