@@ -179,6 +179,14 @@ jobs:
       # .guardrails/manifest-joins.json; a stale join FAILS, never skips.
       - name: Declared-vs-wired name joins (fw-manifest-join-01)
         run: python3 scripts/check_manifest_join.py --repo .
+      # fw-storage-01: GitHub Actions storage is metered for private repos, and
+      # an unbounded `upload-artifact` step is a future quota incident with a
+      # commit date on it. The 2026-10-17 fleet incident failed at the UPLOAD,
+      # never at the gate that produced the evidence, so the gates stayed green
+      # while release evidence silently stopped being retained. This audits
+      # every upload step's retention bound where it is written.
+      - name: Artifact retention bounds (fw-storage-01)
+        run: python3 scripts/artifact_hygiene.py --repo . --audit
 
   # The repository shipped a secret-scanning template for consumers and did not
   # run one on itself: every push to main passed six jobs and none of them

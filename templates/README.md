@@ -14,6 +14,7 @@ templates/
 │   ├── smoke-gate.yml               # Headless run + completion-sentinel validation
 │   ├── spec-coherence.yml           # Spec coherence-service gate (pinned image, digest-checked)
 │   ├── drift-scan.yml               # Scheduled full-tree sweep, host-aware runner targeting
+│   ├── storage-hygiene.yml          # Artifact retention audit + scheduled artifact/cache trim
 │   └── specs.yml                    # OpenSpec strict validation + negative control + traceability
 ├── runner/                          # Self-hosted runner standard (ghcr.io + Podman/Docker)
 │   ├── README.md                    # The standard: official image, quadlet, secrets hygiene
@@ -49,6 +50,13 @@ One template ships with a companion script rather than standing alone:
 copied in beside it and kept executable. That is on purpose — the scanning
 behaviour is then the behaviour this repository tests, instead of a second
 implementation that drifts. Details are in the template's `SETUP` header.
+
+`storage-hygiene.yml` follows the same pattern with
+`scripts/artifact_hygiene.py`: the workflow audits every upload step's
+retention bound on each push, and trims artifacts and caches past policy on a
+schedule. The trim is a dry run unless the scheduled job (or an explicit
+`apply` input) runs it, so the first thing anyone does with it is read what it
+would delete.
 
 ### Self-Hosted Runner Standard
 

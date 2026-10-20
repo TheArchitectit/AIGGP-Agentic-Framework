@@ -1,8 +1,9 @@
 {
  "note": "fw-floor-01: per-suite test-count floors (90% of the recorded suite). Update deliberately; a suite dropping below its floor FAILS CI. Regenerate: python3 tests/gen_floors.py --update",
  "floors": {
-  "test_check_charset": 9,
-  "test_check_corruption": 11,
+  "test_artifact_hygiene": 23,
+  "test_check_charset": 11,
+  "test_check_corruption": 17,
   "test_check_encoding": 9,
   "test_check_manifest_join": 8,
   "test_coherence_image_identity": 13,
@@ -13,8 +14,8 @@
   "test_failure_registry_check": 4,
   "test_findings_to_spec": 4,
   "test_fw_guards": 6,
-  "test_game_regression": 6,
-  "test_gate_common": 17,
+  "test_game_regression": 11,
+  "test_gate_common": 20,
   "test_gate_common_parity": 3,
   "test_gate_overlay": 6,
   "test_guardrails_scan_node": 2,
@@ -91,7 +92,7 @@
   "test_regression_check": 31,
   "test_regression_corpus": 12,
   "test_regression_scope": 6,
-  "test_regression_sizes": 10,
+  "test_regression_sizes": 13,
   "test_repin_operation": 18,
   "test_resource_governance": 16,
   "test_runbook_claims": 4,
@@ -111,8 +112,9 @@
   "test_silent_success_overlay": 6,
   "test_spec_gap_scan": 17,
   "test_spec_traceability": 15,
+  "test_storage_hygiene_template": 10,
   "test_template_supply_chain": 4,
   "test_workflow_read": 15
  },
- "total_floor": 1376
+ "total_floor": 1432
 }

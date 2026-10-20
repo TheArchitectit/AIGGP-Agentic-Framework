@@ -1,0 +1,21 @@
+{
+  "api_version": "devgate.storage/v1",
+  "note": [
+    "fw-storage-01: policy for scripts/artifact_hygiene.py.",
+    "GitHub Actions storage is metered for PRIVATE repositories. Two separate",
+    "allowances apply and they are not the same pool: artifact storage (shared",
+    "with GitHub Packages) and cache storage (separate, 10 GB per repository).",
+    "Measured origin 2026-10-17: the fleet hit 'Artifact storage quota has been",
+    "hit' and the failing step was always the UPLOAD, never the producing gate.",
+    "max_retention_days bounds every upload-artifact step. trim_* bound the",
+    "cleanup half: artifacts older than trim_keep_days are deleted EXCEPT the",
+    "newest trim_keep_latest per artifact name, so a release or trend artifact",
+    "survives age; caches not accessed within cache_max_idle_days are deleted.",
+    "Raising a value is a policy decision, not a gate weakening - but it must be",
+    "a reviewed edit to this file, never a step that quietly omits its bound."
+  ],
+  "max_retention_days": 90,
+  "trim_keep_days": 30,
+  "trim_keep_latest": 5,
+  "cache_max_idle_days": 14
+}

@@ -1,0 +1,128 @@
+# Storage Hygiene — Reusable CI Template (fw-storage-01)
+#
+# Audits every `actions/upload-artifact` step for a bounded `retention-days:`
+# on every push, and TRIMS artifacts and caches past policy on a schedule.
+#
+# WHY THIS EXISTS (measured, not theoretical)
+#
+# GitHub Actions storage is metered for PRIVATE repositories, and two separate
+# allowances apply — they are NOT the same pool:
+#   * artifact storage (shared with GitHub Packages), and
+#   * cache storage (separate, 10 GB per repository).
+#
+# On 2026-10-17 the fleet hit the literal error
+# `Failed to CreateArtifact: Artifact storage quota has been hit`, and the
+# failing step was always the UPLOAD, never the gate that produced the
+# evidence. The gates stayed green while release evidence and SBOM attachments
+# silently stopped being retained. The upload-side policy that followed
+# (infra-info ci-fleet/artifact-quota-policy.md) had no enforcement and no
+# cleanup half. This template is both halves, and they fail differently:
+#
+#   * the AUDIT is static and runs on every push, so an unbounded upload is
+#     caught where it is written rather than in next month's billing;
+#   * the TRIM is live and scheduled, because a policy that only prevents NEW
+#     artifacts still leaves every artifact already stored.
+#
+# TRIM IS BOUNDED BY NAME, NOT BY AGE ALONE. An age-only rule deletes the
+# release evidence a tag produced — the one artifact the policy deliberately
+# keeps. The newest N per artifact NAME survive regardless of age, so a nightly
+# report keeps its trend line while the tail above the bound is removed.
+#
+# DRY RUN BY DEFAULT. The scheduled job passes `--apply`; a manual
+# `workflow_dispatch` run does not, so the first thing anyone does with this
+# workflow is read what it would delete. A gate that deletes by accident is
+# worse than the quota it fixes.
+#
+# SETUP:
+#   1. Copy this file to `.github/workflows/storage-hygiene.yml`.
+#   2. Copy the gate next to it and keep it executable:
+#          scripts/artifact_hygiene.py     (chmod +x)
+#      The workflow is a thin caller on purpose: the behaviour you adopt is
+#      the behaviour DevGate tests, rather than a second implementation.
+#   3. Edit `.guardrails/storage-policy.json` if the defaults do not fit. The
+#      defaults are: max_retention_days 90, trim_keep_days 30,
+#      trim_keep_latest 5, cache_max_idle_days 14.
+#   4. Triggers: the audit runs on push; the trim is a schedule. Pick the cron
+#      for your fleet's quiet hour.
+#   5. Self-hosted runners: set `runs-on` to your label(s).
+
+name: Storage Hygiene
+
+on:
+  push:
+    branches: [main, master]
+  schedule:
+    - cron: '23 3 * * *'   # daily, before the fleet's morning jobs
+  workflow_dispatch:
+    inputs:
+      # Declared, not implied. An `if:` that references an undeclared input
+      # evaluates to null, the condition is false on every event, and the job
+      # silently never runs again — GitHub reports no error for that. Declaring
+      # it here is what makes the manual dry-run/apply split real.
+      apply:
+        description: "Actually delete (default: preview only)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Upload retention bounds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Gate present (fail closed — a missing gate is not a clean audit)
+        run: |
+          set -eu
+          if [ ! -f scripts/artifact_hygiene.py ]; then
+            echo "FAIL: scripts/artifact_hygiene.py is missing."
+            echo "It is step 2 of this workflow's SETUP header — copy it from"
+            echo "templates/github-workflows/ next to this file. Until it is"
+            echo "there, this job cannot audit anything, and a scan that did"
+            echo "not run is not a bounded repository."
+            exit 1
+          fi
+
+      - name: Every upload step carries a bounded retention-days
+        run: python3 scripts/artifact_hygiene.py --repo . --audit
+
+  trim:
+    name: Trim artifacts and caches past policy
+    # Scheduled runs delete; a manual dispatch is a dry run unless `apply` is
+    # chosen, so the first manual run shows what the schedule would remove.
+    if: github.event_name == 'schedule' || inputs.apply == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Trim (artifacts by age + newest-N-per-name; caches by idle)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          python3 scripts/artifact_hygiene.py --repo . --trim \
+            --repo-slug "$GITHUB_REPOSITORY" --apply
+
+  trim-dry-run:
+    name: Trim (dry run — what would be deleted)
+    if: github.event_name == 'workflow_dispatch' && inputs.apply != true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Trim preview (no deletions)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          python3 scripts/artifact_hygiene.py --repo . --trim \
+            --repo-slug "$GITHUB_REPOSITORY"
