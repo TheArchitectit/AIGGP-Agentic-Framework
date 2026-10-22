@@ -29,6 +29,16 @@
       "description": "Open and settled toolchain requests, one row per (lane, tool) (mon-tc-02). The hub is the system of record for these; Mission Control reads them and never stores a copy. Rows are keyed by lane and tool so a partial approval of a multi-tool profile is expressible (mon-tc-04). Absent for a registry written before this capability existed, which reads as an empty set — an empty set is 'nobody has asked for anything', never 'every lane is provisioned' (mon-tc-06).",
       "type": "array",
       "items": { "$ref": "#/definitions/toolchain_request" }
+    },
+    "toolchain_credentials": {
+      "description": "Credentials the hub holds for deciding toolchain requests (mon-tc-03). Each entry stores the credential's class, identity, and scope, and ONLY a salted digest of the secret — never the secret itself, its prefix, or a derivation of it (mon-sec-02, applied to operator credentials as to heartbeat tokens). A class outside the closed table (enrollment, heartbeat, runner_key, operator, builder) is refused as `unknown`, so a new credential type cannot acquire a decision right by being unlisted. Absent for a registry written before this capability existed, which reads as an empty set — no operator credentials.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/toolchain_credential" }
+    },
+    "toolchain_consumed_nonces": {
+      "description": "Nonces the hub has already spent on a decision (mon-tc-03). A nonce is a random 256-bit string that identifies a decision moment rather than a principal, so storing it is not the mon-sec-02 problem heartbeat tokens are — but a consumed nonce is never echoed or logged, because publishing it would let a reader replay it against a row that has since moved. Absent for a registry written before this capability existed, which reads as an empty set — no nonces spent.",
+      "type": "array",
+      "items": { "type": "string" }
     }
   },
   "definitions": {
@@ -137,7 +147,9 @@
     },
     "toolchain_request": {
       "type": "object",
+      "description": "One (lane, tool) toolchain request (mon-tc-02). additionalProperties is false on purpose: every field the code writes MUST be declared here, or the drift-guard (test_hub_registry_schema) cannot see a new field land. It was left open when this collection shipped, and `principal`/`last_reported_at` were written before either was declared — the exact silent drift the schema exists to catch, caught here only because a reviewer noticed the row never rejected the unknown.",
       "required": ["id", "lane", "tool", "state", "version"],
+      "additionalProperties": false,
       "properties": {
         "_comment": { "type": "array", "items": { "type": "string" } },
         "id": {
@@ -154,7 +166,9 @@
         "version": { "description": "Compare-and-swap counter, incremented on every transition (mon-tc-04). A decision at an already-applied version returns that outcome instead of transitioning twice.", "type": "integer", "minimum": 1 },
         "observed_at": { "type": ["string", "null"] },
         "last_seen": { "description": "Advanced by every re-report of the same (lane, tool) gap; the row is NOT duplicated (mon-tc-02: a lane whose image never gains the tool re-reports every 300s).", "type": ["string", "null"] },
+        "last_reported_at": { "description": "Last gap report for this pair, distinct from last_seen so a decision does not read as a fresh report. Advanced with last_seen on a re-report; a decision must NOT advance it.", "type": ["string", "null"] },
         "actor": { "description": "The operator's actor claim stored exactly as presented (mon-tc-03). v1 issues every decision from one credential, so a shared principal is the expected shape and must stay visible as such rather than being inferred into per-operator attribution.", "type": ["string", "null"] },
+        "principal": { "description": "The deciding principal exactly as the credential presented it (mon-tc-03), mirrored from the latest audit record for readers who look at the row rather than the trail. Never a display name or email the hub did not receive.", "type": ["string", "null"] },
         "credential_id": { "type": ["string", "null"] },
         "decided_at": { "type": ["string", "null"] },
         "decision_note": { "description": "Operator's reason, capped at DECISION_NOTE_MAX_CHARS and refused rather than truncated. Rendered escaped; never reaches a builder input, a command, or a profile lookup (mon-tc-03, task 2.6).", "type": ["string", "null"], "maxLength": 512 },
@@ -170,6 +184,7 @@
           "type": "array",
           "items": {
             "type": "object",
+            "additionalProperties": false,
             "required": ["seq", "at", "event"],
             "properties": {
               "seq": { "type": "integer", "minimum": 0 },
@@ -186,6 +201,35 @@
             }
           }
         }
+      }
+    },
+    "toolchain_credential": {
+      "type": "object",
+      "description": "One hub-held credential (mon-tc-03). The class is closed: enrollment, heartbeat, runner_key, operator, builder. Only the operator class may decide, and only when it carries scope `toolchain:decide`. A class outside the table is refused as `unknown`, so a new credential type cannot acquire a decision right by being unlisted.",
+      "required": ["class", "credential_id"],
+      "additionalProperties": false,
+      "properties": {
+        "_comment": { "type": "array", "items": { "type": "string" } },
+        "class": {
+          "description": "The credential's class, drawn from the closed table. Refused as `rejected_credential_class` when it is anything else.",
+          "enum": ["enrollment", "heartbeat", "runner_key", "operator", "builder"]
+        },
+        "credential_id": { "type": "string" },
+        "secret_hash": {
+          "description": "Salted sha256 of the secret — the plaintext secret is never stored (mon-sec-02, applied to operator credentials as to heartbeat tokens). The hash carries no secret, its prefix, or a derivation of it.",
+          "type": ["string", "null"],
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "scope": {
+          "description": "The scope this credential may exercise. Only `toolchain:decide` on an operator credential authorises a decision.",
+          "type": ["string", "null"]
+        },
+        "principal": {
+          "description": "The principal this credential presents, recorded exactly as the hub received it (mon-tc-03). Never a display name or email the hub did not receive.",
+          "type": ["string", "null"]
+        },
+        "runner_name": { "type": ["string", "null"] },
+        "builder_identity": { "type": ["string", "null"] }
       }
     }
   }

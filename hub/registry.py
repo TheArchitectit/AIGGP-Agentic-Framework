@@ -18,10 +18,21 @@ import secrets
 import tempfile
 from datetime import datetime, timezone
 
-from . import toolchain_requests, toolchain_store
+from . import toolchain_creds, toolchain_requests, toolchain_store
 from . import tokens
+from .toolchain_registry import ToolchainRegistryMixin
 
 SCHEMA_VERSION = 1
+
+# One consumed nonce, stored as {value, request_id, at}. Kept as records rather
+# than a bare string set so a refused replay can be answered with *which* row the
+# nonce was first used on — the useful operator question when two callers claim the
+# same moment ("someone else decided this, or is something replaying me?"). The
+# nonce value itself is a random 256-bit string (tokens.mint_token), not a secret
+# an attacker chose, and it identifies a decision rather than a principal, so
+# storing it is not the mon-sec-02 problem heartbeat tokens are. That is also why
+# these entries are never logged or echoed: a nonce is single-use evidence, and
+# publishing it would let a reader replay it against a row that has since moved.
 
 
 # UNREPORTED marks a heartbeat field the body did not mention at all.
@@ -138,7 +149,7 @@ class RegistryError(Exception):
     """Raised when the registry file is missing required structure."""
 
 
-class Registry:
+class Registry(ToolchainRegistryMixin):
     """In-memory view of runners.json with atomic persistence.
 
     // spec: mon-enroll-01
@@ -154,7 +165,9 @@ class Registry:
             self._data = {"version": SCHEMA_VERSION,
                           "token_salt": secrets.token_hex(16),
                           "enrollment_tokens": [], "runners": [],
-                          "toolchain_requests": []}
+                          "toolchain_requests": [],
+                          "toolchain_credentials": [],
+                          "toolchain_consumed_nonces": []}
             return
         self.load()
 
@@ -189,6 +202,10 @@ class Registry:
             plain = runner.pop("heartbeat_token", None)
             if plain and not runner.get("heartbeat_token_hash"):
                 runner["heartbeat_token_hash"] = self._hash_token(plain)
+        # toolchain credential + nonce collections (mon-tc-03). A registry
+        # written before this capability shipped has no such keys; reading them
+        # as empty sets is correct (no operator credentials, no consumed nonces).
+        toolchain_creds.migrate_legacy_state(self._data)
 
     # --- token hashing (mon-sec-02) -----------------------------------------
 
@@ -387,18 +404,6 @@ class Registry:
     def runners(self) -> list[dict]:
         return self._data["runners"]
 
-    # --- toolchain requests (mon-tc-02) -------------------------------------
-
-    def toolchain_requests(self) -> list[dict]:
-        """Every request row, open and settled (mon-tc-02).
-
-        A registry written before this capability shipped has no such key, and
-        reading it as an empty list is correct: an empty set means "nobody has
-        asked for anything", which mon-tc-06 insists is not the same statement as
-        "every lane is provisioned".
-        """
-        return self._data.setdefault("toolchain_requests", [])
-
     def record_gap_report(self, runner_name: str, submitted: object,
                           profile_id: str | None) -> tuple[int, str | None]:
         """Record one lane's gap report. Returns (rows_touched, rejection_code).
@@ -455,3 +460,19 @@ class Registry:
         runner = self.find_runner(runner_name)
         if runner is not None:
             toolchain_store.note_gap_coverage(runner, _now_iso())
+
+    def decide_request(self, request_id: str, *, action: str,
+                       credential_class: str | None, scope: str | None,
+                       credential_id: str | None, actor: str | None,
+                       principal: str | None, nonce: str | None,
+                       expected_version: int | None, note: str | None,
+                       now: str) -> dict:
+        # mon-tc-03, mon-tc-04: the transitions engine is dict-only, so the
+        # writing half lives in hub/toolchain_creds.py (this file is at
+        # DevGate's 500-line source hard limit). The caller owns the lock and
+        # the save.
+        return toolchain_creds.decide_request(
+            self._data, request_id, action=action,
+            credential_class=credential_class, scope=scope,
+            credential_id=credential_id, actor=actor, principal=principal,
+            nonce=nonce, expected_version=expected_version, note=note, now=now)

@@ -33,6 +33,7 @@ from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import tokens
+from . import toolchain_api
 from .config import Config
 from .registry import UNREPORTED, Registry
 from .services import Services
@@ -234,6 +235,9 @@ class HubHandler(BaseHTTPRequestHandler):
                 "polling_enabled": state.polling_enabled,
                 "poll_interval_sec": state.config.poll_interval_sec,
             })
+        elif self.path == "/toolchain/requests":
+            state = self.server.hub_state
+            self._handle_toolchain_requests(state)
         elif self.path == "/services":
             self._handle_services_list()
         elif self.path.startswith("/services/"):
@@ -266,6 +270,10 @@ class HubHandler(BaseHTTPRequestHandler):
                 self._handle_heartbeat(state)
             elif self.path == "/revoke":
                 self._handle_revoke(state)
+            elif self.path == "/toolchain/decide":
+                self._handle_toolchain_decide(state)
+            elif self.path == "/toolchain/requests":
+                self._handle_toolchain_requests(state)
             else:
                 self._send(404, {"ok": False, "error": "not_found"})
         except PayloadTooLarge:
@@ -405,6 +413,17 @@ class HubHandler(BaseHTTPRequestHandler):
         else:
             self._send(200, result)
 
+
+    # --- /toolchain/decide (mon-tc-03, mon-tc-04) -----------------------------
+
+    def _handle_toolchain_decide(self, state: HubState) -> None:
+        data = self._read_json()
+        status, payload = toolchain_api.handle_decide(state, data)
+        self._send(status, payload)
+
+    def _handle_toolchain_requests(self, state: HubState) -> None:
+        status, payload = toolchain_api.handle_list_requests(state)
+        self._send(status, payload)
 
     # --- /revoke (mon-enroll-01) ---------------------------------------------
 
