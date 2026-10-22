@@ -24,6 +24,11 @@
     "runners": {
       "type": "array",
       "items": { "$ref": "#/definitions/runner" }
+    },
+    "toolchain_requests": {
+      "description": "Open and settled toolchain requests, one row per (lane, tool) (mon-tc-02). The hub is the system of record for these; Mission Control reads them and never stores a copy. Rows are keyed by lane and tool so a partial approval of a multi-tool profile is expressible (mon-tc-04). Absent for a registry written before this capability existed, which reads as an empty set — an empty set is 'nobody has asked for anything', never 'every lane is provisioned' (mon-tc-06).",
+      "type": "array",
+      "items": { "$ref": "#/definitions/toolchain_request" }
     }
   },
   "definitions": {
@@ -94,7 +99,93 @@
         },
         "enrolled": { "type": "boolean", "default": true },
         "queue_threshold_min": { "type": "number" },
-        "drift_period_min": { "type": "number" }
+        "drift_period_min": { "type": "number" },
+        "lane_image_ref": {
+          "description": "The container reference this lane's runner image was built from (mon-tc-05). Separate from image_digest ON PURPOSE: image_digest is the coherence EVALUATOR ref and img-cycle-05 compares that tag's served digest; lane image identity is a different fact about a different image and conflating the two would join lane evidence to evaluator state. Null until a build job reports it. Free text from an untrusted-as-input host, so consumers must render it, never match on it.",
+          "type": ["string", "null"]
+        },
+        "lane_image_digest": {
+          "description": "Digest of the runner image this lane is actually running, reported by a build job and later confirmed by the lane's own heartbeat (mon-tc-05). Distinct from the evaluator image_digest above. Null means unreported, which is not 'the lane runs an unpinned image' and is never healthy.",
+          "type": ["string", "null"]
+        },
+        "toolchain_profile_id": {
+          "description": "The reviewed toolchain profile this lane is required to satisfy (mon-tc-01). Trusted input: a heartbeat can never set, widen, or rename it. Null means NO REVIEWED ASSIGNMENT — the lane requires nothing has been decided — which is a different answer from the profile named 'none', and the two must never render alike. An id outside the spec's profile table is refused rather than stored.",
+          "type": ["string", "null"]
+        },
+        "coverage": {
+          "description": "What this lane's last gap report was (mon-tc-06). Enumerates only the states a hub may STORE: 'reported' (a gap field arrived), 'never-reported' (a spoke that has not sent one since this capability shipped), 'probe-failed' (the last probe run was incomplete). 'stale' is deliberately NOT storable — it is derived from last_gap_report_at against TOOL_REQUEST_STALE_AFTER_S at read time, because a stored 'stale' becomes a lie the moment a heartbeat arrives that nobody has re-rendered. Absent reads as 'never-reported'; it is not evidence of a complete toolchain.",
+          "type": ["string", "null"],
+          "enum": ["reported", "never-reported", "probe-failed", null]
+        },
+        "last_gap_report_at": {
+          "description": "When this lane last sent a missing_tools field, whether or not the list was empty (mon-tc-06). Drives the derived 'stale' coverage state. Null until the lane first reports a gap; absence is 'never-reported', never 'up to date'.",
+          "type": ["string", "null"]
+        },
+        "toolchain_rejections": {
+          "description": "Gap reports this lane submitted that were refused, counted by reason code (mon-tc-01: a rejection is 'recorded as a code and an incrementing counter'). The rejected VALUE is never stored, in any field, log line, or audit row — only which rule it broke and how often, so an operator can tell a typo-prone spoke from a hostile one without holding a copy of what it sent. Keys are fixed code strings; an empty array and an absent key both mean 'never rejected anything'.",
+          "type": ["array", "null"],
+          "items": {
+            "type": "object",
+            "required": ["code", "count"],
+            "properties": {
+              "code": { "type": "string" },
+              "count": { "type": "integer", "minimum": 0 }
+            }
+          }
+        }
+      }
+    },
+    "toolchain_request": {
+      "type": "object",
+      "required": ["id", "lane", "tool", "state", "version"],
+      "properties": {
+        "_comment": { "type": "array", "items": { "type": "string" } },
+        "id": {
+          "description": "Stable row id (tcr-NNNN). The (lane, tool) pair is the identity that deduplicates reports (mon-tc-02); id exists so a decision can name the row it decided without the caller restating its key.",
+          "type": "string"
+        },
+        "lane": { "description": "Hub runner_name (mon-tc-02). A lane Mission Control has not linked is reported as 'unmapped', never silently dropped.", "type": "string" },
+        "tool": { "description": "One vocabulary member (mon-tc-01). Exact byte value, never normalized; 'g++' must survive storage, export and render unchanged.", "type": "string" },
+        "required_profile": {
+          "description": "The profile this row was opened against, recorded so a fulfilled request can name what it was fulfilled against after the profile changes (mon-tc-01). Trusted input, never spoke-supplied.",
+          "type": ["string", "null"]
+        },
+        "state": { "enum": ["open", "approved", "built", "fulfilled", "denied"] },
+        "version": { "description": "Compare-and-swap counter, incremented on every transition (mon-tc-04). A decision at an already-applied version returns that outcome instead of transitioning twice.", "type": "integer", "minimum": 1 },
+        "observed_at": { "type": ["string", "null"] },
+        "last_seen": { "description": "Advanced by every re-report of the same (lane, tool) gap; the row is NOT duplicated (mon-tc-02: a lane whose image never gains the tool re-reports every 300s).", "type": ["string", "null"] },
+        "actor": { "description": "The operator's actor claim stored exactly as presented (mon-tc-03). v1 issues every decision from one credential, so a shared principal is the expected shape and must stay visible as such rather than being inferred into per-operator attribution.", "type": ["string", "null"] },
+        "credential_id": { "type": ["string", "null"] },
+        "decided_at": { "type": ["string", "null"] },
+        "decision_note": { "description": "Operator's reason, capped at DECISION_NOTE_MAX_CHARS and refused rather than truncated. Rendered escaped; never reaches a builder input, a command, or a profile lookup (mon-tc-03, task 2.6).", "type": ["string", "null"], "maxLength": 512 },
+        "nonces": { "description": "Consumed nonces, kept so a replay is refused rather than applied twice (mon-tc-03).", "type": "array", "items": { "type": "string" } },
+        "build_id": { "type": ["string", "null"] },
+        "builder_identity": { "description": "Which builder reported the evidence (mon-tc-05). Only a builder credential may supply it; a digest offered under an operator or runner credential is refused.", "type": ["string", "null"] },
+        "lane_image_digest": { "description": "The built image digest this row is waiting for a lane to converge onto. Present with state 'built' does NOT mean fulfilled: convergence needs this digest AND a passing probe in a later heartbeat (mon-tc-05).", "type": ["string", "null"] },
+        "fulfilled_at": { "type": ["string", "null"] },
+        "suppression_until": { "description": "When a denial stops suppressing re-reports (mon-tc-04/mon-tc-06). Set on denial from TOOL_REQUEST_SUPPRESSION_DAYS; a report inside the window advances the suppression counter without changing state, a report after it reopens the row.", "type": ["string", "null"] },
+        "suppressed_reports": { "description": "Re-reports swallowed while this row was denied (mon-tc-04 'no state change; suppression counter').", "type": "integer", "minimum": 0 },
+        "history": {
+          "description": "Append-only transition audit (mon-tc-04). One record per decision, refusal and transition, in the fixed shape mon-tc-03 defines; nothing rewrites or removes an entry, and transitions outside the normative table never reach it.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["seq", "at", "event"],
+            "properties": {
+              "seq": { "type": "integer", "minimum": 0 },
+              "at": { "type": "string" },
+              "actor": { "type": ["string", "null"] },
+              "principal": { "type": ["string", "null"] },
+              "credential_id": { "type": ["string", "null"] },
+              "event": { "type": "string" },
+              "from": { "type": ["string", "null"] },
+              "to": { "type": ["string", "null"] },
+              "version_before": { "type": ["integer", "null"] },
+              "version_after": { "type": ["integer", "null"] },
+              "note": { "type": ["string", "null"] }
+            }
+          }
+        }
       }
     }
   }

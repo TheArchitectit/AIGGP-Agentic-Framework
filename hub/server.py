@@ -366,6 +366,17 @@ class HubHandler(BaseHTTPRequestHandler):
         def do_heartbeat(reg):
             if not reg.verify_heartbeat_token(runner_name, presented):
                 return False
+            # mon-tc-02: presence, not truth, decides whether a gap field arrived
+            # — so this stays `in data` rather than a `data.get(...) or []`, which
+            # would turn a malformed report into "the lane said nothing" and let a
+            # hostile value hide behind a null. A non-list arrives as a non-list so
+            # the registry refuses it and counts the reason; the rejected VALUE is
+            # never stored, echoed, or logged on the way back (mon-tc-01). The body
+            # is already capped by MAX_BODY_BYTES in _read_json, so a long list
+            # costs a parse and nothing more — and no cap here silently truncates,
+            # which is how a lane's real gap would stop being visible.
+            gap = data["missing_tools"] if "missing_tools" in data else UNREPORTED
+            gap_outcome: dict = {}
             # The image fields and the fleet sweep's state are read
             # presence-aware: a body that omits them must not clear a host's
             # last report, while a body that sends an explicit null must
@@ -377,8 +388,16 @@ class HubHandler(BaseHTTPRequestHandler):
                           data.get("image_reason", UNREPORTED),
                           data.get("image_pin_divergence", UNREPORTED),
                           data.get("scan_state", UNREPORTED),
-                          data.get("address"))
-            return {"ok": True}
+                          gap,
+                          data.get("address"),
+                          gap_outcome)
+            # The row count tells the spoke whether its report landed, which is
+            # what mon-tc-02's "a gap report that is silently discarded is worse
+            # than a rejected one" asks the hub to make observable. The count and
+            # the refusal REASON are the only things echoed: no tool name travels
+            # back, so a response cannot become a channel for reading values the
+            # spoke sent, and a rejected value still has nowhere to be echoed.
+            return {"ok": True, **gap_outcome}
 
         result = state.with_registry(do_heartbeat)
         if result is False:

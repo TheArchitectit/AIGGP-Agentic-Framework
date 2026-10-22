@@ -18,6 +18,7 @@ import secrets
 import tempfile
 from datetime import datetime, timezone
 
+from . import toolchain_requests, toolchain_store
 from . import tokens
 
 SCHEMA_VERSION = 1
@@ -152,7 +153,8 @@ class Registry:
         if not os.path.exists(path) and auto_init:
             self._data = {"version": SCHEMA_VERSION,
                           "token_salt": secrets.token_hex(16),
-                          "enrollment_tokens": [], "runners": []}
+                          "enrollment_tokens": [], "runners": [],
+                          "toolchain_requests": []}
             return
         self.load()
 
@@ -281,6 +283,20 @@ class Registry:
             "image_reason": None,
             "image_pin_divergence": None,
             "scan_state": None,
+            # mon-tc-01: the lane's *reviewed* toolchain identity. All three are
+            # hub-owned and None at enroll — nobody has reviewed this lane's
+            # profile yet, and "unassigned" is not the same claim as "requires
+            # nothing". They are never read from a heartbeat: a spoke that could
+            # set its own profile could declare itself provisioned.
+            "lane_image_ref": None,
+            "lane_image_digest": None,
+            "toolchain_profile_id": None,
+            # mon-tc-06: coverage starts at never-reported, which is derived
+            # rather than stored (see toolchain_requests.effective_coverage); only
+            # the two fields below are persisted.
+            "last_gap_report_at": None,
+            "coverage": None,
+            "toolchain_rejections": [],
         }
         self._data["runners"].append(runner)
         return runner, heartbeat_token
@@ -290,7 +306,9 @@ class Registry:
                   image_digest=UNREPORTED, image_reason=UNREPORTED,
                   image_pin_divergence=UNREPORTED,
                   scan_state=UNREPORTED,
-                  address: str | None = None) -> bool:
+                  missing_tools=UNREPORTED,
+                  address: str | None = None,
+                  gap_outcome: dict | None = None) -> bool:
         """Update freshness + health fields for a verified runner.
 
         The image fields and `scan_state` take UNREPORTED as their default, not
@@ -303,6 +321,13 @@ class Registry:
         the fleet sweep's report — null is a POSITIVE report that this host has
         no scan state (which must clear a stale one to unknown), whereas
         omitting it means the spoke has no opinion (which must not).
+
+        ``missing_tools`` reuses that three-state convention, but the third state
+        is *not* "the lane is provisioned": under mon-tc-06 an absent field means
+        the hub has no evidence either way, so a plain heartbeat neither records a
+        gap nor clears coverage back to never-reported. Present-but-empty is the
+        positive report; that distinction is the whole coverage story and is
+        preserved by the caller before this method is reached (mon-tc-02).
 
         ``address`` (the runner's current routable address) is refreshed on
         every heartbeat when the spoke publishes one, so a host that changes
@@ -326,6 +351,17 @@ class Registry:
             runner["image_pin_divergence"] = image_pin_divergence
         if scan_state is not UNREPORTED:
             runner["scan_state"] = scan_state
+        if missing_tools is not UNREPORTED:
+            # Presence is the signal, so this branch is entered on an accepted
+            # empty list too (mon-tc-02). A refused list still counts as the lane
+            # having spoken about its toolchain — it did speak, and mon-tc-06's
+            # question is "has a gap field ever arrived", not "was it valid".
+            self.note_gap_coverage(runner_name)
+            touched, rejection = self.record_gap_report(
+                runner_name, missing_tools, runner.get("toolchain_profile_id"))
+            if gap_outcome is not None:
+                gap_outcome["toolchain_requests_recorded"] = touched
+                gap_outcome["toolchain_rejection"] = rejection
         if address is not None:
             runner["address"] = address
         return True
@@ -350,3 +386,72 @@ class Registry:
 
     def runners(self) -> list[dict]:
         return self._data["runners"]
+
+    # --- toolchain requests (mon-tc-02) -------------------------------------
+
+    def toolchain_requests(self) -> list[dict]:
+        """Every request row, open and settled (mon-tc-02).
+
+        A registry written before this capability shipped has no such key, and
+        reading it as an empty list is correct: an empty set means "nobody has
+        asked for anything", which mon-tc-06 insists is not the same statement as
+        "every lane is provisioned".
+        """
+        return self._data.setdefault("toolchain_requests", [])
+
+    def record_gap_report(self, runner_name: str, submitted: object,
+                          profile_id: str | None) -> tuple[int, str | None]:
+        """Record one lane's gap report. Returns (rows_touched, rejection_code).
+
+        // spec: mon-tc-01, mon-tc-02
+
+        The rules and the writing live in `toolchain_store` (this file is at
+        DevGate's 500-line source hard limit); this is the Registry seam, and the
+        only thing it adds is resolution by name, which is Registry's job. See the
+        module docstring and `record_gap_report`'s own for why a rejected report
+        keeps its reason and loses its payload, and why the heartbeat still 200s.
+        """
+        runner = self.find_runner(runner_name)
+        if runner is None:
+            return 0, "unknown_runner"
+        return toolchain_store.record_gap_report(
+            self._data, runner, submitted, profile_id, _now_iso())
+
+    def note_rejection(self, runner_name: str, code: str) -> None:
+        """Count a refused gap report by reason, storing nothing else (mon-tc-01)."""
+        runner = self.find_runner(runner_name)
+        if runner is not None:
+            toolchain_store.note_rejection(runner, code)
+
+    def set_lane_profile(self, runner_name: str, profile_id: str | None,
+                         image_ref: str | None = None,
+                         image_digest: str | None = None) -> bool:
+        """Record the hub's reviewed toolchain assignment for one lane.
+
+        // spec: mon-tc-01
+
+        Operator-only: the required profile is trusted input, so the spoke
+        reporting a gap must not choose it, and an unreviewed id is refused rather
+        than stored (a typo would produce a permanently clean lane). The lane's
+        toolchain image fields are distinct from the evaluator `image_digest` on the
+        same record, on purpose and as a test.
+        """
+        runner = self.find_runner(runner_name)
+        if runner is None:
+            return False
+        return toolchain_store.set_lane_profile(
+            runner, profile_id, image_ref, image_digest)
+
+    def note_gap_coverage(self, runner_name: str) -> None:
+        """Mark that this lane has now spoken about its toolchain (mon-tc-06).
+
+        Called only when a gap field actually arrived — an accepted empty list
+        counts, it is the positive report "my image has everything this lane
+        requires". A heartbeat that OMITS the field must never call this, and this
+        never clears a prior report either: mon-tc-06 asks whether the spoke has
+        *ever* sent a gap field, so a later plain heartbeat cannot un-report a lane
+        that reported yesterday. `stale` is derived at read time, never written.
+        """
+        runner = self.find_runner(runner_name)
+        if runner is not None:
+            toolchain_store.note_gap_coverage(runner, _now_iso())
