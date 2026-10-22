@@ -179,21 +179,47 @@ yet.
 
 ## S2 — Hub: transitions (mon-tc-03, mon-tc-04)
 
-- [ ] 2.1 Implement the normative transition table from `mon-tc-04` with
-      compare-and-swap under the registry lock.
-- [ ] 2.2 Concurrent decisions: exactly one 200, one 409, both in audit history.
-- [ ] 2.3 Idempotency: an identical decision at an already-applied version
+- [x] 2.1 Implement the normative transition table from `mon-tc-04` with
+      compare-and-swap under the registry lock. Landed in
+      `hub/toolchain_transitions.py` (`TRANSITIONS` mirrors the spec's own
+      column order so it can be diffed page by page; CAS runs under the
+      registry lock, the caller owns it and the save). `hub/toolchain_api.py`
+      carries the HTTP seam (`POST /toolchain/decide`, id in the body) and
+      `hub/registry.py`'s toolchain delegators moved to
+      `hub/toolchain_registry.py` as a mixin because `registry.py` sat at the
+      500-line source hard limit — now 477/500. Commit `1d51289`.
+- [x] 2.2 Concurrent decisions: exactly one 200, one 409, both in audit
+      history. `tests/test_hub_operator_auth.py::test_concurrent_decisions`
+      and its wire twin `test_wire_concurrent_decisions`.
+- [x] 2.3 Idempotency: an identical decision at an already-applied version
       returns that outcome and applies no second transition.
-- [ ] 2.4 Replay: a consumed nonce is refused.
-      `tests/test_hub_operator_auth.py`
-- [ ] 2.5 Negative controls, each asserting refusal, unchanged state, and an
+      `test_idempotent_decision`. The content match is event + actor + note —
+      v1 has one shared operator credential, so a different actor presenting
+      the same content at an applied version is a conflict, not that
+      outcome's replay (the docstring states this; the shared-credential
+      limit is task 0.6's recorded v1 attribution limit).
+- [x] 2.4 Replay: a consumed nonce is refused.
+      `tests/test_hub_operator_auth.py::test_replay_nonce`.
+- [x] 2.5 Negative controls, each asserting refusal, unchanged state, and an
       audit row: heartbeat token, runner key, builder credential, ordinary MC
-      write key, expired nonce.
-- [ ] 2.6 `decision_note` capped, stored, and rendered escaped; static scan plus
+      write key, expired nonce. `test_negative_control_*` (three) +
+      `test_expired_nonce` + `test_rejected_credential_classes`. The "expired
+      nonce" control is a replayed consumed nonce: mon-tc-06 owns the numbers
+      and names no TTL for the claim timestamp, so a nonce goes stale by being
+      consumed, not by the clock — an earlier substring check on the fixture
+      year (`"2020-"`) plus a dead 5-minute freshness helper were removed;
+      both made the test pass for the wrong reason.
+- [x] 2.6 `decision_note` capped, stored, and rendered escaped; static scan plus
       fixture asserting it never reaches a builder input, command or profile
-      lookup.
-- [ ] 2.7 Denied-recurrence and suppression-window behaviour, including
-      fulfilled → open regression.
+      lookup. Cap is **512 imported** from
+      `hub/toolchain_requests.DECISION_NOTE_MAX_CHARS`, refused-not-truncated
+      (`test_note_cap`), stored verbatim and rendered escaped
+      (`test_note_rendered_escaped_and_not_in_builder_input`, incl. the static
+      scan). The schema caps the stored field at 512 too.
+- [x] 2.7 Denied-recurrence and suppression-window behaviour, including
+      fulfilled → open regression. `test_denied_suppression_window`,
+      `test_fulfilled_gap_regressed`, plus `report_event` in
+      `toolchain_transitions.py` for the three heartbeat cases.
 
 ## S3 — Hub: fulfillment evidence (mon-tc-05)
 
