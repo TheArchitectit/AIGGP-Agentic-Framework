@@ -377,18 +377,47 @@ or label it.
 - [ ] 5.0 Write the MC companion OpenSpec change **first**, including the
       auth-gate-coverage classification of the decide route. Pin both commit
       SHAs in the pull request.
-- [ ] 5.1 Hub adapter: `src/adapters/` alongside `hermes.rs`, `loki.rs`,
+- [x] 5.1 Hub adapter: `src/adapters/` alongside `hermes.rs`, `loki.rs`,
       `rad_a2a.rs`. Explicit timeout. No local cache.
-- [ ] 5.2 Protected read `GET /api/v1/fleet/toolchain-requests` proxying to the
+      **Landed in MC `d084f78`.** `src/adapters/toolchain.rs`; timeout on every
+      call (`TOOLCHAIN_HUB_TIMEOUT_SECS`, default 10, clamped 1..=120); the only
+      in-memory state is `LAST_GOOD_READ`, a timestamp for the failure banner,
+      explicitly not a cache (the served queue comes only from the live hub
+      response).
+- [x] 5.2 Protected read `GET /api/v1/fleet/toolchain-requests` proxying to the
       hub, no storage. Fleet code belongs in `src/api/fleet/`, routes register
       in `src/router/builder.rs` — there is no `src/api/dashboard.rs`.
-- [ ] 5.3 Decide POST behind session auth + CSRF + an administrative-tier check
+      **Landed in MC `d084f78`.** Handler in `src/api/fleet/toolchain.rs`,
+      registered under `/api/v1/fleet` in `src/router/builder.rs`; anonymous
+      read is 401 and by construction cannot reach the hub
+      (`read_anonymous_is_401`).
+- [x] 5.3 Decide POST behind session auth + CSRF + an administrative-tier check
       modelled on `/api/v1/keys`. Proxies to the hub with the actor claim.
-- [ ] 5.4 Askama + HTMX queue page in the page-gated tier.
+      **Landed in MC `d084f78`.** Session+CSRF (`decide_cookie_without_csrf_is_403`),
+      admin tier via the existing prefix match
+      (`decide_write_only_key_is_403`); the forwarded claim is principal,
+      timestamp and nonce plus the operator credential, all body fields — the
+      signed claim once assumed here never existed on the hub and was removed
+      (see MC tasks 3.3's correction and the seam findings).
+- [x] 5.4 Askama + HTMX queue page in the page-gated tier.
       `tests/toolchain_queue_contract.rs`
-- [ ] 5.5 Schema-scan test: the MC database contains no toolchain table.
-- [ ] 5.6 Hub unreachable → explicit payload naming the last good read time,
+      **Landed in MC `d084f78`.** `templates/pages/toolchain_queue.html`; the
+      decide controls are real forms carrying the row's `expected_version`, and
+      the urlencoded form post is exercised end to end in
+      `tests/toolchain_wire_contract.rs::form_encoded_decide_from_the_page_reaches_the_hub`
+      — no prior test in either repo could see that path.
+- [x] 5.5 Schema-scan test: the MC database contains no toolchain table.
+      **Landed in MC `d084f78`.** `tests/toolchain_no_local_state.rs` queries
+      `information_schema` for any public table matching `%toolchain%`.
+      Mutation-checked: creating `toolchain_requests_mutation_probe` turns it
+      red naming the table; dropping it returns green; residue verified zero.
+- [x] 5.6 Hub unreachable → explicit payload naming the last good read time,
       never `[]`.
+      **Landed in MC `d084f78`.** `render_unreachable` names the last good read
+      when one exists and says "no successful read since start" when none does;
+      `unreachable_read_is_502_never_empty` asserts the payload never contains
+      `"requests":[]`, and a hub that answers empty is a separate test proving
+      empty ≠ unreachable.
 - [ ] 5.7 Reconcile the stale `frontend-architecture` spec text as part of the
       companion change (it still says the React SPA "SHALL be removed" while a
       later decision admits React islands on six routes).
@@ -429,9 +458,18 @@ or label it.
 
       Evidence: `tests/test_hub_queue_read_fields.py` → **6 passed** under
       `pytest` and **6 ok** via the file's own `__main__` runner, exit 0, both
-      measured. Hub toolchain suites together: **71 passed**. Mon-tc-02's
-      requirement text amended (the read's obligation + two scenarios) and
-      `openspec validate --all --strict` re-run after the amendment.
+      measured. Mon-tc-02's requirement text amended (the read's obligation +
+      two scenarios) and `openspec validate --all --strict` re-run after the
+      amendment.
+
+      **Correction 2026-10-23 (spec audit):** this box said "Hub toolchain
+      suites together: **71 passed**". That number does not reproduce and never
+      matched the set — the six toolchain test files sum to **89 test
+      definitions at `019f6a3`**, which is also the pytest count today (89
+      passed). The `71` is replaced rather than explained: no grouping of the
+      files yields it. The reproducible figure, measured by running
+      `pytest` over `tests/test_hub_*toolchain*.py` +
+      `tests/test_hub_queue_read_fields.py`: **89 passed**.
 
 ## S6 — Gates and docs
 
@@ -441,14 +479,19 @@ or label it.
       while two of the three files did not exist; both now do —
       `test_hub_operator_auth.py` (S2, credential classes) and
       `test_runner_toolchain_probe.py` (S4, spoke probe, 15 tests). The S1 half
-      that was green alone is now joined by `test_hub_toolchain_record.py` (13)
-      and `test_hub_toolchain_requests_wire.py`, split out when the requests
-      module crossed the suite's own 600-line test gate. Whole suite for
-      reference: **1664 passed, 182 subtests passed**, exit 0.
+      that was green alone is now joined by `test_hub_toolchain_record.py` (6
+      tests, measured 2026-10-23 — the "13" this box carried does not reproduce;
+      the file is 148 lines with six `def test_`, no subtests, and no later
+      commit splits it) and `test_hub_toolchain_requests_wire.py` (9), split out
+      when the requests module crossed the suite's own 600-line test gate. Whole
+      suite for reference: **1664 passed, 182 subtests passed**, exit 0;
+      re-measured 2026-10-23 → **1708 passed, 182 subtests**.
 - [x] 6.2 `python3 -m pytest tests/test_hub_registry.py
       tests/test_hub_registry_schema.py tests/test_hub_enroll_heartbeat.py` →
-      **44 passed**. Whole suite for reference: **1623 passed, 182 subtests
-      passed**.
+      **44 passed** (re-measured 2026-10-23, still 44). Whole suite for
+      reference: **1623 passed, 182 subtests passed** at authoring time;
+      re-measured 2026-10-23 → **1708 passed, 182 subtests**, the growth being
+      tests added after this box was written.
 - [x] 6.3 `python3 scripts/spec_traceability.py --root . --report` — **read**, not
       just run. **81/127 requirements covered** (was 78 before this work). The
       three newly covered are exactly `mon-tc-01`, `mon-tc-02`, `mon-tc-06`;
