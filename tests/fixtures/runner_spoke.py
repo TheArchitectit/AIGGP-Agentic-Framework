@@ -41,7 +41,12 @@ HEARTBEAT = REPO_ROOT / "scripts" / "runner-heartbeat.sh"
 # runner-enroll.sh dies on, and a checkout that lost it should fail at import
 # with the file named, not at enroll time on a host.
 UNIT_LIB = REPO_ROOT / "scripts" / "lib" / "runner-units.sh"
-for _required in (SCRIPT, HEARTBEAT, UNIT_LIB):
+# The file installer, sourced by SCRIPT alongside the unit installer. Checked
+# here for the same reason UNIT_LIB is: `source` on a missing path is an error
+# the script dies on, and a checkout that lost it should fail at import with the
+# file named rather than at enroll time on a host.
+INSTALL_LIB = REPO_ROOT / "scripts" / "lib" / "runner-installs.sh"
+for _required in (SCRIPT, HEARTBEAT, UNIT_LIB, INSTALL_LIB):
     if not _required.is_file():
         raise RuntimeError(
             f"the runner harness resolved the DevGate checkout as {REPO_ROOT}, "
@@ -117,6 +122,16 @@ elif path == "/enroll":
 elif path == "/heartbeat":
     status = int(os.environ.get("STUB_HEARTBEAT_STATUS", "200"))
     body = json.dumps({"ok": status == 200})
+    # The hub's profile echo (mon-tc-01). Absent by default, which is what a hub
+    # predating the capability sends, and what most tests want to see: no cache,
+    # therefore no gap fields. A list makes the next tick probe those tools; null
+    # says "no reviewed profile for this lane" and must not become an empty list.
+    # Reaching for STUB_SERVED_REQUIRED on every route would make every test in
+    # the suite that runs a tick exercise the probe path, the way stub_podman is
+    # opt-in for exactly that reason.
+    if "STUB_SERVED_REQUIRED" in os.environ:
+        body = json.dumps({"ok": status == 200,
+                           "required_tools": json.loads(os.environ["STUB_SERVED_REQUIRED"])})
 else:
     status = int(os.environ.get("STUB_REVOKE_STATUS", "200"))
     body = json.dumps({"ok": True})
@@ -229,6 +244,40 @@ class Spoke:
         under lib/ dies at runtime looking enroled.
         """
         return self.home / ".config" / "containers" / "registry-digest.sh"
+
+    def probe_lib(self):
+        """The toolchain probe's installed copy, resolved by the heartbeat as a
+        sibling of itself — the gate's rule again, so it must land beside the
+        helper under exactly this name."""
+        return self.home / ".config" / "containers" / "toolchain_probe.py"
+
+    def seed_required(self, runner, required):
+        """Write the hub's echoed requirement list the way the tick writes it.
+
+        Tests use this to reach the probe path without needing a first tick,
+        which is how a fresh host behaves: the tick after enrollment has no
+        cache and sends no gap fields at all. `required=None` writes the null
+        the hub sends for a lane with no reviewed profile, and the tick must
+        treat that as no list rather than an empty one.
+        """
+        name = re.sub(r"[^A-Za-z0-9_-]", "-", runner)
+        cache = Path(self.env["TMPDIR"]) / f"devgate-hb-required-{name}.json"
+        cache.write_text(json.dumps({"required_tools": required}), encoding="utf-8")
+        return cache
+
+    def read_required(self, runner):
+        """The cached requirement list, or None when there is no cache.
+
+        None is the load-bearing answer: it distinguishes "the hub has not said
+        anything this lane requires" from "the hub said it requires nothing",
+        which is the same distinction mon-tc-01 draws between
+        `profile-unassigned` and `none`.
+        """
+        name = re.sub(r"[^A-Za-z0-9_-]", "-", runner)
+        cache = Path(self.env["TMPDIR"]) / f"devgate-hb-required-{name}.json"
+        if not cache.is_file():
+            return None
+        return json.loads(cache.read_text(encoding="utf-8"))["required_tools"]
 
     def cycle_units(self, runner):
         """(service, timer) for the image cycle, named per runner like the rest."""

@@ -324,6 +324,7 @@ class Registry(ToolchainRegistryMixin):
                   image_pin_divergence=UNREPORTED,
                   scan_state=UNREPORTED,
                   missing_tools=UNREPORTED,
+                  probe_complete: bool | None = None,
                   address: str | None = None,
                   gap_outcome: dict | None = None) -> bool:
         """Update freshness + health fields for a verified runner.
@@ -373,12 +374,23 @@ class Registry(ToolchainRegistryMixin):
             # empty list too (mon-tc-02). A refused list still counts as the lane
             # having spoken about its toolchain — it did speak, and mon-tc-06's
             # question is "has a gap field ever arrived", not "was it valid".
-            self.note_gap_coverage(runner_name)
+            self.note_gap_coverage(runner_name, probe_complete)
             touched, rejection = self.record_gap_report(
                 runner_name, missing_tools, runner.get("toolchain_profile_id"))
             if gap_outcome is not None:
                 gap_outcome["toolchain_requests_recorded"] = touched
                 gap_outcome["toolchain_rejection"] = rejection
+        if gap_outcome is not None:
+            # mon-tc-01, spoke side: the lane's required tools are the hub's
+            # spec-governed data, so the spoke measures against THIS echo rather
+            # than its own guess. It travels on every successful heartbeat — not
+            # only on one carrying a gap field — so a lane whose image already
+            # has everything still learns what it was supposed to have. JSON
+            # cannot carry "absent because unassigned" distinct from null, so a
+            # null here means exactly that, and the spoke treats it as "no
+            # opinion" (send nothing) rather than as an empty requirement.
+            gap_outcome["required_tools"] = toolchain_requests.required_tools(
+                runner.get("toolchain_profile_id"))
         if address is not None:
             runner["address"] = address
         return True
@@ -447,7 +459,8 @@ class Registry(ToolchainRegistryMixin):
         return toolchain_store.set_lane_profile(
             runner, profile_id, image_ref, image_digest)
 
-    def note_gap_coverage(self, runner_name: str) -> None:
+    def note_gap_coverage(self, runner_name: str,
+                          probe_complete: bool | None = None) -> None:
         """Mark that this lane has now spoken about its toolchain (mon-tc-06).
 
         Called only when a gap field actually arrived — an accepted empty list
@@ -456,23 +469,17 @@ class Registry(ToolchainRegistryMixin):
         never clears a prior report either: mon-tc-06 asks whether the spoke has
         *ever* sent a gap field, so a later plain heartbeat cannot un-report a lane
         that reported yesterday. `stale` is derived at read time, never written.
+
+        ``probe_complete`` decides between the two storable coverage states this
+        method can write: `reported` and `probe-failed`. `False` is the spoke
+        saying "my probe run did not complete", which mon-tc-06 defines as
+        `probe-failed` — and an incomplete run reporting nothing is precisely the
+        case where storing `reported` would render absence as health. `None` is
+        not "incomplete" and not "complete", it is *no opinion*: a spoke predating
+        the probe-outcome field, which is not a failed probe, so it stays believed.
         """
         runner = self.find_runner(runner_name)
         if runner is not None:
-            toolchain_store.note_gap_coverage(runner, _now_iso())
-
-    def decide_request(self, request_id: str, *, action: str,
-                       credential_class: str | None, scope: str | None,
-                       credential_id: str | None, actor: str | None,
-                       principal: str | None, nonce: str | None,
-                       expected_version: int | None, note: str | None,
-                       now: str) -> dict:
-        # mon-tc-03, mon-tc-04: the transitions engine is dict-only, so the
-        # writing half lives in hub/toolchain_creds.py (this file is at
-        # DevGate's 500-line source hard limit). The caller owns the lock and
-        # the save.
-        return toolchain_creds.decide_request(
-            self._data, request_id, action=action,
-            credential_class=credential_class, scope=scope,
-            credential_id=credential_id, actor=actor, principal=principal,
-            nonce=nonce, expected_version=expected_version, note=note, now=now)
+            toolchain_store.note_gap_coverage(
+                runner, _now_iso(),
+                probe_complete if probe_complete is not None else True)

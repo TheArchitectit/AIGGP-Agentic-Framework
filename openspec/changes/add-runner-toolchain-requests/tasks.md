@@ -232,14 +232,64 @@ yet.
 
 ## S4 — Spoke detection (mon-tc-01)
 
-- [ ] 4.1 `scripts/runner-heartbeat.sh`: required-profile minus observed, probed
+- [x] 4.1 `scripts/runner-heartbeat.sh`: required-profile minus observed, probed
       inside the runner image, never host `PATH`.
       `tests/test_runner_toolchain_probe.py`
-- [ ] 4.2 Synthetic manifest `{required: [cargo, gcc], observed: [gcc]}` →
+      **Two things the task text assumed and the code had to decide, recorded
+      because they are load-bearing.** (a) *How the spoke learns the profile.* The
+      spec makes the required profile trusted hub input a heartbeat cannot set, and
+      forbids the spoke computing it — so the hub now echoes this lane's resolved
+      requirement list on the `/heartbeat` response and the tick caches it for the
+      next one. design.md's Sec. Detection never says where that value crosses the
+      wire, so this is an addition to the design, not a reading of it. A first tick
+      has no cache and sends **neither** gap field (absent, never `[]`: mon-tc-06
+      says absence means the hub has no evidence). The echo travels on every
+      successful heartbeat, including one carrying no gap field, because gating it
+      on an incoming gap field deadlocks the capability: no cache → no gap field →
+      no echo → no cache. (b) *"Never host PATH" is only true when the operator
+      sets the knob.* The probe observes `RUNNER_PROBE_PATH` when set, else the
+      process `PATH` — and today's units run on the host, so an unset knob observes
+      the host. That is the deployment's limitation rather than the probe's, and
+      the honest wording is that the suite never runs with it unset, so "never host
+      PATH" is enforced for everything the suite can see and asserted nowhere in
+      prose. A containerised lane needs the knob set, and that is a fleet-side
+      change this repository cannot make for it.
+      Absent probe library, torn cache and an unreadable cache all end as absent
+      fields with exit 0, the shape the evaluator-image probe already used: a
+      heartbeat that dies blinds the fleet, which is worse than a toolchain field
+      that reads unknown. Installed as a sibling by `lib/runner-installs.sh` (a
+      new sourced library; the install set crossed the size gate's hard limit and
+      the gate's own history says to move the operation, not widen the limit).
+- [x] 4.2 Synthetic manifest `{required: [cargo, gcc], observed: [gcc]}` →
       reports `[cargo]`, exit 0.
-- [ ] 4.3 Required equals observed → empty list, not a vocabulary dump.
-- [ ] 4.4 Probe timeout → `unknown`, exit 0, never "complete".
-- [ ] 4.5 `python3` present without the pip module → `pip` reported absent.
+      `test_the_manifest_the_task_names_required_cargo_gcc_observed_gcc` — the
+      literal pair, its own stub directory, asserting `(["cargo"], True)`. It was
+      first written reusing the neighbouring test's directory, which contains
+      `cargo`, and it asserted the opposite of the truth while passing nothing: a
+      missing tool needs a directory that lacks it.
+- [x] 4.3 Required equals observed → empty list, not a vocabulary dump.
+      `test_a_lane_that_has_everything_reports_the_empty_list` — `[]` posted, exit
+      0. This case was **not covered before it was written for this box**: every
+      earlier test had a gap by construction, so "vocabulary minus what I have"
+      would have passed the whole suite while opening a request per tool nobody
+      required.
+- [x] 4.4 Probe timeout → `unknown`, exit 0, never "complete".
+      `test_a_probe_that_outlives_its_bound_is_unknown_not_absent` (through a real
+      tick) and `test_required_excludes_unknowns_from_missing_and_reports_incomplete`
+      (at the library). Both halves are asserted because the first alone is not
+      enough: excluding the unknown tool from `missing` without setting the flag
+      would hand the hub an empty gap list from an incomplete run — absence
+      reported as health, which is the one thing `probe-failed` exists to prevent.
+      The stub is named `mvn`, since mon-tc-01 fixes maven's probe as
+      `mvn -version`; a stub named `maven` would be a file the probe never looks
+      at, and an earlier draft of this test passed for that reason.
+- [x] 4.5 `python3` present without the pip module → `pip` reported absent.
+      `test_python_is_python3_and_pip_is_the_module_not_the_binary` — a stub
+      `python3` that exits 1 under `-m pip` yields `absent` while `python` itself
+      is `present`. The probe runs the **resolved** interpreter rather than a bare
+      `python3`, because a bare name falls through to the process PATH and would
+      probe the host while claiming to probe the image.
+
 
 ## S5 — Mission Control (separate repository)
 
@@ -269,14 +319,16 @@ or label it.
 
 ## S6 — Gates and docs
 
-- [ ] 6.1 `python3 -m pytest tests/test_hub_toolchain_requests.py
-      tests/test_hub_operator_auth.py tests/test_runner_toolchain_probe.py`
-      Stays open **because two of the three files do not exist yet**:
-      `test_hub_operator_auth.py` is an S2 deliverable (credential classes) and
-      `test_runner_toolchain_probe.py` is an S4 deliverable (spoke probe). The S1
-      half runs green: `test_hub_toolchain_requests.py` +
-      `test_hub_toolchain_requests_wire.py`, **31 passed**. Marking this done now
-      would be a box ticked against files nobody has written.
+- [x] 6.1 `python3 -m pytest tests/test_hub_toolchain_requests.py
+      tests/test_hub_operator_auth.py tests/test_runner_toolchain_probe.py` →
+      **57 passed**, measured by running that command verbatim. It was left open
+      while two of the three files did not exist; both now do —
+      `test_hub_operator_auth.py` (S2, credential classes) and
+      `test_runner_toolchain_probe.py` (S4, spoke probe, 15 tests). The S1 half
+      that was green alone is now joined by `test_hub_toolchain_record.py` (13)
+      and `test_hub_toolchain_requests_wire.py`, split out when the requests
+      module crossed the suite's own 600-line test gate. Whole suite for
+      reference: **1664 passed, 182 subtests passed**, exit 0.
 - [x] 6.2 `python3 -m pytest tests/test_hub_registry.py
       tests/test_hub_registry_schema.py tests/test_hub_enroll_heartbeat.py` →
       **44 passed**. Whole suite for reference: **1623 passed, 182 subtests

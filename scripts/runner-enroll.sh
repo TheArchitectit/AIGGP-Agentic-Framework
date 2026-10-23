@@ -131,6 +131,13 @@ UNIT_LIB="$SCRIPT_DIR/lib/runner-units.sh"
 [[ -f "$UNIT_LIB" ]] || die "missing $UNIT_LIB — the unit installer; re-check out the repository" 3
 # shellcheck source=lib/runner-units.sh
 source "$UNIT_LIB"
+# The file installer, sourced alongside: reached for here rather than inside
+# install_timer so a checkout that lost it fails at startup, on every mode, and
+# not part-way through an install that has already enrolled the runner.
+INSTALL_LIB="$SCRIPT_DIR/lib/runner-installs.sh"
+[[ -f "$INSTALL_LIB" ]] || die "missing $INSTALL_LIB — the helper installer; re-check out the repository" 3
+# shellcheck source=lib/runner-installs.sh
+source "$INSTALL_LIB"
 
 usage() {
     cat <<'EOF'
@@ -315,18 +322,12 @@ install_timer() {
         die "slug '$SLUG' already belongs to '$SLUG_OWNER' — refusing to overwrite; pick a distinct --runner-name so the two do not share one token" 1
     fi
 
-    # Both helpers must exist BEFORE their timers start: OnBootSec lies in the
-    # past once uptime exceeds INTERVAL, so `systemctl start` fires the first
-    # tick immediately, and an ExecStart with no target takes that run down.
-    install_helper "Heartbeat" \
-        "$REPO_ROOT/scripts/runner-heartbeat.sh" "$HB_HELPER"
-    install_helper "Image-cycle" \
-        "$REPO_ROOT/scripts/runner-image-cycle.sh" "$CYC_HELPER"
-    # Sibling of the cycle and the heartbeat, not under lib/: the installed
-    # helpers are flat in $ENV_DIR and resolve it as a sibling, the way the
-    # fleet sweep resolves the gate. Missing from a host one of them ticks.
-    install_helper "Registry-digest" \
-        "$REPO_ROOT/scripts/lib/registry-digest.sh" "$ENV_DIR/registry-digest.sh"
+    # Every helper must exist BEFORE its timer starts: OnBootSec lies in the past
+    # once uptime exceeds INTERVAL, so `systemctl start` fires the first tick
+    # immediately, and an ExecStart with no target takes that run down. The list
+    # is in lib/runner-installs.sh; what stays here is the decision that none of
+    # them may be missing by the time a timer is enabled.
+    install_runner_helpers
     # The gate first, then the sweep: the sweep resolves the gate as a sibling
     # at run time, so if only one of the two is ever missing it must not be the
     # gate. install_helper copies both in the same breath, and a missing source

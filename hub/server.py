@@ -384,6 +384,15 @@ class HubHandler(BaseHTTPRequestHandler):
             # costs a parse and nothing more — and no cap here silently truncates,
             # which is how a lane's real gap would stop being visible.
             gap = data["missing_tools"] if "missing_tools" in data else UNREPORTED
+            # mon-tc-06's `probe-failed` needs the spoke's own words for it: the
+            # hub cannot tell an incomplete probe run from a complete one that
+            # found everything. Presence again means opinion — absent is a spoke
+            # predating the field (believed, not doubted), null is not a thing a
+            # correct spoke sends, and a non-bool is refused the same way a bad
+            # gap value is refused rather than coerced.
+            probe_outcome = data.get("missing_tools_probe_complete")
+            if probe_outcome is not None and not isinstance(probe_outcome, bool):
+                probe_outcome = None
             gap_outcome: dict = {}
             # The image fields and the fleet sweep's state are read
             # presence-aware: a body that omits them must not clear a host's
@@ -397,14 +406,18 @@ class HubHandler(BaseHTTPRequestHandler):
                           data.get("image_pin_divergence", UNREPORTED),
                           data.get("scan_state", UNREPORTED),
                           gap,
-                          data.get("address"),
-                          gap_outcome)
+                          probe_complete=probe_outcome,
+                          address=data.get("address"),
+                          gap_outcome=gap_outcome)
             # The row count tells the spoke whether its report landed, which is
             # what mon-tc-02's "a gap report that is silently discarded is worse
-            # than a rejected one" asks the hub to make observable. The count and
-            # the refusal REASON are the only things echoed: no tool name travels
-            # back, so a response cannot become a channel for reading values the
-            # spoke sent, and a rejected value still has nowhere to be echoed.
+            # than a rejected one" asks the hub to make observable. The count, the
+            # refusal REASON and the lane's required tools are what travels back —
+            # and all three are values the hub already holds or derives: no tool
+            # name the spoke submitted is echoed, so a response cannot become a
+            # channel for reading back submitted values, and a rejected value still
+            # has nowhere to be echoed. `required_tools` is the hub's own profile
+            # statement for the lane (registry says why the spoke needs it).
             return {"ok": True, **gap_outcome}
 
         result = state.with_registry(do_heartbeat)

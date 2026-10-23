@@ -52,9 +52,79 @@ else
     registry_digest_missing=1
 fi
 
+# The toolchain probe (mon-tc-01, design "Detection"), sourced under the same
+# sibling rule. Missing is the same non-fatal shape: the gap fields stay
+# absent from the body, which the hub reads as "no opinion this tick" — never
+# as a complete toolchain. A host whose installed copy lost this library keeps
+# ticking; it just stops talking about its toolchain, which is the honest
+# degradation.
+if [ -f "$SCRIPT_DIR/lib/toolchain_probe.py" ]; then
+    TOOLCHAIN_PROBE_LIB="$SCRIPT_DIR/lib/toolchain_probe.py"
+elif [ -f "$SCRIPT_DIR/toolchain_probe.py" ]; then
+    TOOLCHAIN_PROBE_LIB="$SCRIPT_DIR/toolchain_probe.py"
+else
+    echo "[hb] toolchain_probe.py missing beside this script ($SCRIPT_DIR)" \
+         "— toolchain gaps not probed this tick" >&2
+    TOOLCHAIN_PROBE_LIB=""
+fi
+
 : "${HUB_URL:?HUB_URL is not set - check the unit EnvironmentFile}"
 : "${RUNNER_NAME:?RUNNER_NAME is not set - check the unit EnvironmentFile}"
 : "${HEARTBEAT_TOKEN:?HEARTBEAT_TOKEN is not set - check the unit EnvironmentFile}"
+
+# Both scratch filenames must be filesystem-safe, and both are computed here
+# because the probe below needs the same name the POST below writes its response
+# to. A name containing "/" makes curl unable to open the -o target (exit 23),
+# and set -e turns that into a dead tick before the HTTP status is even checked.
+safe_name="$(printf '%s' "$RUNNER_NAME" | LC_ALL=C sed 's/[^A-Za-z0-9_-]/-/g')"
+resp="${TMPDIR:-/tmp}/devgate-hb-last-resp-${safe_name}.json"
+
+# --- toolchain probe (mon-tc-01, spoke side) ---------------------------------
+#
+# The required list is NOT kept here. mon-tc-01 makes the vocabulary and the
+# profile table the hub's spec-governed data, so the hub echoes this lane's
+# reviewed profile in its /heartbeat response and the tick caches that echo
+# (the same "hub response is read" move the row-count echo made first); the
+# probe below only ever sees what the hub itself stated. A first tick after
+# enrollment has no cache yet, so it sends no gap fields (absent ≠ empty:
+# mon-tc-06 says absence means the hub has no evidence, and a tick that sent
+# [] before probing anything would report a clean lane out of thin air); the
+# echo that arrives with it seeds the next tick. That is one cadence of
+# silence after enrollment, which the fleet already tolerates for coverage.
+#
+# None of it can fail the tick: a probe failure ends as absent fields, not a
+# dead heartbeat, exactly as with the image probe above.
+required_cache="${TMPDIR:-/tmp}/devgate-hb-required-${safe_name}.json"
+missing_tools_json=""
+probe_complete_json=""
+if [ -n "$TOOLCHAIN_PROBE_LIB" ] && [ -f "$required_cache" ]; then
+    # The cache read is defensive: a torn or hand-edited file yields no probe
+    # run and absent fields, never a partial probe. probe_tool only ever
+    # executes the fixed commands the spec names, and only under the bound.
+    probe_out="$(TOOLCHAIN_PROBE_LIB_PATH="$TOOLCHAIN_PROBE_LIB" python3 -c '
+import json, os, sys, importlib.util
+spec = importlib.util.spec_from_file_location(
+    "toolchain_probe", os.environ["TOOLCHAIN_PROBE_LIB_PATH"])
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+try:
+    with open(sys.argv[1], encoding="utf-8") as fh:
+        required = json.load(fh).get("required_tools") or []
+except Exception:
+    sys.exit(0)  # absent fields: no opinion, not an empty one
+missing, complete = mod.probe_required(required)
+print(json.dumps({"missing": missing, "complete": complete}))
+' "$required_cache" 2>/dev/null || true)"
+    if [ -n "$probe_out" ]; then
+        missing_tools_json="$(printf '%s' "$probe_out" | python3 -c \
+            'import json,sys; d=json.load(sys.stdin); print(json.dumps(d["missing"]))' \
+            2>/dev/null || true)"
+        probe_complete_json="$(printf '%s' "$probe_out" | python3 -c \
+            'import json,sys; d=json.load(sys.stdin); print("true" if d["complete"] else "false")' \
+            2>/dev/null || true)"
+    fi
+fi
+unset probe_out
 
 disk_pct="$(df --output=pcent / | tail -1 | tr -d ' %')"
 disk_ok=false
@@ -228,6 +298,31 @@ def scan_state(path):
     except Exception as exc:
         return {"repos": [], "unreadable": f"{type(exc).__name__}: {exc}"}
 
+def gap_fields():
+    # The two toolchain fields travel as a pair or not at all. An empty gap list
+    # is still SENT: it is the positive report that this image has everything the
+    # hub itself said this lane requires, and dropping it would turn a provisioned
+    # lane back into the no-evidence state (mon-tc-06 separates those two on
+    # purpose). The companion flag is the probe run outcome and is the only way
+    # the hub can ever learn a run was incomplete: it cannot infer that from the
+    # list it is handed. A tick that could not probe sends NEITHER field — absent,
+    # not empty and not false. It has no opinion, which is not the same as a
+    # negative one, and a value invented here would be a fabricated health reading.
+    #
+    # The parse is guarded because this snippet has no right to kill the tick: a
+    # probe that printed garbage yields absent fields, same as a probe that never
+    # ran. No apostrophes anywhere in this function - it lives in a single-quoted
+    # python3 -c, and one would end the snippet mid-function.
+    raw = sys.argv[6] if len(sys.argv) > 6 else ""
+    if not raw:
+        return {}
+    try:
+        tools = json.loads(raw)
+    except Exception:
+        return {}
+    return {"missing_tools": tools,
+            "missing_tools_probe_complete": sys.argv[7] == "true"}
+
 print(json.dumps({
     "runner_name": os.environ["RUNNER_NAME"],
     "heartbeat_token": os.environ["HEARTBEAT_TOKEN"],
@@ -238,13 +333,11 @@ print(json.dumps({
     "image_pin_divergence": sys.argv[5] or None,
     "scan_state": scan_state(os.environ.get("SECRET_SCAN_REPORT", "")),
     "address": os.environ.get("ADDRESS") or None,
-}))' "$disk_ok" "$podman_ok" "$image_digest" "$image_reason" "$image_pin_divergence")"
+    **gap_fields(),
+}))' "$disk_ok" "$podman_ok" "$image_digest" "$image_reason" "$image_pin_divergence" \
+    "$missing_tools_json" "$probe_complete_json")"
 
-# The response is kept for diagnosis, so its filename must be filesystem-safe.
-# A name containing "/" makes curl unable to open the -o target (exit 23), and
-# set -e turns that into a dead tick before the HTTP status is even checked.
-safe_name="$(printf '%s' "$RUNNER_NAME" | LC_ALL=C sed 's/[^A-Za-z0-9_-]/-/g')"
-resp="${TMPDIR:-/tmp}/devgate-hb-last-resp-${safe_name}.json"
+
 code="$(curl -sS -o "$resp" -w '%{http_code}' -X POST \
     -H 'Content-Type: application/json' \
     -d "$body" \
@@ -254,4 +347,53 @@ echo "[hb:$RUNNER_NAME] HTTP $code"
 if [ "$code" != "200" ]; then
     echo "[hb:$RUNNER_NAME] hub response: $(cat "$resp" 2>/dev/null || true)" >&2
     exit 22
+fi
+
+# --- seed the next tick's probe (mon-tc-01, spoke side) -----------------------
+#
+# This is the other half of the echo read above: the hub has now said, for this
+# lane, which tools its own record requires, and the next tick probes exactly
+# that. Written to a scratch file rather than kept in memory because a tick is one
+# process that exits — there is no other place for the value to live between two
+# systemd runs 300s apart.
+#
+# Three outcomes, and the third one is the reason this is a function call and not
+# a `cp`:
+#   * a list   -> cache it, and the next tick probes it;
+#   * null     -> the hub has NO reviewed assignment for this lane. That is not an
+#                 empty requirement, and caching it as one would make an
+#                 unassigned lane report "my image has everything", which is
+#                 mon-tc-01's `profile-unassigned` rendered as complete. The cache
+#                 is REMOVED, so the next tick sends no gap fields again;
+#   * absent   -> a hub predating the echo. Same treatment: no cache, no opinion,
+#                 and never a guess built from the spoke's own PATH.
+#
+# A write failure is silent and non-fatal for the same reason the probe is: the
+# fleet needs this tick more than it needs next tick's coverage.
+if [ -n "$TOOLCHAIN_PROBE_LIB" ]; then
+    if python3 - "$resp" "$required_cache" <<'PY'
+import json, os, sys
+
+resp_path, cache_path = sys.argv[1], sys.argv[2]
+try:
+    with open(resp_path, encoding="utf-8") as fh:
+        required = json.load(fh).get("required_tools")
+except Exception:
+    sys.exit(1)
+if not isinstance(required, list):
+    # null (no reviewed profile) or absent (old hub): refuse to invent one.
+    sys.exit(1)
+tmp = cache_path + ".tmp"
+with open(tmp, "w", encoding="utf-8") as fh:
+    json.dump({"required_tools": required}, fh)
+os.replace(tmp, cache_path)
+PY
+    then
+        :
+    elif [ -f "$required_cache" ]; then
+        # Stale is worse than none here: a cached list the hub has since retracted
+        # would keep the spoke reporting a gap its own record no longer requires.
+        rm -f "$required_cache" 2>/dev/null || true
+    fi
+    unset required_cache
 fi

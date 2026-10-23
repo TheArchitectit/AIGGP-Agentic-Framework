@@ -186,28 +186,6 @@ WantedBy=timers.target
 EOF
 }
 
-# Install a helper a unit will ExecStart. It is COPIED rather than referenced
-# in place, because an inline `bash -c` body in ExecStart loses every variable
-# it defines itself before bash runs (incident #1: the JSON went out malformed
-# and the unit exited 22 on every tick while enrollment reported success).
-#
-# An existing copy is never overwritten in silence. A helper that has diverged
-# is a fix that will not reach this host, and the operator has to be told —
-# enrollment still succeeds, so a WARNING is the only signal there is.
-install_helper() {
-    local label="$1" src="$2" dest="$3"
-    [[ -f "$src" ]] || die "missing $src — cannot install the $label helper" 3
-    if [[ -x "$dest" ]]; then
-        if ! cmp -s "$src" "$dest"; then
-            log "WARNING: $dest differs from $src — future $label helper fixes will not reach this host until it is removed"
-        fi
-        log "$label helper present, left unchanged: $dest"
-    else
-        install -m 755 "$src" "$dest"
-        log "$label helper installed: $dest"
-    fi
-}
-
 # Retire the pre-multi-runner fixed-name units. They cannot coexist with the
 # per-runner layout: both read the single ~/.devgate-heartbeat.env, so a second
 # enroll overwrites the first runner's token and the wrong runner reports.

@@ -166,6 +166,110 @@ def test_refusal_is_not_echoed_with_the_bad_value(tmp_path):
     hub.close()
 
 
+def _coverage_of(hub, name) -> str:
+    with hub.state._lock:
+        return tcr.effective_coverage(hub.state.registry.find_runner(name))
+
+
+def test_an_incomplete_probe_run_reaches_the_hub_only_as_a_bool(tmp_path):
+    """`probe-failed` is the one coverage state that cannot be inferred (mon-tc-06).
+
+    Bytes on the wire are the point: the hub is handed `[]` either way, so the
+    run outcome has to be a second field, and the whole capability's honesty
+    rests on `false` landing in the stored record as `probe-failed`. Written
+    through the real endpoint rather than the registry because the coercion the
+    test below checks lives in the handler, not in the store.
+    """
+    hub, token, name = _heartbeat_fixture(tmp_path)
+    assert _coverage_of(hub, name) == "never-reported"
+    status, body = hub.post("/heartbeat", {"runner_name": name,
+                                           "heartbeat_token": token,
+                                           "missing_tools": [],
+                                           "missing_tools_probe_complete": False})
+    assert status == 200, body
+    assert _coverage_of(hub, name) == "probe-failed"
+    # The empty list is still an empty list: the flag changes what the run MEANT,
+    # not whether a request row was created for a tool nobody reported missing.
+    assert [r for r in json.loads(_stored_text(hub))["toolchain_requests"]
+            if r["lane"] == name] == []
+    hub.close()
+
+
+def test_a_non_boolean_probe_outcome_is_ignored_not_coerced(tmp_path):
+    """`"false"`, `0`, `[]` and `null` are not a spoke's answer about its run.
+
+    Truthiness coercion would turn a broken spoke's garbage into a fleet-visible
+    health verdict in both directions: `0` would read as an incomplete run (every
+    such lane suddenly unhealthy) and `"false"` would read as a complete one (the
+    lie this field exists to prevent). The handler treats anything that is not a
+    JSON bool exactly as an absent field — no opinion — and the heartbeat still
+    succeeds, because a malformed gap report is a broken gap report and not a dead
+    runner.
+    """
+    hub, token, name = _heartbeat_fixture(tmp_path)
+    for junk in (0, [], "", "false", {"v": False}):
+        status, body = hub.post("/heartbeat", {"runner_name": name,
+                                               "heartbeat_token": token,
+                                               "missing_tools": [],
+                                               "missing_tools_probe_complete": junk})
+        assert status == 200, (junk, body)
+        assert _coverage_of(hub, name) == "reported", \
+            f"{junk!r} was read as an opinion about the probe run"
+    hub.close()
+
+
+def test_a_spoke_predating_the_field_is_believed_not_doubted(tmp_path):
+    """The upgrade must not put every existing lane in the fleet on report.
+
+    Absent is not `false`: a spoke that has never heard of the probe-outcome
+    channel is a spoke with no opinion, and shipping the capability would
+    otherwise mark all of them `probe-failed` at once, which is an alarm with
+    no fault behind it — and worse, it would be indistinguishable from the real
+    thing for the lanes that genuinely have a hanging probe.
+    """
+    hub, token, name = _heartbeat_fixture(tmp_path)
+    status, body = hub.post("/heartbeat", {"runner_name": name,
+                                           "heartbeat_token": token,
+                                           "missing_tools": ["cargo"]})
+    assert status == 200, body
+    assert _coverage_of(hub, name) == "reported"
+    hub.close()
+
+
+def test_the_heartbeat_response_states_the_lanes_required_tools(tmp_path):
+    """The hub echoes its own profile statement, unasked, on every heartbeat.
+
+    This is the only channel by which a spoke can learn what its lane requires
+    without owning the profile table (mon-tc-01: trusted input, never
+    runner-supplied), and it is what makes the first tick after enrollment able
+    to become a second one that probes anything.
+    """
+    hub, token, name = _heartbeat_fixture(tmp_path)   # profile set to `rust`
+    status, body = hub.post("/heartbeat", {"runner_name": name,
+                                           "heartbeat_token": token})
+    assert status == 200, body
+    assert body["required_tools"] == ["cargo", "gcc", "make"], body
+    hub.close()
+
+
+def test_an_unassigned_lane_gets_null_rather_than_an_empty_requirement(tmp_path):
+    """`profile-unassigned` and `none` are different answers (mon-tc-01).
+
+    Serialised as null-vs-`[]` because that is all JSON can distinguish, and a
+    spoke that read `[]` out of a null would report a lane nobody has reviewed as
+    a lane whose image was checked against nothing and passed.
+    """
+    hub, token, name = _heartbeat_fixture(tmp_path)
+    with hub.state._lock:
+        hub.state.registry.set_lane_profile(name, None)
+    status, body = hub.post("/heartbeat", {"runner_name": name,
+                                           "heartbeat_token": token})
+    assert status == 200, body
+    assert body["required_tools"] is None, body
+    assert "required_tools" in body, "absent must not be the shape for unassigned"
+    hub.close()
+
+
 
 if __name__ == "__main__":
     import inspect

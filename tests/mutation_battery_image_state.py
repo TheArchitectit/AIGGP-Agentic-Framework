@@ -32,14 +32,18 @@ MON = "hub/monitor.py"
 SCH = "hub/schema/runners.schema.json"
 FIX = "tests/fixtures/runner_spoke.py"
 ENR = "scripts/runner-enroll.sh"
-# The install half of the cycle is now TWO files. The size gate learned to size
+# The install half of the cycle is now THREE files. The size gate learned to size
 # .sh (FAIL-8f9249ca) and found runner-enroll.sh 89 lines over its hard limit,
 # so every operation that touches the host's unit/env namespace moved to a
-# library sourced by it — enable_image_cycle, install_helper and
-# remove_legacy_units with them. Mutations whose anchor is one of those name
-# LIB; mutations targeting the unit BODIES (E3, E4, E7) and the revoke sequence
-# (E5) still name ENR, because those stayed in the script.
+# library sourced by it — enable_image_cycle and remove_legacy_units with them.
+# Adding the toolchain probe to the installed set pushed that library back over
+# the same limit, so the FILE-installing half (install_helper, and the batch that
+# calls it) moved again, into lib/runner-installs.sh. Mutations whose anchor is a
+# unit or env operation name LIB; ones anchoring a helper install name INS;
+# mutations targeting the unit BODIES (E3, E4, E7) and the revoke sequence (E5)
+# still name ENR, because those stayed in the script.
 LIB = "scripts/lib/runner-units.sh"
+INS = "scripts/lib/runner-installs.sh"
 
 T_REG = "tests/test_hub_registry.py"
 # The readiness alerts live in the monitor-image suite, split out of
@@ -57,6 +61,10 @@ T_IMG = "tests/test_runner_heartbeat_image.py"
 # still in the enroll suite (the split moved out the heartbeat probe, not
 # enrollment).
 T_ENROLL = "tests/test_runner_enroll.py"
+# The spoke-side toolchain probe (mon-tc-01), which is E8's killer: what that
+# mutation breaks is only visible by running the installed heartbeat and watching
+# its sibling lookup, so the image-probe suite cannot see it.
+T_PROBE = "tests/test_runner_toolchain_probe.py"
 
 MISSING_BLOCK = '''    missing=""
     [ -n "${COHERENCE_IMAGE:-}" ] || missing="${missing:+$missing, }COHERENCE_IMAGE"
@@ -228,6 +236,18 @@ MUTATIONS = [
     ("E1c: the cycle timer is enabled but does not survive a reboot",
      [(LIB, '    systemctl --user enable "devgate-imgcycle-$SLUG.timer" 2>/dev/null || true\n',
             "")], [T_ENROLL], {}),
+    # E8 — the toolchain probe is not installed. This is the F2 shape one file
+    # later: a helper the heartbeat resolves as a sibling, so a host enrolls,
+    # ticks, and never reports a toolchain gap, reading as "no opinion" rather
+    # than as broken. It is killed by the test that runs the INSTALLED copy's
+    # sibling lookup, not by a presence comparison — the lesson F9 left behind
+    # (that suite passed a byte-identical gate filed under the wrong name).
+    ("E8: the toolchain probe is never installed (a fleet that stops reporting gaps)",
+     [(INS, '    install_helper "Toolchain-probe" \\\n'
+            '        "$REPO_ROOT/scripts/lib/toolchain_probe.py" "$PROBE_LIB"',
+       '    : "Toolchain-probe" \\\n'
+       '        "$REPO_ROOT/scripts/lib/toolchain_probe.py" "$PROBE_LIB"')],
+     [T_PROBE], {}),
     ("E2: the provisioning check accepts an unprovisioned host (a timer that "
      "fails every cycle)", [(LIB, "    if (( ${#missing[@]} )); then",
                             "    if false; then")], [T_ENROLL], {}),
@@ -245,9 +265,14 @@ MUTATIONS = [
     ("E5: revoke leaves the cycle timer behind (a unit failing forever)",
      [(ENR, '          "$CYC_TIMER_UNIT" "$CYC_SERVICE_UNIT" \\\n', "")],
      [T_ENROLL], {}),
+    # E6's anchor moved with the code: install_helper's body now lives in
+    # lib/runner-installs.sh, the file that took over the installs. It is still
+    # killed by the same enroll test, which is the point — the mutation follows
+    # the code it mutates, and a re-point that changed the verdict would have been
+    # a finding, not a fix.
     ("E6: an existing helper is overwritten (a host's diverged copy vanishes "
-     "without a word)", [(LIB, '    if [[ -x "$dest" ]]; then',
-                         "    if false; then")], [T_ENROLL], {}),
+     "without a word)", [(INS, '    if [[ -x "$dest" ]]; then',
+                          "    if false; then")], [T_ENROLL], {}),
     ("E7: the cycle runs at the heartbeat's cadence (a fleet-wide registry hammer)",
      [(ENR, "OnUnitActiveSec=${CYCLE_INTERVAL}", "OnUnitActiveSec=${INTERVAL}")],
      [T_ENROLL], {}),

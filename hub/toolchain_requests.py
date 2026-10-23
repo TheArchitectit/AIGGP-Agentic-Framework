@@ -76,6 +76,30 @@ PROFILES: dict[str, tuple[str, ...]] = {
 }
 
 # // spec: mon-tc-01
+# The profile's tool list, resolved. A spoke never reads the hub's profile table
+# from source, and never guesses its own lane's assignment either: the hub echoes
+# THIS list (the tools its own record of the lane requires) on the /heartbeat
+# response, and the spoke probes exactly those. Echoing resolved names rather
+# than a profile id is what keeps the spoke from owning profile semantics — it
+# cannot widen a profile, only measure against what the hub stated. None means
+# no reviewed assignment exists (the lane is `profile-unassigned`, and an
+# unassigned lane must not be told it requires nothing), () means the reviewed
+# answer `none`, which really is nothing.
+def required_tools(profile_id: str | None) -> list[str] | None:
+    """Tools the lane's profile requires, or None when it has no assignment."""
+    if profile_id is None:
+        return None
+    tools = PROFILES.get(profile_id)
+    if tools is None:
+        # An id outside the table is refused, never treated as empty (mon-tc-01).
+        # Reaching here means stored data drifted from the table; saying "nothing
+        # is required" would be the silent-clean answer the spec forbids, so the
+        # echo degrades to "no opinion" (absent field) instead.
+        return None
+    return sorted(tools)
+
+
+# // spec: mon-tc-01
 # The numeric bounds, exactly as mon-tc-01 and mon-tc-06 state them. These are
 # spec values: changing one is a change to the capability. A bound an operator
 # can dial is a bound nobody gets measured against, which is why the spec fixes

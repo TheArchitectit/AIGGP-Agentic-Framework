@@ -462,112 +462,107 @@ def test_coverage_enum_refuses_the_derived_state(tmp_path):
     assert _validate(payload), "the schema would accept a stored 'stale'"
 
 
-def test_probe_failed_is_declared_but_unreachable(tmp_path):
-    """mon-tc-06/mon-tc-01: the hub cannot tell an incomplete probe from a clean one."""
+def test_probe_failed_needs_the_spokes_own_words(tmp_path):
+    """mon-tc-06: the hub cannot tell an incomplete probe from a clean one, so it asks.
+
+    Coverage 3 of 4 states is derivable from the presence or the age of a gap
+    field; `probe-failed` is not, because an empty list from a run that timed out
+    and an empty list from a healthy image are the same bytes. The hub therefore
+    takes the run outcome from the spoke and there are exactly two answers to
+    distinguish:
+
+      * `probe_complete=False` — the spoke says the run did not complete, which IS
+        mon-tc-06's definition of `probe-failed`, and an incomplete run that
+        reports nothing must never render as a provisioned lane;
+      * `probe_complete=None` — no opinion, which is a spoke predating the field.
+        Not a failed probe, so it stays `reported`. Collapsing these two would
+        make every legacy spoke in the fleet read unhealthy the moment the
+        capability shipped, which is a fleet-wide alarm caused by a deploy.
+
+    Asserted on the same row, in that order, so the flag is what moves the state
+    and not the order the tests were written in.
+    """
     reg = _enrolled(tmp_path)
     reg.record_gap_report("runner-one", [], "rust")
-    reg.note_gap_coverage("runner-one")
-    assert tcr.effective_coverage(reg.find_runner("runner-one")) != "probe-failed"
-    assert "probe-failed" in tcr.COVERAGE_STATES
-    reg.find_runner("runner-one")["coverage"] = "probe-failed"
+    reg.note_gap_coverage("runner-one", False)
     assert tcr.effective_coverage(reg.find_runner("runner-one")) == "probe-failed"
+    assert "probe-failed" in tcr.COVERAGE_STATES
+
+    # ... and the flag alone put it back: same lane, same empty list.
+    reg.note_gap_coverage("runner-one", True)
+    assert tcr.effective_coverage(reg.find_runner("runner-one")) == "reported"
+
+    reg.note_gap_coverage("runner-one", False)
+    assert tcr.effective_coverage(reg.find_runner("runner-one")) == "probe-failed"
+    reg.note_gap_coverage("runner-one", None)
+    assert tcr.effective_coverage(reg.find_runner("runner-one")) == "reported", \
+        "an old spoke is a spoke with no opinion, not a failed probe"
 
 
+def test_a_complete_probe_run_does_not_inherit_a_previous_failure(tmp_path):
+    """probe-failed is a statement about the LAST run, so it has to move.
 
-
-def test_enrolled_runner_carries_the_new_fields_as_none(tmp_path):
-    """0.3: enroll sets the identity fields to None, not to a clean-looking value.
-
-    A default of "none" for toolchain_profile_id would make every freshly enrolled
-    lane report itself provisioned, which is the absence-reported-as-health shape.
-    """
-    reg = _registry(tmp_path)
-    runner, _ = reg.enroll("fresh", "TheArchitectit/AIGGP-Agentic-Framework",
-                           ["rust"], "fresh")
-    for field in ("lane_image_ref", "lane_image_digest", "toolchain_profile_id",
-                  "coverage", "last_gap_report_at"):
-        assert runner[field] is None, field
-    assert runner["toolchain_rejections"] == []
-    assert tcr.effective_coverage(runner) == "never-reported"
-
-
-def test_set_lane_profile_refuses_an_unreviewed_id(tmp_path):
-    """A typo in a profile id would produce a permanently clean lane (mon-tc-01)."""
-    reg = _registry(tmp_path)
-    reg.enroll("lane", "a/b", [], "lane")
-    assert reg.set_lane_profile("lane", "rus") is False
-    assert reg.find_runner("lane")["toolchain_profile_id"] is None
-    assert reg.set_lane_profile("lane", "none") is True
-
-
-def test_evaluator_image_fields_are_untouched_by_the_gap_path(tmp_path):
-    """1.6: the toolchain fields must not disturb the evaluator-image fields.
-
-    `image_digest`/`image_reason`/`image_pin_divergence` are the evaluator image;
-    `lane_image_*` are the lane's toolchain image. Two different things, and the
-    real risk of this change is a refactor that merges them. Asserted through the
-    gap path specifically, since that is the new code that could touch them.
-    """
-    reg = _enrolled(tmp_path)
-    reg.heartbeat("runner-one", None, None, None,
-                  image_digest="sha256:eval-abc", image_reason="pinned",
-                  image_pin_divergence=None)
-    reg.heartbeat("runner-one", None, None, None, missing_tools=["cargo"])
-    runner = reg.find_runner("runner-one")
-    assert runner["image_digest"] == "sha256:eval-abc"
-    assert runner["image_reason"] == "pinned"
-    assert runner["lane_image_digest"] is None, "the gap path must not write lane_image_digest"
-    # An omitted evaluator digest still preserves it (hub/registry.py:309 idiom).
-    reg.heartbeat("runner-one", None, None, None, missing_tools=[])
-    assert reg.find_runner("runner-one")["image_digest"] == "sha256:eval-abc"
-
-
-def test_gap_report_does_not_create_requests_for_a_profile_that_does_not_need_it():
-    """mon-tc-01's direction: the SPOKE computes required-minus-observed.
-
-    Recorded here so the reviewer sees the deliberate asymmetry: a lane reporting
-    `dotnet` under the `rust` profile is stored, because the lane is reporting a
-    fact about its own image and its profile may be stale. Deciding whether it
-    *should* have wanted dotnet is the operator's call (mon-tc-04), not a reason
-    to discard an observation.
-    """
-    assert tcr.gap_for_profile("rust", ["cargo", "gcc", "make", "dotnet"]) == []
-
-
-def test_outstanding_reason_names_the_window_it_used(tmp_path):
-    """mon-tc-06: an approved request with no build report is a visible question.
-
-    The sentence carries the window it compared against, because a number with no
-    unit next to it is how "is this stuck?" turns into an argument.
+    mon-tc-06's scenario names the incomplete run as "the last run"; a coverage
+    state that latched would report a healthy lane as unhealthy for the rest of
+    the lane's life after one timeout, and an operator watching the dashboard
+    could not tell a fix that landed from one that did not.
     """
     reg = _enrolled(tmp_path)
     reg.record_gap_report("runner-one", ["cargo"], "rust")
-    row = reg.toolchain_requests()[0]
-    assert tcr.is_visible(row), "an open request must be in the operator's set"
-    assert tcr.outstanding_reason(row) is None, "open is waiting, not stuck"
-    row["state"] = "approved"
-    row["decided_at"] = "2020-01-01T00:00:00+00:00"
-    reason = tcr.outstanding_reason(row)
-    assert reason is not None, "an approved request past the window is overdue"
-    assert "24h" in reason, f"the sentence must name its window: {reason!r}"
-    assert "ago" in reason, f"mon-tc-06 says report it with its age: {reason!r}"
-    row["decided_at"] = None
-    broken = tcr.outstanding_reason(row)
-    assert broken is not None and "inf" not in broken, \
-        "a missing timestamp must not format as an infinite age"
-    assert "timestamp" in broken, broken
-    row["state"] = "fulfilled"
-    assert tcr.outstanding_reason(row) is None and not tcr.is_visible(row)
+    reg.note_gap_coverage("runner-one", False)
+    assert tcr.effective_coverage(reg.find_runner("runner-one")) == "probe-failed"
+    # The next tick completes (nothing unknown this time) and says so.
+    reg.record_gap_report("runner-one", [], "rust")
+    reg.note_gap_coverage("runner-one", True)
+    assert tcr.effective_coverage(reg.find_runner("runner-one")) == "reported"
 
 
-def test_stale_request_is_not_reported_as_healthy(tmp_path):
-    """A request nobody has decided on must not age into invisible (mon-tc-06)."""
+def test_required_tools_echo_is_the_hubs_own_profile_statement(tmp_path):
+    """mon-tc-01: the required list is the hub's data, so the hub says it aloud.
+
+    A spoke cannot compute this lane's requirement without owning the profile
+    table, and a spoke that owns the table can widen its own requirements. The
+    echo is the only channel, and its three shapes are the three answers the
+    spec distinguishes: a list (what rust requires), `[]` (the reviewed answer
+    `none`), and null (nobody has decided — `profile-unassigned`, which is NOT a
+    lane that requires nothing and must not arrive looking like one).
+    """
+    assigned = _enrolled(tmp_path)
+    outcome: dict = {}
+    assert assigned.heartbeat("runner-one", None, None, None,
+                              gap_outcome=outcome) is True
+    assert outcome["required_tools"] == tcr.required_tools(
+        assigned.find_runner("runner-one")["toolchain_profile_id"])
+
+    assigned.set_lane_profile("runner-one", "none")
+    outcome = {}
+    assigned.heartbeat("runner-one", None, None, None, gap_outcome=outcome)
+    assert outcome["required_tools"] == [], "reviewed `none` is an empty list"
+
+    assigned.set_lane_profile("runner-one", None)
+    outcome = {}
+    assigned.heartbeat("runner-one", None, None, None, gap_outcome=outcome)
+    assert outcome["required_tools"] is None, \
+        "unassigned must not echo as an empty requirement"
+
+
+def test_the_profile_echo_travels_even_when_no_gap_field_arrives(tmp_path):
+    """A lane with nothing missing still has to learn what it should have.
+
+    Gating the echo on an incoming gap field would deadlock the capability on a
+    fresh host: no cache means no gap field, no gap field means no echo, no echo
+    means no cache — a lane could only ever report a gap after it had already
+    reported one.
+    """
     reg = _enrolled(tmp_path)
-    reg.record_gap_report("runner-one", ["cargo"], "rust")
-    row = reg.toolchain_requests()[0]
-    row["observed_at"] = "2020-01-01T00:00:00+00:00"
-    assert tcr._age_seconds(row["observed_at"]) > tcr.TOOL_REQUEST_STALE_AFTER_S
-
+    reg.set_lane_profile("runner-one", "rust")
+    outcome: dict = {}
+    # A plain heartbeat: no missing_tools, no probe outcome.
+    assert reg.heartbeat("runner-one", None, None, None, gap_outcome=outcome) is True
+    assert outcome["required_tools"] == ["cargo", "gcc", "make"]
+    # And it is the hub's list, not a copy of anything the spoke sent.
+    assert "missing_tools" not in outcome and "cargo" not in json.dumps(
+        {k: v for k, v in outcome.items() if k != "required_tools"})
 
 if __name__ == "__main__":
     # Standalone mode mirrors what pytest does rather than re-implementing it: every

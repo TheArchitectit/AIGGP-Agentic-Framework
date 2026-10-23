@@ -205,7 +205,7 @@ def set_lane_profile(runner: dict, profile_id: str | None,
     return True
 
 
-def note_gap_coverage(runner: dict, now: str) -> None:
+def note_gap_coverage(runner: dict, now: str, probe_complete: bool = True) -> None:
     """Mark that this lane has now spoken about its toolchain (mon-tc-06).
 
     Called only when a gap field actually arrived — including an accepted empty
@@ -217,6 +217,18 @@ def note_gap_coverage(runner: dict, now: str) -> None:
     the direction both ways. `coverage` is stored as `reported` and the `stale`
     overlay is derived at read time by `toolchain_requests.effective_coverage`,
     never written here — a stored `stale` would be stale the instant it was saved.
+
+    ``probe_complete`` is how the runner reaches mon-tc-06's third storable
+    state: the requirement defines `probe-failed` by "whether the last probe
+    run was incomplete", and its scenario says an incomplete last run makes
+    coverage `probe-failed` so the toolchain "is not represented as healthy".
+    This parameter is the only way that state can ever be written — the hub
+    cannot tell an incomplete probe run from a complete one that found
+    everything by counting the list it is sent, so storing `reported` on an
+    incomplete run would be absence reported as health wearing health's
+    clothes. A spoke predating the probe-outcome channel omits the flag and is
+    believed (an old helper is not a failed probe); a spoke with the channel
+    sends it whenever it sends the list.
     """
-    runner["coverage"] = "reported"
+    runner["coverage"] = "reported" if probe_complete else "probe-failed"
     runner["last_gap_report_at"] = now
