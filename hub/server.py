@@ -78,7 +78,13 @@ class InvalidContentLength(Exception):
 # to an issue body or a fleet table later. A 60 KB image_reason belongs in no
 # GitHub issue; labels are names, not payloads.
 FIELD_CAPS = {"image_digest": 512, "image_reason": 1024,
-              "image_pin_divergence": 1024, "last_job_seen": 256}
+              "image_pin_divergence": 1024, "last_job_seen": 256,
+              # mon-tc-05: the lane's own image digest, free text from an
+              # untrusted-as-input host. Capped like the evaluator's, because
+              # fulfillment compares it byte for byte and an unbounded field
+              # that takes part in a comparison is a storage-cost problem
+              # waiting for someone to notice it.
+              "lane_image_digest": 512}
 MAX_LABELS = 64
 MAX_LABEL_LEN = 128
 MAX_SCAN_REPOS = 256
@@ -272,6 +278,8 @@ class HubHandler(BaseHTTPRequestHandler):
                 self._handle_revoke(state)
             elif self.path == "/toolchain/decide":
                 self._handle_toolchain_decide(state)
+            elif self.path == "/toolchain/build-report":
+                self._handle_toolchain_build_report(state)
             elif self.path == "/toolchain/requests":
                 self._handle_toolchain_requests(state)
             else:
@@ -408,6 +416,12 @@ class HubHandler(BaseHTTPRequestHandler):
                           gap,
                           probe_complete=probe_outcome,
                           address=data.get("address"),
+                          # mon-tc-05: presence-aware like the image fields —
+                          # omitted says this spoke does not report its lane
+                          # image (older helper), which must not clear a stored
+                          # digest; an explicit null says "no digest" and does.
+                          lane_image_digest=data.get("lane_image_digest",
+                                                     UNREPORTED),
                           gap_outcome=gap_outcome)
             # The row count tells the spoke whether its report landed, which is
             # what mon-tc-02's "a gap report that is silently discarded is worse
@@ -436,6 +450,13 @@ class HubHandler(BaseHTTPRequestHandler):
 
     def _handle_toolchain_requests(self, state: HubState) -> None:
         status, payload = toolchain_api.handle_list_requests(state)
+        self._send(status, payload)
+
+    # --- /toolchain/build-report (mon-tc-05) ----------------------------------
+
+    def _handle_toolchain_build_report(self, state: HubState) -> None:
+        data = self._read_json()
+        status, payload = toolchain_api.handle_build_report(state, data)
         self._send(status, payload)
 
     # --- /revoke (mon-enroll-01) ---------------------------------------------

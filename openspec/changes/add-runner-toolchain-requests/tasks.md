@@ -223,12 +223,88 @@ yet.
 
 ## S3 — Hub: fulfillment evidence (mon-tc-05)
 
-- [ ] 3.1 `built` requires builder credential + matching profile id + build id +
+- [x] 3.1 `built` requires builder credential + matching profile id + build id +
       digest; mismatched profile refused.
-- [ ] 3.2 `fulfilled` requires a later heartbeat with that digest **and** a
+      `tests/test_hub_toolchain_evidence.py` (engine, 29) and
+      `tests/test_hub_build_report_wire.py` (route, 9). Three calls the spec
+      left open, recorded because each is arguable:
+      (a) **A new route, not a heartbeat field.** Build evidence is
+      authenticated by a *builder* credential; the heartbeat channel
+      authenticates a lane. Putting it on the heartbeat would either let a lane
+      report its own image built or bolt a second credential type onto a route
+      whose security story is one token. `POST /toolchain/build-report`
+      classifies the presented secret server-side (mon-tc-03) and refuses every
+      other class — the body carries no `class` field to believe.
+      (b) **`digest: null` means `build-failed`.** mon-tc-04's table has a
+      builder-guarded `build-failed` event and the spec never says how a failure
+      arrives; a null digest is the only shape that already means "no image
+      exists". An *omitted* digest key is refused 400 as ambiguous — a client
+      that forgot a field must not reopen a request it never observed. A failed
+      build clears `build_id`/`lane_image_digest`: a dead build's digest must not
+      linger as something a lane could later converge onto.
+      (c) **"Matching the approved profile" is strict equality** — both sides
+      must name a profile and agree. A row whose assignment was cleared after
+      approval refuses rather than matching None to whatever got built.
+      `expected_version` is **required** on this route (400 without): mon-tc-05
+      asks no nonce of build reports — CI retries are the normal case — so CAS
+      is the ONLY duplicate defence, and a report with no version is the one
+      case it cannot guard. No nonce-replay test exists here by design; the
+      asymmetry against the operator path is the spec's, and the engine's
+      docstring says so where a future reader will look for it.
+- [x] 3.2 `fulfilled` requires a later heartbeat with that digest **and** a
       passing probe. Digest present, probe failing → stays `built`.
-- [ ] 3.3 Digest under operator or runner credential refused.
-- [ ] 3.4 Approval alone never reaches `fulfilled`.
+      `test_digest_plus_clean_probe_fulfills`,
+      `test_digest_with_the_tool_still_missing_stays_built`,
+      `test_a_refused_gap_list_never_reads_as_a_passing_probe`,
+      `test_no_gap_field_and_no_prior_report_never_converges`,
+      `test_probe_failed_coverage_never_converges`,
+      `test_the_lanes_digest_alone_can_satisfy_nothing`.
+      **"The probe passes" is strictly same-tick**: an accepted gap list from
+      THIS heartbeat without the row's tool, and no spoke-flagged incomplete
+      run. The tempting staleness fallback ("last clean report was under 900s
+      ago") was written, tested green, and deleted: coverage `reported` is set
+      even by a *refused* report (mon-tc-06 counts a malformed report as
+      "spoke"), so the fallback would credit presence to a report that never
+      said clean, and no stored timestamp separates "last accepted clean" from
+      "last spoke somehow". A spoke predating the probe field therefore never
+      converges a row — mon-tc-05 demands probe evidence; a hub that fulfilled
+      without it would fulfill on absence, the sentence this capability exists
+      to deny. The halves may land on different ticks **in the safe direction**:
+      a stored digest converges against a later clean list; never the reverse.
+      A bug this test suite killed at birth: `registry.py` first forwarded
+      `[] if rejection is None` instead of the accepted list — every honest
+      "cargo is still missing" became "nothing is missing" and rows converged
+      that had no business converging.
+      `test_digest_with_the_tool_still_missing_stays_built` is its keeper.
+      **The spoke cannot report its own digest in this deployment, and no fake
+      was wired to pretend otherwise.** Lanes are host systemd units with no
+      container identity (`RUNNER_CONTAINER` does not exist in the tree), so
+      "the image this lane is running" has no honest source on the tick; the
+      digest env key is fleet-side work. The hub half is complete and wired
+      (presence-aware `lane_image_digest` on `/heartbeat`, capped like the
+      evaluator's); convergence activates the day a lane can report truthfully.
+- [x] 3.3 Digest under operator or runner credential refused.
+      `test_digest_under_the_operator_credential_is_refused`,
+      `test_digest_under_a_heartbeat_token_is_refused` — the latter presents the
+      lane's REAL captured token so "runner credential" is proven for the class,
+      not approximated by an unknown string; also
+      `test_build_report_refuses_operator_credential_over_the_wire` (the refusal
+      is the route's, not a client courtesy),
+      `test_an_unpresented_credential_is_401_not_403`, and
+      `test_a_builder_credential_without_an_identity_is_refused` (attribution
+      comes FROM the credential; a nameless builder is a hub misconfiguration
+      and refusing says so rather than storing unattributable evidence).
+- [x] 3.4 Approval alone never reaches `fulfilled`.
+      `test_approved_never_converges_no_matter_what_the_lane_reports` — the row
+      holds the digest, the lane reports the same digest, a clean probe arrives:
+      still `approved`, because the awaited digest lives on the BUILDER's report
+      and `(approved, converge)` has no table rule. The awaited-vs-reported
+      asymmetry is stated in the engine's docstring and tested directly:
+      `test_an_unmatched_digest_clears_the_dead_wait_once_and_stays_visible` —
+      a lane reporting a different digest clears the dead wait (state stays
+      `built`, visible per mon-tc-06 — reopening under `build-failed` would
+      misattribute to a builder credential the lane does not hold), logged ONCE
+      per digest, not every 300s tick.
 
 ## S4 — Spoke detection (mon-tc-01)
 

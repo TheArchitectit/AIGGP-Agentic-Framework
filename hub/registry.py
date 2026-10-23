@@ -18,7 +18,8 @@ import secrets
 import tempfile
 from datetime import datetime, timezone
 
-from . import toolchain_creds, toolchain_requests, toolchain_store
+from . import (toolchain_creds, toolchain_evidence, toolchain_requests,
+               toolchain_store)
 from . import tokens
 from .toolchain_registry import ToolchainRegistryMixin
 
@@ -326,6 +327,7 @@ class Registry(ToolchainRegistryMixin):
                   missing_tools=UNREPORTED,
                   probe_complete: bool | None = None,
                   address: str | None = None,
+                  lane_image_digest=UNREPORTED,
                   gap_outcome: dict | None = None) -> bool:
         """Update freshness + health fields for a verified runner.
 
@@ -369,6 +371,7 @@ class Registry(ToolchainRegistryMixin):
             runner["image_pin_divergence"] = image_pin_divergence
         if scan_state is not UNREPORTED:
             runner["scan_state"] = scan_state
+        accepted_gap = None
         if missing_tools is not UNREPORTED:
             # Presence is the signal, so this branch is entered on an accepted
             # empty list too (mon-tc-02). A refused list still counts as the lane
@@ -377,6 +380,8 @@ class Registry(ToolchainRegistryMixin):
             self.note_gap_coverage(runner_name, probe_complete)
             touched, rejection = self.record_gap_report(
                 runner_name, missing_tools, runner.get("toolchain_profile_id"))
+            accepted_gap = toolchain_evidence.accepted_gap_list(
+                missing_tools, rejection)
             if gap_outcome is not None:
                 gap_outcome["toolchain_requests_recorded"] = touched
                 gap_outcome["toolchain_rejection"] = rejection
@@ -391,6 +396,12 @@ class Registry(ToolchainRegistryMixin):
             # opinion" (send nothing) rather than as an empty requirement.
             gap_outcome["required_tools"] = toolchain_requests.required_tools(
                 runner.get("toolchain_profile_id"))
+        # mon-tc-05 convergence, after the gap record above so "the probe
+        # passes" reads this tick. A refused gap list arrives as None: it says
+        # nothing about any tool and must never converge a request (mon-tc-01).
+        toolchain_evidence.note_lane_evidence(
+            runner, self._data, lane_image_digest, accepted_gap, _now_iso(),
+            probe_complete=probe_complete)
         if address is not None:
             runner["address"] = address
         return True

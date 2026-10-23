@@ -234,7 +234,9 @@ toolchain_requests: [
     nonces:              ["<consumed>"], # replay defence
     build_id:            "<id>",
     builder_identity:    "<id>",
-    lane_image_digest:   "sha256:...",   # when built
+    lane_image_digest:   "sha256:...",   # when built; cleared if the lane
+                                         # reports a DIFFERENT digest
+    awaiting_cleared:    "sha256:...",   # the digest that cleared it, once
     fulfilled_at:        "<iso8601>",
     suppression_until:   "<iso8601>"     # when denied
   }

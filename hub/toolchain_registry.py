@@ -18,7 +18,7 @@ more Registry than delegation; everything below is pure forwarding over
 
 from __future__ import annotations
 
-from . import toolchain_creds
+from . import toolchain_creds, toolchain_evidence
 
 
 class ToolchainRegistryMixin:
@@ -52,6 +52,24 @@ class ToolchainRegistryMixin:
 
     def is_toolchain_nonce_consumed(self, nonce: str) -> bool:
         return toolchain_creds.is_nonce_consumed(self._data, nonce)
+
+    def report_build(self, request_id: str, *, credential: str | None,
+                     profile_id, build_id, digest, note,
+                     expected_version, now: str) -> dict:
+        """Apply one builder report (mon-tc-05) under the caller's lock.
+
+        The class and the builder identity are both looked up from the presented
+        secret, never read out of the report body — the same argument mon-tc-03
+        makes about an operator claim, applied to build evidence. Returns the
+        engine's result dict, HTTP-code-shaped, for `toolchain_api` to translate.
+        """
+        klass, info = toolchain_creds.classify(self._data, credential)
+        return toolchain_evidence.report_build(
+            self._data, request_id, credential_class=klass,
+            credential_id=(info or {}).get("credential_id"),
+            builder_identity=(info or {}).get("builder_identity"),
+            profile_id=profile_id, build_id=build_id, digest=digest, note=note,
+            expected_version=expected_version, now=now)
 
     def decide_request(self, request_id: str, *, action: str,
                        credential_class: str | None, scope: str | None,

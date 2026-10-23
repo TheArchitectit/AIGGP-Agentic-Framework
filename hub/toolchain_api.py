@@ -110,3 +110,67 @@ def handle_list_requests(state: "HubState") -> tuple[int, dict]:
     with state._lock:
         rows = [dict(r) for r in state.registry.toolchain_requests()]
     return 200, {"ok": True, "requests": rows}
+
+
+def handle_build_report(state: "HubState", body: dict | None) -> tuple[int, dict]:
+    """Apply one builder report. Returns (status_code, payload).
+
+    // spec: mon-tc-05, mon-tc-04
+
+    The class check lives in the engine, not here, for the mon-tc-03 reason: the
+    hub classifies the presented secret and refuses whatever class it turns out
+    to be. Nothing in this function accepts a class name from the body, so a
+    runner that sends `class: "builder"` beside its heartbeat token is still a
+    heartbeat token.
+
+    `digest: null` means build-failed (the engine documents why), so a body with
+    no digest key at all is refused as ambiguous rather than read as a failure:
+    a report that never mentioned a digest is a malformed report, and treating
+    an omitted key as "the build failed" would let a client that forgot a field
+    reopen a request it never observed.
+    """
+    if not isinstance(body, dict):
+        return 400, {"ok": False, "error": "bad_request",
+                     "detail": "json object required"}
+    request_id = body.get("request_id")
+    if not isinstance(request_id, str) or not request_id:
+        return 400, {"ok": False, "error": "bad_request",
+                     "detail": "request_id required"}
+    if "digest" not in body:
+        return 400, {"ok": False, "error": "bad_request",
+                     "detail": "digest required (null states a failed build)"}
+    digest = body["digest"]
+    if digest is not None and not isinstance(digest, str):
+        return 400, {"ok": False, "error": "bad_request",
+                     "detail": "digest must be a string or null"}
+    for key in ("profile_id", "build_id"):
+        value = body.get(key)
+        if value is not None and not isinstance(value, str):
+            return 400, {"ok": False, "error": "bad_request",
+                         "detail": f"{key} must be a string or null"}
+    note = body.get("note")
+    if note is not None and not isinstance(note, str):
+        return 400, {"ok": False, "error": "bad_request",
+                     "detail": "note must be a string or null"}
+    expected_version = body.get("expected_version")
+    if expected_version is not None and not isinstance(expected_version, int):
+        return 400, {"ok": False, "error": "bad_request",
+                     "detail": "expected_version must be an integer or null"}
+    timestamp = body.get("timestamp")
+    now = timestamp if isinstance(timestamp, str) and timestamp else _now_iso()
+
+    result = state.with_registry(
+        lambda reg: reg.report_build(
+            request_id, credential=body.get("credential"),
+            profile_id=body.get("profile_id"), build_id=body.get("build_id"),
+            digest=digest, note=note, expected_version=expected_version,
+            now=now))
+    status = result.get("status", 500)
+    payload = {"ok": status < 400}
+    for key in ("error", "credential_class", "state", "current_version",
+                "submitted_version", "approved_profile"):
+        if result.get(key) is not None:
+            payload[key] = result[key]
+    if result.get("fields"):
+        payload["fields"] = result["fields"]
+    return status, payload
