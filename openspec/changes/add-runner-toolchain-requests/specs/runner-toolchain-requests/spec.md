@@ -152,6 +152,28 @@ silently joined to an unrelated record.
 A heartbeat omitting `missing_tools` SHALL be indistinguishable, in effect,
 from a heartbeat sent before this capability existed.
 
+The request-set read is what a queue is built from, so it SHALL carry what a
+consumer needs to **render a row and act on it** rather than only its identity:
+the lane's repository and host alias (held on the hub's runner record, since a
+consumer forbidden a copy has nowhere else to ask), the lane's coverage state as
+derived at read time by `mon-tc-06`, and the row's `version`. A consumer cannot
+satisfy `mon-tc-04`'s compare-and-set from a payload that omits the version it
+must submit; an exposure that cannot be acted on is not an exposure. Fields the
+hub does not hold for a lane — a lane never enrolled, a repository never
+published — are `null`, not guessed and not omitted, so a consumer renders
+absence rather than inventing a value.
+
+#### Scenario: a queue renders a row from the read alone
+- **WHEN** a consumer reads the request set for a lane that has enrolled and
+  published a repository
+- **THEN** the row names its lane, repository, host alias, tool, state, version
+  and coverage state without a second lookup
+
+#### Scenario: a row whose lane has never enrolled
+- **WHEN** a request exists for a lane the hub has no runner record for
+- **THEN** the row still appears, and its repository, host alias and coverage
+  state are `null` rather than empty strings or a defaulted state
+
 #### Scenario: five identical reports
 - **WHEN** the same `(lane, tool)` is reported on five consecutive heartbeats
 - **THEN** exactly one request row exists and its last-observed time advances

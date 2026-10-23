@@ -19,7 +19,8 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 
-from . import toolchain_creds, toolchain_requests, toolchain_transitions
+from . import (toolchain_creds, toolchain_queue_read, toolchain_requests,
+               toolchain_transitions)
 from .registry import UNREPORTED  # noqa: F401
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -107,8 +108,20 @@ def handle_decide(state: "HubState", body: dict | None) -> tuple[int, dict]:
 
 
 def handle_list_requests(state: "HubState") -> tuple[int, dict]:
+    """The request set as a queue consumes it.
+
+    // spec: mon-tc-02
+
+    The rows are annotated, not copied into storage: `toolchain_queue_read`
+    explains why a consumer forbidden its own copy has to be handed the lane's
+    repository, host alias and derived coverage state, and why a missing lane
+    yields nulls rather than blanks. The copy under the lock stays, because
+    `annotate_requests` returns new dicts and never writes a row.
+    """
     with state._lock:
-        rows = [dict(r) for r in state.registry.toolchain_requests()]
+        rows = toolchain_queue_read.annotate_requests(
+            [dict(r) for r in state.registry.toolchain_requests()],
+            state.registry)
     return 200, {"ok": True, "requests": rows}
 
 

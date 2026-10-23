@@ -392,6 +392,46 @@ or label it.
 - [ ] 5.7 Reconcile the stale `frontend-architecture` spec text as part of the
       companion change (it still says the React SPA "SHALL be removed" while a
       later decision admits React islands on six routes).
+- [x] 5.8 **Hub-side, executed in this repo:** make the request-set read carry
+      what a queue needs to render a row and act on it — the lane's repository
+      and host alias, the lane's coverage state derived at read time, and the
+      row's `version`. Opened because S5 could not otherwise close: MC is
+      forbidden a copy to join against (mon-tc-02), so those fields have no
+      other source, and a consumer that cannot read `version` cannot satisfy
+      mon-tc-04's compare-and-set from the only surface an operator has. The
+      seam decision and the measurements behind it are in
+      `repo-brainstorming/FINDINGS-2026-10-23-toolchain-queue-seam-decision.md`:
+      **MC moves to the hub's contract, and the hub does not adopt MC's
+      HMAC**, because that signature appears in no spec in either repo
+      (`grep -rn "X-Actor\|CLAIM_SIGNING_KEY" openspec/` → no matches in both)
+      while MC's own spec asks only for "a principal, a timestamp and a unique
+      nonce" — the three mon-tc-03 already names.
+
+      Landed as `hub/toolchain_queue_read.annotate_requests`, a **read-time
+      projection** called from `handle_list_requests`: nothing is written onto a
+      row, because copying lane facts onto the request would make the hub the
+      second divergent copy mon-tc-02 forbids everyone else, and it would go
+      stale against the runner record on re-enroll. Unknowns are `null`, never
+      `""` and never a defaulted coverage state — a blank cell says "lane with
+      no repository", `null` says "the hub does not know", and mon-tc-06's whole
+      vocabulary rests on not collapsing a verdict into an absence.
+
+      Two claims in my own first draft of this box did not survive checking and
+      are corrected here rather than left in place: the row-gone-lane case is
+      **not** reachable via revoke (`revoke` marks `enrolled=False` and clears
+      the verifier, `hub/registry.py:417-425`; nothing in `hub/` removes a
+      runner record), so the null branch is a robustness case for a partially
+      restored registry, and the test says so; and the four unit tests failed
+      under `pytest` while passing standalone because the hand-rolled registry
+      double had no `runners()` method — I had written "7/7 both ways" before
+      running the dual runner, which is the same unverified-green claim this
+      program keeps recording in other people's commits.
+
+      Evidence: `tests/test_hub_queue_read_fields.py` → **6 passed** under
+      `pytest` and **6 ok** via the file's own `__main__` runner, exit 0, both
+      measured. Hub toolchain suites together: **71 passed**. Mon-tc-02's
+      requirement text amended (the read's obligation + two scenarios) and
+      `openspec validate --all --strict` re-run after the amendment.
 
 ## S6 — Gates and docs
 
