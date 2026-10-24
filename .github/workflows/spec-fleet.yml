@@ -65,24 +65,33 @@ jobs:
           # clone would need a token-plumbing design of its own (a token in
           # git's argv would land in the report and the public issue).
           python3 - "$RUNNER_TEMP/declared.raw.txt" "$RUNNER_TEMP/declared.txt" <<'PY'
-          import re, subprocess, sys
+          import json, re, subprocess, sys
           from pathlib import Path
           raw, out = Path(sys.argv[1]), Path(sys.argv[2])
           lines = raw.read_text(encoding="utf-8").splitlines()
-          owners = sorted({m.group(1) for l in lines
-                           if (m := re.match(r"https://github\.com/([^/]+)/", l.strip()))})
-          private = set()
-          for owner in owners:
+          def visibility(full):
+              """True if GitHub says the repo is private, False if public, None
+              if it cannot be read (404/401 — indistinguishable from deleted)."""
               try:
                   res = subprocess.run(
-                      ["gh", "repo", "list", owner, "--limit", "1000",
-                       "--json", "name,isPrivate", "--jq",
-                       ".[] | select(.isPrivate) | .name"],
-                      capture_output=True, text=True, timeout=120)
-                  private.update(f"{owner}/{n}" for n in (res.stdout or "").split())
-              except Exception as exc:  # noqa: BLE001
-                  print(f"[declaration] could not read visibility for {owner}: {exc}",
-                        file=sys.stderr)
+                      ["gh", "api", f"repos/{full}", "--jq", ".private"],
+                      capture_output=True, text=True, timeout=60)
+              except Exception:  # noqa: BLE001
+                  return None
+              if res.returncode != 0:
+                  return None
+              return (res.stdout or "").strip() == "true"
+          seen_full = []
+          for line in lines:
+              m = re.match(r"https://github\.com/([^/]+)/([^/]+?)/?$", line.strip())
+              if m and f"{m.group(1)}/{m.group(2)}" not in seen_full:
+                  seen_full.append(f"{m.group(1)}/{m.group(2)}")
+          private = {full for full in seen_full if visibility(full) is True}
+          # A repo the API cannot read at all is NOT dropped: 404/401 is
+          # exactly how a deleted repo answers too, and SGA-12 requires that
+          # one to red and name itself. Only a repo GitHub positively reports
+          # as private is dropped — the unauthenticated clone can never read
+          # it, so it would red every night forever.
           kept, dropped, seen = [], set(), set()
           for line in lines:
               m = re.match(r"https://github\.com/([^/]+)/([^/]+?)/?$", line.strip())
