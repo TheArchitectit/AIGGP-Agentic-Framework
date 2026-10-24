@@ -37,7 +37,7 @@ FIXTURES = PKG_ROOT / "contracts" / "v1" / "fixtures"
 # This suite keeps its own floor instead of joining tests/expected-counts.json:
 # that file is generated from the open-core tests/ tree, and this package has to
 # survive being extracted (REPO-005) with its tests intact. Bump deliberately.
-EXPECTED_TEST_COUNT = 23
+EXPECTED_TEST_COUNT = 24
 
 
 def _fixture(name: str) -> dict:
@@ -332,6 +332,29 @@ class TestEntitlementIsolation(unittest.TestCase):
                     (PKG_ROOT / "contracts" / "v1" / name).read_text(
                         encoding="utf-8"))
                 self.assertIs(schema.get("additionalProperties"), False)
+
+
+class TestRehearsalDeclaresTheSameBuildInputs(unittest.TestCase):
+    """The rehearsal copies exactly what this suite pins as the import surface.
+
+    Two places now say "the package may import these open-core files": the pin
+    above, and the extraction rehearsal's build-input list. If they drift, the
+    rehearsal would pass by copying a module the package never declared — which
+    is the hidden dependency REPO-005 exists to find.
+    """
+
+    def test_the_declared_build_inputs_are_the_pinned_import_surface(self):
+        sys.path.insert(0, str(PKG_ROOT / "scripts"))
+        import extraction_rehearsal  # noqa: E402
+
+        modules = set()
+        for rel in extraction_rehearsal.DECLARED_BUILD_INPUTS:
+            self.assertTrue((REPO_ROOT / rel).is_file(),
+                            f"declared build input {rel} does not exist")
+            if rel.endswith(".py"):
+                modules.add(rel[:-3].replace("/", "."))
+        imported = {m for m in modules if not m.endswith(".__init__")}
+        self.assertEqual(imported, TestCoreImportSurfacePinned.ALLOWED)
 
 
 class TestCoreImportSurfacePinned(unittest.TestCase):

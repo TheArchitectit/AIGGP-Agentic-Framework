@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# spec: repo-002-01 repo-002-02 repo-002-03 repo-002-04
+# spec: repo-002-01, repo-002-02, repo-002-03, repo-002-04, repo-005-03
 """check_boundary.py — the fleet-manager package boundary gate (REPO-002).
 
 The tree is one open repository plus a declared product-tiers root
@@ -100,6 +100,24 @@ def load_manifest(repo: Path) -> tuple[dict | None, int]:
     exempt = doc.get("exempt_paths") or []
     if not isinstance(exempt, list):
         return None, die("manifest exempt_paths must be a list")
+    # Invocation sites: files allowed to NAME the boundary because they start
+    # its tests or gates, without being allowed to import from it. CI has to
+    # run the boundary's own suite; a static scanner cannot tell "run its
+    # tests" from "import its internals", so the allowance is a declared,
+    # reviewed list instead of a blanket silence. Kept separate from
+    # exempt_paths so the reason a file is skipped is written down.
+    invoke = doc.get("invocation_paths") or []
+    if not isinstance(invoke, list):
+        return None, die("manifest invocation_paths must be a list")
+    for rel in invoke:
+        if not isinstance(rel, str) or not rel or rel.startswith("/"):
+            return None, die(f"invocation site is not a repo-relative path: "
+                             f"{rel!r}")
+        if ".." in Path(rel).parts:
+            return None, die(f"invocation site escapes the repository: {rel!r}")
+        if rel.startswith(BOUNDARY_DIRNAME + "/"):
+            return None, die(f"invocation site is inside the boundary, where "
+                             f"the rule does not apply: {rel!r}")
     return doc, EXIT_OK
 
 
@@ -208,7 +226,8 @@ def main(argv: list[str] | None = None) -> int:
         return rc
 
     patterns = doc["paths"]
-    exempt = set(doc.get("exempt_paths") or [])
+    exempt = set(doc.get("exempt_paths") or []) | set(
+        doc.get("invocation_paths") or [])
     violations = check_coverage(repo, patterns)
     violations += check_dependency_direction(repo, exempt)
 

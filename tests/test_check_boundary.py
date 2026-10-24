@@ -161,3 +161,36 @@ def test_exempt_list_is_pinned_to_the_gate_and_its_test():
         (REPO / "fleet-manager" / "manifest.json").read_text(encoding="utf-8"))
     assert set(manifest["exempt_paths"]) == {
         "scripts/check_boundary.py", "tests/test_check_boundary.py"}
+    # Invocation sites are a different, narrower kind of hole: files that may
+    # NAME the boundary because they start its tests, never import from it.
+    # Pinned for the same reason — widening it has to be a reviewed diff.
+    assert set(manifest.get("invocation_paths") or []) == {
+        ".github/workflows/ci.yml"}
+
+
+def test_an_invocation_site_may_name_the_boundary_but_others_may_not(tmp_path):
+    """CI runs the boundary's suite; a core module may not do the same."""
+    manifest = dict(MANIFEST, invocation_paths=[".github/workflows/ci.yml"])
+    root = make_repo(tmp_path, manifest)
+    workflow = root / ".github" / "workflows"
+    workflow.mkdir(parents=True)
+    (workflow / "ci.yml").write_text(
+        "jobs:\n  t:\n    steps:\n      - run: pytest fleet-manager/tests\n")
+    res = run_gate(root)
+    assert res.returncode == 0, res.stderr
+
+    # The same line in a file that is NOT a declared invocation site still reds.
+    (root / "hub" / "runner.py").write_text(
+        "SUITE = 'fleet-manager/tests'\n")
+    res = run_gate(root)
+    assert res.returncode == 1
+    assert "hub/runner.py" in res.stderr
+
+
+def test_an_invocation_site_inside_the_boundary_is_a_manifest_error(tmp_path):
+    """The allowance exists for files the rule applies to; inside is nonsense."""
+    manifest = dict(MANIFEST, invocation_paths=["fleet-manager/README.md"])
+    root = make_repo(tmp_path, manifest)
+    res = run_gate(root)
+    assert res.returncode == 2
+    assert "inside the boundary" in res.stderr

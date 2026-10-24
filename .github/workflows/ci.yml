@@ -68,6 +68,14 @@ jobs:
       # the command.
       - name: fleet-manager contract tests (REPO-003/REPO-004)
         run: python3 -m pytest fleet-manager/tests -q
+      # REPO-005 (box 1.3). Two throwaway copies of the tree: the boundary
+      # package alone with only its declared build inputs (its suite must still
+      # pass — a hidden repository-relative import fails here), and the open
+      # core with the boundary deleted (the whole core suite must still
+      # collect, and the pattern scan must still be clean). The real checkout
+      # is never modified.
+      - name: Extraction rehearsal (REPO-005 — boundary alone, core without it)
+        run: python3 fleet-manager/scripts/extraction_rehearsal.py --source .
       - name: guardrails scanner fixture suite
         run: node tests/test_guardrails_scan.mjs
       # The Python root-anchor suite pins the PYTHON scanners

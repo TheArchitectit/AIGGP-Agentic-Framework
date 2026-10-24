@@ -11,6 +11,7 @@
     "fleet-manager/manifest.json",
     "fleet-manager/contracts/v1/**",
     "fleet-manager/fleet_manager/**",
+    "fleet-manager/scripts/**",
     "fleet-manager/tests/**"
   ],
   "forbidden_roots": [
@@ -21,5 +22,8 @@
   "exempt_paths": [
     "scripts/check_boundary.py",
     "tests/test_check_boundary.py"
+  ],
+  "invocation_paths": [
+    ".github/workflows/ci.yml"
   ]
 }
