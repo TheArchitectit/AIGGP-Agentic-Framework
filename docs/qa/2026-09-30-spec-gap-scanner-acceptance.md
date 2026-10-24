@@ -79,3 +79,89 @@ the handoff predates.
 The review-admits transition is locked in tests (`test_review_admits_the_draft`):
 deleting the `<!-- draft: unreviewed -->` marker is the ONLY edit that moves a
 draft from excluded (0 counted) to a real uncovered ID.
+
+## Criterion 4 — reviewed IDs land; traceability leaves config refusal
+
+All 70 scaffold specs were reviewed one by one against their source in the
+testbed and landed at HEAD `99dac4e` (`openspec/gate-config.json` sets
+`default_mode: blocking`). Every `<!-- draft: unreviewed -->` marker was
+deleted — the review flip — and every newly exposed requirement got a source
+marker in the file it describes. The review was not a rubber stamp: spec text
+the scaffold had inherited as fact was corrected where the code disagreed, and
+defects found while reading were written into the specs as divergences rather
+than smoothed over (for example daily-bonus's re-open/claimable state and its
+double-then-claim triple payout, prestige's literal `%%` and hard-coded loss
+text, the IAP catalogue missing three paid shop ids, a receipt validator that
+validates without a server, two idle popups nothing instances, and an invasion
+popup that opens after the invasion it reports has already resolved).
+
+Measured on the staged tree with the gates as `devgate-gates.yml` runs them:
+
+| check | result |
+|---|---|
+| `spec_traceability.py --report` | **249/249 covered**, exit 0 |
+| `spec_traceability.py --ratchet` | exit 0 (floor 249, see criterion 5) |
+| `spec_gap_scan.py --fail-on-gaps` | exit 0 — `capabilities=70 unspaced=0 partially_tracked=0 uncovered_ids=0/249 claimed_but_absent=2` |
+
+The two CLAIMED-BUT-ABSENT leads are reported only as leads, never requirements:
+`MAX_HEROES` (`src/autoload/hero_manager.gd:9`) and `INVASION_POPUP_SCENE`
+(`src/ui/invasion_popup.gd:6`), both defined and never referenced elsewhere.
+
+The refusal-to-coverage path was re-proved on the landed tree rather than
+inherited from the earlier one-spec demonstration — each mutation below was
+applied, measured, and restored, and the tree re-measured 249/249 afterwards:
+
+| mutation | traceability | ratchet | gap scan |
+|---|---|---|---|
+| `openspec/specs/` absent | **exit 2** — "no spec files found" | — | — |
+| malformed `gate-config.json` | **exit 2** — parse error | — | — |
+| a source marker deleted (blocking) | **exit 1**, 5 UNCOVERED, 244/249 | exit 1 | exit 1 |
+| same, with `default_mode: advisory` | exit 0 (advisory 5 uncovered) | **exit 1** — 244 < floor 249 | exit 1 |
+
+Exit 2 is reported as a config error and never as a pass; in blocking mode an
+uncovered ID is exit 1; and the ratchet catches a marker drop even when the
+coverage mode would wave it through. That is criterion 4's "exits
+config-refusal into real numbers."
+
+## Criterion 5 — honest CI matrix and a recorded ratchet floor
+
+The floor is `.guardrails/traceability-ratchet.json` = `{"min_covered": 249}`,
+written by `--update-ratchet` only after the count was final, and enforced in
+CI by a `--ratchet` step beside the `--report` step.
+
+The testbed's `.devgate` pin was moved `4e79f76` → `518dc80` for this run. On
+the old pin the workflow could not have produced the row it declares:
+`spec_gap_scan.py` does not exist at `4e79f76`, and its `spec_traceability.py`
+predates the `openspec/specs` layout and reports `0/249 covered`. Both new rows
+were therefore red-before-green by construction, not by choice.
+
+CI run [`40129274169`](https://github.com/TheArchitectit/MergeKingdom/actions/runs/40129274169)
+on `99dac4e` reports the matrix as it is:
+
+| Gate | Verdict |
+|---|---|
+| spec_traceability | **PASS** |
+| spec_gap_scan | **PASS** |
+| pattern (guardrails) | FAIL — PREVENT-007 `scripts/merge-kingdom-cron.py:31` |
+| game_regression | FAIL — 60 issues |
+| scene_inventory | FAIL — 10 scenes, 17 orphaned buttons |
+| drift (regression_check) | FAIL — `scripts/regression_check.py` 1047 lines vs 500 |
+| semantic | **PASS** |
+| silent_success | **PASS** |
+| schema_health | SKIPPED (no DB — not a pass) |
+
+Job verdict: **RED**, stated in the step as "at least one gate failed or did not
+run. Every row above is honest; nothing here is softened." The four red rows
+are outside criterion 5's scope and were verified unchanged, not assumed: the
+same four gate scripts run on the old pin `4e79f76` produce the identical
+counts (1 PREVENT-007 violation, 60 game-regression issues, 10 scene failures /
+17 orphans, 1 over the hard limit). The two spec gates are the delta this lane
+owns, and both are green.
+
+## The scaffold set now lives in the testbed
+
+Criteria 1–3 ran on a throwaway copy (`/tmp/mk-scaffold-test`) because the
+testbed had no `openspec/` dir at `a2fa6b2`. The reviewed set was adopted at
+`99dac4e`: 70 capability specs under `openspec/specs/`, `openspec/gate-config.json`,
+and the ratchet floor. The remaining untracked `docs/DIGEST-FOLLOWUPS.md` and
+Godot-generated `.gd.uid` sidecars were deliberately not committed.
