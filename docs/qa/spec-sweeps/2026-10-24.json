@@ -1,5 +1,5 @@
 {
-  "declared": 23,
+  "declared": 22,
   "gaps_top": [],
   "gaps_top_omitted": 0,
   "invalid": [
@@ -543,19 +543,13 @@
       "strict_state": null,
       "tiered": false,
       "url": "https://github.com/TheArchitectit/smallcode"
-    },
-    {
-      "name": "spec-audit-probe-deleted-20261024",
-      "reason": "Command '['git', 'clone', '--depth', '1', 'https://github.com/TheArchitectit/spec-audit-probe-delete",
-      "state": "unscannable",
-      "url": "https://github.com/TheArchitectit/spec-audit-probe-deleted-20261024"
     }
   ],
-  "scanned": 23,
+  "scanned": 22,
   "states": {
     "invalid": 3,
     "spaced": 4,
-    "unscannable": 5,
+    "unscannable": 4,
     "unspaced": 11
   },
   "unspaced": [
