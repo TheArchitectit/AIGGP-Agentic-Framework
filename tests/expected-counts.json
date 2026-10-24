@@ -22,6 +22,7 @@
   "test_hub_alert": 14,
   "test_hub_alerts": 8,
   "test_hub_boundary_validation": 2,
+  "test_hub_build_report_wire": 8,
   "test_hub_coherence": 40,
   "test_hub_coherence_adoption_ledger": 9,
   "test_hub_coherence_adoption_policy": 27,
@@ -66,12 +67,18 @@
   "test_hub_monitor_default_deny": 4,
   "test_hub_monitor_image": 10,
   "test_hub_negative_cl": 1,
+  "test_hub_operator_auth": 16,
+  "test_hub_queue_read_fields": 5,
   "test_hub_registry": 22,
   "test_hub_registry_schema": 3,
   "test_hub_scan_view": 10,
   "test_hub_server_smoke": 1,
   "test_hub_services": 5,
   "test_hub_spec_coherence": 11,
+  "test_hub_toolchain_evidence": 26,
+  "test_hub_toolchain_record": 5,
+  "test_hub_toolchain_requests": 21,
+  "test_hub_toolchain_requests_wire": 8,
   "test_hub_watchdog": 7,
   "test_log_failure": 4,
   "test_metamorphic": 21,
@@ -101,6 +108,7 @@
   "test_runner_heartbeat_image": 10,
   "test_runner_image_cycle": 23,
   "test_runner_scan_report": 11,
+  "test_runner_toolchain_probe": 13,
   "test_scene_inventory": 7,
   "test_schema_health_exitcodes": 5,
   "test_scope_contract": 5,
@@ -116,5 +124,5 @@
   "test_template_supply_chain": 4,
   "test_workflow_read": 15
  },
- "total_floor": 1432
+ "total_floor": 1537
 }
