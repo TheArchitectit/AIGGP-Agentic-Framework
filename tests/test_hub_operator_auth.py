@@ -41,7 +41,7 @@ def _seed_request(reg, now="2026-01-01T00:00:00Z"):
     return row
 
 
-def _operator(reg, secret="op-secret-not-a-secret"):
+def _operator(reg, secret="op-secret-test-fixture"):
     reg.add_toolchain_credential(
         klass="operator", secret=secret, credential_id="cred-op-1",
         scope="toolchain:decide", principal="alice")
@@ -92,15 +92,15 @@ def test_rejected_credential_classes(tmp_path):
     from hub import tokens
     hb_token = tokens.mint_token()
     reg.find_runner("runner-one")["heartbeat_token_hash"] = reg._hash_token(hb_token)
-    reg.add_toolchain_credential(klass="runner_key", secret="rk-secret-not-a-secret",
+    reg.add_toolchain_credential(klass="runner_key", secret="rk-secret-test-fixture",
                                 credential_id="rk-1", scope=None, principal=None)
-    reg.add_toolchain_credential(klass="builder", secret="b-secret-not-a-secret",
+    reg.add_toolchain_credential(klass="builder", secret="b-secret-test-fixture",
                                 credential_id="b-1", scope=None, principal=None)
     # ordinary MC write key: classify as unknown (not in table)
     for klass, secret_val, scope in (
         ("heartbeat", hb_token, None),
-        ("runner_key", "rk-secret-not-a-secret", None),
-        ("builder", "b-secret-not-a-secret", None),
+        ("runner_key", "rk-secret-test-fixture", None),
+        ("builder", "b-secret-test-fixture", None),
         ("enrollment", "enroll-tok", None),
     ):
         before_state = reg._data["toolchain_requests"][0]["state"]
@@ -122,14 +122,14 @@ def test_rejected_credential_classes(tmp_path):
         assert len(row["history"]) == before_hist + 1
     # ordinary MC write key -> classified unknown
     reg._data.setdefault("enrollment_tokens", [])
-    cls, info = reg.classify_credential("not-a-real-secret-not-a-secret")
+    cls, info = reg.classify_credential("not-a-real-secret-test-fixture")
     # may be unknown
     assert cls in (None, "unknown")
     # secret never in stored text
     text = json.dumps(reg._data)
-    assert "rk-secret-not-a-secret" not in text
-    assert "b-secret-not-a-secret" not in text
-    assert "op-secret-not-a-secret" not in text
+    assert "rk-secret-test-fixture" not in text
+    assert "b-secret-test-fixture" not in text
+    assert "op-secret-test-fixture" not in text
 
 
 def test_expired_nonce(tmp_path):
@@ -418,7 +418,7 @@ def test_negative_control_builder_refused(tmp_path):
     # mon-tc-03, task 2.5
     reg = _reg(tmp_path)
     _seed_request(reg)
-    reg.add_toolchain_credential(klass="builder", secret="bsec-not-a-secret",
+    reg.add_toolchain_credential(klass="builder", secret="bsec-test-fixture",
                                 credential_id="b-1", scope=None, principal=None)
     before = (reg._data["toolchain_requests"][0]["state"],
               reg._data["toolchain_requests"][0]["version"],
@@ -479,7 +479,7 @@ def test_wire_decide_route(tmp_path):
         with hub.state._lock:
             hub.state.registry.set_lane_profile("lane-a", "rust")
             hub.state.registry.add_toolchain_credential(
-                klass="operator", secret="not-a-real-secret-PLACEHOLDER",
+                klass="operator", secret="not-a-real-secret-test-fixture",
                 credential_id="cred-op-1", scope="toolchain:decide",
                 principal="alice")
             # seed a request row
@@ -499,7 +499,7 @@ def test_wire_decide_route(tmp_path):
         # decide
         st, body = hub.post("/toolchain/decide", {
             "request_id": "tcr-0001", "action": "approve",
-            "credential": "not-a-real-secret-PLACEHOLDER", "actor": "alice",
+            "credential": "not-a-real-secret-test-fixture", "actor": "alice",
             "principal": "alice", "timestamp": "2026-01-01T00:00:00Z",
             "nonce": "n-wire", "expected_version": 1})
         assert st == 200, body
@@ -527,7 +527,7 @@ def test_wire_concurrent_decisions(tmp_path):
         with hub.state._lock:
             hub.state.registry.set_lane_profile("lane-a", "rust")
             hub.state.registry.add_toolchain_credential(
-                klass="operator", secret="not-a-real-secret-PLACEHOLDER",
+                klass="operator", secret="not-a-real-secret-test-fixture",
                 credential_id="cred-op-1", scope="toolchain:decide",
                 principal="alice")
             hub.state.registry._data.setdefault("toolchain_requests", [])
@@ -549,7 +549,7 @@ def test_wire_concurrent_decisions(tmp_path):
         def worker(nonce):
             st, body = hub.post("/toolchain/decide", {
                 "request_id": "tcr-0001", "action": "approve",
-                "credential": "not-a-real-secret-PLACEHOLDER", "actor": "alice",
+                "credential": "not-a-real-secret-test-fixture", "actor": "alice",
                 "principal": "alice", "timestamp": "2026-01-01T00:00:00Z",
                 "nonce": nonce, "expected_version": 1})
             with lock:

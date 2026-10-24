@@ -48,7 +48,7 @@ def _open_row(hub, tool="cargo"):
         return hub.state.registry.toolchain_requests()[-1]["id"]
 
 
-def _approve(hub, row_id, secret="op-wire-secret-not-a-secret"):
+def _approve(hub, row_id, secret="op-wire-secret-test-fixture"):
     with hub.state._lock:
         hub.state.registry.add_toolchain_credential(
             klass="operator", secret=secret, credential_id="cred-op-1",
@@ -61,7 +61,7 @@ def _approve(hub, row_id, secret="op-wire-secret-not-a-secret"):
     assert status == 200, body
 
 
-def _add_builder(hub, secret="bld-wire-secret-not-a-secret"):
+def _add_builder(hub, secret="bld-wire-secret-test-fixture"):
     with hub.state._lock:
         hub.state.registry.add_toolchain_credential(
             klass="builder", secret=secret, credential_id="cred-b-1",
@@ -99,7 +99,7 @@ def test_build_report_refuses_operator_credential_over_the_wire(tmp_path):
     _approve(hub, row_id)
     # op-wire-secret is an operator, not a builder
     status, body = hub.post("/toolchain/build-report", {
-        "request_id": row_id, "credential": "op-wire-secret-not-a-secret",
+        "request_id": row_id, "credential": "op-wire-secret-test-fixture",
         "profile_id": "rust", "build_id": "b-9", "digest": DIGEST,
         "expected_version": 2})
     assert status == 403, body
