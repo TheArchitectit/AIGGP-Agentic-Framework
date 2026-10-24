@@ -1,0 +1,163 @@
+# spec-fleet.yml — nightly spec-spacing intake walk (SGA-10..14)
+#
+# Sibling of secret-fleet.yml (different scan, different failure semantics,
+# different reviewer reflex — SGA-10 is explicit that they are NOT merged).
+# Walks the SAME declaration files (fleet-sweep-include.txt / -exclude.txt +
+# generated owner-scope list), runs the gap scanner per repository, classifies
+# each into spaced / gaps / invalid / unspaced / unscannable, commits a capped
+# trend report to docs/qa/spec-sweeps/, and alerts via hub_alert.py --key
+# spec_fleet_sweep (deduped, repos named in body — SGA-12/13).
+#
+# Schedule: '47 4' to stagger clone load against secret-fleet's '17 4'.
+name: Spec Fleet Sweep
+
+on:
+  schedule:
+    - cron: '47 4 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  sweep:
+    name: Spec fleet sweep
+    runs-on: devgate
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Generate the declaration (reuse secret-scan-declared.sh)
+        id: generate
+        run: |
+          set -eu
+          bash scripts/secret-scan-declared.sh --out "$RUNNER_TEMP/declared.txt"
+          echo "count=$(wc -l < "$RUNNER_TEMP/declared.txt")" >> "$GITHUB_OUTPUT"
+
+      - name: Run the walk
+        id: walk
+        env:
+          DECLARED: ${{ runner.temp }}/declared.txt
+          TIER: spec-audit-tier.txt
+        run: |
+          set +e
+          mkdir -p "$RUNNER_TEMP/spec-work"
+          bash scripts/spec-fleet-walk.sh \
+            --declared "$DECLARED" \
+            --report "$RUNNER_TEMP/spec-report.json" \
+            --work "$RUNNER_TEMP/spec-work" \
+            --tier-file "$TIER"
+          rc=$?
+          set -e
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          echo "[walk] exit $rc"
+          exit 0
+
+      - name: Redacted report artifact
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: spec-fleet-report
+          path: ${{ runner.temp }}/spec-report.json
+          retention-days: 90
+
+      - name: Commit the report (trend line in git)
+        if: always()
+        run: |
+          set -eu
+          [ -f "$RUNNER_TEMP/spec-report.json" ] || { echo "no report"; exit 0; }
+          python3 - "$RUNNER_TEMP/spec-report.json" "$RUNNER_TEMP/committed-spec-report.json" <<'TRIM'
+          import json, sys
+          doc = json.load(open(sys.argv[1], encoding="utf-8"))
+          CAP = 50
+          for r in doc.get("repos", []):
+              # trim per-repo reasons already capped at 100 chars; keep full
+              pass
+          json.dump(doc, open(sys.argv[2], "w", encoding="utf-8"),
+                    indent=2, sort_keys=True)
+          TRIM
+          mkdir -p docs/qa/spec-sweeps
+          DATE="$(date -u +%F)"
+          cp "$RUNNER_TEMP/committed-spec-report.json" "docs/qa/spec-sweeps/${DATE}.json"
+          git config user.name "devgate-spec-sweep[bot]"
+          git config user.email "devgate-spec-sweep[bot]@users.noreply.github.com"
+          git add docs/qa/spec-sweeps/
+          if git diff --cached --quiet; then
+            echo "nothing new to commit"
+          else
+            git commit -m "spec sweep ${DATE} (automated)"
+            git push origin "HEAD:refs/heads/${GITHUB_REF_NAME}"
+          fi
+
+      - name: Fail loudly and route
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPORT: ${{ runner.temp }}/spec-report.json
+        run: |
+          set -eu
+          if [ ! -f "$REPORT" ]; then
+            python3 scripts/hub_alert.py --key spec_fleet_sweep \
+              --detail "spec-fleet walk produced no report: nothing was measured" || true
+            exit 1
+          fi
+          python3 - "$REPORT" <<'PY'
+          import json, sys
+          doc = json.load(open(sys.argv[1], encoding="utf-8"))
+          states = doc.get("states", {})
+          repos = doc.get("repos", [])
+          # SGA-11: unspaced never red.
+          # invalid reds only for tiered repos.
+          red_invalid = [r for r in repos
+                         if r.get("state") == "invalid" and r.get("tiered")]
+          unscannable = [r for r in repos if r.get("state") == "unscannable"]
+          if red_invalid or unscannable:
+              # build a detail naming repos
+              names = [r.get("name") for r in (red_invalid + unscannable)]
+              print("RED:", names)
+              sys.exit(1)
+          print("spec fleet: green (unspaced is informational)")
+          PY
+          rc=$?
+          if [ "$rc" -ne 0 ]; then
+            python3 scripts/hub_alert.py --key spec_fleet_sweep --report "$REPORT" || true
+            exit 1
+          fi
+          # Provenance (SGA-20..22): a FAULT -- unreadable lock, a pin that no
+          # longer matches its own pin_source, or an unreachable upstream --
+          # reds. Drift and unlocked copies are findings routed to the deduped
+          # drift issue (SGA-21 / SGR-11), not a nightly red: upstream moves
+          # whenever Fission-AI edits a template, and reding that every time
+          # is the SGR-10 muted-gate failure this package exists to avoid.
+          python3 - "$REPORT" <<'PY'
+          import json, sys
+          doc = json.load(open(sys.argv[1], encoding="utf-8"))
+          faults, findings = [], []
+          # Lock-level: pin integrity + upstream drift, once per sweep.
+          lp = doc.get("lock_provenance", {}) or {}
+          if lp.get("fault") or (lp.get("unknown") or []):
+              faults.append("lock: " + (lp.get("reason") or "fault"))
+          if lp.get("drift"):
+              findings.append("lock: " + ", ".join(
+                  d["template"] for d in lp["drift"]))
+          # Per-tree: local drift and unlocked copies.
+          for r in doc.get("repos", []):
+              prov = r.get("provenance", {}) or {}
+              name = r.get("name")
+              if prov.get("fault") or (prov.get("unknown") or []):
+                  faults.append(name)
+              if prov.get("drift") or prov.get("unlocked"):
+                  findings.append(name)
+          if findings:
+              print("PROVENANCE FINDINGS (deduped drift issue, not red):", findings)
+          if faults:
+              print("PROVENANCE FAULT RED:", faults)
+              sys.exit(1)
+          print("provenance: no fault")
+          PY
+          rc=$?
+          if [ "$rc" -ne 0 ]; then
+            python3 scripts/hub_alert.py --key spec_fleet_sweep --report "$REPORT" || true
+            exit 1
+          fi

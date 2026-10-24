@@ -1,0 +1,44 @@
+{
+  "templates": {
+    "openspec-design": {
+      "adopted_by": "docs/qa/2026-10-22-template-provenance.md",
+      "note": "SGA-20: pinned_sha256 is the sha256 of the template in the pinned @fission-ai/openspec@1.13.0 npm package (the pin templates/github-workflows/specs.yml uses); re-verified 2026-10-23 against the local node_modules copy and against pin_source (the v1.13.0 tag raw URL). source is the moving upstream (branch main) the refresh-check fetches: a difference there is upstream drift, the SGA-21 alert, not a bad pin. No vendored copy exists in this repo yet (vendored_path: null) \u2014 a template present in tree without a lock entry is the finding, and an entry with no vendored copy is not. Detection only, adoption by reviewed commit (SGA-21).",
+      "pin_source": "https://raw.githubusercontent.com/Fission-AI/OpenSpec/v1.13.0/schemas/spec-driven/templates/design.md",
+      "pinned_sha256": "e47df296318c6622f0b0911407e16b1578169403b96f61bf35fe1db7f7b417d6",
+      "source": "https://raw.githubusercontent.com/Fission-AI/OpenSpec/main/schemas/spec-driven/templates/design.md",
+      "upstream_version": "1.13.0",
+      "vendored_at": "2026-10-22",
+      "vendored_path": null
+    },
+    "openspec-proposal": {
+      "adopted_by": "docs/qa/2026-10-22-template-provenance.md",
+      "note": "SGA-20: pinned_sha256 is the sha256 of the template in the pinned @fission-ai/openspec@1.13.0 npm package (the pin templates/github-workflows/specs.yml uses); re-verified 2026-10-23 against the local node_modules copy and against pin_source (the v1.13.0 tag raw URL). source is the moving upstream (branch main) the refresh-check fetches: a difference there is upstream drift, the SGA-21 alert, not a bad pin. No vendored copy exists in this repo yet (vendored_path: null) \u2014 a template present in tree without a lock entry is the finding, and an entry with no vendored copy is not. Detection only, adoption by reviewed commit (SGA-21).",
+      "pin_source": "https://raw.githubusercontent.com/Fission-AI/OpenSpec/v1.13.0/schemas/spec-driven/templates/proposal.md",
+      "pinned_sha256": "ea0879a322bb1a3c6e3002c67b5a29e31120dcb17219e3000d43775f48481284",
+      "source": "https://raw.githubusercontent.com/Fission-AI/OpenSpec/main/schemas/spec-driven/templates/proposal.md",
+      "upstream_version": "1.13.0",
+      "vendored_at": "2026-10-22",
+      "vendored_path": null
+    },
+    "openspec-spec": {
+      "adopted_by": "docs/qa/2026-10-22-template-provenance.md",
+      "note": "SGA-20: pinned_sha256 is the sha256 of the template in the pinned @fission-ai/openspec@1.13.0 npm package (the pin templates/github-workflows/specs.yml uses); re-verified 2026-10-23 against the local node_modules copy and against pin_source (the v1.13.0 tag raw URL). source is the moving upstream (branch main) the refresh-check fetches: a difference there is upstream drift, the SGA-21 alert, not a bad pin. No vendored copy exists in this repo yet (vendored_path: null) \u2014 a template present in tree without a lock entry is the finding, and an entry with no vendored copy is not. Detection only, adoption by reviewed commit (SGA-21).",
+      "pin_source": "https://raw.githubusercontent.com/Fission-AI/OpenSpec/v1.13.0/schemas/spec-driven/templates/spec.md",
+      "pinned_sha256": "1f370642f106589d901c0568e81b5f7741e9289da48df41b70dd21ad99592a0c",
+      "source": "https://raw.githubusercontent.com/Fission-AI/OpenSpec/main/schemas/spec-driven/templates/spec.md",
+      "upstream_version": "1.13.0",
+      "vendored_at": "2026-10-22",
+      "vendored_path": null
+    },
+    "openspec-tasks": {
+      "adopted_by": "docs/qa/2026-10-22-template-provenance.md",
+      "note": "SGA-20: pinned_sha256 is the sha256 of the template in the pinned @fission-ai/openspec@1.13.0 npm package (the pin templates/github-workflows/specs.yml uses); re-verified 2026-10-23 against the local node_modules copy and against pin_source (the v1.13.0 tag raw URL). source is the moving upstream (branch main) the refresh-check fetches: a difference there is upstream drift, the SGA-21 alert, not a bad pin. No vendored copy exists in this repo yet (vendored_path: null) \u2014 a template present in tree without a lock entry is the finding, and an entry with no vendored copy is not. Detection only, adoption by reviewed commit (SGA-21).",
+      "pin_source": "https://raw.githubusercontent.com/Fission-AI/OpenSpec/v1.13.0/schemas/spec-driven/templates/tasks.md",
+      "pinned_sha256": "b2a6a4c08c15f347a1d8c3e2d43e0c8fb066dc5cc0feb795f47555f176f9c421",
+      "source": "https://raw.githubusercontent.com/Fission-AI/OpenSpec/main/schemas/spec-driven/templates/tasks.md",
+      "upstream_version": "1.13.0",
+      "vendored_at": "2026-10-22",
+      "vendored_path": null
+    }
+  }
+}

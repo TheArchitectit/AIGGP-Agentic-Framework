@@ -1,0 +1,29 @@
+# spec-audit-tier.txt — the adoption ladder for the spec intake gate (SGA-11)
+#
+# Repos that have ACCEPTED the spec contract. A repo on this list owes
+# `openspec/` strict validation, and a strict-red on it is a real failure.
+# A repo NOT on this list is `unspaced` or `gaps` — informational, never
+# red — because it was never told it owed specs (SGA-11, the measured
+# SGR-10 lesson: reding "not yet adopted" every night mutes the gate).
+#
+# Format: one owner/repo per line. Lines starting with `#` are commentary;
+# the rest of the line after the first `#` is the reason, and the reason is
+# load-bearing (the same rule the secret sweep's exclude file uses: an
+# entry without a reason is a quiet hole).
+#
+# This file is the gate's ONLY red input. If it cannot be parsed the walk
+# fails as a gate fault rather than reading "no tiered repos" — a broken
+# allowlist that reads as an empty one is how every repo quietly becomes
+# unenforced (SGA-11 scenario 4).
+#
+# Adoption is a reviewed commit in the CONSUMER repo, not a line here:
+# a repo enters the tier when its owner decides its spec material is ready
+# to be judged, and the line is the record of that decision.
+#
+# Current tier (2026-10-22):
+#   DevGate itself is the host: its 31 published specs are the shipped
+#   truth, and it is the reference tree the gate walks against. It is
+#   listed so the gate's own red path is exercised, not because it needs
+#   policing.
+
+TheArchitectit/AIGGP-Agentic-Framework  # host: 31 published specs, the reference tree the gate measures against
