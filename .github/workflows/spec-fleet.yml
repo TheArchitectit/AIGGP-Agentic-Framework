@@ -165,6 +165,23 @@ jobs:
                   findings.append(name)
           if findings:
               print("PROVENANCE FINDINGS (deduped drift issue, not red):", findings)
+              # SGA-21 / SGR-11: findings go to their own deduped issue —
+              # one open issue per key, commented on recurrence. Separate
+              # key from spec_fleet_sweep so a drift finding never rides
+              # along with, or hides behind, the nightly red.
+              import subprocess
+              r = subprocess.run(
+                  [sys.executable, "scripts/hub_alert.py",
+                   "--key", "spec_template_drift", "--report", sys.argv[1]],
+                  capture_output=True, text=True)
+              if r.returncode != 0:
+                  # A finding is not a red, and neither is an alert that
+                  # could not be raised — but it must not be silent.
+                  print("drift issue could not be raised:",
+                        (r.stderr or r.stdout or "no output")[:300],
+                        file=sys.stderr)
+              else:
+                  print("drift issue raised or deduped (key spec_template_drift)")
           if faults:
               print("PROVENANCE FAULT RED:", faults)
               sys.exit(1)

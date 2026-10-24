@@ -409,6 +409,94 @@ def test_the_cap_counts_toward_the_body_the_api_will_accept(tmp_path):
     assert len(body.encode("utf-8")) < 16384, len(body.encode("utf-8"))
 
 
+# --- SGA-21 / SGR-11: the deduped drift issue body --------------------------
+
+
+def test_lock_drift_is_named_with_template_and_both_hashes(tmp_path):
+    """A drift finding that says "drift=4" cannot be dispositioned. The
+    body must name the template, quote both hashes (truncated), and carry
+    the pin version — the shape SGA-21 scenario 3 closes an issue against.
+    """
+    report = write_report(tmp_path, [], report_kw={
+        "lock_provenance": {
+            "templates": {}, "unlocked": [], "fault": False, "unknown": [],
+            "drift": [{
+                "template": "design.md", "kind": "upstream",
+                "pinned": "e47df296318c6622f0b0911407e16b1578169403b96f61bf35fe1db7f7b417d6",
+                "upstream": "6ccc87f5" + "0" * 56,
+                "version": "1.13.0",
+            }],
+        },
+    })
+    body = run("--key", "spec_template_drift", "--report", report,
+               "--dry-run").stdout
+    assert "template drift" in body, body
+    assert "design.md" in body, body
+    assert "e47df296318c" in body, body   # pinned, truncated to 12
+    assert "6ccc87f50000" in body, body   # upstream, truncated to 12
+    assert "1.13.0" in body, body
+    # Both hashes, never the whole digest — the body stays bounded.
+    assert "e47df296318c6622f0b0911407e16b1578169403" not in body, body
+
+
+def test_a_planted_secret_in_a_drift_entry_is_dropped_by_name(tmp_path):
+    """Same failure mode as the locations filter: if the drift quote stops
+    being name-driven, a planted value lands in an issue a human keeps.
+    """
+    report = write_report(tmp_path, [], report_kw={
+        "lock_provenance": {
+            "drift": [{
+                "template": "tasks.md", "kind": "upstream",
+                "pinned": "b2a6a4c08c15", "upstream": "fa67d99f0000",
+                "version": "1.13.0",
+                "Secret": PLANTED_SECRET, "Match": PLANTED_SECRET,
+            }],
+        },
+    })
+    body = run("--key", "spec_template_drift", "--report", report,
+               "--dry-run").stdout
+    assert PLANTED_SECRET not in body, body
+    assert "tasks.md" in body, body  # the safe half survived
+
+
+def test_per_tree_drift_and_unlocked_copies_are_named(tmp_path):
+    """Lock-level drift is once per sweep; a tree's own drifted or
+    unlocked copy is a finding about that tree and must name the repo and
+    the file, or the operator cannot fix it."""
+    report = write_report(
+        tmp_path,
+        [{
+            "name": "TheArchitectit/missioncontrol", "state": "spaced",
+            "uncovered": 0,
+            "provenance": {
+                "drift": [{
+                    "template": "proposal.md", "kind": "local",
+                    "pinned": "ea0879a322bb", "actual": "0dd70e35ffff",
+                }],
+                "unlocked": ["templates/openspec/spec.md"],
+                "fault": False, "unknown": [],
+            },
+        }],
+    )
+    body = run("--key", "spec_template_drift", "--report", report,
+               "--dry-run").stdout
+    assert "TheArchitectit/missioncontrol" in body, body
+    assert "proposal.md" in body, body
+    assert "ea0879a322bb → 0dd70e35ffff" in body, body
+    assert "unlocked templates/openspec/spec.md" in body, body
+
+
+def test_drift_fields_are_exactly_the_documented_set():
+    """The whitelist is the contract. A future key must not join it by
+    accident just because someone added it to a drift entry."""
+    sys.path.insert(0, str(REPO_ROOT))
+    from scripts.hub_alert import _DRIFT_FIELDS  # noqa: E402
+
+    assert set(_DRIFT_FIELDS) == {
+        "template", "kind", "pinned", "upstream", "actual", "version",
+    }
+
+
 if __name__ == "__main__":
     import pytest as _pytest
 
