@@ -556,8 +556,17 @@ or label it.
       **200 administrator** in
       `decide_forwards_the_hubs_documented_body_and_no_signature`
       (`tests/toolchain_wire_contract.rs:204`), all inside that same suite run.
-- [ ] 6.7 Named green CI runs on the hub commit and the MC commit, with both
+- [x] 6.7 Named green CI runs on the hub commit and the MC commit, with both
       SHAs and run URLs in the PR.
+
+      Hub `b4de7952` — CI run
+      https://github.com/TheArchitectit/AIGGP-Agentic-Framework/actions/runs/40049295613
+      SUCCESS. MC companion `adb0783ea05d3d535f441e1d32989ac37ddf7849` — CI run
+      https://github.com/TheArchitectit/missioncontrol/actions/runs/40049237137
+      SUCCESS. Both run IDs read back from `gh run list` in this window, not
+      quoted from a handoff. The PR head `b1d97b0` is this tasks.md closure
+      commit, docs-only above `b4de7952`, so the named hub run is the last
+      code-bearing head on the branch.
 - [x] 6.8 Operator documentation stating the loop **and** that approval
       produces an image rebuild, never a live install.
 
