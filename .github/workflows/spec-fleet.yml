@@ -28,6 +28,14 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
+      # The devgate runner image ships a node20 whose own npm is broken
+      # (`Cannot find module '../lib/cli.js'` from bin/npm) — measured on the
+      # first dispatch of this workflow, 2026-10-24. setup-node installs a
+      # clean tool-cache node+npm, which is why ci.yml can run npm at all.
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "20"
+
       # Without the validator every openspec-material repo classifies
       # `unscannable`, which the red step treats as a census failure — so a
       # runner with no tooling would alert every night about its own missing
