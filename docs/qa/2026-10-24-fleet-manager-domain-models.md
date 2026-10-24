@@ -15,8 +15,8 @@ rollout models — FLEET-001). Openspec change:
 - `fleet_manager/documents.py` — the store's closed wire form:
   `to_document()` / `from_document()`, missing field named, unknown field
   refused, secret-shaped keys refused.
-- `tests/test_model_v1.py` — 34 tests, floor-pinned; `pytest fleet-manager/tests`
-  is now **58 passed**.
+- `tests/test_model_v1.py` — 36 tests, floor-pinned; `pytest fleet-manager/tests`
+  is now **60 passed**.
 
 ## What the model refuses, and why each one matters
 
@@ -81,8 +81,20 @@ eight clean runs.
 | `python3 scripts/artifact_hygiene.py --repo . --audit` | audit OK |
 | `python3 scripts/check_boundary.py --repo .` | OK — 16 files, all declared |
 | `python3 scripts/check_exec_bits.py` | OK — 116 shebang'd files, all 100755 |
-| `python3 -m pytest fleet-manager/tests -q` | **58 passed** (24 contracts + 34 model) |
+| `python3 -m pytest fleet-manager/tests -q` | **60 passed** (24 contracts + 36 model) |
 | `python3 fleet-manager/scripts/extraction_rehearsal.py --source .` | OK — both phases, package still stands alone |
+
+## Two leniencies a second read found (fixed in `7f0fa4a`)
+
+Neither was caught by a test, which is why both are recorded:
+
+- `documents._pairs()` coerced label names and values with `str()`, so
+  `{"pool": 5}` became `{"pool": "5"}` and then passed the string check
+  downstream. A closed document that re-types its values is not closed.
+- `Assignment` compared `issued_at` and `released_at` as strings, which is only
+  correct while every timestamp carries the same offset. It parses them now.
+
+Both are pinned by tests; the suite went 34 → 36.
 
 ## What this deliberately does not do
 
