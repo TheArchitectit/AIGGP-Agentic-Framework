@@ -1,4 +1,4 @@
-# spec: repo-003-01, fleet-001-01, fleet-001-02, fleet-001-03, fleet-002-01, fleet-002-02, fleet-002-03, fleet-002-04, fleet-003-01, fleet-003-02, fleet-003-03, fleet-003-04
+# spec: repo-003-01, fleet-001-01, fleet-001-02, fleet-001-03, fleet-002-01, fleet-002-02, fleet-002-03, fleet-002-04, fleet-003-01, fleet-003-02, fleet-003-03, fleet-003-04, fleet-004-01, fleet-004-02, fleet-004-03, fleet-004-04, fleet-004-05
 """Fleet Manager package (product-tiers boundary root, REPO-002).
 
 Everything here is inside the `fleet-manager/` boundary declared by
@@ -16,6 +16,12 @@ both the applies and the refusals; `auth` is where a request becomes a decision.
 `reconcile` reads the other side: it diffs a revision against what hosts report
 and returns a bounded diff whose changes are the same values `plan` takes, so a
 reconciliation is carried out through the same apply as an operator's plan.
+`channel` is the other direction of trust: how a host agent proves it is the
+host it claims to be when it calls in. It holds enrollment, rotation, and
+revocation as values and the signed-report checks as rules, with the signature
+provider injected — the manager never dials a host (FLEET-004), and choosing a
+verifier stays a decision with a security sign-off rather than a default in a
+module.
 """
 
 from .apply import (  # noqa: F401
@@ -36,6 +42,24 @@ from .auth import (  # noqa: F401
     Principal,
     PrincipalKind,
     Scope,
+)
+from .channel import (  # noqa: F401
+    CHANNEL_SCHEMA,
+    MAX_BODY_BYTES,
+    MAX_CLOCK_SKEW,
+    MAX_MESSAGE_LIFETIME,
+    ROTATION_OVERLAP,
+    AcceptedReport,
+    AgentChannel,
+    ChannelEnvelope,
+    ChannelError,
+    CredentialStatus,
+    EnrollmentToken,
+    HostCredential,
+    envelope_from_document,
+    envelope_to_document,
+    key_id_for,
+    signed_bytes,
 )
 from .contracts import (  # noqa: F401
     CONTRACT_VERSION,
@@ -105,6 +129,22 @@ from .reconcile import (  # noqa: F401
 )
 
 __all__ = [
+    "CHANNEL_SCHEMA",
+    "MAX_BODY_BYTES",
+    "MAX_CLOCK_SKEW",
+    "MAX_MESSAGE_LIFETIME",
+    "ROTATION_OVERLAP",
+    "AcceptedReport",
+    "AgentChannel",
+    "ChannelEnvelope",
+    "ChannelError",
+    "CredentialStatus",
+    "EnrollmentToken",
+    "HostCredential",
+    "envelope_from_document",
+    "envelope_to_document",
+    "key_id_for",
+    "signed_bytes",
     "CONTRACT_VERSION",
     "ContractError",
     "ContractInvalid",
