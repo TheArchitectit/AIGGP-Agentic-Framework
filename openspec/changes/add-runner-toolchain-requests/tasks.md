@@ -374,9 +374,19 @@ Live tree is the `mission-control-rs/` directory inside
 `TheArchitectit/mission-control-rs` repository is **not** the live tree; retire
 or label it.
 
-- [ ] 5.0 Write the MC companion OpenSpec change **first**, including the
+- [x] 5.0 Write the MC companion OpenSpec change **first**, including the
       auth-gate-coverage classification of the decide route. Pin both commit
       SHAs in the pull request.
+      **Order is read from git, not asserted.** The companion package was added
+      in MC `6c2da146` (2026-10-03 22:39) and the MC implementation landed in
+      `d084f78f` (2026-10-23 18:47) — twenty days later. The package now lives
+      at `mission-control-rs/openspec/changes/archive/2026-10-04-fleet-toolchain-queue/`.
+      Its classification is a normative requirement, "The decide route is
+      classified by the auth-gate mutation gate" (`specs/fleet-toolchain-queue/spec.md:101-118`),
+      and the gate implements it at `tests/route_auth_manifest.rs:128`
+      (`("/toolchain-requests/:id/decide", "POST", Domain::Protected)`).
+      Both commit SHAs are pinned in the pull request carrying this closure,
+      each with its named green run.
 - [x] 5.1 Hub adapter: `src/adapters/` alongside `hermes.rs`, `loki.rs`,
       `rad_a2a.rs`. Explicit timeout. No local cache.
       **Landed in MC `d084f78`.** `src/adapters/toolchain.rs`; timeout on every
@@ -418,9 +428,19 @@ or label it.
       `unreachable_read_is_502_never_empty` asserts the payload never contains
       `"requests":[]`, and a hub that answers empty is a separate test proving
       empty ≠ unreachable.
-- [ ] 5.7 Reconcile the stale `frontend-architecture` spec text as part of the
+- [x] 5.7 Reconcile the stale `frontend-architecture` spec text as part of the
       companion change (it still says the React SPA "SHALL be removed" while a
       later decision admits React islands on six routes).
+      **Landed in MC `47ce39f0`** — `docs(spec): frontend-architecture stops
+      claiming the React island does not exist`. The governing spec now names
+      the six-route allowlist (`/runners`, `/logs`, `/admin`, `/admin/channels`,
+      `/admin/groups`, `/projects/*`) in its Purpose and under "Single frontend:
+      Askama + HTMX", and no longer carries the removal claim. Measured on that
+      commit: `grep -rn "SHALL be removed" mission-control-rs/openspec/specs/`
+      matches only `ci-integrity` and `data-integrity` — not
+      `frontend-architecture`. The change package's own delta recorded the same
+      reconciliation
+      (`archive/2026-10-04-fleet-toolchain-queue/specs/fleet-toolchain-queue/spec.md:161-174`).
 - [x] 5.8 **Hub-side, executed in this repo:** make the request-set read carry
       what a queue needs to render a row and act on it — the lane's repository
       and host alias, the lane's coverage state derived at read time, and the
@@ -516,13 +536,37 @@ or label it.
       measured 572 lines against the 500-line source hard limit and that is a
       **blocking** CI failure, while `tests/test_regression_sizes.py` judges
       fixtures and stayed green throughout.
-- [ ] 6.6 In Mission Control: `cargo fmt --all -- --check`,
+- [x] 6.6 In Mission Control: `cargo fmt --all -- --check`,
       `cargo clippy --all-targets --all-features -- -D warnings`,
       `cargo test --all-features` with migrations applied, plus the auth-gate
       mutation gate showing the decide route classified and returning 401
       anonymous / 403 with a write-only key / 200 with admin.
-- [ ] 6.7 Named green CI runs on the hub commit and the MC commit, with both
+      **Measured 2026-10-23 on MC `adb0783ea05d3d535f441e1d32989ac37ddf7849`**,
+      against a database built from the tree's migrations alone (ledger **36
+      rows**, max version `20261007000001`): `cargo fmt --all -- --check` exit
+      **0**; `cargo clippy --all-targets --all-features -- -D warnings` exit
+      **0**; `cargo test --all-features` **264 passed, 0 failed across 29 test
+      binaries**, exit **0**. The auth-gate mutation gate (`--test
+      route_auth_manifest`) passed 2/2, and the decide route is in its manifest
+      as `Domain::Protected`, so an unclassified decide reds the gate. The three
+      observed outcomes are proven where they can be observed rather than
+      claimed of the gate alone: **401 anonymous** in the gate itself and in
+      `decide_anonymous_is_401`; **403 write-only** in
+      `decide_write_only_key_is_403` (`tests/toolchain_queue_contract.rs:75`);
+      **200 administrator** in
+      `decide_forwards_the_hubs_documented_body_and_no_signature`
+      (`tests/toolchain_wire_contract.rs:204`), all inside that same suite run.
+- [x] 6.7 Named green CI runs on the hub commit and the MC commit, with both
       SHAs and run URLs in the PR.
+
+      Hub `b4de7952` — CI run
+      https://github.com/TheArchitectit/AIGGP-Agentic-Framework/actions/runs/40049295613
+      SUCCESS. MC companion `adb0783ea05d3d535f441e1d32989ac37ddf7849` — CI run
+      https://github.com/TheArchitectit/missioncontrol/actions/runs/40049237137
+      SUCCESS. Both run IDs read back from `gh run list` in this window, not
+      quoted from a handoff. The PR head `b1d97b0` is this tasks.md closure
+      commit, docs-only above `b4de7952`, so the named hub run is the last
+      code-bearing head on the branch.
 - [x] 6.8 Operator documentation stating the loop **and** that approval
       produces an image rebuild, never a live install.
 
