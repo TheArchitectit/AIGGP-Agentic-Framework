@@ -104,6 +104,52 @@ jobs:
             git push origin "HEAD:refs/heads/${GITHUB_REF_NAME}"
           fi
 
+      # SGA-21 / SGR-11: template-drift findings are routed to their own
+      # deduped issue REGARDLESS of the sweep's red/green verdict. A red
+      # night (an unscannable repo, say) must not silently swallow the drift
+      # findings — the two channels are independent by design: spec_fleet_sweep
+      # is the nightly verdict, spec_template_drift is the drift issue.
+      - name: Route template-drift findings
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPORT: ${{ runner.temp }}/spec-report.json
+        run: |
+          set -eu
+          if [ ! -f "$REPORT" ]; then
+            echo "no report — no drift findings to route"
+            exit 0
+          fi
+          python3 - "$REPORT" <<'PY'
+          import json, subprocess, sys
+          doc = json.load(open(sys.argv[1], encoding="utf-8"))
+          findings = []
+          lp = doc.get("lock_provenance", {}) or {}
+          if lp.get("drift"):
+              findings.append("lock: " + ", ".join(
+                  d["template"] for d in lp["drift"]))
+          for r in doc.get("repos", []):
+              prov = r.get("provenance", {}) or {}
+              if prov.get("drift") or prov.get("unlocked"):
+                  findings.append(r.get("name"))
+          if not findings:
+              print("no template-drift findings")
+              raise SystemExit(0)
+          print("PROVENANCE FINDINGS (deduped drift issue, not red):", findings)
+          res = subprocess.run(
+              [sys.executable, "scripts/hub_alert.py",
+               "--key", "spec_template_drift", "--report", sys.argv[1]],
+              capture_output=True, text=True)
+          if res.returncode != 0:
+              # A finding is not a red, and neither is an alert that could
+              # not be raised — but it must not be silent.
+              print("drift issue could not be raised:",
+                    (res.stderr or res.stdout or "no output")[:300],
+                    file=sys.stderr)
+          else:
+              print("drift issue raised or deduped (key spec_template_drift)")
+          PY
+
       - name: Fail loudly and route
         if: always()
         env:
@@ -164,24 +210,8 @@ jobs:
               if prov.get("drift") or prov.get("unlocked"):
                   findings.append(name)
           if findings:
-              print("PROVENANCE FINDINGS (deduped drift issue, not red):", findings)
-              # SGA-21 / SGR-11: findings go to their own deduped issue —
-              # one open issue per key, commented on recurrence. Separate
-              # key from spec_fleet_sweep so a drift finding never rides
-              # along with, or hides behind, the nightly red.
-              import subprocess
-              r = subprocess.run(
-                  [sys.executable, "scripts/hub_alert.py",
-                   "--key", "spec_template_drift", "--report", sys.argv[1]],
-                  capture_output=True, text=True)
-              if r.returncode != 0:
-                  # A finding is not a red, and neither is an alert that
-                  # could not be raised — but it must not be silent.
-                  print("drift issue could not be raised:",
-                        (r.stderr or r.stdout or "no output")[:300],
-                        file=sys.stderr)
-              else:
-                  print("drift issue raised or deduped (key spec_template_drift)")
+              print("PROVENANCE FINDINGS (routed by the drift step above):",
+                    findings)
           if faults:
               print("PROVENANCE FAULT RED:", faults)
               sys.exit(1)
