@@ -1,4 +1,4 @@
-# spec: fleet-007-01, fleet-007-02, fleet-007-03, fleet-007-04
+# spec: fleet-007-01, fleet-007-02, fleet-007-03, fleet-007-04, fleet-008-04
 """The stable adapter contract (FLEET-007, Sprint 4.1).
 
 Every test is one failure the contract exists to prevent:
@@ -12,7 +12,9 @@ Every test is one failure the contract exists to prevent:
 - a warm pool that counts a used container as stock, or stock from another
   image, or stock above its own ceiling;
 - a job container that keeps a work directory, outlives its job, or names the
-  registration material in its argument list.
+  registration material in its argument list;
+- a job container with no memory, cpu, or process-count limit, or with one
+  bound that never reaches the command the runtime is given.
 
 The contract checks shape, not behaviour, so the fakes here are deliberately
 inert: one of them raises on every call to prove the checker never calls it.
@@ -27,6 +29,9 @@ sys.path.insert(0, str(PKG_ROOT))
 
 from fleet_manager.adapters import (  # noqa: E402
     ADAPTER_CALLS,
+    MAX_CPUS,
+    MAX_MEMORY_MIB,
+    MAX_PIDS,
     MUTATING_CALLS,
     RUNNER_IMAGE_REPOSITORY,
     STANDARD_RUNNER_IMAGE_DIGEST,
@@ -37,6 +42,7 @@ from fleet_manager.adapters import (  # noqa: E402
     EphemeralInstance,
     ErrorKind,
     InstanceState,
+    ResourceLimits,
     WarmInstance,
     WarmPool,
     check_contract,
@@ -45,7 +51,7 @@ from fleet_manager.adapters import (  # noqa: E402
 )
 from fleet_manager.model import DisruptionBudget, Pool, Runtime, TrustClass  # noqa: E402
 
-EXPECTED_TEST_COUNT = 55
+EXPECTED_TEST_COUNT = 62
 
 DIGEST = "sha256:" + "a" * 64
 OTHER_DIGEST = "sha256:" + "b" * 64
@@ -569,17 +575,24 @@ class WarmPoolTests(unittest.TestCase):
                     WarmInstance(**arguments)
 
 
+def _ephemeral_instance(**overrides) -> EphemeralInstance:
+    """One job container, complete; every test overrides exactly what it tests."""
+
+    fields = dict(
+        instance_id="job-1",
+        pool_id="phase1-linux",
+        image_digest=DIGEST,
+        registration_env_file="/run/devgate/phase1-linux.secrets.env",
+        runtime=Runtime.PODMAN,
+        limits=ResourceLimits(memory_mib=4096, cpus=2, pids=512),
+    )
+    fields.update(overrides)
+    return EphemeralInstance(**fields)
+
+
 class EphemeralInstanceTests(unittest.TestCase):
     def _instance(self, **overrides) -> EphemeralInstance:
-        fields = dict(
-            instance_id="job-1",
-            pool_id="phase1-linux",
-            image_digest=DIGEST,
-            registration_env_file="/run/devgate/phase1-linux.secrets.env",
-            runtime=Runtime.PODMAN,
-        )
-        fields.update(overrides)
-        return EphemeralInstance(**fields)
+        return _ephemeral_instance(**overrides)
 
     def test_a_job_instance_has_no_work_directory(self) -> None:
         with self.assertRaises(AdapterContractError) as caught:
@@ -644,6 +657,93 @@ class EphemeralInstanceTests(unittest.TestCase):
             self._instance(image_digest="latest")
         with self.assertRaises(AdapterContractError):
             self._instance(instance_id="Job 1")
+
+
+class ResourceLimitsTests(unittest.TestCase):
+    """fleet-008-04: required, positive, bounded, and rendered."""
+
+    def test_every_limit_is_required_and_named_when_missing(self) -> None:
+        for missing in ("memory_mib", "cpus", "pids"):
+            with self.subTest(field=missing):
+                with self.assertRaises(AdapterContractError) as caught:
+                    ResourceLimits(**{"memory_mib": 4096, "cpus": 2, "pids": 512,
+                                      missing: None})
+                message = str(caught.exception)
+                self.assertIn(f"resource_limits.{missing}", message)
+                self.assertIn("required", message)
+
+    def test_a_non_positive_limit_is_refused(self) -> None:
+        for field, value in (
+            ("memory_mib", 0),
+            ("cpus", 0),
+            ("pids", 0),
+            ("pids", -1),
+            ("memory_mib", -1024),
+        ):
+            with self.subTest(field=field, value=value):
+                arguments = {"memory_mib": 4096, "cpus": 2, "pids": 512}
+                arguments[field] = value
+                with self.assertRaises(AdapterContractError) as caught:
+                    ResourceLimits(**arguments)
+                self.assertIn(f"resource_limits.{field}", str(caught.exception))
+                self.assertIn("positive", str(caught.exception))
+
+    def test_a_limit_above_its_bound_is_refused(self) -> None:
+        for field, value, bound in (
+            ("memory_mib", MAX_MEMORY_MIB + 1, MAX_MEMORY_MIB),
+            ("cpus", MAX_CPUS + 0.5, MAX_CPUS),
+            ("pids", MAX_PIDS + 1, MAX_PIDS),
+        ):
+            with self.subTest(field=field):
+                arguments = {"memory_mib": 4096, "cpus": 2, "pids": 512}
+                arguments[field] = value
+                with self.assertRaises(AdapterContractError) as caught:
+                    ResourceLimits(**arguments)
+                self.assertIn(f"resource_limits.{field}", str(caught.exception))
+                self.assertIn("maximum", str(caught.exception))
+
+    def test_a_limit_that_is_not_a_number_is_refused(self) -> None:
+        for field, value in (
+            ("memory_mib", "4096"),
+            ("cpus", True),
+            ("pids", 1.5),
+            ("memory_mib", float("nan")),
+            ("cpus", float("inf")),
+        ):
+            with self.subTest(field=field, value=value):
+                arguments = {"memory_mib": 4096, "cpus": 2, "pids": 512}
+                arguments[field] = value
+                with self.assertRaises(AdapterContractError) as caught:
+                    ResourceLimits(**arguments)
+                self.assertIn(f"resource_limits.{field}", str(caught.exception))
+
+    def test_the_limits_are_rendered_as_the_runtime_spells_them(self) -> None:
+        self.assertEqual(
+            ("--memory", "4096m", "--cpus", "2", "--pids-limit", "512"),
+            ResourceLimits(memory_mib=4096, cpus=2, pids=512).arguments(),
+        )
+        self.assertEqual(
+            "1.5",
+            ResourceLimits(memory_mib=512, cpus=1.5, pids=64).arguments()[3],
+        )
+
+    def test_the_command_carries_the_limits_it_was_built_with(self) -> None:
+        limits = ResourceLimits(memory_mib=3072, cpus=1.5, pids=256)
+        command = _ephemeral_instance(limits=limits).command()
+        for flag, value in (
+            ("--memory", "3072m"),
+            ("--cpus", "1.5"),
+            ("--pids-limit", "256"),
+        ):
+            self.assertIn(flag, command)
+            self.assertEqual(value, command[command.index(flag) + 1])
+
+    def test_a_job_instance_cannot_be_built_without_resource_limits(self) -> None:
+        for value in (None, "4096", {"memory_mib": 4096}):
+            with self.subTest(value=type(value).__name__):
+                with self.assertRaises(AdapterContractError) as caught:
+                    _ephemeral_instance(limits=value)
+                self.assertIn("ephemeral_instance.limits", str(caught.exception))
 
 
 def _signature_without(member, name):

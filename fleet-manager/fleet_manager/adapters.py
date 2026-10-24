@@ -452,6 +452,90 @@ class WarmPool:
         return WarmPool(pool=self.pool, instances=kept)
 
 
+# Upper bounds for one job container. They exist so that "bounded" is a number
+# a test can check rather than an adjective, and they are generous: a build job
+# on a self-hosted runner rarely needs more, and a container asking for more is
+# usually a template that was copied without its numbers being looked at.
+MAX_MEMORY_MIB = 65536
+MAX_CPUS = 32.0
+MAX_PIDS = 4096
+
+
+def _limit(
+    value: object, field: str, maximum: float, *, integral: bool = False
+) -> float:
+    """One limit: present, a real number, positive, and not above the bound.
+
+    `None` is refused by name rather than left to a `TypeError`, because the
+    refusal has to say *which* limit is missing — a job container with no
+    memory limit is a container that can take the host down with it, and
+    "missing 1 required positional argument" says that badly.
+
+    `integral` is for the two limits that count things (mebibytes, processes):
+    a process count of 1.5 is not a smaller number than 2, it is a number that
+    does not mean anything, and rounding it here would be a guess.
+    """
+
+    if value is None:
+        raise AdapterContractError(f"{field}: is required — a job container "
+                                   "without it is unbounded")
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise AdapterContractError(
+            f"{field}: must be a number, not {type(value).__name__}"
+        )
+    number = float(value)
+    if number != number or number in (float("inf"), float("-inf")):
+        raise AdapterContractError(f"{field}: must be finite")
+    if number <= 0:
+        raise AdapterContractError(f"{field}: must be positive, got {number:g}")
+    if integral and number != int(number):
+        raise AdapterContractError(
+            f"{field}: must be a whole number, got {number:g}"
+        )
+    if number > maximum:
+        raise AdapterContractError(
+            f"{field}: {number:g} exceeds the maximum {maximum:g}"
+        )
+    return number
+
+
+@dataclass(frozen=True)
+class ResourceLimits:
+    """What one job container may take from the host.
+
+    Required in the sense that matters: an `EphemeralInstance` cannot be built
+    without limits, and limits cannot be built without all three numbers. The
+    defaults are `None` only so that the refusal can name the missing field;
+    `__post_init__` refuses each one.
+    """
+
+    memory_mib: int | None = None
+    cpus: float | None = None
+    pids: int | None = None
+
+    def __post_init__(self) -> None:
+        _limit(self.memory_mib, "resource_limits.memory_mib", MAX_MEMORY_MIB,
+               integral=True)
+        _limit(self.cpus, "resource_limits.cpus", MAX_CPUS)
+        _limit(self.pids, "resource_limits.pids", MAX_PIDS, integral=True)
+
+    def arguments(self) -> tuple[str, ...]:
+        """The limits as the container runtime spells them.
+
+        One rendering, used by the command and by nothing else, so the numbers
+        that were validated are the numbers that are run.
+        """
+
+        return (
+            "--memory",
+            f"{int(self.memory_mib)}m",
+            "--cpus",
+            format(float(self.cpus), "g"),
+            "--pids-limit",
+            f"{int(self.pids)}",
+        )
+
+
 @dataclass(frozen=True)
 class EphemeralInstance:
     """One job's container, defined by what it does not have.
@@ -473,6 +557,7 @@ class EphemeralInstance:
     image_digest: str
     registration_env_file: str
     runtime: Runtime
+    limits: ResourceLimits
     remove_on_exit: bool = True
     work_dir: None = None
 
@@ -484,6 +569,11 @@ class EphemeralInstance:
             raise AdapterContractError(
                 "ephemeral_instance.runtime: must be a Runtime, not "
                 f"{type(self.runtime).__name__}"
+            )
+        if not isinstance(self.limits, ResourceLimits):
+            raise AdapterContractError(
+                "ephemeral_instance.limits: must be ResourceLimits — a job "
+                "container is never started without them (fleet-008-04)"
             )
         if self.remove_on_exit is not True:
             raise AdapterContractError(
@@ -527,6 +617,7 @@ class EphemeralInstance:
             self.instance_id,
             "--label",
             f"devgate.pool={self.pool_id}",
+            *self.limits.arguments(),
             "--env",
             "EPHEMERAL=true",
             "--env-file",

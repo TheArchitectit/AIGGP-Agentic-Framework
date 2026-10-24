@@ -37,6 +37,10 @@ program Sec. 5.2 checked by signature rather than by calling them, the eight
 typed errors, the runner image pinned by a digest the fleet standard records,
 and what "warm" means — pre-pulled images or stopped clean containers, never a
 container that has run a job (FLEET-007).
+`lifecycle` is what happens to one of those instances after a job starts:
+a closed state machine with one job per instance, cleanup as a proof a
+replacement waits for, quarantine as the alternative to that proof, and
+the resource limits a job container may not be built without (FLEET-008).
 """
 
 from .apply import (  # noqa: F401
@@ -58,6 +62,7 @@ from .adapters import (  # noqa: F401
     EphemeralInstance,
     ErrorKind,
     InstanceState,
+    ResourceLimits,
     WarmInstance,
     WarmPool,
     check_contract,
@@ -111,6 +116,17 @@ from .documents import (  # noqa: F401
     DOCUMENT_SCHEMA,
     from_document,
     to_document,
+)
+from .lifecycle import (  # noqa: F401
+    TERMINAL_JOB_STATES,
+    AdmissionGate,
+    CleanupEvidence,
+    Disposal,
+    JobLifecycle,
+    JobState,
+    Quarantine,
+    admit_replacement,
+    next_states,
 )
 from .model import (  # noqa: F401
     Assignment,
@@ -205,6 +221,7 @@ __all__ = [
     "EphemeralInstance",
     "ErrorKind",
     "InstanceState",
+    "ResourceLimits",
     "WarmInstance",
     "WarmPool",
     "check_contract",
@@ -256,6 +273,15 @@ __all__ = [
     "DOCUMENT_SCHEMA",
     "from_document",
     "to_document",
+    "TERMINAL_JOB_STATES",
+    "AdmissionGate",
+    "CleanupEvidence",
+    "Disposal",
+    "JobLifecycle",
+    "JobState",
+    "Quarantine",
+    "admit_replacement",
+    "next_states",
     "Observation",
     "ObservationError",
     "ObservedRunner",
