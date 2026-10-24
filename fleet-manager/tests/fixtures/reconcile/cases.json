@@ -1,0 +1,1120 @@
+{
+  "note": "Deterministic reconciliation fixtures. Hand-written expectations; see tests/test_reconcile_v1.py.",
+  "cases": [
+    {
+      "name": "converged",
+      "why": "One warm runner for one assignment: nothing to do, and nothing reported.",
+      "state": {
+        "schema": "fleet-manager-desired-state/1",
+        "revision": 1,
+        "repositories": [],
+        "pools": [
+          {
+            "pool_id": "phase1-linux",
+            "revision": 1,
+            "trust_class": "public",
+            "allowed_repositories": [
+              "TheArchitectit/AIGGP-Agentic-Framework"
+            ],
+            "runner_group": null,
+            "required_labels": {
+              "pool": "phase1"
+            },
+            "runtime": "podman",
+            "image_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "architectures": [
+              "x86_64"
+            ],
+            "ephemeral": true,
+            "warm_min": 1,
+            "warm_max": 2,
+            "scale_ceiling": 3,
+            "idle_timeout_seconds": 300,
+            "job_timeout_seconds": 3600,
+            "cleanup_timeout_seconds": 120,
+            "network_profile": "egress-proxy",
+            "filesystem_profile": "ephemeral-root",
+            "secret_profile": "phase1-job-secrets",
+            "update_channel": "stable",
+            "rollback_image_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "maintenance_window": "sun 02:00-04:00",
+            "disruption_budget": {
+              "max_parallel": 1
+            },
+            "owner": "platform",
+            "escalation": "oncall-fleet"
+          }
+        ],
+        "hosts": [
+          {
+            "architectures": [
+              "x86_64"
+            ],
+            "runtimes": [
+              "podman"
+            ],
+            "labels": {
+              "host": "ucs03"
+            },
+            "allowed_pools": [
+              "phase1-linux"
+            ],
+            "host_id": "ucs03",
+            "slots": 2,
+            "state": "active"
+          }
+        ],
+        "assignments": [
+          {
+            "assignment_id": "a-1",
+            "request_id": "req-1",
+            "pool_id": "phase1-linux",
+            "host_id": "ucs03",
+            "issued_at": "2026-10-24T06:00:00+00:00",
+            "released_at": null
+          }
+        ],
+        "drains": [],
+        "rollouts": []
+      },
+      "observations": [
+        {
+          "host_id": "ucs03",
+          "observed_at": "2026-10-24T06:00:00+00:00",
+          "agent_version": "0.1.0",
+          "runners": [
+            {
+              "runner_id": "r-1",
+              "pool_id": "phase1-linux",
+              "started_at": "2026-10-24T06:00:00+00:00",
+              "job_id": null
+            }
+          ]
+        }
+      ],
+      "limits": {
+        "max_drains": 1,
+        "max_replacements": 1,
+        "max_host_mutations": 1
+      },
+      "halted": false,
+      "expect": {
+        "drifts": [],
+        "changes": [],
+        "deferred": [],
+        "converged": true
+      }
+    },
+    {
+      "name": "warm-shortfall",
+      "why": "Two slots below the warm floor, one host with room: two assignments.",
+      "state": {
+        "schema": "fleet-manager-desired-state/1",
+        "revision": 1,
+        "repositories": [],
+        "pools": [
+          {
+            "pool_id": "phase1-linux",
+            "revision": 1,
+            "trust_class": "public",
+            "allowed_repositories": [
+              "TheArchitectit/AIGGP-Agentic-Framework"
+            ],
+            "runner_group": null,
+            "required_labels": {
+              "pool": "phase1"
+            },
+            "runtime": "podman",
+            "image_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "architectures": [
+              "x86_64"
+            ],
+            "ephemeral": true,
+            "warm_min": 2,
+            "warm_max": 3,
+            "scale_ceiling": 4,
+            "idle_timeout_seconds": 300,
+            "job_timeout_seconds": 3600,
+            "cleanup_timeout_seconds": 120,
+            "network_profile": "egress-proxy",
+            "filesystem_profile": "ephemeral-root",
+            "secret_profile": "phase1-job-secrets",
+            "update_channel": "stable",
+            "rollback_image_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "maintenance_window": "sun 02:00-04:00",
+            "disruption_budget": {
+              "max_parallel": 1
+            },
+            "owner": "platform",
+            "escalation": "oncall-fleet"
+          }
+        ],
+        "hosts": [
+          {
+            "architectures": [
+              "x86_64"
+            ],
+            "runtimes": [
+              "podman"
+            ],
+            "labels": {
+              "host": "ucs03"
+            },
+            "allowed_pools": [
+              "phase1-linux"
+            ],
+            "host_id": "ucs03",
+            "slots": 2,
+            "state": "active"
+          }
+        ],
+        "assignments": [],
+        "drains": [],
+        "rollouts": []
+      },
+      "observations": [
+        {
+          "host_id": "ucs03",
+          "observed_at": "2026-10-24T06:00:00+00:00",
+          "agent_version": "0.1.0",
+          "runners": []
+        }
+      ],
+      "limits": {
+        "max_drains": 1,
+        "max_replacements": 1,
+        "max_host_mutations": 2
+      },
+      "halted": false,
+      "expect": {
+        "drifts": [
+          {
+            "kind": "warm_shortfall",
+            "host_id": null,
+            "pool_id": "phase1-linux",
+            "count": 2,
+            "reason": "observed 0 runner(s) for a warm floor of 2"
+          }
+        ],
+        "changes": [
+          {
+            "kind": "assign",
+            "subject": "rec.phase1-linux.1",
+            "parameters": {
+              "assignment_id": "rec.phase1-linux.1",
+              "request_id": "reconcile.phase1-linux.1",
+              "pool_id": "phase1-linux",
+              "host_id": "ucs03"
+            }
+          },
+          {
+            "kind": "assign",
+            "subject": "rec.phase1-linux.2",
+            "parameters": {
+              "assignment_id": "rec.phase1-linux.2",
+              "request_id": "reconcile.phase1-linux.2",
+              "pool_id": "phase1-linux",
+              "host_id": "ucs03"
+            }
+          }
+        ],
+        "deferred": [],
+        "converged": false
+      }
+    },
+    {
+      "name": "bounded-by-host-mutations",
+      "why": "Three slots short but the host-mutation cap is two: the third waits, with its reason.",
+      "state": {
+        "schema": "fleet-manager-desired-state/1",
+        "revision": 1,
+        "repositories": [],
+        "pools": [
+          {
+            "pool_id": "phase1-linux",
+            "revision": 1,
+            "trust_class": "public",
+            "allowed_repositories": [
+              "TheArchitectit/AIGGP-Agentic-Framework"
+            ],
+            "runner_group": null,
+            "required_labels": {
+              "pool": "phase1"
+            },
+            "runtime": "podman",
+            "image_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "architectures": [
+              "x86_64"
+            ],
+            "ephemeral": true,
+            "warm_min": 3,
+            "warm_max": 4,
+            "scale_ceiling": 5,
+            "idle_timeout_seconds": 300,
+            "job_timeout_seconds": 3600,
+            "cleanup_timeout_seconds": 120,
+            "network_profile": "egress-proxy",
+            "filesystem_profile": "ephemeral-root",
+            "secret_profile": "phase1-job-secrets",
+            "update_channel": "stable",
+            "rollback_image_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "maintenance_window": "sun 02:00-04:00",
+            "disruption_budget": {
+              "max_parallel": 1
+            },
+            "owner": "platform",
+            "escalation": "oncall-fleet"
+          }
+        ],
+        "hosts": [
+          {
+            "architectures": [
+              "x86_64"
+            ],
+            "runtimes": [
+              "podman"
+            ],
+            "labels": {
+              "host": "ucs03"
+            },
+            "allowed_pools": [
+              "phase1-linux"
+            ],
+            "host_id": "ucs03",
+            "slots": 4,
+            "state": "active"
+          }
+        ],
+        "assignments": [],
+        "drains": [],
+        "rollouts": []
+      },
+      "observations": [
+        {
+          "host_id": "ucs03",
+          "observed_at": "2026-10-24T06:00:00+00:00",
+          "agent_version": "0.1.0",
+          "runners": []
+        }
+      ],
+      "limits": {
+        "max_drains": 1,
+        "max_replacements": 1,
+        "max_host_mutations": 2
+      },
+      "halted": false,
+      "expect": {
+        "drifts": [
+          {
+            "kind": "warm_shortfall",
+            "host_id": null,
+            "pool_id": "phase1-linux",
+            "count": 3,
+            "reason": "observed 0 runner(s) for a warm floor of 3"
+          }
+        ],
+        "changes": [
+          {
+            "kind": "assign",
+            "subject": "rec.phase1-linux.1",
+            "parameters": {
+              "assignment_id": "rec.phase1-linux.1",
+              "request_id": "reconcile.phase1-linux.1",
+              "pool_id": "phase1-linux",
+              "host_id": "ucs03"
+            }
+          },
+          {
+            "kind": "assign",
+            "subject": "rec.phase1-linux.2",
+            "parameters": {
+              "assignment_id": "rec.phase1-linux.2",
+              "request_id": "reconcile.phase1-linux.2",
+              "pool_id": "phase1-linux",
+              "host_id": "ucs03"
+            }
+          }
+        ],
+        "deferred": [
+          {
+            "change": {
+              "kind": "assign",
+              "subject": "rec.phase1-linux.3",
+              "parameters": {
+                "assignment_id": "rec.phase1-linux.3",
+                "request_id": "reconcile.phase1-linux.3",
+                "pool_id": "phase1-linux",
+                "host_id": "ucs03"
+              }
+            },
+            "reason": "the host-mutation cap (2) is used by this batch"
+          }
+        ],
+        "converged": false
+      }
+    },
+    {
+      "name": "halted",
+      "why": "The same shortfall with the reconciler halted: the diff is preserved, nothing is submitted.",
+      "state": {
+        "schema": "fleet-manager-desired-state/1",
+        "revision": 1,
+        "repositories": [],
+        "pools": [
+          {
+            "pool_id": "phase1-linux",
+            "revision": 1,
+            "trust_class": "public",
+            "allowed_repositories": [
+              "TheArchitectit/AIGGP-Agentic-Framework"
+            ],
+            "runner_group": null,
+            "required_labels": {
+              "pool": "phase1"
+            },
+            "runtime": "podman",
+            "image_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "architectures": [
+              "x86_64"
+            ],
+            "ephemeral": true,
+            "warm_min": 3,
+            "warm_max": 4,
+            "scale_ceiling": 5,
+            "idle_timeout_seconds": 300,
+            "job_timeout_seconds": 3600,
+            "cleanup_timeout_seconds": 120,
+            "network_profile": "egress-proxy",
+            "filesystem_profile": "ephemeral-root",
+            "secret_profile": "phase1-job-secrets",
+            "update_channel": "stable",
+            "rollback_image_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "maintenance_window": "sun 02:00-04:00",
+            "disruption_budget": {
+              "max_parallel": 1
+            },
+            "owner": "platform",
+            "escalation": "oncall-fleet"
+          }
+        ],
+        "hosts": [
+          {
+            "architectures": [
+              "x86_64"
+            ],
+            "runtimes": [
+              "podman"
+            ],
+            "labels": {
+              "host": "ucs03"
+            },
+            "allowed_pools": [
+              "phase1-linux"
+            ],
+            "host_id": "ucs03",
+            "slots": 4,
+            "state": "active"
+          }
+        ],
+        "assignments": [],
+        "drains": [],
+        "rollouts": []
+      },
+      "observations": [
+        {
+          "host_id": "ucs03",
+          "observed_at": "2026-10-24T06:00:00+00:00",
+          "agent_version": "0.1.0",
+          "runners": []
+        }
+      ],
+      "limits": {
+        "max_drains": 1,
+        "max_replacements": 1,
+        "max_host_mutations": 2
+      },
+      "halted": true,
+      "expect": {
+        "drifts": [
+          {
+            "kind": "warm_shortfall",
+            "host_id": null,
+            "pool_id": "phase1-linux",
+            "count": 3,
+            "reason": "observed 0 runner(s) for a warm floor of 3"
+          }
+        ],
+        "changes": [],
+        "deferred": [
+          {
+            "change": {
+              "kind": "assign",
+              "subject": "rec.phase1-linux.1",
+              "parameters": {
+                "assignment_id": "rec.phase1-linux.1",
+                "request_id": "reconcile.phase1-linux.1",
+                "pool_id": "phase1-linux",
+                "host_id": "ucs03"
+              }
+            },
+            "reason": "the reconciler is halted; no new mutation is submitted"
+          },
+          {
+            "change": {
+              "kind": "assign",
+              "subject": "rec.phase1-linux.2",
+              "parameters": {
+                "assignment_id": "rec.phase1-linux.2",
+                "request_id": "reconcile.phase1-linux.2",
+                "pool_id": "phase1-linux",
+                "host_id": "ucs03"
+              }
+            },
+            "reason": "the reconciler is halted; no new mutation is submitted"
+          },
+          {
+            "change": {
+              "kind": "assign",
+              "subject": "rec.phase1-linux.3",
+              "parameters": {
+                "assignment_id": "rec.phase1-linux.3",
+                "request_id": "reconcile.phase1-linux.3",
+                "pool_id": "phase1-linux",
+                "host_id": "ucs03"
+              }
+            },
+            "reason": "the reconciler is halted; no new mutation is submitted"
+          }
+        ],
+        "converged": false
+      }
+    },
+    {
+      "name": "unmanaged-runner-is-left-alone",
+      "why": "A host reports two runners the desired state cannot account for, one with a job: they are reported, and no change touches them.",
+      "state": {
+        "schema": "fleet-manager-desired-state/1",
+        "revision": 1,
+        "repositories": [],
+        "pools": [
+          {
+            "pool_id": "phase1-linux",
+            "revision": 1,
+            "trust_class": "public",
+            "allowed_repositories": [
+              "TheArchitectit/AIGGP-Agentic-Framework"
+            ],
+            "runner_group": null,
+            "required_labels": {
+              "pool": "phase1"
+            },
+            "runtime": "podman",
+            "image_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "architectures": [
+              "x86_64"
+            ],
+            "ephemeral": true,
+            "warm_min": 1,
+            "warm_max": 2,
+            "scale_ceiling": 3,
+            "idle_timeout_seconds": 300,
+            "job_timeout_seconds": 3600,
+            "cleanup_timeout_seconds": 120,
+            "network_profile": "egress-proxy",
+            "filesystem_profile": "ephemeral-root",
+            "secret_profile": "phase1-job-secrets",
+            "update_channel": "stable",
+            "rollback_image_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "maintenance_window": "sun 02:00-04:00",
+            "disruption_budget": {
+              "max_parallel": 1
+            },
+            "owner": "platform",
+            "escalation": "oncall-fleet"
+          }
+        ],
+        "hosts": [
+          {
+            "architectures": [
+              "x86_64"
+            ],
+            "runtimes": [
+              "podman"
+            ],
+            "labels": {
+              "host": "ucs03"
+            },
+            "allowed_pools": [
+              "phase1-linux"
+            ],
+            "host_id": "ucs03",
+            "slots": 2,
+            "state": "active"
+          }
+        ],
+        "assignments": [],
+        "drains": [],
+        "rollouts": []
+      },
+      "observations": [
+        {
+          "host_id": "ucs03",
+          "observed_at": "2026-10-24T06:00:00+00:00",
+          "agent_version": "0.1.0",
+          "runners": [
+            {
+              "runner_id": "r-1",
+              "pool_id": "phase1-linux",
+              "started_at": "2026-10-24T06:00:00+00:00",
+              "job_id": "job-1"
+            },
+            {
+              "runner_id": "r-2",
+              "pool_id": "phase1-linux",
+              "started_at": "2026-10-24T06:00:00+00:00",
+              "job_id": null
+            }
+          ]
+        }
+      ],
+      "limits": {
+        "max_drains": 1,
+        "max_replacements": 1,
+        "max_host_mutations": 1
+      },
+      "halted": false,
+      "expect": {
+        "drifts": [
+          {
+            "kind": "unmanaged_runner",
+            "host_id": "ucs03",
+            "pool_id": "phase1-linux",
+            "count": 2,
+            "reason": "runner is not accounted for by an assignment; left alone"
+          }
+        ],
+        "changes": [],
+        "deferred": [],
+        "converged": true
+      }
+    },
+    {
+      "name": "drain-completable",
+      "why": "A draining host with no assignment and no reported runner may complete its drain.",
+      "state": {
+        "schema": "fleet-manager-desired-state/1",
+        "revision": 1,
+        "repositories": [],
+        "pools": [
+          {
+            "pool_id": "phase1-linux",
+            "revision": 1,
+            "trust_class": "public",
+            "allowed_repositories": [
+              "TheArchitectit/AIGGP-Agentic-Framework"
+            ],
+            "runner_group": null,
+            "required_labels": {
+              "pool": "phase1"
+            },
+            "runtime": "podman",
+            "image_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "architectures": [
+              "x86_64"
+            ],
+            "ephemeral": true,
+            "warm_min": 1,
+            "warm_max": 2,
+            "scale_ceiling": 3,
+            "idle_timeout_seconds": 300,
+            "job_timeout_seconds": 3600,
+            "cleanup_timeout_seconds": 120,
+            "network_profile": "egress-proxy",
+            "filesystem_profile": "ephemeral-root",
+            "secret_profile": "phase1-job-secrets",
+            "update_channel": "stable",
+            "rollback_image_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "maintenance_window": "sun 02:00-04:00",
+            "disruption_budget": {
+              "max_parallel": 1
+            },
+            "owner": "platform",
+            "escalation": "oncall-fleet"
+          }
+        ],
+        "hosts": [
+          {
+            "architectures": [
+              "x86_64"
+            ],
+            "runtimes": [
+              "podman"
+            ],
+            "labels": {
+              "host": "ucs03"
+            },
+            "allowed_pools": [
+              "phase1-linux"
+            ],
+            "host_id": "ucs03",
+            "slots": 2,
+            "state": "draining"
+          }
+        ],
+        "assignments": [],
+        "drains": [
+          {
+            "host_id": "ucs03",
+            "reason": "kernel upgrade",
+            "requested_at": "2026-10-24T06:00:00+00:00",
+            "state": "draining",
+            "completed_at": null,
+            "ended_at": null
+          }
+        ],
+        "rollouts": []
+      },
+      "observations": [
+        {
+          "host_id": "ucs03",
+          "observed_at": "2026-10-24T06:00:00+00:00",
+          "agent_version": "0.1.0",
+          "runners": []
+        }
+      ],
+      "limits": {
+        "max_drains": 1,
+        "max_replacements": 1,
+        "max_host_mutations": 1
+      },
+      "halted": false,
+      "expect": {
+        "drifts": [
+          {
+            "kind": "drain_completable",
+            "host_id": "ucs03",
+            "pool_id": null,
+            "count": 0,
+            "reason": "no assignment and no observed runner remains"
+          },
+          {
+            "kind": "warm_shortfall",
+            "host_id": null,
+            "pool_id": "phase1-linux",
+            "count": 1,
+            "reason": "observed 0 runner(s) for a warm floor of 1"
+          }
+        ],
+        "changes": [
+          {
+            "kind": "complete_drain",
+            "subject": "ucs03",
+            "parameters": {}
+          }
+        ],
+        "deferred": [],
+        "converged": false
+      }
+    },
+    {
+      "name": "drain-blocked-by-observed-runner",
+      "why": "The same host still reports a runner: the drain is not completed and nothing is assigned to a host that is draining.",
+      "state": {
+        "schema": "fleet-manager-desired-state/1",
+        "revision": 1,
+        "repositories": [],
+        "pools": [
+          {
+            "pool_id": "phase1-linux",
+            "revision": 1,
+            "trust_class": "public",
+            "allowed_repositories": [
+              "TheArchitectit/AIGGP-Agentic-Framework"
+            ],
+            "runner_group": null,
+            "required_labels": {
+              "pool": "phase1"
+            },
+            "runtime": "podman",
+            "image_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "architectures": [
+              "x86_64"
+            ],
+            "ephemeral": true,
+            "warm_min": 1,
+            "warm_max": 2,
+            "scale_ceiling": 3,
+            "idle_timeout_seconds": 300,
+            "job_timeout_seconds": 3600,
+            "cleanup_timeout_seconds": 120,
+            "network_profile": "egress-proxy",
+            "filesystem_profile": "ephemeral-root",
+            "secret_profile": "phase1-job-secrets",
+            "update_channel": "stable",
+            "rollback_image_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "maintenance_window": "sun 02:00-04:00",
+            "disruption_budget": {
+              "max_parallel": 1
+            },
+            "owner": "platform",
+            "escalation": "oncall-fleet"
+          }
+        ],
+        "hosts": [
+          {
+            "architectures": [
+              "x86_64"
+            ],
+            "runtimes": [
+              "podman"
+            ],
+            "labels": {
+              "host": "ucs03"
+            },
+            "allowed_pools": [
+              "phase1-linux"
+            ],
+            "host_id": "ucs03",
+            "slots": 2,
+            "state": "draining"
+          }
+        ],
+        "assignments": [],
+        "drains": [
+          {
+            "host_id": "ucs03",
+            "reason": "kernel upgrade",
+            "requested_at": "2026-10-24T06:00:00+00:00",
+            "state": "draining",
+            "completed_at": null,
+            "ended_at": null
+          }
+        ],
+        "rollouts": []
+      },
+      "observations": [
+        {
+          "host_id": "ucs03",
+          "observed_at": "2026-10-24T06:00:00+00:00",
+          "agent_version": "0.1.0",
+          "runners": [
+            {
+              "runner_id": "r-1",
+              "pool_id": "phase1-linux",
+              "started_at": "2026-10-24T06:00:00+00:00",
+              "job_id": null
+            }
+          ]
+        }
+      ],
+      "limits": {
+        "max_drains": 1,
+        "max_replacements": 1,
+        "max_host_mutations": 1
+      },
+      "halted": false,
+      "expect": {
+        "drifts": [
+          {
+            "kind": "drain_blocked",
+            "host_id": "ucs03",
+            "pool_id": null,
+            "count": 1,
+            "reason": "0 assignment(s) and 1 observed runner(s) remain; the drain is not completed"
+          },
+          {
+            "kind": "warm_shortfall",
+            "host_id": null,
+            "pool_id": "phase1-linux",
+            "count": 1,
+            "reason": "observed 0 runner(s) for a warm floor of 1"
+          }
+        ],
+        "changes": [],
+        "deferred": [],
+        "converged": true
+      }
+    },
+    {
+      "name": "placement-spreads-across-hosts",
+      "why": "Two identical hosts: the tie goes to the lower id, then to the host with more room.",
+      "state": {
+        "schema": "fleet-manager-desired-state/1",
+        "revision": 1,
+        "repositories": [],
+        "pools": [
+          {
+            "pool_id": "phase1-linux",
+            "revision": 1,
+            "trust_class": "public",
+            "allowed_repositories": [
+              "TheArchitectit/AIGGP-Agentic-Framework"
+            ],
+            "runner_group": null,
+            "required_labels": {
+              "pool": "phase1"
+            },
+            "runtime": "podman",
+            "image_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "architectures": [
+              "x86_64"
+            ],
+            "ephemeral": true,
+            "warm_min": 2,
+            "warm_max": 3,
+            "scale_ceiling": 4,
+            "idle_timeout_seconds": 300,
+            "job_timeout_seconds": 3600,
+            "cleanup_timeout_seconds": 120,
+            "network_profile": "egress-proxy",
+            "filesystem_profile": "ephemeral-root",
+            "secret_profile": "phase1-job-secrets",
+            "update_channel": "stable",
+            "rollback_image_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "maintenance_window": "sun 02:00-04:00",
+            "disruption_budget": {
+              "max_parallel": 1
+            },
+            "owner": "platform",
+            "escalation": "oncall-fleet"
+          }
+        ],
+        "hosts": [
+          {
+            "architectures": [
+              "x86_64"
+            ],
+            "runtimes": [
+              "podman"
+            ],
+            "labels": {
+              "host": "ucs03"
+            },
+            "allowed_pools": [
+              "phase1-linux"
+            ],
+            "host_id": "ucs03",
+            "slots": 2,
+            "state": "active"
+          },
+          {
+            "architectures": [
+              "x86_64"
+            ],
+            "runtimes": [
+              "podman"
+            ],
+            "labels": {
+              "host": "ucs04"
+            },
+            "allowed_pools": [
+              "phase1-linux"
+            ],
+            "host_id": "ucs04",
+            "slots": 2,
+            "state": "active"
+          }
+        ],
+        "assignments": [],
+        "drains": [],
+        "rollouts": []
+      },
+      "observations": [
+        {
+          "host_id": "ucs03",
+          "observed_at": "2026-10-24T06:00:00+00:00",
+          "agent_version": "0.1.0",
+          "runners": []
+        },
+        {
+          "host_id": "ucs04",
+          "observed_at": "2026-10-24T06:00:00+00:00",
+          "agent_version": "0.1.0",
+          "runners": []
+        }
+      ],
+      "limits": {
+        "max_drains": 1,
+        "max_replacements": 1,
+        "max_host_mutations": 2
+      },
+      "halted": false,
+      "expect": {
+        "drifts": [
+          {
+            "kind": "warm_shortfall",
+            "host_id": null,
+            "pool_id": "phase1-linux",
+            "count": 2,
+            "reason": "observed 0 runner(s) for a warm floor of 2"
+          }
+        ],
+        "changes": [
+          {
+            "kind": "assign",
+            "subject": "rec.phase1-linux.1",
+            "parameters": {
+              "assignment_id": "rec.phase1-linux.1",
+              "request_id": "reconcile.phase1-linux.1",
+              "pool_id": "phase1-linux",
+              "host_id": "ucs03"
+            }
+          },
+          {
+            "kind": "assign",
+            "subject": "rec.phase1-linux.2",
+            "parameters": {
+              "assignment_id": "rec.phase1-linux.2",
+              "request_id": "reconcile.phase1-linux.2",
+              "pool_id": "phase1-linux",
+              "host_id": "ucs04"
+            }
+          }
+        ],
+        "deferred": [],
+        "converged": false
+      }
+    },
+    {
+      "name": "silent-host-gets-no-assignment",
+      "why": "A silent host is reported and receives no work; the shortfall lands on the host that reported.",
+      "state": {
+        "schema": "fleet-manager-desired-state/1",
+        "revision": 1,
+        "repositories": [],
+        "pools": [
+          {
+            "pool_id": "phase1-linux",
+            "revision": 1,
+            "trust_class": "public",
+            "allowed_repositories": [
+              "TheArchitectit/AIGGP-Agentic-Framework"
+            ],
+            "runner_group": null,
+            "required_labels": {
+              "pool": "phase1"
+            },
+            "runtime": "podman",
+            "image_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "architectures": [
+              "x86_64"
+            ],
+            "ephemeral": true,
+            "warm_min": 2,
+            "warm_max": 3,
+            "scale_ceiling": 4,
+            "idle_timeout_seconds": 300,
+            "job_timeout_seconds": 3600,
+            "cleanup_timeout_seconds": 120,
+            "network_profile": "egress-proxy",
+            "filesystem_profile": "ephemeral-root",
+            "secret_profile": "phase1-job-secrets",
+            "update_channel": "stable",
+            "rollback_image_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "maintenance_window": "sun 02:00-04:00",
+            "disruption_budget": {
+              "max_parallel": 1
+            },
+            "owner": "platform",
+            "escalation": "oncall-fleet"
+          }
+        ],
+        "hosts": [
+          {
+            "architectures": [
+              "x86_64"
+            ],
+            "runtimes": [
+              "podman"
+            ],
+            "labels": {
+              "host": "ucs03"
+            },
+            "allowed_pools": [
+              "phase1-linux"
+            ],
+            "host_id": "ucs03",
+            "slots": 2,
+            "state": "active"
+          },
+          {
+            "architectures": [
+              "x86_64"
+            ],
+            "runtimes": [
+              "podman"
+            ],
+            "labels": {
+              "host": "ucs04"
+            },
+            "allowed_pools": [
+              "phase1-linux"
+            ],
+            "host_id": "ucs04",
+            "slots": 2,
+            "state": "active"
+          }
+        ],
+        "assignments": [],
+        "drains": [],
+        "rollouts": []
+      },
+      "observations": [
+        {
+          "host_id": "ucs03",
+          "observed_at": "2026-10-24T06:00:00+00:00",
+          "agent_version": "0.1.0",
+          "runners": []
+        }
+      ],
+      "limits": {
+        "max_drains": 1,
+        "max_replacements": 1,
+        "max_host_mutations": 2
+      },
+      "halted": false,
+      "expect": {
+        "drifts": [
+          {
+            "kind": "host_not_reporting",
+            "host_id": "ucs04",
+            "pool_id": null,
+            "count": 0,
+            "reason": "no observation for an active host; it gets no new assignment"
+          },
+          {
+            "kind": "warm_shortfall",
+            "host_id": null,
+            "pool_id": "phase1-linux",
+            "count": 2,
+            "reason": "observed 0 runner(s) for a warm floor of 2"
+          }
+        ],
+        "changes": [
+          {
+            "kind": "assign",
+            "subject": "rec.phase1-linux.1",
+            "parameters": {
+              "assignment_id": "rec.phase1-linux.1",
+              "request_id": "reconcile.phase1-linux.1",
+              "pool_id": "phase1-linux",
+              "host_id": "ucs03"
+            }
+          },
+          {
+            "kind": "assign",
+            "subject": "rec.phase1-linux.2",
+            "parameters": {
+              "assignment_id": "rec.phase1-linux.2",
+              "request_id": "reconcile.phase1-linux.2",
+              "pool_id": "phase1-linux",
+              "host_id": "ucs03"
+            }
+          }
+        ],
+        "deferred": [],
+        "converged": false
+      }
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-# spec: repo-003-01, fleet-001-01, fleet-001-02, fleet-001-03, fleet-002-01, fleet-002-02, fleet-002-03, fleet-002-04
+# spec: repo-003-01, fleet-001-01, fleet-001-02, fleet-001-03, fleet-002-01, fleet-002-02, fleet-002-03, fleet-002-04, fleet-003-01, fleet-003-02, fleet-003-03, fleet-003-04
 """Fleet Manager package (product-tiers boundary root, REPO-002).
 
 Everything here is inside the `fleet-manager/` boundary declared by
@@ -13,6 +13,9 @@ checksummed, capacity-impacted), an apply is the one thing that produces a new
 revision, and it does so only against the revision it was planned against, only
 for an authorized principal, and only once per idempotency key. `audit` records
 both the applies and the refusals; `auth` is where a request becomes a decision.
+`reconcile` reads the other side: it diffs a revision against what hosts report
+and returns a bounded diff whose changes are the same values `plan` takes, so a
+reconciliation is carried out through the same apply as an operator's plan.
 """
 
 from .apply import (  # noqa: F401
@@ -87,6 +90,19 @@ from .plan import (  # noqa: F401
     plan_id_for,
     simulate,
 )
+from .reconcile import (  # noqa: F401
+    ConvergenceLimits,
+    Deferred,
+    Drift,
+    DriftKind,
+    ReconcileError,
+    Reconciliation,
+    bound_candidates,
+    observation_from_document,
+    observation_to_document,
+    reconcile,
+    reconciliation_id_for,
+)
 
 __all__ = [
     "CONTRACT_VERSION",
@@ -122,6 +138,17 @@ __all__ = [
     "Observation",
     "ObservationError",
     "ObservedRunner",
+    "ConvergenceLimits",
+    "Deferred",
+    "Drift",
+    "DriftKind",
+    "ReconcileError",
+    "Reconciliation",
+    "bound_candidates",
+    "observation_from_document",
+    "observation_to_document",
+    "reconcile",
+    "reconciliation_id_for",
     "ApplyError",
     "ApplyRefused",
     "ApplyResult",
