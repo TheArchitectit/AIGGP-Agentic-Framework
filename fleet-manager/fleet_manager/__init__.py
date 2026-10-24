@@ -1,4 +1,4 @@
-# spec: repo-003-01, fleet-001-01, fleet-001-02, fleet-001-03, fleet-002-01, fleet-002-02, fleet-002-03, fleet-002-04, fleet-003-01, fleet-003-02, fleet-003-03, fleet-003-04, fleet-004-01, fleet-004-02, fleet-004-03, fleet-004-04, fleet-004-05
+# spec: repo-003-01, fleet-001-01, fleet-001-02, fleet-001-03, fleet-002-01, fleet-002-02, fleet-002-03, fleet-002-04, fleet-003-01, fleet-003-02, fleet-003-03, fleet-003-04, fleet-004-01, fleet-004-02, fleet-004-03, fleet-004-04, fleet-004-05, fleet-005-01, fleet-005-02, fleet-005-03, fleet-005-04, fleet-005-05
 """Fleet Manager package (product-tiers boundary root, REPO-002).
 
 Everything here is inside the `fleet-manager/` boundary declared by
@@ -22,6 +22,11 @@ revocation as values and the signed-report checks as rules, with the signature
 provider injected — the manager never dials a host (FLEET-004), and choosing a
 verifier stays a decision with a security sign-off rather than a default in a
 module.
+`operations` is what such a caller may be told to do: a closed catalogue of
+typed adapter operations (no shell-shaped parameter exists to say "run this"),
+a deny-by-default allowlist per agent, and receipts — the agent's claim is
+evidence tied to an operation the manager issued, and the manager's contract-v1
+receipt is built from that claim rather than forwarded (FLEET-005).
 """
 
 from .apply import (  # noqa: F401
@@ -102,6 +107,23 @@ from .observation import (  # noqa: F401
     ObservationError,
     ObservedRunner,
 )
+from .operations import (  # noqa: F401
+    OPERATION_SCHEMA,
+    READ_ONLY,
+    RECEIPT_SCHEMA,
+    RUNNER_ENROLL_MIGRATION,
+    AgentCapabilities,
+    AgentReceipt,
+    Evidence,
+    Operation,
+    OperationKind,
+    OperationLedger,
+    OperationRefused,
+    ReceiptOutcome,
+    Subject,
+    SubjectKind,
+    permit,
+)
 from .plan import (  # noqa: F401
     PLAN_CLOCK_FLOOR,
     CapacityImpact,
@@ -178,6 +200,21 @@ __all__ = [
     "Observation",
     "ObservationError",
     "ObservedRunner",
+    "OPERATION_SCHEMA",
+    "READ_ONLY",
+    "RECEIPT_SCHEMA",
+    "RUNNER_ENROLL_MIGRATION",
+    "AgentCapabilities",
+    "AgentReceipt",
+    "Evidence",
+    "Operation",
+    "OperationKind",
+    "OperationLedger",
+    "OperationRefused",
+    "ReceiptOutcome",
+    "Subject",
+    "SubjectKind",
+    "permit",
     "ConvergenceLimits",
     "Deferred",
     "Drift",
