@@ -158,6 +158,33 @@ Two notes on the gates as measured rather than as assumed:
   numbers in this document are `wc -l`, not a gate result. The gap predates
   this slice and belongs in a repo-hygiene change, not a security one.
 
+## What CI caught after this slice landed
+
+CI run `40075557718` on the previous commit (`8d73fcb`, box 3.2) failed two
+jobs, both on the same defect: the 3.2 suite carried two credential-shaped
+literals as test data (a GitHub-PAT-shaped value and an `AKIA`-shaped one).
+Neither was ever a credential, and both were there to prove that a refusal
+does not echo what it refuses. That is still not something a public repository
+gets to ship: the pinned gitleaks job flagged the first as `github-pat`, and
+the DevGate regression job flagged the second with PREVENT-018.
+
+Fixed in `c989a7f` (value assembled at run time, so the source carries no
+credential-shaped literal), and the one occurrence that remains in history was
+dispositioned by rule and path in `.guardrails/secret-allowlist.json` with its
+reason in `d0b8e4f` — history cannot be rewritten without a force-push, which
+this program does not do.
+
+The lesson is about scope, not about the literals: a local
+`regression_check.py --base origin/main` after a push scans the working tree
+against a base that already contains the commit, so a defect introduced in
+that commit is invisible to it. The gate that sees it is the one CI runs —
+`EV_BEFORE..EV_AFTER`, the pushed range.
+
+CI run `40076948739` on `d0b8e4f` — the commit carrying both fixes — completed
+**success on all seven jobs**, including the two that had failed (`Secret scan`
+and `DevGate gates on DevGate`). So the slice is green, but its first push was
+not, and the record says which run was which.
+
 ## Deliberately absent
 
 - **No signature implementation.** Both Ed25519 providers in this repository
