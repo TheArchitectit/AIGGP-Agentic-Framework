@@ -122,6 +122,10 @@ def _count(value: object, where: str, minimum: int = 0) -> int:
     return value
 
 
+def _instant(value: str, where: str) -> datetime:
+    return datetime.fromisoformat(_timestamp(value, where))
+
+
 def _timestamp(value: object, where: str) -> str:
     if not isinstance(value, str):
         raise ModelError(f"{where}: must be an ISO-8601 timestamp with a timezone")
@@ -359,7 +363,9 @@ class Assignment:
         _timestamp(self.issued_at, "assignment.issued_at")
         if self.released_at is not None:
             _timestamp(self.released_at, "assignment.released_at")
-            if self.released_at < self.issued_at:
+            if _instant(self.released_at, "assignment.released_at") < _instant(
+                self.issued_at, "assignment.issued_at"
+            ):
                 raise ModelError("assignment.released_at: must not precede issued_at")
 
     @property

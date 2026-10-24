@@ -61,7 +61,10 @@ def _list(value: object, where: str) -> list:
 
 def _pairs(value: object, where: str) -> tuple[tuple[str, str], ...]:
     obj = _object(value, where)
-    return tuple(sorted((str(key), str(item)) for key, item in obj.items()))
+    for key, item in obj.items():
+        if not isinstance(key, str) or not isinstance(item, str):
+            raise ModelError(f"{where}: label names and values must both be strings")
+    return tuple(sorted((key, item) for key, item in obj.items()))
 
 
 def _enum(kind, value: object, where: str):

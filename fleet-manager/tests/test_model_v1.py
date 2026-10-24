@@ -23,7 +23,7 @@ from fleet_manager.model import DesiredState, ModelError  # noqa: E402
 
 # This suite keeps its own floor: the open-core tests/expected-counts.json is
 # generated from tests/ and this package must survive extraction (REPO-005).
-EXPECTED_TEST_COUNT = 34
+EXPECTED_TEST_COUNT = 36
 
 DIGEST_A = "sha256:" + "a" * 64
 DIGEST_B = "sha256:" + "b" * 64
@@ -197,6 +197,11 @@ class TestPoolDeclaresItsContract(unittest.TestCase):
             documents.pool_from_document(_pool_doc(image_digest="ghcr.io/x:latest"))
         self.assertIn("cannot be pinned", str(caught.exception))
 
+    def test_a_non_string_label_is_refused(self):
+        with self.assertRaises(ModelError) as caught:
+            documents.pool_from_document(_pool_doc(required_labels={"pool": 5}))
+        self.assertIn("must both be strings", str(caught.exception))
+
     def test_the_update_channel_is_closed(self):
         with self.assertRaises(ModelError) as caught:
             documents.pool_from_document(_pool_doc(update_channel="nightly"))
@@ -308,6 +313,12 @@ class TestCapacityDrainAndRollout(unittest.TestCase):
         back = complete.with_host_returned(host_id="ucs03", at=LATER)
         self.assertEqual(back.host("ucs03").state.value, "active")
         self.assertEqual(back.drains[-1].state.value, "ended")
+
+    def test_a_release_cannot_precede_its_issue(self):
+        state = _assign(_state())
+        with self.assertRaises(ModelError) as caught:
+            state.with_release(assignment_id="a-1", at="2026-10-24T05:00:00+00:00")
+        self.assertIn("must not precede issued_at", str(caught.exception))
 
     def test_a_drain_cannot_start_twice(self):
         state = _state().with_drain(host_id="ucs03", reason="kernel upgrade", at=AT)
