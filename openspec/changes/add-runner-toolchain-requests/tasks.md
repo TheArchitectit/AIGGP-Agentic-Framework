@@ -374,9 +374,29 @@ Live tree is the `mission-control-rs/` directory inside
 `TheArchitectit/mission-control-rs` repository is **not** the live tree; retire
 or label it.
 
-- [ ] 5.0 Write the MC companion OpenSpec change **first**, including the
+- [x] 5.0 Write the MC companion OpenSpec change **first**, including the
       auth-gate-coverage classification of the decide route. Pin both commit
       SHAs in the pull request.
+      **Landed as MC `mission-control-rs/openspec/changes/2026-10-04-fleet-toolchain-queue`**
+      (PR #21, merge `7673f544`, now under `changes/archive/`). Its
+      `specs/fleet-toolchain-queue` carries "The decide route is classified by
+      the auth-gate mutation gate", and the gate classifies it as
+      `("/toolchain-requests/:id/decide", "POST", Domain::Protected)` in
+      `tests/route_auth_manifest.rs`. **Re-measured 2026-10-24 on the live
+      tree, not from the change's HANDOFF:** `cargo test --test
+      route_auth_manifest` 2/2 green (`every_mutating_route_is_classified`,
+      `classified_mutations_enforce_their_auth_domain`) and `cargo test --test
+      toolchain_queue_contract` 6/6 green — `decide_anonymous_is_401`,
+      `decide_write_only_key_is_403`, `decide_cookie_without_csrf_is_403`,
+      `admin_decide_reaches_handler_and_refuses_without_credential`. SHAs
+      pinned in the pull request as comment 6386723284 on PR #21: hub contract
+      `98737e1` and hub enforcement `019f6a3` (both verified reachable on
+      `origin/main`), MC implementation `bf638299` with green CI run
+      40044697180 (re-read: conclusion `success`), spec merge `7673f544`. The
+      PR body's earlier `a0ea8ff` is **not** on `origin/main` — the rebased
+      duplicate this change's own header corrected — so the comment pins the
+      pair a reviewer can actually fetch rather than leaving an unfetchable
+      reference as the only pin.
 - [x] 5.1 Hub adapter: `src/adapters/` alongside `hermes.rs`, `loki.rs`,
       `rad_a2a.rs`. Explicit timeout. No local cache.
       **Landed in MC `d084f78`.** `src/adapters/toolchain.rs`; timeout on every
@@ -418,9 +438,26 @@ or label it.
       `unreachable_read_is_502_never_empty` asserts the payload never contains
       `"requests":[]`, and a hub that answers empty is a separate test proving
       empty ≠ unreachable.
-- [ ] 5.7 Reconcile the stale `frontend-architecture` spec text as part of the
+- [x] 5.7 Reconcile the stale `frontend-architecture` spec text as part of the
       companion change (it still says the React SPA "SHALL be removed" while a
       later decision admits React islands on six routes).
+      **Done in the companion change's S5.1 (`47ce39f0` "docs(spec):
+      frontend-architecture stops claiming the React island does not exist"),
+      re-read live 2026-10-24.** The crate spec
+      `mission-control-rs/openspec/specs/frontend-architecture/spec.md` now
+      states, in the Purpose and in the "Single frontend: Askama + HTMX" /
+      "Server-rendered primary frontend with a bounded React island"
+      requirements, the Askama+HTMX primary plus the six-route React island
+      allowlist (`/runners`, `/logs`, `/admin`, `/admin/channels`,
+      `/admin/groups`, `/projects/*`). No live requirement claims the SPA
+      SHALL be removed: that phrase survives only as a quotation inside change
+      documents that record the contradiction (and inside this change's own
+      Q5), which is where a superseded claim belongs. The companion change's
+      `specs/fleet-toolchain-queue` states the same reconciliation — the spec
+      "no longer states that the React/Vite SPA SHALL be removed while the
+      router registers React island shell routes" — with a scenario asserting
+      it. Applied by `adb0783e` (archive); crate-tree strict validate was
+      35/35 at that archive.
 - [x] 5.8 **Hub-side, executed in this repo:** make the request-set read carry
       what a queue needs to render a row and act on it — the lane's repository
       and host alias, the lane's coverage state derived at read time, and the
