@@ -1,4 +1,4 @@
-# spec: repo-003-01, fleet-001-01, fleet-001-02, fleet-001-03, fleet-002-01, fleet-002-02, fleet-002-03, fleet-002-04, fleet-003-01, fleet-003-02, fleet-003-03, fleet-003-04, fleet-004-01, fleet-004-02, fleet-004-03, fleet-004-04, fleet-004-05, fleet-005-01, fleet-005-02, fleet-005-03, fleet-005-04, fleet-005-05, fleet-006-01, fleet-006-02, fleet-006-03, fleet-006-04
+# spec: repo-003-01, fleet-001-01, fleet-001-02, fleet-001-03, fleet-002-01, fleet-002-02, fleet-002-03, fleet-002-04, fleet-003-01, fleet-003-02, fleet-003-03, fleet-003-04, fleet-004-01, fleet-004-02, fleet-004-03, fleet-004-04, fleet-004-05, fleet-005-01, fleet-005-02, fleet-005-03, fleet-005-04, fleet-005-05, fleet-006-01, fleet-006-02, fleet-006-03, fleet-006-04, fleet-007-01, fleet-007-02, fleet-007-03, fleet-007-04
 """Fleet Manager package (product-tiers boundary root, REPO-002).
 
 Everything here is inside the `fleet-manager/` boundary declared by
@@ -32,6 +32,11 @@ desired state for exactly one audience, at a revision, with a bounded lifetime
 and a monotonic per-audience sequence, over one frozen canonical profile. A host
 verifies it before reconciling toward it, and the sequence is what makes "this
 state" mean now rather than whenever it was captured (FLEET-006).
+`adapters` is the shape of the thing that acts on a host: the eleven calls of
+program Sec. 5.2 checked by signature rather than by calling them, the eight
+typed errors, the runner image pinned by a digest the fleet standard records,
+and what "warm" means — pre-pulled images or stopped clean containers, never a
+container that has run a job (FLEET-007).
 """
 
 from .apply import (  # noqa: F401
@@ -40,6 +45,24 @@ from .apply import (  # noqa: F401
     ApplyResult,
     IdempotencyLedger,
     apply_plan,
+)
+from .adapters import (  # noqa: F401
+    ADAPTER_CALLS,
+    MUTATING_CALLS,
+    RUNNER_IMAGE_REPOSITORY,
+    STANDARD_RUNNER_IMAGE_DIGEST,
+    WARM_STATES,
+    AdapterContract,
+    AdapterContractError,
+    AdapterError,
+    EphemeralInstance,
+    ErrorKind,
+    InstanceState,
+    WarmInstance,
+    WarmPool,
+    check_contract,
+    classify,
+    image_reference,
 )
 from .audit import (  # noqa: F401
     AuditError,
@@ -171,6 +194,22 @@ from .state import (  # noqa: F401
 )
 
 __all__ = [
+    "ADAPTER_CALLS",
+    "MUTATING_CALLS",
+    "RUNNER_IMAGE_REPOSITORY",
+    "STANDARD_RUNNER_IMAGE_DIGEST",
+    "WARM_STATES",
+    "AdapterContract",
+    "AdapterContractError",
+    "AdapterError",
+    "EphemeralInstance",
+    "ErrorKind",
+    "InstanceState",
+    "WarmInstance",
+    "WarmPool",
+    "check_contract",
+    "classify",
+    "image_reference",
     "CHANNEL_SCHEMA",
     "MAX_BODY_BYTES",
     "MAX_CLOCK_SKEW",
