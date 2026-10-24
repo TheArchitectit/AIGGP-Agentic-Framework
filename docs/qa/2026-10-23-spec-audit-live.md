@@ -107,6 +107,11 @@ stays honestly quiet) for the right reason.
   round-trip** (3.4): findings are printed and the lock/adoption procedure is
   documented in `2026-10-22-template-provenance.md`, but no consumer has yet
   taken a drift alert through lock+copy bump to issue close.
+  *Amendment 2026-10-24*: 3.2 is no longer open — `78367a3` + `310716a`
+  route drift findings to their own SGR-11 deduped issue (`spec_template_drift`)
+  ahead of the red check, with the by-name body contract tested. 3.4's
+  disposition (reviewed and declined, pin held) is in
+  `2026-10-22-template-provenance.md`; it stays open until a tree adopts.
 - **MergeKingdom acceptance 4–5** (4.1), the **`gameSessionStart` advisory
   line** (4.2 — its adapters live outside AIGGP), and **adjacent debt: CI's
   unpinned `npx` resolve** (4.4) — filed, not fixed here.
