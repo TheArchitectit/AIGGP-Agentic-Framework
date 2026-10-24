@@ -43,8 +43,18 @@ Exit codes: `0` clean, `1` violation (named), `2` manifest unreadable or
 unusable. Exit 2 is not a pass: a gate that cannot read its declaration never
 reports a clean boundary.
 
+## What is in here
+
+- `contracts/v1/` — the three versioned cross-boundary documents, their
+  fixtures, and the versioning policy (box 1.2). Start at
+  [`contracts/v1/README.md`](contracts/v1/README.md).
+- `fleet_manager/` — the Fleet Manager's side of those contracts: validation,
+  version dispatch, typed refusals, and builders that refuse to emit a document
+  their own contract rejects.
+- `tests/` — the contract suite, runnable from this package alone
+  (`python3 -m pytest fleet-manager/tests -q` from the repository root).
+
 ## What is not here yet
 
-- `contracts/v1/` — declared as a pattern, empty until box 1.2.
 - Extracted build — box 1.3 rehearses extraction in CI; this root is evidence
   for that rehearsal, not authorization to create a second repository.

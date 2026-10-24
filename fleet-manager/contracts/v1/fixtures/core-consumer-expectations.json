@@ -1,0 +1,36 @@
+{
+  "contract_version": 1,
+  "decision": {
+    "required_paths": [
+      "contract_version",
+      "request_id",
+      "decided_at",
+      "outcome"
+    ],
+    "allowed_outcomes": ["assigned", "queued", "refused", "unavailable"],
+    "required_reason_codes": [
+      "capacity",
+      "policy",
+      "trust_class",
+      "unknown_repository",
+      "invalid_request",
+      "fleet_unavailable"
+    ],
+    "job_path_requires_outcome": "assigned",
+    "absent_decision_means": "unavailable"
+  },
+  "receipt": {
+    "required_paths": [
+      "contract_version",
+      "receipt_id",
+      "issued_at",
+      "subject.kind",
+      "subject.id",
+      "operation",
+      "outcome",
+      "actor.kind",
+      "actor.id"
+    ],
+    "completed_requires_evidence": true
+  }
+}

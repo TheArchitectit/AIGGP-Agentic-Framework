@@ -1,0 +1,101 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/TheArchitectit/AIGGP-Agentic-Framework/fleet-manager/contracts/v1/capacity-request.schema.json",
+  "title": "DevGate core -> Fleet Manager: capacity request (contract v1)",
+  "description": "The only document shape in which open-core code asks Fleet Manager for execution capacity (REPO-003). Producer: core. Consumer: Fleet Manager. Closed to unknown properties: a field nobody declared cannot cross this boundary.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "request_id",
+    "created_at",
+    "repository",
+    "workflow",
+    "runner",
+    "demand"
+  ],
+  "properties": {
+    "contract_version": {
+      "const": 1,
+      "description": "Major contract version. A consumer that does not implement this major refuses the document (repo-003-02); it never guesses."
+    },
+    "request_id": {
+      "description": "Correlation id the core side chose. The decision echoes it, so a decision can be matched to its request without trusting ordering.",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "created_at": {
+      "description": "When core emitted the request (RFC 3339 with offset).",
+      "type": "string",
+      "format": "date-time"
+    },
+    "repository": {
+      "description": "OWNER/REPO the job belongs to.",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+    },
+    "workflow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "ref", "event"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "ref": {
+          "description": "Git ref the job will run at.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "event": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        }
+      }
+    },
+    "runner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["labels", "trust_class"],
+      "properties": {
+        "labels": {
+          "description": "Requested runner labels; a self-hosted match needs at least one.",
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"
+          }
+        },
+        "trust_class": {
+          "description": "The isolation class the job must run under. Closed enum: a new class is a v2 document, not a free-text field.",
+          "enum": ["public", "private", "isolated"]
+        }
+      }
+    },
+    "demand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["concurrency", "timeout_minutes", "ephemeral"],
+      "properties": {
+        "concurrency": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "timeout_minutes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "ephemeral": {
+          "description": "Runner jobs run in destroyed environments. Pinned true in v1: a persistent-runner request is not expressible.",
+          "const": true
+        }
+      }
+    }
+  }
+}

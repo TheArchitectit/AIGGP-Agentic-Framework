@@ -10,6 +10,7 @@
     "fleet-manager/README.md",
     "fleet-manager/manifest.json",
     "fleet-manager/contracts/v1/**",
+    "fleet-manager/fleet_manager/**",
     "fleet-manager/tests/**"
   ],
   "forbidden_roots": [

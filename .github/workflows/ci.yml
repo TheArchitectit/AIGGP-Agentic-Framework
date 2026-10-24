@@ -60,6 +60,14 @@ jobs:
         run: python3 -m pip install --quiet pytest cryptography==45.0.7
       - name: pytest suite (collection is deterministic — tests/__init__.py)
         run: python3 -m pytest tests/ -v
+      # REPO-004 (devgate-product-tiers-fleet-manager box 1.2). The boundary
+      # package carries its own contract tests, and they run from the package
+      # alone: no core test tree, no network, no core code beyond the one
+      # schema checker the import-surface test pins. Running them separately is
+      # what makes the extraction rehearsal (1.3) possible without rewriting
+      # the command.
+      - name: fleet-manager contract tests (REPO-003/REPO-004)
+        run: python3 -m pytest fleet-manager/tests -q
       - name: guardrails scanner fixture suite
         run: node tests/test_guardrails_scan.mjs
       # The Python root-anchor suite pins the PYTHON scanners
