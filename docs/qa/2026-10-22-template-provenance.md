@@ -74,11 +74,43 @@ SGA-21 alert the first adoption round-trip will consume.
 
 ## First reviewed adoption round-trip (SGA-21 scenario 3)
 
-Not yet executed — it needs a consumer repo to opt in. When it happens:
+**Opened, reviewed and closed on 2026-10-24 — disposition: pin deliberately
+held.** The round-trip in the design is: drift alert → human review → bump the
+lock/copy in one reviewed commit → close the alert's issue. Steps 1 and 2 ran;
+step 3 closed the issue against the *review*, not a bump, because the review
+found the bump is not a dependency refresh.
 
-1. drift alert opens on `spec_fleet_sweep` naming template + both hashes;
-2. a human reviews, takes the upstream change, and bumps the vendored copy
-   + lock entry in one reviewed commit in that consumer repo;
-3. the alert's issue closes against that commit.
+- **Alert (step 1).** The sweep's `check_lock` reports all four templates
+  drifted on upstream `main` from the v1.13.0 pin (`design` `e47df296…` →
+  `6ccc87f5…`, `proposal` `ea0879a3…` → `0dd70e35…`, `spec` `1f370642…` →
+  `1cccfb57…`, `tasks` `b2a6a4c0…` → `fa67d99f…`), with
+  `lock_provenance.fault=false` — the pin itself is fine; upstream moved.
+- **Review (step 2).** `npm pack` of `1.14.3` *and* `1.15.0` both hash
+  identically to upstream `main`, so the change landed at 1.14.0 and has been
+  stable since. The 1.13.0 → 1.14.3 diff is editorial: each template gains an
+  H1 (`# Design`, `# Proposal`, `# Spec Delta`, `# Tasks`) and `proposal.md`'s
+  *New Capabilities* comment gains a naming clarification. Nothing structural.
+- **Why no bump (step 3).** `1.14.x` promotes an existing advisory —
+  *requirement text longer than 500 characters* — into a `--strict` failure.
+  Measured with the 1.14.3 CLI on the current trees: **AIGGP 28/33** (nine
+  requirement texts across `decision-contract`, `hub-architecture`,
+  `enrollment-and-alerting`, `add-runner-to-fleet` and the
+  `add-runner-toolchain-requests` change) and **missioncontrol 27/30**
+  (`api-key-authorization`, `fleet-runner-dashboard`, and three added
+  requirements in `2026-10-03-github-fleet-visibility-alerting`). Bumping the
+  pin would therefore be a corpus-wide rewrite of dense, id-carrying
+  requirements in at least two repos — its own reviewed change, not this one.
+  The pin did what the template comment says it is for: it kept the gate still
+  while upstream moved.
+- **Record.** [AIGGP issue #34](https://github.com/TheArchitectit/AIGGP-Agentic-Framework/issues/34)
+  carries the hashes, the diff summary and the measured failure counts, and is
+  closed as reviewed-and-deferred. The lock and the sweep workflow's
+  `OPENSPEC_PACKAGE` pin stay at `1.13.0`; the re-open condition is the
+  requirement-splitting change, after which the pin moves to `1.14.3+`, the
+  four hashes are re-pinned, and these nine AIGGP flags (plus MC's three) are
+  expected green.
 
-The lock file records the adoption date and the commit when it lands.
+What this does **not** claim: that a consumer repo has adopted a newer
+template. No tree changed; `vendored_path` is still `null` on all four
+entries. The path is proven operable end-to-end with a human decision at the
+end of it — which is the part an automated bump would have skipped.
