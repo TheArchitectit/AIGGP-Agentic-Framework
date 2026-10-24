@@ -98,6 +98,24 @@ Both are recorded because both are the same shape: a gate with a local
 assumption passing its own tests. Neither would have been found by re-reading
 the diff; they were found by a run that finally completed.
 
+## CI
+
+Run `40066836124` on `6e7c2ca` — **success**, every job. The two steps this
+change added both ran and both passed:
+
+```
+fleet-manager contract tests (REPO-003/REPO-004)   success   24 passed, 18 subtests
+Extraction rehearsal (REPO-005 ...)                success
+  phase A: pytest in the extracted copy -> exit 0
+  phase B: core suite collection -> exit 0
+  phase B: 1743 core tests collect
+  phase B: guardrails scan -> exit 0
+  OK — boundary stands alone, core stands without it
+```
+
+(The preceding run on `f7bf16b` — the slice's first commit — failed on the two
+defects below; `6e7c2ca` is the fix.)
+
 ## Gate runs (all re-run in this window)
 
 | gate | result |
