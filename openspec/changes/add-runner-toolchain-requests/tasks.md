@@ -553,11 +553,29 @@ or label it.
       measured 572 lines against the 500-line source hard limit and that is a
       **blocking** CI failure, while `tests/test_regression_sizes.py` judges
       fixtures and stayed green throughout.
-- [ ] 6.6 In Mission Control: `cargo fmt --all -- --check`,
+- [x] 6.6 In Mission Control: `cargo fmt --all -- --check`,
       `cargo clippy --all-targets --all-features -- -D warnings`,
       `cargo test --all-features` with migrations applied, plus the auth-gate
       mutation gate showing the decide route classified and returning 401
       anonymous / 403 with a write-only key / 200 with admin.
+      **Re-run by me 2026-10-24 on the live MC tree** (`mission-control-rs/`,
+      migrations applied to the test database): `cargo fmt --all -- --check`
+      exit 0; `cargo clippy --all-targets --all-features -- -D warnings` exit 0;
+      `cargo test --all-features` **300 passed / 0 failed / 1 ignored** across
+      32 test binaries. Auth-gate mutation gate: `tests/route_auth_manifest.rs`
+      2/2 — `every_mutating_route_is_classified` (decide route present as
+      `("/toolchain-requests/:id/decide", "POST", Domain::Protected)`) and
+      `classified_mutations_enforce_their_auth_domain`. The three outcomes:
+      `decide_anonymous_is_401` and `decide_write_only_key_is_403` and
+      `decide_cookie_without_csrf_is_403` in `tests/toolchain_queue_contract.rs`
+      (6/6), and **200 with admin** in `tests/toolchain_wire_contract.rs` (8/8)
+      — `decide_forwards_the_hubs_documented_body_and_no_signature` and
+      `form_encoded_decide_from_the_page_reaches_the_hub` authenticate with an
+      admin JWT and assert 200 with the stub hub's answer passing through
+      unaltered (`state = approved`, `version = 4`), plus `hub_refusals_pass_through_unaltered`
+      keeping the hub's 409. So the decide route is classified, exercised, and
+      the admin tier is measured at 200 against a hub that answers — not only
+      at "non-401".
 - [ ] 6.7 Named green CI runs on the hub commit and the MC commit, with both
       SHAs and run URLs in the PR.
 - [x] 6.8 Operator documentation stating the loop **and** that approval
