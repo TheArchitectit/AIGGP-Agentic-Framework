@@ -45,8 +45,15 @@ CODE_SUFFIXES = {
     ".py", ".sh", ".bash", ".rs", ".js", ".mjs", ".cjs", ".ts", ".tsx",
     ".yml", ".yaml",
 }
-# Directories never worth walking.
-SKIP_DIRS = {"node_modules", ".git", "target", "__pycache__", ".venv"}
+# Directories never worth walking — consumed from the shared scope contract
+# (.guardrails/scope.json), never redeclared (fw-scope-01). This gate shipped
+# its own four-entry literal until the scope-contract test caught it; a private
+# list drifts from the other gates and then "clean" means "clean in here".
+if str(Path(__file__).resolve().parent) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+from gate_common import load_skip_dirs  # noqa: E402
+
+SKIP_DIRS = load_skip_dirs()
 
 # One pattern for "this line references the boundary": the Python module name,
 # or a filesystem path into the root. Word boundaries keep `fleet_managerx`

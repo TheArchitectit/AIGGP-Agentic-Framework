@@ -74,6 +74,30 @@ Both marker bugs were found the same way: the number did not match the
 arithmetic. That is the only reason they were found at all, which is worth
 recording next to the fix.
 
+## The first CI run failed — twice, on this slice's own files
+
+Local gates were green and CI was not, which is the reason the run is read
+rather than assumed. Two defects, both introduced by this slice, both caught by
+gates that had never before been run against a `fleet-manager`-era tree (the
+earlier runs on this branch were `cancelled` by the concurrency group, so 1.1's
+files had never actually completed a CI run):
+
+1. **`check_boundary.py` and its test were committed `100644` while carrying a
+   shebang.** `scripts/check_exec_bits.py` — and the `DevGate gates on DevGate`
+   job — refuse that, correctly. Fixed with `git update-index --chmod=+x` on
+   both; `check-exec-bits: OK — 116 shebang'd file(s), all 100755`.
+2. **`check_boundary.py` declared its own `SKIP_DIRS` set**, which
+   `tests/test_scope_contract.py` forbids by grep (`fw-scope-01`: one scope list
+   in `.guardrails/scope.json`, consumed by every gate). This gate had a private
+   four-entry list — so "boundary tree clean" meant "clean under *this gate's*
+   exclusions", which is exactly the drift the scope contract exists to stop.
+   Fixed by consuming `gate_common.load_skip_dirs()`, the same loader
+   `regression_sizes.py` uses.
+
+Both are recorded because both are the same shape: a gate with a local
+assumption passing its own tests. Neither would have been found by re-reading
+the diff; they were found by a run that finally completed.
+
 ## Gate runs (all re-run in this window)
 
 | gate | result |
@@ -87,6 +111,8 @@ recording next to the fix.
 | `python3 scripts/regression_check.py --base origin/main --fail-if-empty --pre-commit` | rc 0, 0 over hard limit |
 | `python3 scripts/artifact_hygiene.py --repo . --audit` | audit OK |
 | `python3 scripts/check_boundary.py --repo .` | OK — 12 files under the root, all declared |
+| `python3 scripts/check_exec_bits.py` | OK — 116 shebang'd files, all `100755` |
+| `python3 -m pytest tests/test_scope_contract.py tests/test_check_boundary.py -q` | 20 passed |
 | `python3 -m pytest fleet-manager/tests -q` | 24 passed |
 | `python3 fleet-manager/scripts/extraction_rehearsal.py --source .` | OK, both phases |
 
