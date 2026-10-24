@@ -118,6 +118,9 @@ def test_missing_validator_is_gate_fault_not_red(tmp_path):
     assert cls["state"] == "unscannable"
     assert cls["red"] is not True
     assert "not found" in cls["reason"]
+    # The reason names what was actually tried: the env var WAS set here (to a
+    # non-file), and the alert must not send an operator to unset it.
+    assert "set but not a file" in cls["reason"], cls["reason"]
 
 
 def test_provenance_unreachable_upstream_is_unknown_not_in_sync(tmp_path):

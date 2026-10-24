@@ -133,11 +133,16 @@ def strict_validation(root: Path) -> tuple[str, str]:
             chosen = str(p)
             break
     if chosen is None:
+        # Name what was actually tried. The first version said "env unset"
+        # unconditionally — false whenever it was set to a path that is not a
+        # file, and the operator reading the alert would chase the wrong thing.
         # One expression: the return statement ends at its own newline, so a
         # second f-string on the next line would be dead code and the reason
         # would silently lose which sources were tried.
-        return "not-run", ("openspec CLI not found (SPEC_AUDIT_OPENSPEC_BIN unset, "
-                           "no node_modules/.bin/openspec, none on PATH)"
+        tried = ("SPEC_AUDIT_OPENSPEC_BIN set but not a file" if openspec_bin
+                 else "SPEC_AUDIT_OPENSPEC_BIN unset")
+        return "not-run", (f"openspec CLI not found ({tried}; "
+                           f"no node_modules/.bin/openspec; none on PATH)"
                            )[:REASON_MAX_CHARS]
     try:
         proc = subprocess.run(
