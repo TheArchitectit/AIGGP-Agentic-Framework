@@ -29,12 +29,3 @@ https://github.com/drwhofan2k18-pixel/rad-gateway
 https://github.com/drwhofan2k18-pixel/stitcher-codereview
 https://github.com/drwhofan2k18-pixel/zombie-hero-match
 https://github.com/drwhofan2k18-pixel/pi-ithacus-agent-framework
-
-# --- T-proof mutation (spec-audit-rollout box 2.3), REMOVE AFTER THE PROOF ---
-# SGA-12 "a deleted repo names itself": a declaration line for a repository
-# that does not exist. The walk must classify it unscannable with the git
-# reason, red the run, and NAME it in the deduped issue body — never just
-# count it. SGA-13: the next run must comment on that same open issue, not
-# file a second one (SGR-11). Leaving this line in makes every nightly sweep
-# red on purpose; the proof is recorded and the line is deleted.
-https://github.com/TheArchitectit/spec-audit-probe-deleted-20261024
