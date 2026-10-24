@@ -20,6 +20,25 @@ def run(*argv, env=None):
                          capture_output=True, text=True, env=env)
 
 
+def make_openspec_stub(tmp_path: Path, *, ok: bool) -> Path:
+    """A hermetic stand-in for the openspec CLI.
+
+    These tests must not read the machine's PATH: CI has no `openspec`
+    binary, and a test that wants a strict-validation failure would then get
+    `unscannable` instead — the 2026-10-24 run failed that way, on the
+    *fixture's* missing tooling, not on the classifier's behavior.
+    """
+    stub = tmp_path / "openspec-stub"
+    stub.write_text(
+        "#!/usr/bin/env python3\n"
+        "import sys\n"
+        + ("print('Totals: 1 passed'); sys.exit(0)\n" if ok
+           else "print('fixture strict failure', file=sys.stderr); sys.exit(1)\n")
+    )
+    stub.chmod(0o755)
+    return stub
+
+
 def make_repo(tmp_path: Path, *, openspec: bool = True) -> Path:
     root = tmp_path / "repo"
     root.mkdir()
@@ -52,8 +71,9 @@ def test_tiered_invalid_is_red(tmp_path):
         "# foo\nnot a valid spec")
     tier = tmp_path / "tier.txt"
     tier.write_text("owner/repo  # opted in\n")
+    env = dict(os.environ, SPEC_AUDIT_OPENSPEC_BIN=str(make_openspec_stub(tmp_path, ok=False)))
     r = run("--root", str(root), "--tier-file", str(tier),
-            "--repo-name", "owner/repo", "--json")
+            "--repo-name", "owner/repo", "--json", env=env)
     assert r.returncode == 0, r.stderr
     data = json.loads(r.stdout)
     cls = data["classification"]
@@ -82,14 +102,16 @@ def test_spaced_repo(tmp_path):
     root = make_repo(tmp_path)
     tier = tmp_path / "tier.txt"
     tier.write_text("")
+    env = dict(os.environ, SPEC_AUDIT_OPENSPEC_BIN=str(make_openspec_stub(tmp_path, ok=True)))
     r = run("--root", str(root), "--tier-file", str(tier),
-            "--repo-name", "owner/repo", "--json")
+            "--repo-name", "owner/repo", "--json", env=env)
     assert r.returncode == 0, r.stderr
     data = json.loads(r.stdout)
     cls = data["classification"]
-    # a tiered-or-not repo with openspec material must not crash; any honest
-    # state is acceptable (spaced/gaps/invalid/unscannable all mean it ran)
-    assert cls["state"] in ("spaced", "gaps", "invalid", "unscannable")
+    # a well-formed tree under a validator that passes is the green control:
+    # if this reads `unscannable` the run proves nothing about classification.
+    assert cls["strict_state"] == "ok", cls
+    assert cls["state"] in ("spaced", "gaps"), cls
     assert cls["red"] is not True  # not tiered -> never red
 
 
@@ -188,11 +210,12 @@ def test_tier_matching_is_form_agnostic(tmp_path):
         "# foo\nnot a valid spec")
     tier = tmp_path / "tier.txt"
     tier.write_text("TheArchitectit/AIGGP-Agentic-Framework  # host\n")
+    env = dict(os.environ, SPEC_AUDIT_OPENSPEC_BIN=str(make_openspec_stub(tmp_path, ok=False)))
     for name in ("AIGGP-Agentic-Framework",
                  "TheArchitectit/AIGGP-Agentic-Framework",
                  "https://github.com/TheArchitectit/AIGGP-Agentic-Framework"):
         r = run("--root", str(root), "--tier-file", str(tier),
-                "--repo-name", name, "--json")
+                "--repo-name", name, "--json", env=env)
         data = json.loads(r.stdout)
         cls = data["classification"]
         assert cls["state"] == "invalid", (name, cls)

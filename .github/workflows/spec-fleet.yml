@@ -28,6 +28,17 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
+      # Without the validator every openspec-material repo classifies
+      # `unscannable`, which the red step treats as a census failure — so a
+      # runner with no tooling would alert every night about its own missing
+      # dependency. Pinned to the same version the lock and templates/specs.yml
+      # use, and handed to the classifier explicitly (SPEC_AUDIT_OPENSPEC_BIN)
+      # rather than relying on PATH.
+      - name: Install the pinned openspec CLI
+        env:
+          OPENSPEC_PACKAGE: "@fission-ai/openspec@1.13.0"
+        run: npm install --no-save --no-audit --no-fund "$OPENSPEC_PACKAGE"
+
       - name: Generate the declaration (reuse secret-scan-declared.sh)
         id: generate
         run: |
@@ -40,6 +51,8 @@ jobs:
         env:
           DECLARED: ${{ runner.temp }}/declared.txt
           TIER: spec-audit-tier.txt
+          LOCK: spec-templates.lock.json
+          SPEC_AUDIT_OPENSPEC_BIN: ${{ github.workspace }}/node_modules/.bin/openspec
         run: |
           set +e
           mkdir -p "$RUNNER_TEMP/spec-work"
@@ -47,7 +60,8 @@ jobs:
             --declared "$DECLARED" \
             --report "$RUNNER_TEMP/spec-report.json" \
             --work "$RUNNER_TEMP/spec-work" \
-            --tier-file "$TIER"
+            --tier-file "$TIER" \
+            --lock-file "$LOCK"
           rc=$?
           set -e
           echo "rc=$rc" >> "$GITHUB_OUTPUT"
