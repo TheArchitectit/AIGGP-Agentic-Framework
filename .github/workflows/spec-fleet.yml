@@ -56,7 +56,49 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -eu
-          bash scripts/secret-scan-declared.sh --out "$RUNNER_TEMP/declared.txt"
+          bash scripts/secret-scan-declared.sh --out "$RUNNER_TEMP/declared.raw.txt"
+          # The walk clones unauthenticated, so a private repo can only ever
+          # read `unscannable` — and unscannable is a RED (SGA-12). Measured
+          # 2026-10-24: four private repos in the shared declaration red every
+          # night forever, which is the SGR-10 muted-gate failure. They are
+          # dropped HERE and named HERE, never silently; an authenticated
+          # clone would need a token-plumbing design of its own (a token in
+          # git's argv would land in the report and the public issue).
+          python3 - "$RUNNER_TEMP/declared.raw.txt" "$RUNNER_TEMP/declared.txt" <<'PY'
+          import re, subprocess, sys
+          from pathlib import Path
+          raw, out = Path(sys.argv[1]), Path(sys.argv[2])
+          lines = raw.read_text(encoding="utf-8").splitlines()
+          owners = sorted({m.group(1) for l in lines
+                           if (m := re.match(r"https://github\.com/([^/]+)/", l.strip()))})
+          private = set()
+          for owner in owners:
+              try:
+                  res = subprocess.run(
+                      ["gh", "repo", "list", owner, "--limit", "1000",
+                       "--json", "name,isPrivate", "--jq",
+                       ".[] | select(.isPrivate) | .name"],
+                      capture_output=True, text=True, timeout=120)
+                  private.update(f"{owner}/{n}" for n in (res.stdout or "").split())
+              except Exception as exc:  # noqa: BLE001
+                  print(f"[declaration] could not read visibility for {owner}: {exc}",
+                        file=sys.stderr)
+          kept, dropped, seen = [], set(), set()
+          for line in lines:
+              m = re.match(r"https://github\.com/([^/]+)/([^/]+?)/?$", line.strip())
+              full = f"{m.group(1)}/{m.group(2)}" if m else None
+              if full and full in private:
+                  dropped.add(full)
+                  continue
+              # the generator can list the same repo twice (two discovery
+              # paths); a duplicate scan double-counts the trend line.
+              if line.strip() in seen:
+                  continue
+              seen.add(line.strip())
+              kept.append(line)
+          out.write_text("\n".join(kept) + ("\n" if kept else ""), encoding="utf-8")
+          print(f"[declaration] dropped {len(dropped)} private repo(s), unreadable unauthenticated: {sorted(dropped)}")
+          PY
           echo "count=$(wc -l < "$RUNNER_TEMP/declared.txt")" >> "$GITHUB_OUTPUT"
 
       - name: Run the walk
@@ -175,7 +217,8 @@ jobs:
               --detail "spec-fleet walk produced no report: nothing was measured" || true
             exit 1
           fi
-          python3 - "$REPORT" <<'PY'
+          rc=0
+          python3 - "$REPORT" <<'PY' || rc=$?
           import json, sys
           doc = json.load(open(sys.argv[1], encoding="utf-8"))
           states = doc.get("states", {})
@@ -192,7 +235,11 @@ jobs:
               sys.exit(1)
           print("spec fleet: green (unspaced is informational)")
           PY
-          rc=$?
+          # `set -eu` would abort at the failing heredoc above before `rc` was
+          # read, so the alert on the next line never ran. Measured 2026-10-24
+          # on run 40062808349: the step reded naming five unscannable repos
+          # and issue #35 received no comment at all. The `|| rc=$?` above is
+          # what keeps the alert reachable.
           if [ "$rc" -ne 0 ]; then
             python3 scripts/hub_alert.py --key spec_fleet_sweep --report "$REPORT" || true
             exit 1
@@ -203,7 +250,8 @@ jobs:
           # drift issue (SGA-21 / SGR-11), not a nightly red: upstream moves
           # whenever Fission-AI edits a template, and reding that every time
           # is the SGR-10 muted-gate failure this package exists to avoid.
-          python3 - "$REPORT" <<'PY'
+          rc=0
+          python3 - "$REPORT" <<'PY' || rc=$?
           import json, sys
           doc = json.load(open(sys.argv[1], encoding="utf-8"))
           faults, findings = [], []
@@ -230,7 +278,6 @@ jobs:
               sys.exit(1)
           print("provenance: no fault")
           PY
-          rc=$?
           if [ "$rc" -ne 0 ]; then
             python3 scripts/hub_alert.py --key spec_fleet_sweep --report "$REPORT" || true
             exit 1
