@@ -204,3 +204,46 @@ Two notes:
   identical by construction (the binary name is the only difference in the
   rendered command) and has not been exercised on a host, which 4.3 states as a
   residual rather than claiming here.
+
+## What this push's own secret gate caught
+
+The post-commit `scripts/secret-scan.sh --range 1b4cbd2..HEAD` — the gate that
+runs over exactly what a push adds — did not pass. It named one finding:
+
+```
+FINDING: github-pat fleet-manager/tests/__pycache__/test_adapters_v1.cpython-314-pytest-9.1.1.pyc:27 (working tree)
+```
+
+A location, not a value, and the location is the story. The test assembles its
+credential-shaped fixture the way PREVENT-018 asks — pieces at run time, no
+literal in source — and CPython's peephole optimiser constant-folds that
+assembly into one literal in the bytecode. The source is what the rule wanted;
+the artifact is what the rule was written against. It is gitignored, it is never
+committed, and it exists only because the suite had just been run.
+
+`gitleaks --no-git` walks the filesystem, so it cannot tell those apart. Every
+other gate in this repository already skips `__pycache__/` and its siblings
+through `.guardrails/scope.json` (fw-scope-01). `secret-scan.sh` was the one
+gate not consuming that contract — the same class of finding as the size gate's
+cache-tree walk, in the gate that is supposed to be the strictest.
+
+The fix is a commit of its own (`secret-scan: consume the scope contract`):
+working-tree findings inside a directory the contract skips are reported as
+`out of scope` and dropped, the contract source is named on every run, and a
+tree with no contract falls back to this checkout's baseline or to scanning
+every path — both named. Committed findings are never scoped away, whatever
+directory they sit in. Four tests in `tests/test_secret_scan.py` pin it: a
+skipped-tree artifact is out of scope, a first-party finding still fails, a
+committed finding inside a skipped tree is still reported, and the fallback is
+named rather than silent.
+
+The suite that exercises the installed gate caught the first draft of that fix:
+it imports nothing from `scripts/lib`, because enroll installs `secret-scan.sh`
+as a single file beside the fleet sweep, where `gate_common` does not exist. The
+first version imported it and turned twelve fleet and sweep tests red with
+`UNSCANNABLE` — a gate that cannot run is not a gate that passed.
+
+After the fix, the whole push is measured again: core suite **1747 passed, 182
+subtests** (the four new tests included), `secret-scan.sh --range 1b4cbd2..HEAD`
+clean with one finding named `out of scope`.
+
