@@ -1,0 +1,24 @@
+{
+  "schema": "devgate-fleet-manager-boundary/1",
+  "boundary_root": "fleet-manager",
+  "license": {
+    "spdx": "BSD-3-Clause",
+    "file": "LICENSE",
+    "separate_grant": false
+  },
+  "paths": [
+    "fleet-manager/README.md",
+    "fleet-manager/manifest.json",
+    "fleet-manager/contracts/v1/**",
+    "fleet-manager/tests/**"
+  ],
+  "forbidden_roots": [
+    "enterprise",
+    "commercial",
+    "proprietary"
+  ],
+  "exempt_paths": [
+    "scripts/check_boundary.py",
+    "tests/test_check_boundary.py"
+  ]
+}

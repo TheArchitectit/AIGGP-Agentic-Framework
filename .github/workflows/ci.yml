@@ -311,6 +311,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          # The boundary gate's --changed-base check needs history; a shallow
+          # single-commit clone has no origin/main to diff against.
+          fetch-depth: 0
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12"
@@ -351,6 +355,20 @@ jobs:
           # covered requirement IDs drop below .guardrails/traceability-ratchet.json.
           # Without this the floor was decorative — a regression still read green.
           python3 scripts/spec_traceability.py --root . --ratchet
+      # REPO-002 (devgate-product-tiers-fleet-manager box 1.1). The boundary is
+      # a declaration, and this is the gate that keeps it one: a file under
+      # fleet-manager/ that nobody declared, or open-core code importing it,
+      # reds here. Exit 2 (unreadable manifest) is a failure too — a gate that
+      # cannot read its declaration must never read as clean.
+      - name: Package boundary (fleet-manager, REPO-002)
+        run: |
+          set -eu
+          python3 scripts/check_boundary.py --repo .
+          if git rev-parse --verify -q origin/main >/dev/null; then
+            python3 scripts/check_boundary.py --repo . --changed-base origin/main
+          else
+            echo "origin/main not resolvable here — changed-path half skipped; the coverage and dependency-direction checks above still ran"
+          fi
 
   container-image:
     name: Evaluator image builds with its contracts (coh-rt-08)
