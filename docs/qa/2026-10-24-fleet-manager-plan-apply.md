@@ -29,7 +29,7 @@ drains (`drain`, `complete_drain`), replacements (`rollout`), deletions
 | a plan whose id does not match its changes | `Plan` construction | otherwise "reviewed plan A" does not constrain "applied plan A" |
 | an empty plan | `build_plan` | an apply with no work is a receipt for nothing |
 | an impossible change, named by index | `build_plan` | the failure has to arrive while it is still cheap |
-| a stale plan (base ≠ current revision) | `apply_plan` | rebasing onto newer state is a plan nobody reviewed |
+| a stale plan (base != current revision) | `apply_plan` | rebasing onto newer state is a plan nobody reviewed |
 | apply without `fleet.apply` | `apply_plan` | read-only principals do not mutate |
 | a destructive plan without `fleet.admin` | `apply_plan` | releasing, draining and rolling out end running work |
 | a key re-used for a different plan | `apply_plan` | widening a key is how a retry becomes a second deploy |
@@ -106,6 +106,42 @@ rehearsal test produces in a bare package copy does not appear when only
 | `python3 -m pytest fleet-manager/tests -q` | **104 passed** (24 contracts + 36 model + 44 plan/apply) |
 | `python3 fleet-manager/scripts/extraction_rehearsal.py --source .` | OK — both phases |
 | `python3 -m pytest tests -q` | **1743 passed**, 182 subtests |
+| `python3 scripts/check_charset.py --repo .` | OK — 795 files, within baseline |
+| `python3 scripts/check_encoding.py --repo .` | OK — 795 files, no drift |
+| `python3 scripts/check_corruption.py --repo .` | OK, and the pushed-range diff scan clean |
+| `bash scripts/silent-success-scan.sh` | OK |
+| `python3 scripts/failure_registry_check.py` | rc 0 (one pre-existing stale-entry warning) |
+| `python3 scripts/rules_check.py` | OK — every enabled rule has a checker |
+
+## CI, and the gate I was not running
+
+CI run `40067748051` on `839f59f` failed — one job, `DevGate gates on DevGate`,
+step `Charset standard (ASCII text; no non-ASCII glyphs)`:
+
+```
+check-charset: FAIL - 3 file(s) exceed their charset baseline (fw-charset-01)
+  docs/qa/2026-10-24-fleet-manager-domain-models.md:117  U+00A7  -> 'Sec.'
+  fleet-manager/fleet_manager/model.py:205:50           U+00A7  -> 'Sec.'
+  fleet-manager/fleet_manager/model.py:283:11           U+00A7  -> 'Sec.'
+  openspec/changes/add-fleet-manager-domain-models/design.md:68  U+00A7  -> 'Sec.'
+```
+
+Both defects are mine, from the 2.1 slice: I wrote the program's section marker
+(U+00A7 SECTION SIGN, "4.3") into a docstring, a comment and two documents.
+`U+00A7` is explicitly denied by `fw-charset-01` — it renders as a dollar-ish
+glyph in some clients — and the fix the gate prescribes is `Sec.`.
+
+**Why it escaped every local run:** I was running the gates I had in mind, not
+the gates the workflow declares. Six DevGate steps were never in that mental
+list: `check_charset.py`, `check_encoding.py`, `check_corruption.py`,
+`silent-success-scan.sh`, `failure_registry_check.py`, `rules_check.py`. All six
+are green on this tree now, and they are in the table above so the next window
+runs the workflow's list rather than a remembered one.
+
+The four glyphs are replaced by `Sec.`; a U+2260 (NOT EQUAL) in this record's
+own draft was replaced by `!=` for the same reason. `b5c5d9f` (this slice)
+carries no denied codepoint: its em dashes are on the allowlist.
+
 
 ## What this deliberately does not do
 

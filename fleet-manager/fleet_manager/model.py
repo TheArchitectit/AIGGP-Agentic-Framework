@@ -202,7 +202,7 @@ class Repository:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Pool:
-    """A runner pool's desired contract (program §4.3).
+    """A runner pool's desired contract (program Sec. 4.3).
 
     `revision` is the pool's own revision — the contract changed — as distinct
     from `DesiredState.revision`, which covers the whole world. They are
@@ -280,7 +280,7 @@ class Pool:
         _text(self.owner, "pool.owner")
         _text(self.escalation, "pool.escalation")
         # Exactly one of "these repositories" or "this runner group" (program
-        # §4.3: "allowed repositories or runner group") — both would leave the
+        # Sec. 4.3: "allowed repositories or runner group") — both would leave the
         # answer to "who may run here" undefined.
         repositories = tuple(
             _repository(name, f"pool.allowed_repositories[{index}]")

@@ -65,7 +65,7 @@ contract from disagreeing in production.
 
 ## Risks
 
-- **The model is wide.** A pool carries ~20 fields because the program's §4.3
+- **The model is wide.** A pool carries ~20 fields because the program's Sec. 4.3
   requires them. The alternative — a dict of extras — would move the validation
   into the store and lose the field-named refusals.
 - **Rollback digest is a single previous image.** A two-step rollback needs

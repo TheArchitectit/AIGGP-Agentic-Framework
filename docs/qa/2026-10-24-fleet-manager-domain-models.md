@@ -114,7 +114,7 @@ Both are pinned by tests; the suite went 34 → 36.
 ## Stated limits
 
 - **A wide model.** A pool carries 25 document fields because the program's
-  §4.3 requires them. Collapsing them into an "extras" map would move the
+  Sec. 4.3 requires them. Collapsing them into an "extras" map would move the
   validation into the store and lose the field-named refusals.
 - **Rollback is one image.** A two-step rollback reads the rollout ledger, not
   a field. Stated so nobody assumes a stack.
