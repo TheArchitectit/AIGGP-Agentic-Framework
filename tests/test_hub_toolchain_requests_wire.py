@@ -155,7 +155,7 @@ def test_gpp_byte_for_byte_end_to_end(tmp_path):
 def test_refusal_is_not_echoed_with_the_bad_value(tmp_path):
     """A response is a storage location the attacker gets to read (mon-tc-01)."""
     hub, token, name = _heartbeat_fixture(tmp_path)
-    canary = "n0t_a_t00l_ᴬᴷᴵᴸᴸ"
+    canary = "n0t_a_t00l_\u1d2c\u1d37\u1d35\u1d38\u1d38"
     status, body = hub.post("/heartbeat", {"runner_name": name,
                                            "heartbeat_token": token,
                                            "missing_tools": [canary]})

@@ -13,6 +13,7 @@ the runbook says so instead of describing an aspiration.
 | [image-pin-and-protocol.md](./image-pin-and-protocol.md) | pinned-image drift (SKIPPED-not-pulled) and `api_version` mismatch (exit 40) | `tests/test_hub_coherence_exitcodes.py::ExitCodeMatrixTest::test_40_protocol`; `tests/test_hub_monitor_default_deny.py` |
 | [migration-fixed-name-to-per-runner-units.md](./migration-fixed-name-to-per-runner-units.md) | moving a host from fixed-name to per-runner units (`bfb7e99`) | `tests/mutation_battery_image_state.py`; `tests/test_runbook_claims.py` |
 | [deprecation-and-compat.md](./deprecation-and-compat.md) | wire-contract compatibility: supported versions, retirement procedure, retired-vs-foreign exit 40 | `tests/test_hub_coherence_compat.py`; `tests/test_runbook_claims.py` |
+| [toolchain-request-loop.md](./toolchain-request-loop.md) | toolchain request lifecycle: report, approve/deny, build report, fulfil; what an approval does (image rebuild) and does not do | `tests/test_hub_toolchain_requests.py`; `tests/test_hub_operator_auth.py`; `tests/test_runbook_claims.py` |
 
 ## Fast triage
 

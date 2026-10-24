@@ -157,8 +157,8 @@ NEGATIVES = [
     ("wrong-case", ["Cargo"]),
     ("trailing-newline", ["cargo\n"]),
     ("trailing-space", ["cargo "]),
-    ("zero-width", ["​cargo"]),
-    ("fullwidth-digit-ish", ["ｃargo"]),
+    ("zero-width", ["\u200bcargo"]),
+    ("fullwidth-digit-ish", ["\uff43argo"]),
     ("over-length", ["cargo"] * (tcr.MISSING_TOOLS_MAX_ENTRIES + 1)),
     ("non-string-int", [17]),
     ("non-string-bool", [True]),
@@ -215,7 +215,7 @@ def test_rejected_value_is_never_stored(tmp_path):
     line, or audit row" is a statement about the file on disk. A test that only
     checked the return value would pass while the registry logged the payload.
     """
-    canary = "​Cargo​"  # zero-width on both sides: nothing here is legal
+    canary = "\u200bCargo\u200b"  # zero-width on both sides: nothing here is legal
     reg = _enrolled(tmp_path)
     reg.record_gap_report("runner-one", [canary], "rust")
     reg.save()

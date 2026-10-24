@@ -36,8 +36,8 @@ from hub import toolchain_evidence as te  # noqa: E402
 from hub import toolchain_requests as tcr  # noqa: E402
 from tests.test_hub_toolchain_requests import _enrolled, _registry  # noqa: E402
 
-BUILDER_SECRET = "builder-secret-1234567890"
-OPERATOR_SECRET = "op-secret-1234567890"
+BUILDER_SECRET = "builder-secret-not-a-secret"
+OPERATOR_SECRET = "op-secret-not-a-secret"
 DIGEST = "sha256:" + "a" * 64
 OTHER_DIGEST = "sha256:" + "b" * 64
 NOW = "2026-10-22T12:00:00Z"
@@ -250,9 +250,9 @@ def test_a_builder_credential_without_an_identity_is_refused(tmp_path):
     reg.record_gap_report("lane-f", ["cargo"], "rust")
     _operator(reg)
     _approve(reg, OPERATOR_SECRET)
-    reg.add_toolchain_credential(klass="builder", secret="b-nameless-1234567890",
+    reg.add_toolchain_credential(klass="builder", secret="b-nameless-not-a-secret",
                                  credential_id="cred-build-nameless")
-    result = _report(reg, "b-nameless-1234567890")
+    result = _report(reg, "b-nameless-not-a-secret")
     assert result["status"] == 403 and result["error"] == "builder_identity_missing"
     assert _row(reg)["state"] == "approved"
 
