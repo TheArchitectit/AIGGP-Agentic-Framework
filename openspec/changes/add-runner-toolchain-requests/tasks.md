@@ -523,8 +523,16 @@ or label it.
       anonymous / 403 with a write-only key / 200 with admin.
 - [ ] 6.7 Named green CI runs on the hub commit and the MC commit, with both
       SHAs and run URLs in the PR.
-- [ ] 6.8 Operator documentation stating the loop **and** that approval
+- [x] 6.8 Operator documentation stating the loop **and** that approval
       produces an image rebuild, never a live install.
+
+      `docs/runbooks/toolchain-request-loop.md` (2026-10-23): actors and what
+      each may do, the state machine and its three numeric windows (900 s
+      stale, 86400 s fulfil, 14-day suppression), the decide wire and its
+      refusals (credential class server-side, deny-requires-note, 512-char cap,
+      409 version_conflict), and a plain statement that approval changes a row
+      and produces an image rebuild — it never installs on a running host.
+      Hosts and credentials stay out of this public repo.
 
 > Format validation is not acceptance. `openspec validate` passes an untestable
 > spec; the tests above are what make it real.
