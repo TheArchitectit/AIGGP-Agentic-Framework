@@ -49,6 +49,11 @@ jobs:
 
       - name: Generate the declaration (reuse secret-scan-declared.sh)
         id: generate
+        env:
+          # The generator runs `gh repo list` for owner-scope discovery
+          # (SGA-10: a new repo is noticed the night it appears). Without the
+          # token it exits 2 — measured on dispatch 40062752087.
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -eu
           bash scripts/secret-scan-declared.sh --out "$RUNNER_TEMP/declared.txt"
