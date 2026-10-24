@@ -576,8 +576,28 @@ or label it.
       keeping the hub's 409. So the decide route is classified, exercised, and
       the admin tier is measured at 200 against a hub that answers — not only
       at "non-401".
-- [ ] 6.7 Named green CI runs on the hub commit and the MC commit, with both
+- [x] 6.7 Named green CI runs on the hub commit and the MC commit, with both
       SHAs and run URLs in the PR.
+      **Pinned on PR #21 as comment 6387068553 (2026-10-24), read from the
+      Actions API.** MC implementation `bf638299` → green run
+      [40044697180](https://github.com/TheArchitectit/missioncontrol/actions/runs/40044697180)
+      (`success`). Hub side as delivered → green run
+      [40049295613](https://github.com/TheArchitectit/AIGGP-Agentic-Framework/actions/runs/40049295613)
+      on `b4de795` (`success`), a descendant of every hub commit of this change
+      (`4e66bee`, `1d51289`, `fa7b4da`, `251baf5`, `019f6a3`).
+      **Recorded against the tick, not omitted: the two contract-reference
+      SHAs' own runs are red.** `98737e1` → run
+      [39446308945](https://github.com/TheArchitectit/AIGGP-Agentic-Framework/actions/runs/39446308945)
+      `failure` (DevGate charset gate — the denied section sign in the change
+      package, removed in `b12bc52`, run 39457727333 `success`); `019f6a3` →
+      run
+      [39976228924](https://github.com/TheArchitectit/AIGGP-Agentic-Framework/actions/runs/39976228924)
+      `failure` (same charset gate plus the pinned gitleaks secret scan over
+      the pushed range — the queue fixtures' credential-shaped literals).
+      Content failures of those exact commits, not flakes; fixed in `a7db194`,
+      `7b13360` and `b4de795`. So the green pair is hub `b4de795` + MC
+      `bf638299`, and the contract pin (`98737e1` + `019f6a3`) is what the
+      specs are written against with its runs' real conclusions named.
 - [x] 6.8 Operator documentation stating the loop **and** that approval
       produces an image rebuild, never a live install.
 
