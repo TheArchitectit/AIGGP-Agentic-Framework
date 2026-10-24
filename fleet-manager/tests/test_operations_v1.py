@@ -57,6 +57,18 @@ def _subject(kind: SubjectKind = SubjectKind.RUNNER, name: str = "runner-a") -> 
     return Subject(kind=kind, subject_id=name)
 
 
+def _looks_like_a_credential(prefix: str) -> str:
+    """Build a value that matches the package's credential shape at run time.
+
+    Assembled from parts on purpose. This is a public repository: a literal
+    that looks like a token trips the secret scanners in CI even when it was
+    invented for a test, and a scanner that has to guess which findings are
+    fake is a scanner nobody trusts. The value still matches `_SECRET_SHAPED`
+    when it is built, which is what the test is about.
+    """
+    return prefix + ("0123456789ABCDEF" * 2) + "0123"
+
+
 def _operation(
     kind: OperationKind = OperationKind.CREATE_RUNNER,
     *,
@@ -159,16 +171,17 @@ class TestOperations(unittest.TestCase):
         self.assertEqual(DIGEST, operation.parameter("image_digest"))
 
     def test_a_registration_reference_is_a_reference_not_the_material(self) -> None:
+        material = _looks_like_a_credential("ghp_")
         with self.assertRaises(OperationRefused) as caught:
             _operation(parameters=(
-                ("registration_ref", "ghp_0123456789abcdef0123456789abcdef0123"),
+                ("registration_ref", material),
                 ("runner_name", "runner-a"),
                 ("pool_id", "pool-a"),
             ))
         message = str(caught.exception)
         self.assertIn("references", message)
         # The refusal names the rule; it does not repeat the credential.
-        self.assertNotIn("ghp_0123456789abcdef", message)
+        self.assertNotIn(material[:20], message)
         # A registration reference is opaque and named, never the material:
         # a bare name is refused as not-a-reference even when it is no secret.
         with self.assertRaises(OperationRefused) as caught:
@@ -182,10 +195,11 @@ class TestOperations(unittest.TestCase):
     def test_a_parameter_value_that_looks_like_a_credential_is_refused(self) -> None:
         # SEC-001: references and metadata, never secret values. `reason` is
         # free text, which is exactly where a secret would otherwise land.
+        material = _looks_like_a_credential("github_pat_")
         with self.assertRaises(OperationRefused) as caught:
             _operation(OperationKind.MARK_DRAIN,
-                       parameters=(("reason", "token github_pat_0123456789abcdef0123456789"),))
-        self.assertNotIn("github_pat_0123456789abcdef", str(caught.exception))
+                       parameters=(("reason", f"token {material}"),))
+        self.assertNotIn(material[:20], str(caught.exception))
         self.assertIn("references, never secrets", str(caught.exception))
 
     def test_a_parameter_value_beyond_the_cap_is_refused(self) -> None:
@@ -338,13 +352,14 @@ class TestReceipts(unittest.TestCase):
             Evidence(digest=DIGEST, location="")
 
     def test_a_detail_that_looks_like_a_credential_is_refused(self) -> None:
+        material = _looks_like_a_credential("AKIA")
         with self.assertRaises(OperationRefused) as caught:
             AgentReceipt(
                 operation_key="op-1", host_id="host-a",
                 outcome=ReceiptOutcome.REJECTED, finished_at=LATER,
-                detail="refused with AKIA0123456789ABCDEF still in the message",
+                detail=f"refused with {material} still in the message",
             )
-        self.assertNotIn("AKIA0123456789ABCDEF", str(caught.exception))
+        self.assertNotIn(material, str(caught.exception))
         self.assertIn("never secrets", str(caught.exception))
 
     def test_a_detail_beyond_the_cap_is_refused(self) -> None:
