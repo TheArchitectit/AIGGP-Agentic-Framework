@@ -385,7 +385,12 @@ class TestDocuments(unittest.TestCase):
 
 class TestSuiteFloor(unittest.TestCase):
     def test_the_suite_still_has_its_expected_tests(self):
-        discovered = unittest.defaultTestLoader.discover(str(Path(__file__).parent))
+        # Count this module, not the directory. Counting the directory let the
+        # floor pass on a neighbour's tests while this file had shrunk; the
+        # 2.2 suite caught it, and this is the fix.
+        discovered = unittest.defaultTestLoader.loadTestsFromModule(
+            sys.modules[__name__]
+        )
         count = discovered.countTestCases()
         self.assertGreaterEqual(
             count, EXPECTED_TEST_COUNT, f"suite shrank: {count} < {EXPECTED_TEST_COUNT}"
