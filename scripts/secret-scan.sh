@@ -38,6 +38,16 @@
 # AND a path and carries a reason. A rule alone is not a disposition — one
 # entry for one false positive must not immunise a ruleset — and docs are not
 # excluded from the scan, because docs are where people paste real credentials.
+#
+# WHY THE WORKING TREE IS SCOPED BY CONTRACT
+# `gitleaks --no-git` walks the filesystem, so it reports build artifacts as
+# repository secrets — measured here on `__pycache__/` bytecode of a test that
+# assembles a credential-shaped value at run time, which the compiler constant-
+# folds into one literal. Every other gate already skips those trees via
+# `.guardrails/scope.json`; this one reads the same file (fw-scope-01) instead
+# of importing `gate_common`, because enroll installs it as a single file beside
+# the fleet sweep. Only working-tree findings are scoped away: a path in a
+# committed tree is repository content even inside a skipped tree.
 set -euo pipefail
 
 REPO=""
@@ -175,6 +185,11 @@ for pair in "$TREE_RC:$TMPD/tree.json" "$HIST_RC:$HIST_JSON"; do
     [ -s "$f" ] || { echo "[secret-scan] scanner unusable: gitleaks reported findings but wrote no report" >&2; exit 2; }
 done
 
+# The gate's own directory is where gate_common lives; `$REPO` is the tree
+# being scanned and may be a fixture with no scripts/ at all.
+GATE_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+export GATE_DIR
+
 python3 - "$ALLOWLIST" "$REPORT" "$TREE_RC:$TMPD/tree.json" "$HIST_RC:$HIST_JSON" "$SCOPE" "$HISTORY_MODE" <<'PY'
 import json, os, sys
 
@@ -221,6 +236,62 @@ for spec in scans:
             "line": f.get("StartLine") or 0,
             "commit": (f.get("Commit") or "")[:12] or "working tree",
         })
+
+# A working-tree finding inside a directory every other gate already skips
+# (`.guardrails/scope.json`, fw-scope-01) is a build artifact or a vendored
+# cache, not repository content. The case that made this consumption necessary:
+# `__pycache__/` bytecode of a test that assembles a credential-shaped value at
+# run time, which the compiler constant-folds into one literal — the source is
+# the assembly the gate's own guidance asks for, and the artifact is never
+# committed. Only working-tree findings are scoped this way: a path in a
+# committed tree is repository content even when the tree is normally skipped.
+# Scope is the contract, not a walk (fw-scope-01): one list, in
+# `.guardrails/scope.json`. This gate reads it directly rather than importing
+# `gate_common`, because the enroll path installs it as a single file beside the
+# fleet sweep and there is no `scripts/lib` there. Preference order is the
+# scanned tree's contract (a project may extend the list), then this checkout's
+# baseline, then nothing at all — and the source is always named. Skipping more
+# than the contract is the one direction this gate may not drift in silently: an
+# unlisted skip is a muted gate. Skipping nothing, and saying so, is the safe
+# reading for a secret scan of a repository this checkout does not own.
+def read_skip_dirs(path):
+    with open(path, encoding="utf-8") as fh:
+        data = json.load(fh)
+    dirs = data.get("skip_dirs")
+    if not isinstance(dirs, list):
+        raise ValueError(f"{path}: skip_dirs must be a list")
+    return frozenset(str(d) for d in dirs)
+
+candidates = (
+    (os.path.join(REPO_ROOT, ".guardrails", "scope.json"), "the scanned tree's contract"),
+    (os.path.join(os.path.dirname(os.environ["GATE_DIR"]), ".guardrails", "scope.json"),
+     "this checkout's baseline (the scanned tree has none)"),
+    (os.path.join(os.environ["GATE_DIR"], ".guardrails", "scope.json"),
+     "the contract beside the installed gate"),
+)
+skip_dirs = frozenset()
+scope_source = "no scope contract found — scanning every path"
+for path, source in candidates:
+    if not os.path.exists(path):
+        continue
+    try:
+        skip_dirs = read_skip_dirs(path)
+    except Exception as exc:
+        print(f"[secret-scan] scope contract unusable: {path}: {exc}", file=sys.stderr)
+        sys.exit(3)
+    scope_source = source
+    break
+print(f"[secret-scan] scope contract: {len(skip_dirs)} skipped director(ies) from {scope_source}")
+
+def skipped(rel):
+    return any(part in skip_dirs for part in rel.split("/"))
+
+dropped = [f for f in findings
+           if f["commit"] == "working tree" and skipped(f["path"])]
+findings = [f for f in findings if f not in dropped]
+if dropped:
+    print(f"[secret-scan] out of scope: {len(dropped)} finding(s) in directory trees "
+          f"the scope contract skips (build/vendored artifacts — not repository content)")
 
 def covered(f):
     return any(e["rule"] == f["rule"] and e["path"] == f["path"] for e in entries)

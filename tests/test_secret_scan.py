@@ -101,6 +101,14 @@ class Gate:
         self.bindir = bindir
         self.log = tmp_path / "gitleaks.jsonl"
         self.log.write_text("", encoding="utf-8")
+        # The scope contract is gate configuration, not test scaffolding: the
+        # gate refuses to run without it (fw-scope-01), so every fixture that
+        # expects a scan has one.
+        guards = tmp_path / ".guardrails"
+        guards.mkdir(exist_ok=True)
+        (guards / "scope.json").write_text(
+            (REPO_ROOT / ".guardrails" / "scope.json").read_text(encoding="utf-8"),
+            encoding="utf-8")
         (tmp_path / "src").mkdir(exist_ok=True)
         (tmp_path / "src" / "app.py").write_text("print('hi')\n", encoding="utf-8")
         self.env = {
@@ -375,6 +383,62 @@ def test_a_malformed_allowlist_is_not_a_pass(tmp_path):
     g.allowlist_raw("{not json")
     res = g.runs("--tree")
     assert res.returncode != 0, "an unparseable allowlist was treated as empty"
+
+
+# --- scope is the contract, not a walk (secret-scan-07) -------------------------
+
+def test_a_working_tree_finding_in_a_skipped_directory_is_out_of_scope(tmp_path):
+    """gitleaks --no-git walks the filesystem, so it reports build artifacts as
+    repository secrets. The case that made this visible: `__pycache__/` bytecode
+    of a test that assembles a credential-shaped value at run time — the compiler
+    constant-folds the assembly into one literal, which is exactly what the
+    source was written to avoid. Every other gate already skips these trees
+    (`.guardrails/scope.json`, fw-scope-01); this one must consume the same
+    contract rather than invent its own."""
+    cache_finding = dict(FINDING, File="__pycache__/test_adapters_v1.cpython-314.pyc",
+                         Commit="", Fingerprint=":__pycache__:github-pat:27")
+    g = Gate(tmp_path, findings=[cache_finding])
+    res = g.runs("--tree")
+    text = res.stdout + res.stderr
+    assert res.returncode == 0, f"an artifact was reported as a repository secret: {text}"
+    assert "out of scope" in text, "the dropped finding was omitted silently"
+    assert "FINDING" not in text, f"a skipped tree still produced a finding: {text}"
+
+
+def test_a_working_tree_finding_in_first_party_source_still_fails(tmp_path):
+    """The exclusion must not mute the gate: a dropped credential file that is
+    not inside a skipped tree has to fail the run."""
+    fresh = dict(FINDING, Commit="", Fingerprint=":src/new.py:github-pat:1")
+    g = Gate(tmp_path, findings=[fresh])
+    res = g.runs("--tree")
+    assert res.returncode == 1, f"a first-party finding did not fail the gate: {res.stdout}"
+    assert "FINDING" in (res.stdout + res.stderr), "the finding was not named"
+
+
+def test_a_committed_finding_in_a_skipped_directory_is_still_reported(tmp_path):
+    """Only working-tree findings are scoped away. A path in a committed tree is
+    repository content even when the tree is normally skipped — a secret that
+    reached history has to stay visible."""
+    committed = dict(FINDING, File="__pycache__/committed.pyc",
+                     Fingerprint="abc123def456:__pycache__:github-pat:27")
+    g = Gate(tmp_path, findings=[committed])
+    res = g.runs("--tree")
+    assert res.returncode == 1, "a committed finding inside a skipped tree vanished"
+    assert "FINDING" in (res.stdout + res.stderr)
+
+
+def test_a_tree_without_a_scope_contract_falls_back_to_the_baseline_and_says_so(tmp_path):
+    """The fleet sweeps repositories this checkout does not own, so the scanned
+    tree may carry no contract. Falling back is right — skipping nothing would
+    be a muted gate in the other direction — but the fallback has to be named:
+    a silent default is how two gates end up walking different trees."""
+    g = Gate(tmp_path, findings=[FINDING])
+    (tmp_path / ".guardrails" / "scope.json").unlink()
+    res = g.runs("--tree")
+    text = res.stdout + res.stderr
+    assert res.returncode == 1, f"the fallback run did not report the finding: {text}"
+    assert "baseline" in text, f"the fallback was silent: {text}"
+    assert "FINDING" in text, "the finding was not named after the fallback"
 
 
 def _main():
