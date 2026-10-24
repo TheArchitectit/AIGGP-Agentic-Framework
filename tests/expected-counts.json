@@ -118,11 +118,13 @@
   "test_secret_validation_template": 13,
   "test_silent_success_gate": 3,
   "test_silent_success_overlay": 6,
+  "test_spec_fleet_classify": 11,
+  "test_spec_fleet_walk": 3,
   "test_spec_gap_scan": 17,
   "test_spec_traceability": 15,
   "test_storage_hygiene_template": 10,
   "test_template_supply_chain": 4,
   "test_workflow_read": 15
  },
- "total_floor": 1537
+ "total_floor": 1552
 }
