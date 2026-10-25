@@ -15,6 +15,15 @@ Both halves were false, and the warning half was hiding the error half.
 `python3 scripts/failure_registry_check.py` on a clean checkout printed
 **eleven** stale-path warnings over **seven** entries and exited **0**.
 
+Those warnings were real, but they were the smaller half of the problem, and
+counting them was the wrong way to size it. A path-existence check cannot see
+an entry whose path happens to exist here while its bug and its fix belong to
+another repository. **Four** of the ten entries removed below named at least
+one path that exists in this tree - `.github/workflows/ci.yml`,
+`.gitignore`, `scripts/regression_diff.py` - and two of those names are shared
+script and workflow names, so the existence check passed a foreign entry on a
+filename coincidence: `FAIL-d6c6e7c5` and `FAIL-3bc44d38` name a `ci.yml`,
+`FAIL-3bc44d38` and `FAIL-9231181d` name `regression_diff.py`.
 
 An earlier draft of this record counted **six** removals and **eight** warned
 entries. Both figures came from the warning list alone; the correct counts are
