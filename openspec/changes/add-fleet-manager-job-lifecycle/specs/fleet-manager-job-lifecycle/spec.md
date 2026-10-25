@@ -5,23 +5,27 @@
 ### Requirement: One job per instance, and no way back to warm
 <!-- id: fleet-008-01 -->
 A job runner instance SHALL accept at most one job. The lifecycle SHALL be a
-closed state machine whose states are `PREPULLED`, `ASSIGNED`, `RUNNING`,
-`REFUSED`, `COMPLETED`, `TIMED_OUT`, `CANCELLED`, `DISCONNECTED`, `DESTROYED`,
-`PROVEN_CLEAN`, and `QUARANTINED`.
+closed state machine.
 
 The terminal states of a job are `COMPLETED`, `TIMED_OUT`, `CANCELLED`, and
 `DISCONNECTED`, where `DISCONNECTED` is an uncertain disconnect. Every terminal
-state SHALL lead to destruction. A terminal state SHALL NOT return to a warm
-state, and the warm pool SHALL NOT count an instance that has accepted a job.
+state SHALL lead to destruction, and the warm pool SHALL NOT count an instance
+that has accepted a job.
 
-Offering a job to an instance that has already accepted one SHALL be refused as
-a policy denial.
+Offering a job to an instance that has already accepted one SHALL be refused.
 
 #### Scenario: a second job is refused
 
 - **WHEN** an instance in `ASSIGNED` or `RUNNING` is offered another job
 - **THEN** the offer is refused as `POLICY_DENIAL`, and the instance's state is
   unchanged
+
+#### Scenario: the state machine is closed
+
+- **WHEN** the lifecycle's states are enumerated
+- **THEN** they are exactly `PREPULLED`, `ASSIGNED`, `RUNNING`, `REFUSED`,
+  `COMPLETED`, `TIMED_OUT`, `CANCELLED`, `DISCONNECTED`, `DESTROYED`,
+  `PROVEN_CLEAN`, and `QUARANTINED`
 
 #### Scenario: a used instance is not warm
 
@@ -38,18 +42,16 @@ a policy denial.
 - **WHEN** a lifecycle is asked to move a terminal instance to `PREPULLED` or
   `STOPPED_CLEAN`
 - **THEN** the request is refused as `UNKNOWN_STATE` naming the state pair
+- **AND** a terminal state SHALL NOT return to a warm state
 
 ### Requirement: Cleanup is proved before a replacement joins capacity
 <!-- id: fleet-008-02 -->
 A replacement instance SHALL NOT join capacity while a previous instance's
 cleanup is unproven and its resources are not quarantined. Cleanup SHALL be
-evidenced by a value carrying instance identity, image digest, job identity if
-known, the volume disposal result, the network disposal result, and the start
-and finish timestamps.
+evidenced by a value.
 
 Every field except job identity SHALL be required; a proof missing one SHALL be
-refused at construction. Job identity SHALL be optional, and its absence SHALL
-not invalidate a proof. A disposal result SHALL be one of `DISPOSED`, `ABSENT`,
+refused at construction. A disposal result SHALL be one of `DISPOSED`, `ABSENT`,
 or `FAILED`, and a proof whose volume or network result is `FAILED` SHALL NOT be
 admitted as proof of cleanup.
 
@@ -58,11 +60,16 @@ admitted as proof of cleanup.
 - **WHEN** a cleanup proof is built without a volume disposal result, or without
   timestamps, or without an image digest
 - **THEN** construction is refused, naming the missing field
+- **AND** the fields are instance identity, image digest, job identity if known,
+  the volume disposal result, the network disposal result, and the start and
+  finish timestamps
 
 #### Scenario: a proof without a job identity
 
 - **WHEN** an instance is disconnected and its job identity is never learned
 - **THEN** a proof with no job identity is still a proof
+- **AND** job identity SHALL be optional, and its absence SHALL not invalidate a
+  proof
 
 #### Scenario: a failed disposal is not a proof
 
@@ -132,10 +139,7 @@ adapter contract, and SHALL NOT introduce a ninth. A lifecycle call SHALL NOT
 propagate a bare exception to its caller: anything unexpected SHALL be
 classified into `RUNTIME_FAILURE` naming the exception's type only.
 
-The kind SHALL match the failure: a refused job offer and a refused admission
-are `POLICY_DENIAL`; a failed or incomplete cleanup is `CLEANUP_FAILURE`; a pool
-at its ceiling is `CAPACITY_EXHAUSTION`; a state transition with no rule is
-`UNKNOWN_STATE`.
+The kind SHALL match the failure.
 
 #### Scenario: a refused offer is a policy denial
 
@@ -146,6 +150,14 @@ at its ceiling is `CAPACITY_EXHAUSTION`; a state transition with no rule is
 
 - **WHEN** a proof is refused for a missing field or a failed disposal
 - **THEN** the error kind is `CLEANUP_FAILURE`
+
+#### Scenario: the kind matches the failure
+
+- **WHEN** a failure is raised
+- **THEN** a refused job offer and a refused admission are `POLICY_DENIAL`, a
+  failed or incomplete cleanup is `CLEANUP_FAILURE`, a pool at its ceiling is
+  `CAPACITY_EXHAUSTION`, and a state transition with no rule is
+  `UNKNOWN_STATE`
 
 #### Scenario: an unexpected exception is classified
 

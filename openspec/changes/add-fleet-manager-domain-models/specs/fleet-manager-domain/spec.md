@@ -6,25 +6,27 @@
 <!-- id: fleet-001-01 -->
 The Fleet Manager SHALL represent desired state as immutable values with an
 increasing revision. Every transition SHALL return a new value with a new
-revision and SHALL leave the value it was given unchanged, so an applied
-revision always names a complete world rather than a set of edits.
+revision and SHALL leave the value it was given unchanged.
 
 What a host reports SHALL be a separate type. No desired-state value SHALL be
 constructible from an observation, and the observation type SHALL NOT be
-accepted where desired state is required: turning a host's report into desired
-state requires an explicit manager operation that produces a new revision.
+accepted where desired state is required.
 
 #### Scenario: a transition does not mutate its input
 
 - **WHEN** an assignment or a drain is applied to a `DesiredState`
 - **THEN** the original value keeps its revision and its collections, and the
   new value carries revision + 1
+- **AND** an applied revision always names a complete world rather than a set of
+  edits
 
 #### Scenario: an observation is offered as desired state
 
 - **WHEN** an `Observation` is passed where a `DesiredState` (or any part of
   one) is expected
 - **THEN** it is refused as a wrong type rather than coerced
+- **AND** turning a host's report into desired state requires an explicit manager
+  operation that produces a new revision
 
 #### Scenario: the two modules stay apart
 
@@ -33,27 +35,28 @@ state requires an explicit manager operation that produces a new revision.
 
 ### Requirement: A pool declares its whole contract or is refused by field
 <!-- id: fleet-001-02 -->
-A pool SHALL declare every field the program's desired-state model requires —
-identity and revision, trust class, allowed repositories or runner group,
-required labels, runtime adapter, pinned image digest, architectures, ephemeral
-mode, warm and scale bounds, the three timeouts, network and filesystem
-profiles, secret profile reference, update channel and rollback image,
-maintenance window, disruption budget, owner and escalation route. A pool
-missing a field SHALL be refused, and the refusal SHALL name the field.
+A pool SHALL declare every field the program's desired-state model requires. A
+pool missing a field SHALL be refused, and the refusal SHALL name the field.
 
-Documents SHALL be closed: an unknown field is refused, because a store that
-silently drops what it does not understand cannot be trusted to keep what it
-promised.
+Documents SHALL be closed: an unknown field is refused.
 
 #### Scenario: a required field is absent
 
 - **WHEN** a pool document omits, say, `image_digest`
 - **THEN** the refusal names `image_digest` and no other field
+- **AND** the required fields are identity and revision, trust class, allowed
+  repositories or runner group, required labels, runtime adapter, pinned image
+  digest, architectures, ephemeral mode, warm and scale bounds, the three
+  timeouts, network and filesystem profiles, secret profile reference, update
+  channel and rollback image, maintenance window, disruption budget, owner and
+  escalation route
 
 #### Scenario: an unknown field appears
 
 - **WHEN** a pool document carries a field the model does not declare
 - **THEN** the document is refused and the field is named
+- **AND** a store that silently drops what it does not understand cannot be
+  trusted to keep what it promised
 
 #### Scenario: Phase 1 is ephemeral-only
 
@@ -66,9 +69,8 @@ promised.
 <!-- id: fleet-001-03 -->
 The model SHALL hold secret profiles by reference only. A document SHALL be
 refused when any key outside the declared reference fields looks like a secret
-value (`token`, `password`, `secret`, `api_key`, `private_key`, `credential`
-and their plurals), and a reference field's value SHALL be reference-shaped
-(lowercase identifier), not a blob.
+value, and a reference field's value SHALL be reference-shaped (lowercase
+identifier), not a blob.
 
 Refusals SHALL name the field and the rule and SHALL NOT repeat the rejected
 value, so a diagnostic cannot become the place a secret is stored.
@@ -78,6 +80,8 @@ value, so a diagnostic cannot become the place a secret is stored.
 - **WHEN** any desired-state document carries `registration_token` or
   `password`
 - **THEN** it is refused by path, and the value is not echoed
+- **AND** the value-shaped keys are `token`, `password`, `secret`, `api_key`,
+  `private_key`, `credential` and their plurals
 
 #### Scenario: a reference carries a blob
 
@@ -107,9 +111,7 @@ Capacity SHALL be computed from assigned (not released) assignments against the
 host's slot count, and an assignment that would exceed it SHALL be refused.
 Drain SHALL follow `active → draining → drained` and back, and completing a
 drain SHALL be refused while the host still has assigned work. A rollout SHALL
-refuse an unpinned digest and a digest identical to the pool's current one, and
-on success SHALL move the image, keep the previous image as the rollback, and
-bump the pool revision.
+refuse an unpinned digest and a digest identical to the pool's current one.
 
 #### Scenario: over-capacity
 
@@ -125,3 +127,10 @@ bump the pool revision.
 
 - **WHEN** a rollout names the image the pool already runs
 - **THEN** it is refused, because it would record a change that is not one
+
+#### Scenario: a rollout succeeds
+
+- **WHEN** a rollout names a new pinned digest
+- **THEN** the pool's image moves to it
+- **AND** the previous image is kept as the rollback, and the pool revision is
+  bumped

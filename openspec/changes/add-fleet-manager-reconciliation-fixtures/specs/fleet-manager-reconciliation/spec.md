@@ -5,16 +5,22 @@
 ### Requirement: Reconciliation is a deterministic diff, never a state
 <!-- id: fleet-003-01 -->
 A reconciliation SHALL compare one desired-state revision with one observation
-per host and SHALL return a diff: the drifts it found, the changes it would
-submit, and the work it deferred with the reason. It SHALL NOT produce a new
-desired-state revision; the changes SHALL be the same `Change` values that
-planning and applying accept.
+per host and SHALL return a diff.
 
 The reconciliation SHALL have an identity that is a digest of exactly its base
 revision, the observations and the convergence limits, recomputed when the
 value is constructed. Two reconcilers reading the same revision and the same
 reports under the same limits SHALL produce the same identity and the same
 document, byte for byte.
+
+#### Scenario: a reconciliation is not an apply
+
+- **WHEN** a reconciliation is returned
+- **THEN** it SHALL NOT produce a new desired-state revision
+- **AND** its diff is the drifts it found, the changes it would submit, and the
+  work it deferred with the reason
+- **AND** the changes are the same `Change` values that planning and applying
+  accept
 
 #### Scenario: two runs over the same fixtures
 
@@ -40,25 +46,25 @@ document, byte for byte.
 A reconciler SHALL submit at most the declared number of drains, replacements
 and host mutations in one batch, and SHALL respect each affected pool's
 disruption budget for destructive changes. A candidate that does not fit SHALL
-be returned as a deferral carrying the change and the reason, naming the cap
-that was reached; it SHALL NOT be dropped.
+be returned as a deferral carrying the change and the reason; it SHALL NOT be
+dropped.
 
 A limit of zero SHALL submit nothing. A halted reconciler SHALL submit nothing
-while still returning the drifts and the deferrals, so the work it would have
-done is preserved for controlled recovery.
+while still returning the drifts and the deferrals.
 
 #### Scenario: more work than the cap
 
 - **WHEN** a pool is three slots below its warm floor and the host-mutation cap
   is two
 - **THEN** two assignments are submitted and the third is deferred with a
-  reason naming the cap
+  reason naming the cap that was reached
 
 #### Scenario: a halted reconciler
 
 - **WHEN** the same shortfall is reconciled with `halted` set
 - **THEN** no change is submitted, every candidate is deferred with the halt as
   its reason, and the drifts are unchanged
+- **AND** the work it would have done is preserved for controlled recovery
 
 #### Scenario: a pool's disruption budget
 
@@ -116,9 +122,7 @@ changes and deferrals written by hand. Each fixture SHALL be compared exactly,
 including order, and the same fixture SHALL produce the same document on every
 run.
 
-The report form used by fixtures SHALL be closed: a missing field SHALL be
-named, an unknown field SHALL be refused, and a value that is not a report
-SHALL be refused rather than crashed on.
+The report form used by fixtures SHALL be closed.
 
 #### Scenario: a fixture whose expectation drifts
 
@@ -130,3 +134,5 @@ SHALL be refused rather than crashed on.
 
 - **WHEN** a fixture or caller supplies a report with a missing or unknown field
 - **THEN** it is refused naming the field, and no reconciliation is produced
+- **AND** a missing field SHALL be named, an unknown field SHALL be refused, and
+  a value that is not a report SHALL be refused rather than crashed on

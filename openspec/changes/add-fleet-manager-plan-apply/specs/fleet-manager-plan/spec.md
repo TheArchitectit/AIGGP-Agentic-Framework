@@ -7,20 +7,19 @@
 Every planned mutation SHALL describe its creates, drains, replacements,
 deletions and capacity impact before it is applied. A plan SHALL be a value:
 its identity SHALL be a digest of exactly its base revision and its ordered
-changes, so that two callers planning the same work against the same revision
-produce the same plan, and a plan whose changes no longer match its identity
-SHALL be refused.
+changes, and a plan whose changes no longer match its identity SHALL be
+refused.
 
 Planning SHALL simulate every change against the state and SHALL refuse an
-impossible change at plan time, naming the change's index and the reason. The
-capacity impact SHALL be computed from that simulation rather than accepted
-from the caller.
+impossible change at plan time, naming the change's index and the reason.
 
 #### Scenario: the same work against the same revision
 
 - **WHEN** two callers plan the same ordered changes against the same base
   revision
 - **THEN** both plans carry the same identity and the same document
+- **AND** two callers planning the same work against the same revision produce the
+  same plan
 
 #### Scenario: a plan is edited after it was built
 
@@ -38,6 +37,8 @@ from the caller.
 
 - **WHEN** a plan assigns work to, or releases work from, a host
 - **THEN** the plan reports that host's free slots before and after the plan
+- **AND** the capacity impact SHALL be computed from that simulation rather than
+  accepted from the caller
 
 ### Requirement: An apply is bound to its revision and its principal
 <!-- id: fleet-002-02 -->
@@ -48,8 +49,7 @@ a plan containing any destructive change SHALL additionally require the
 `fleet.admin` scope.
 
 An apply SHALL revalidate each change against the real state and time before
-producing the new revision, even though the plan already simulated it: a plan is
-a prediction.
+producing the new revision.
 
 #### Scenario: the state moved on
 
@@ -67,6 +67,8 @@ a prediction.
 - **WHEN** a plan is applied to the revision it names but one of its changes is
   no longer possible
 - **THEN** the apply is refused and no new revision is produced
+- **AND** the apply still revalidates each change, even though the plan already
+  simulated it: a plan is a prediction
 
 ### Requirement: Retry is idempotent by key, and a key covers one plan
 <!-- id: fleet-002-03 -->
@@ -89,8 +91,7 @@ refused. The ledger of keys SHALL be append-only.
 ### Requirement: The audit log is append-only and cannot be back-dated
 <!-- id: fleet-002-04 -->
 Every applied change and every refused apply SHALL be recordable as an audit
-event carrying the principal, the action, the subject, the plan identity, the
-key and the outcome. The log SHALL be append-only: an event SHALL NOT be edited
+event. The log SHALL be append-only: an event SHALL NOT be edited
 or removed. Sequence numbers SHALL be contiguous from 1, timestamps SHALL NOT go
 backwards, and a recorded reason SHALL NOT contain a credential value.
 
@@ -108,6 +109,8 @@ refusal SHALL carry the entry that records it.
 - **WHEN** an apply is refused
 - **THEN** the refusal carries the log with its refusal entry appended, so the
   attempt cannot be made invisible
+- **AND** the event carries the principal, the action, the subject, the plan
+  identity, the key and the outcome
 
 #### Scenario: a value offered as a reason
 

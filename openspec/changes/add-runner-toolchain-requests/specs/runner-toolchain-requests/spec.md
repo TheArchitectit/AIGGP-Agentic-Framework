@@ -6,99 +6,121 @@
 <!-- id: mon-tc-01 -->
 A spoke MAY report `missing_tools` on its heartbeat. A reported gap SHALL be
 the set difference of **the toolchain profile required for that lane** and
-**the tools observed present in the runner image itself**, never a difference
-against the vocabulary as a whole and never a difference against the host
-`PATH`. A lane whose profile requires nothing reports nothing.
+**the tools observed present in the runner image itself**. A lane whose profile
+requires nothing reports nothing.
 
-Every entry SHALL be matched by exact byte comparison, case-sensitive, with no
-trimming and no Unicode normalization, against the vocabulary below. The
-observed state of each probed tool SHALL be one of `present`, `absent`, or
-`unknown`, where `unknown` means the probe could not complete within its bound.
-`unknown` SHALL NOT be recorded as `absent`, and SHALL NOT be recorded as
-`present`. A probe failure SHALL yield an unknown, never a report of a
-complete toolchain.
+A submitted list SHALL be parsed all-or-nothing: a list carrying any entry
+outside the vocabulary, any non-string entry, or more entries than the maximum
+length SHALL be rejected whole.
 
-The initial vocabulary is: `cargo`, `cmake`, `dotnet`, `gcc`, `g++`, `gitleaks`,
-`go`, `gradle`, `java`, `make`, `maven`, `node`, `npm`, `pnpm`, `pip`,
-`python`, `shellcheck`.
+#### Scenario: an entry is matched exactly against the vocabulary
 
-Probes are fixed and are not host-specific: `python` is `python3` present;
-`pip` is `python3 -m pip` succeeding (a `python3` without the module is
-`absent`); `maven` and `java` require a working JDK; `g++` is its own probe and
-is not inferred from `gcc`. Probe duration SHALL be bounded.
+- **WHEN** a submitted entry is matched
+- **THEN** the match is by exact byte comparison, case-sensitive, with no
+  trimming and no Unicode normalization, against the vocabulary below
+- **AND** the observed state of each probed tool SHALL be one of `present`,
+  `absent`, or `unknown`, where `unknown` means the probe could not complete
+  within its bound. `unknown` SHALL NOT be recorded as `absent`, and SHALL NOT
+  be recorded as `present`
+- **AND** a probe failure SHALL yield an unknown, never a report of a complete
+  toolchain
+- **AND** the initial vocabulary is: `cargo`, `cmake`, `dotnet`, `gcc`, `g++`,
+  `gitleaks`, `go`, `gradle`, `java`, `make`, `maven`, `node`, `npm`, `pnpm`,
+  `pip`, `python`, `shellcheck`
 
-Parsing SHALL be all-or-nothing: if any entry of a submitted list is outside
-the vocabulary, is not a string, or the list exceeds the maximum length, the
-whole list SHALL be rejected and no request SHALL be created or updated. A
-rejection SHALL be recorded as a code and an incrementing counter. The rejected
-value SHALL NOT be stored in any field, any log line, or any audit row.
+#### Scenario: a probe has a fixed definition
 
-Two bounds are fixed here, numerically, because a bound an operator can set is
-a bound nobody is measured against:
+- **WHEN** a tool is probed
+- **THEN** probes are fixed and are not host-specific: `python` is `python3`
+  present; `pip` is `python3 -m pip` succeeding (a `python3` without the module
+  is `absent`); `maven` and `java` require a working JDK; `g++` is its own probe
+  and is not inferred from `gcc`
+- **AND** probe duration SHALL be bounded
 
-- `TOOL_PROBE_TIMEOUT_S` is **10 seconds**. A probe that has not answered in
-  time is `unknown`, never `absent` and never `present`. Probing all 17 names
-  serially at the full bound costs 170 seconds against a 300-second heartbeat
-  cadence (design.md, Sec. Risks), so a worst-case probe run cannot overrun the
-  tick it reports into.
-- `MISSING_TOOLS_MAX_ENTRIES` is **32**. A longer list is rejected whole. The
-  vocabulary has 17 members, so a correct spoke cannot approach the cap by
-  reporting honestly, and a list that reaches it is a broken spoke rather than a
-  lane with unusual needs.
+#### Scenario: a submitted list is rejected whole
 
-The vocabulary above is **17 names**. The list is normative and any count of it
-is derived from the list, never asserted alongside it: where a count elsewhere
-in this package disagrees with the list, the list is right and the count is
-stale. (Task 0.1 read "16 names", a value written before `shellcheck` joined the
-list, and is corrected by this amendment.) Adding a name to the vocabulary is a
-change to this capability, reviewed as one, and is never a config edit or a
-spoke-side addition.
+- **WHEN** any entry of a submitted list is outside the vocabulary, is not a
+  string, or the list is longer than `MISSING_TOOLS_MAX_ENTRIES`
+- **THEN** the whole list is rejected, and no request is created or updated
+- **AND** a rejection is recorded as a code and an incrementing counter
+- **AND** the rejected value SHALL NOT be stored in any field, any log line,
+  any audit row, or any other place
 
-A **toolchain profile** is a named subset of that vocabulary, and the profiles
-are spec-governed data shipped with the capability:
+#### Scenario: the bounds are fixed, not configured
 
-| Profile id | Requires |
-|---|---|
-| `none` | (nothing) |
-| `base` | `gcc`, `make`, `python`, `pip` |
-| `rust` | `cargo`, `gcc`, `make` |
-| `node` | `node`, `npm` |
-| `go` | `go` |
-| `jvm` | `java`, `maven`, `gradle` |
-| `dotnet` | `dotnet` |
-| `web-js` | `node`, `npm`, `pnpm` |
-| `ci-hygiene` | `shellcheck`, `gitleaks` |
+- **WHEN** the bounds are read
+- **THEN** `TOOL_PROBE_TIMEOUT_S` is **10 seconds**: a probe that has not
+  answered in time is `unknown`, never `absent` and never `present`, and probing
+  all 17 names serially at the full bound costs 170 seconds against a
+  300-second heartbeat cadence (design.md, Sec. Risks), so a worst-case probe run
+  cannot overrun the tick it reports into
+- **AND** `MISSING_TOOLS_MAX_ENTRIES` is **32**: a longer list is rejected whole,
+  and the vocabulary has 17 members, so a correct spoke cannot approach the cap
+  by reporting honestly, and a list that reaches it is a broken spoke rather than
+  a lane with unusual needs
+- **AND** two bounds are fixed here, numerically, because a bound an operator can
+  set is a bound nobody is measured against
 
-Every profile SHALL be a subset of the vocabulary. The `rust` profile lists
-`gcc` and `make` because a `cargo` build needs a linker and `build.rs` scripts
-need `make`; the probe for `cargo` checks only the `cargo` binary, so the
-profile, not the probe, is what makes the compiler a requirement of the lane.
-Each profile is the union of the tools its lanes actually call, and a profile
-SHALL NOT include a tool merely because a lane could use it — a profile is a
-requirement list, not a wish list.
+#### Scenario: the vocabulary count is derived, never asserted
 
-Which **lane** carries which profile is a reviewed assignment held outside this
-repository, because lane names, host aliases and host posture are deliberately
-not reproduced here (Sec. Why). This capability therefore specifies the shape of
-that assignment and what the hub does when it is missing, and does not
-enumerate it:
+- **WHEN** a count of the vocabulary appears anywhere
+- **THEN** it is derived from the list, never asserted alongside it: where a
+  count elsewhere in this package disagrees with the list, the list is right and
+  the count is stale. (Task 0.1 read "16 names", a value written before
+  `shellcheck` joined the list, and is corrected by this amendment.)
+- **AND** the vocabulary above is **17 names**, and adding a name to it is a
+  change to this capability, reviewed as one, and is never a config edit or a
+  spoke-side addition
 
-- The hub holds the lane→profile mapping as trusted input, never spoke-supplied.
-  A heartbeat SHALL NOT be able to set, widen, or rename a lane's profile; a
-  body that tries is rejected whole, by the same all-or-nothing rule as a bad
-  vocabulary entry.
-- A profile id outside the table above is refused rather than treated as empty.
-  An unknown profile is not a lane that needs nothing.
-- A lane with no reviewed assignment carries `toolchain_profile_id: null` and
-  reports no gaps, because there is nothing required to diff against. It SHALL
-  be presented as `profile-unassigned` and SHALL NOT be presented as a lane with
-  a complete toolchain. `none` (reviewed, requires nothing) and
+#### Scenario: a profile is spec-governed data
+
+- **WHEN** a lane's profile is resolved
+- **THEN** a **toolchain profile** is a named subset of the vocabulary, and the
+  profiles are spec-governed data shipped with the capability: `none` requires
+  nothing; `base` requires `gcc`, `make`, `python`, `pip`; `rust` requires
+  `cargo`, `gcc`, `make`; `node` requires `node`, `npm`; `go` requires `go`;
+  `jvm` requires `java`, `maven`, `gradle`; `dotnet` requires `dotnet`;
+  `web-js` requires `node`, `npm`, `pnpm`; `ci-hygiene` requires `shellcheck`,
+  `gitleaks`
+- **AND** every profile SHALL be a subset of the vocabulary
+- **AND** the `rust` profile lists `gcc` and `make` because a `cargo` build needs
+  a linker and `build.rs` scripts need `make`; the probe for `cargo` checks only
+  the `cargo` binary, so the profile, not the probe, is what makes the compiler a
+  requirement of the lane
+- **AND** each profile is the union of the tools its lanes actually call, and a
+  profile SHALL NOT include a tool merely because a lane could use it — a
+  profile is a requirement list, not a wish list
+
+#### Scenario: the lane-to-profile assignment is reviewed elsewhere
+
+- **WHEN** the lane-to-profile assignment is consulted
+- **THEN** which **lane** carries which profile is a reviewed assignment held
+  outside this repository, because lane names, host aliases and host posture are
+  deliberately not reproduced here (Sec. Why). This capability specifies the
+  shape of that assignment and what the hub does when it is missing, and does
+  not enumerate it
+- **AND** the hub holds the lane-to-profile mapping as trusted input, never
+  spoke-supplied. A heartbeat SHALL NOT be able to set, widen, or rename a
+  lane's profile; a body that tries is rejected whole, by the same
+  all-or-nothing rule as a bad vocabulary entry
+- **AND** a profile id outside the table is refused rather than treated as
+  empty, because an unknown profile is not a lane that needs nothing
+- **AND** a lane with no reviewed assignment carries `toolchain_profile_id:
+  null` and reports no gaps, because there is nothing required to diff against.
+  It SHALL be presented as `profile-unassigned` and SHALL NOT be presented as a
+  lane with a complete toolchain. `none` (reviewed, requires nothing) and
   `profile-unassigned` (nobody has decided) are different answers and SHALL NOT
   render the same way. This is a presentation of the lane's profile field; it is
-  not a fifth coverage state, and `mon-tc-06`'s four states are unchanged.
-- Profiles are versioned with the capability, and a request records the profile
-  id it was opened against, so a fulfilled request can name what it was
-  fulfilled against when the profile later changes.
+  not a fifth coverage state, and `mon-tc-06`'s four states are unchanged
+- **AND** profiles are versioned with the capability, and a request records the
+  profile id it was opened against, so a fulfilled request can name what it was
+  fulfilled against when the profile later changes
+
+#### Scenario: the host PATH is not a source
+
+- **WHEN** a gap is computed
+- **THEN** it is never a difference against the vocabulary as a whole and never
+  a difference against the host `PATH`
 
 #### Scenario: a lane's profile requires a tool its image lacks
 - **WHEN** a lane whose required profile contains `cargo` heartbeats from an
@@ -139,29 +161,33 @@ enumerate it:
 The hub SHALL persist every request and SHALL expose the request set and the
 per-request transition actions. Mission Control SHALL read requests from the
 hub and SHALL NOT persist a toolchain request table, a cache of one, or any
-other divergent copy; a hub read that cannot complete SHALL be reported to the
-operator as a failure with the time of the last good read, and SHALL NOT be
-rendered as an empty result.
+other divergent copy.
 
-Mission Control maintains a separate runner registry. The hub's `runner_name`
-SHALL be the canonical lane identifier, and each Mission Control runner record
-SHALL carry an explicit link to that identifier. A request whose lane has no
-established link SHALL be reported as `unmapped` rather than omitted or
-silently joined to an unrelated record.
+The hub's `runner_name` SHALL be the canonical lane identifier, and each
+Mission Control runner record SHALL carry an explicit link to that identifier.
 
-A heartbeat omitting `missing_tools` SHALL be indistinguishable, in effect,
-from a heartbeat sent before this capability existed.
+#### Scenario: the request set carries what a row needs
 
-The request-set read is what a queue is built from, so it SHALL carry what a
-consumer needs to **render a row and act on it** rather than only its identity:
-the lane's repository and host alias (held on the hub's runner record, since a
-consumer forbidden a copy has nowhere else to ask), the lane's coverage state as
-derived at read time by `mon-tc-06`, and the row's `version`. A consumer cannot
-satisfy `mon-tc-04`'s compare-and-set from a payload that omits the version it
-must submit; an exposure that cannot be acted on is not an exposure. Fields the
-hub does not hold for a lane — a lane never enrolled, a repository never
-published — are `null`, not guessed and not omitted, so a consumer renders
-absence rather than inventing a value.
+- **WHEN** the request set is read
+- **THEN** it carries what a consumer needs to render a row and act on it rather
+  than only its identity, because the request-set read is what a queue is built
+  from
+- **AND** each row carries the lane's repository and host alias (held on the
+  hub's runner record, since a consumer forbidden a copy has nowhere else to
+  ask), the lane's coverage state as derived at read time by `mon-tc-06`, and
+  the row's `version`
+- **AND** a consumer cannot satisfy `mon-tc-04`'s compare-and-set from a payload
+  that omits the version it must submit; an exposure that cannot be acted on is
+  not an exposure
+- **AND** fields the hub does not hold for a lane — a lane never enrolled, a
+  repository never published — are `null`, not guessed and not omitted, so a
+  consumer renders absence rather than inventing a value
+
+#### Scenario: a heartbeat without the field
+
+- **WHEN** a heartbeat omits `missing_tools`
+- **THEN** it is indistinguishable, in effect, from a heartbeat sent before this
+  capability existed
 
 #### Scenario: a queue renders a row from the read alone
 - **WHEN** a consumer reads the request set for a lane that has enrolled and
@@ -191,10 +217,14 @@ absence rather than inventing a value.
 - **WHEN** MC cannot complete a read of the hub
 - **THEN** the queue reports that the hub is unreachable with the time of the
   last good read, and does not present an empty list
+- **AND** a hub read that cannot complete SHALL be reported to the operator as a
+  failure with the time of the last good read, and SHALL NOT be rendered as an
+  empty result
 
 #### Scenario: a request for a lane MC has not linked
 - **WHEN** a request names a lane with no established MC registry link
-- **THEN** it is reported as `unmapped`
+- **THEN** it is reported as `unmapped` rather than omitted or silently joined to
+  an unrelated record
 
 ### Requirement: Decisions are attributable and cannot be made by a runner
 <!-- id: mon-tc-03 -->
@@ -204,57 +234,65 @@ a timestamp, and a unique nonce. The hub SHALL verify the credential, SHALL
 store the actor claim with the decision, and SHALL reject any presented nonce
 it has already consumed.
 
-A per-runner heartbeat token, a runner key, a builder credential, and an
-ordinary Mission Control API key SHALL NOT authorize a decision. A request
-SHALL NOT leave `open` without a recorded actor, credential identifier, and
-timestamp.
+A request SHALL NOT leave `open` without a recorded actor, credential
+identifier, and timestamp.
 
-The credential classes are closed and are named here so that a refusal can name
-the class it saw rather than a reason derived from it:
+#### Scenario: a credential class is not an authorization
 
-| Class | Holder | May |
-|---|---|---|
-| `enrollment` / `heartbeat` | runner spoke | enroll, heartbeat |
-| `runner_key` | runner spoke | report a gap |
-| `operator` (scope `toolchain:decide`) | Mission Control service | decide |
-| `builder` | build job | report build evidence |
+- **WHEN** a credential other than an operator credential carrying
+  `toolchain:decide` is presented to a decision action
+- **THEN** it is refused, because a per-runner heartbeat token, a runner key, a
+  builder credential, and an ordinary Mission Control API key SHALL NOT
+  authorize a decision
+- **AND** the credential classes are closed and are named here so that a refusal
+  can name the class it saw rather than a reason derived from it: `enrollment` /
+  `heartbeat` (runner spoke, enrolls and heartbeats), `runner_key` (runner
+  spoke, reports a gap), `operator` with scope `toolchain:decide` (Mission
+  Control service, decides), `builder` (build job, reports build evidence)
+- **AND** a refusal SHALL be recorded as one `rejected_credential_class` code
+  carrying the class name and SHALL NOT carry the secret that was presented, its
+  prefix, or a derivation of it (matching how heartbeat tokens are stored only
+  as salted digests, mon-sec-02)
+- **AND** a class not in that table is refused as `unknown`, so a new credential
+  type cannot acquire a decision right by being unlisted
 
-A refusal SHALL be recorded as one `rejected_credential_class` code carrying the
-class name and SHALL NOT carry the secret that was presented, its prefix, or a
-derivation of it (matching how heartbeat tokens are stored only as salted
-digests, mon-sec-02). A class not in the table above is refused as `unknown`, so
-a new credential type cannot acquire a decision right by being unlisted.
+#### Scenario: a decision note is too long
 
-`DECISION_NOTE_MAX_CHARS` is **512**, the cap the hub already applies to
-`image_digest` (FIELD_CAPS, hub/server.py). A note longer than the cap is
-refused rather than truncated: a truncated reason is a different reason, and a
-denial note is read as the operator's decision.
+- **WHEN** a decision note exceeds the cap
+- **THEN** it is refused rather than truncated, because a truncated reason is a
+  different reason and a denial note is read as the operator's decision
+- **AND** `DECISION_NOTE_MAX_CHARS` is **512**, the cap the hub already applies
+  to `image_digest` (FIELD_CAPS, hub/server.py)
 
-Each decision, refusal and transition appends one record to the request's
-history, and the record format is fixed here so that attribution is a property
-of the format rather than of whoever wrote the transition:
+#### Scenario: the history record format is fixed
 
-```
-{ seq, at, actor: "<claim as presented>", principal: "<principal as presented>",
-  credential_id, event, from, to, version_before, version_after, note }
-```
+- **WHEN** a decision, refusal or transition is appended
+- **THEN** it appends exactly one record to the request's history, in this fixed
+  format: `{ seq, at, actor: "<claim as presented>", principal: "<principal as
+  presented>", credential_id, event, from, to, version_before, version_after,
+  note }`
+- **AND** `principal` is recorded exactly as the credential presents it and the
+  audit record SHALL NOT add a display name, an email, or any other identity the
+  hub did not receive
+- **AND** because v1 issues decisions from a single operator credential
+  (design.md, Sec. Q2), every record in a v1 deployment carries the same
+  `credential_id`, and the request set SHALL expose that fact — a reader of the
+  audit history can tell that all decisions share one credential, and is not
+  shown per-operator attribution the deployment cannot support
+- **AND** `actor` may differ between records only if Mission Control begins
+  forwarding distinct identities, and the hub SHALL NOT infer an actor from the
+  credential when none was claimed
 
-`principal` is recorded exactly as the credential presents it and the audit
-record SHALL NOT add a display name, an email, or any other identity the hub did
-not receive. Because v1 issues decisions from a single operator credential
-(design.md, Sec. Q2), every record in a v1 deployment carries the same
-`credential_id`, and the request set SHALL expose that fact — a reader of the
-audit history can tell that all decisions share one credential, and is not shown
-per-operator attribution the deployment cannot support. `actor` may differ
-between records only if Mission Control begins forwarding distinct identities,
-and the hub SHALL NOT infer an actor from the credential when none was claimed.
+#### Scenario: the human-to-credential binding belongs to Mission Control
 
-The human-to-operator-credential binding is Mission Control's responsibility:
-MC authenticates the operator and enforces its own administrative tier before
-issuing a decision. For the first version the hub SHALL record the actor claim
-as presented and SHALL NOT assert that it identifies a distinct human; a
-configuration where every decision shares one principal SHALL be visible as
-such in the audit record rather than presented as per-operator attribution.
+- **WHEN** a decision reaches the hub
+- **THEN** MC authenticates the operator and enforces its own administrative tier
+  before issuing it, since the human-to-operator-credential binding is Mission
+  Control's responsibility
+- **AND** for the first version the hub SHALL record the actor claim as
+  presented and SHALL NOT assert that it identifies a distinct human; a
+  configuration where every decision shares one principal SHALL be visible as
+  such in the audit record rather than presented as per-operator attribution
 
 #### Scenario: a runner attempts to decide
 - **WHEN** a heartbeat token, runner key, builder credential, or ordinary MC
@@ -277,30 +315,39 @@ counter that increments on every transition. Every transition SHALL satisfy a
 guard, and a transition whose guard does not hold SHALL be refused with the
 request left unchanged and the refusal recorded.
 
-Where a decision and a report could both apply to the same version, exactly one
-SHALL win and the other SHALL be refused with `409 Conflict`. Submitting an
-identical decision at an already-applied version SHALL return that version's
-existing outcome rather than applying a second time.
+Transitions SHALL NOT be performed outside the transition table. History SHALL
+be append-only.
 
-The transition table is normative:
+#### Scenario: two writes against one version
 
-| From | Event | Guard | To | Audit row |
-|---|---|---|---|---|
-| `open` | decide-approve | operator credential, fresh nonce | `approved` | decision + actor claim |
-| `open` | decide-deny | operator credential, fresh nonce, note present | `denied` | decision + actor claim + note |
-| `approved` | report-built | builder credential, profile id matches the approved profile, build id and digest present | `built` | build evidence |
-| `built` | converge | a later heartbeat reports the recorded digest and the required probe passes | `fulfilled` | convergence evidence |
-| `approved` | build-failed | builder credential, note present | `open` | failure + note |
-| `built` | build-failed | builder credential, note present | `open` | failure + note |
-| `fulfilled` | gap-regressed | a later heartbeat reports the gap again | `open` | regression |
-| `denied` | report-suppressed | within the suppression window | `denied` | no state change; suppression counter |
-| `denied` | report-after-window | suppression window elapsed | `open` | reopen |
+- **WHEN** a decision and a report could both apply to the same version
+- **THEN** exactly one SHALL win and the other SHALL be refused with `409
+  Conflict`
+- **AND** submitting an identical decision at an already-applied version SHALL
+  return that version's existing outcome rather than applying a second time
 
-Transitions SHALL NOT be performed outside this table. History SHALL be
-append-only. `report-suppressed` and `report-after-window` are decided against
-`TOOL_REQUEST_SUPPRESSION_DAYS` as defined in `mon-tc-06`; this table names the
-event and that paragraph owns the number, so the window cannot acquire two
-values.
+#### Scenario: the transition table is normative
+
+- **WHEN** a transition is applied
+- **THEN** it is one of these, and no other: `open` + decide-approve (operator
+  credential, fresh nonce) to `approved`, audit row decision + actor claim;
+  `open` + decide-deny (operator credential, fresh nonce, note present) to
+  `denied`, audit row decision + actor claim + note; `approved` + report-built
+  (builder credential, profile id matches the approved profile, build id and
+  digest present) to `built`, audit row build evidence; `built` + converge (a
+  later heartbeat reports the recorded digest and the required probe passes) to
+  `fulfilled`, audit row convergence evidence; `approved` + build-failed
+  (builder credential, note present) to `open`, audit row failure + note;
+  `built` + build-failed (builder credential, note present) to `open`, audit row
+  failure + note; `fulfilled` + gap-regressed (a later heartbeat reports the gap
+  again) to `open`, audit row regression; `denied` + report-suppressed (within
+  the suppression window) to `denied`, audit row no state change; suppression
+  counter; `denied` + report-after-window (suppression window elapsed) to
+  `open`, audit row reopen
+- **AND** `report-suppressed` and `report-after-window` are decided against
+  `TOOL_REQUEST_SUPPRESSION_DAYS` as defined in `mon-tc-06`; this table names the
+  event and that paragraph owns the number, so the window cannot acquire two
+  values
 
 #### Scenario: approving one tool of three
 - **WHEN** a lane reports three missing tools and an operator approves one
@@ -336,14 +383,20 @@ additionally requires a later heartbeat in which the lane reports that same
 digest and the required tool probe passes. A digest supplied under an operator
 or runner credential SHALL be refused.
 
-No code path in this capability SHALL execute a package manager or otherwise
-install software on a running runner.
+#### Scenario: nothing installs software on a runner
 
-This capability SHALL NOT read, write, or reinterpret the registry's evaluator
-image fields. `image_digest` and `image_pin_divergence` describe the coherence
-evaluator image; the pin-divergence check (img-cycle-05) is unrelated to lane
-images and is unchanged by this capability. Lane image identity SHALL be
-recorded in separate fields.
+- **WHEN** any code path in this capability runs
+- **THEN** none SHALL execute a package manager or otherwise install software on
+  a running runner
+
+#### Scenario: the evaluator image fields are not this capability's
+
+- **WHEN** the hub records lane image identity
+- **THEN** this capability SHALL NOT read, write, or reinterpret the registry's
+  evaluator image fields: `image_digest` and `image_pin_divergence` describe the
+  coherence evaluator image, and the pin-divergence check (img-cycle-05) is
+  unrelated to lane images and is unchanged by this capability
+- **AND** lane image identity SHALL be recorded in separate fields
 
 #### Scenario: approval with no build
 - **WHEN** a request is approved and no build report follows
@@ -367,49 +420,57 @@ recorded in separate fields.
 ### Requirement: Absence is never reported as health
 <!-- id: mon-tc-06 -->
 Each lane SHALL carry a report-coverage state of `reported`, `never-reported`,
-`stale`, or `probe-failed`, distinguished by whether the spoke has ever sent a
-gap field, whether the last report is older than the staleness threshold, and
-whether the last probe run was incomplete. A request in `open` or `approved`
-state SHALL remain visible in the request set until it reaches `fulfilled` or
-`denied`. An `approved` request not built within the fulfillment window SHALL
-be reported as outstanding with its age. A lane with no open requests SHALL NOT
-be presented as evidence that its toolchain is complete unless its coverage
-state is `reported` and every request for it is fulfilled.
+`stale`, or `probe-failed`. A request in `open` or `approved` state SHALL
+remain visible in the request set until it reaches `fulfilled` or `denied`. A
+lane with no open requests SHALL NOT be presented as evidence that its
+toolchain is complete unless its coverage state is `reported` and every request
+for it is fulfilled.
 
-Both the staleness threshold and the fulfillment window SHALL be numeric
-values defined by this capability, not left to an operator's judgement. They
-are fixed here, in one place, and `mon-tc-04`'s transition table reads its
-suppression window from this paragraph rather than restating it — the two-places
-failure that made task 0.1 read "16 names" beside a 17-name list is the exact
-defect this avoids:
+#### Scenario: the coverage states are distinguished by evidence
 
-- `TOOL_REQUEST_STALE_AFTER_S` is **900 seconds** — three missed heartbeats at
-  the 300-second cadence (design.md, Sec. Risks). Derived: a lane silent for two
-  cadences may be mid-tick; three is the first count that cannot be a skipped
-  tick, and coverage is `stale` rather than `reported` after it.
-- `TOOL_REQUEST_FULFILL_WINDOW_S` is **86400 seconds** (24 hours). An `approved`
-  request with no build report past this age is reported outstanding with its
-  age; approval produces an image rebuild, and a day is the point at which a
-  rebuild that has not happened is itself the finding. This is a judgement
-  within an envelope, not a derivation — it is the one number here whose correct
-  value depends on the fleet's build-queue latency, which this repository cannot
-  observe. It is stated as a judgement so a reviewer can overrule it rather than
-  inherit it silently.
-- `TOOL_REQUEST_SUPPRESSION_DAYS` is **14 days**. A `denied` request re-reported
-  inside the window leaves the row `denied` and advances the suppression
-  counter; reported after it, the row reopens to `open`. Also a judgement: a
-  denial means the lane does not need the tool, and two weeks is the shortest
-  interval at which a re-report is more likely a changed decision or profile
-  drift than the same request again.
+- **WHEN** a lane's coverage state is derived
+- **THEN** it is distinguished by whether the spoke has ever sent a gap field,
+  whether the last report is older than the staleness threshold, and whether the
+  last probe run was incomplete
 
-A value set to zero or to an unbounded sentinel is a specification violation,
-not a configuration: it makes `stale` unreachable or the suppression counter
-meaningless, and both are states `mon-tc-06` exists to make visible.
+#### Scenario: the windows are fixed numbers, in one place
+
+- **WHEN** a window is read
+- **THEN** both the staleness threshold and the fulfillment window are numeric
+  values defined by this capability, not left to an operator's judgement; they
+  are fixed here, in one place, and `mon-tc-04`'s transition table reads its
+  suppression window from this paragraph rather than restating it — the
+  two-places failure that made task 0.1 read "16 names" beside a 17-name list is
+  the exact defect this avoids
+- **AND** `TOOL_REQUEST_STALE_AFTER_S` is **900 seconds** — three missed
+  heartbeats at the 300-second cadence (design.md, Sec. Risks). Derived: a lane
+  silent for two cadences may be mid-tick; three is the first count that cannot
+  be a skipped tick, and coverage is `stale` rather than `reported` after it
+- **AND** `TOOL_REQUEST_FULFILL_WINDOW_S` is **86400 seconds** (24 hours). An
+  `approved` request with no build report past this age is reported outstanding
+  with its age; approval produces an image rebuild, and a day is the point at
+  which a rebuild that has not happened is itself the finding. This is a
+  judgement within an envelope, not a derivation — it is the one number here
+  whose correct value depends on the fleet's build-queue latency, which this
+  repository cannot observe. It is stated as a judgement so a reviewer can
+  overrule it rather than inherit it silently
+- **AND** `TOOL_REQUEST_SUPPRESSION_DAYS` is **14 days**. A `denied` request
+  re-reported inside the window leaves the row `denied` and advances the
+  suppression counter; reported after it, the row reopens to `open`. Also a
+  judgement: a denial means the lane does not need the tool, and two weeks is the
+  shortest interval at which a re-report is more likely a changed decision or
+  profile drift than the same request again
+- **AND** a value set to zero or to an unbounded sentinel is a specification
+  violation, not a configuration: it makes `stale` unreachable or the
+  suppression counter meaningless, and both are states `mon-tc-06` exists to
+  make visible
 
 #### Scenario: an approved request is never built
 - **WHEN** an approved request passes the fulfillment window with no build
   report
 - **THEN** it is reported as outstanding, naming its age
+- **AND** an `approved` request not built within the fulfillment window SHALL be
+  reported as outstanding with its age
 
 #### Scenario: a lane that never reported
 - **WHEN** a lane has no requests and its coverage state is `never-reported`
