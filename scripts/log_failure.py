@@ -28,7 +28,9 @@ Usage:
       --prevention-rule "strip the repo root before glob-matching" \\
       --status resolved
 
-Prints the generated failure_id on success. Exit 0 on success, 1 on write error.
+Prints the generated failure_id, then the registry file that received the
+entry (base-write-01: "the tool SHALL report which file received the entry").
+Exit 0 on success, 1 on write error.
 """
 
 from __future__ import annotations
@@ -102,7 +104,8 @@ def build_entry(args: argparse.Namespace) -> dict:
     return entry
 
 
-def main() -> int:
+def build_parser() -> argparse.ArgumentParser:
+    """The CLI surface. Split out of main() so the flag contract is testable."""
     ap = argparse.ArgumentParser(
         description="append an entry to the DevGate failure registry (append-only)"
     )
@@ -137,10 +140,15 @@ def main() -> int:
         default="",
         help="explicit failure_id (default: generated FAIL-<uuid8>)",
     )
+    # base-write-01 names the flag `--upstream`; --baseline is kept as an
+    # accepted alias so existing callers, agent instructions and CI steps that
+    # learned the older spelling keep working. Same destination either way.
     ap.add_argument(
+        "--upstream",
         "--baseline",
+        dest="baseline",
         action="store_true",
-        help="append to the bundled DevGate baseline registry instead of the "
+        help="append to the shared DevGate baseline registry instead of the "
              "project overlay (for maintainers of DevGate itself)",
     )
     ap.add_argument(
@@ -150,7 +158,11 @@ def main() -> int:
         metavar="PATH",
         help="explicit registry path (same as FAILURE_REGISTRY_PATH env)",
     )
-    args = ap.parse_args()
+    return ap
+
+
+def main() -> int:
+    args = build_parser().parse_args()
 
     entry = build_entry(args)
 
@@ -175,6 +187,7 @@ def main() -> int:
         return 1
 
     print(entry["failure_id"])
+    print(f"registry: {path}")  # base-write-01: name the file that received it
     return 0
 
 

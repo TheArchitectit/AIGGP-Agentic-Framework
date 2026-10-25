@@ -83,7 +83,7 @@
   "test_hub_toolchain_requests": 21,
   "test_hub_toolchain_requests_wire": 8,
   "test_hub_watchdog": 7,
-  "test_log_failure": 4,
+  "test_log_failure": 7,
   "test_metamorphic": 21,
   "test_mutation_harness": 19,
   "test_oap_envelope_signature": 42,
@@ -129,5 +129,5 @@
   "test_template_supply_chain": 4,
   "test_workflow_read": 15
  },
- "total_floor": 1638
+ "total_floor": 1640
 }
