@@ -16,6 +16,7 @@
   "test_findings_to_spec": 4,
   "test_fw_guards": 6,
   "test_game_regression": 11,
+  "test_game_session_start": 33,
   "test_gate_common": 20,
   "test_gate_common_parity": 3,
   "test_gate_overlay": 6,

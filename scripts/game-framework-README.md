@@ -55,6 +55,43 @@ Record game bugs with `scripts/log_failure.py` so `regression_check.py`
 blocks their reintroduction (game-class entries and their
 `regression_pattern`s work exactly like every other registry entry).
 
+## Session start (`game_session_start.py`)
+
+Every session - an agent opening the repo to edit, or the runtime booting a
+run - is described by one `aiggp.session/v1` manifest and judged by
+`scripts/game_session_start.py` (schema:
+`.guardrails/prevention-rules/session-manifest.schema.json`, spec:
+`openspec/changes/add-game-session-start/`). The advisory block it prints
+states `unknown` explicitly for any block it could not evaluate. A `work`
+session's block carries a `worst-tracked gaps: N` line read from the gap
+scanner's own JSON report - produced with
+
+```bash
+python3 .devgate/scripts/spec_gap_scan.py --json > .guardrails/spec-gap-report.json
+```
+
+The brain never runs the scanner itself: one inventory source. Without a
+report the line reads `unknown`, never `0`.
+
+Exit codes are inverted against the secret-scan family: `2` refused a known
+session, `1` the brain cannot say, `0` accepted. Read the spec before wiring
+either family into a pipeline.
+
+### `determinism.enabled` in `game-manifest.json`
+
+The one hard session rule reads this key:
+
+| value | play-session |
+|---|---|
+| `true` | must carry a non-empty `seed`; refused (exit 2) without one |
+| `false` | the rule is off |
+| absent | the rule is off - a project opts in by declaring it |
+
+A value that is present and is not a boolean is not read as a policy: the
+brain exits 1 rather than guess whether a run is comparable. A `play` session
+in a root with no `game-manifest.json` is refused; a `work` session in that
+root proceeds with `determinism: unknown`.
+
 ## Provenance
 
 The former standalone `devgate-game-framework` repository was merged into this

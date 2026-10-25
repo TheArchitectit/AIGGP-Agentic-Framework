@@ -30,6 +30,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **gameSessionStart, step 1: the session brain.** `scripts/game_session_start.py`
+  validates one `aiggp.session/v1` manifest (schema:
+  `.guardrails/prevention-rules/session-manifest.schema.json`), applies the one
+  hard rule (a `play` session under `determinism.enabled: true` must carry a
+  seed; absent means off, and `determinism.enabled` is now documented in
+  `scripts/game-framework-README.md`), prints a kind-filtered advisory block,
+  and appends accepted sessions to `.guardrails/sessions.jsonl`. The work-side
+  block carries `worst-tracked gaps: N` read from the gap scanner's own JSON
+  report - the brain never rescans, and a missing or foreign report reads
+  `unknown`, never `0`. Exit codes are `0` accepted / `2` refused a known
+  session / `1` cannot say, the inverse of the secret-scan family; the contrast
+  is stated in the spec (session-06), not unified. Adapters and the Godot hook
+  are later rollout steps and are stated as out of scope. Spec:
+  `openspec/changes/add-game-session-start/`. Tests:
+  `tests/test_game_session_start.py` (37).
+
 - **Reasoned size overrides.** scope.json `size_overrides`
   (`{"web/render3d.js": {"hard": 1600, "reason": "..."}}`) raises one file's
   limit. `reason` is required and non-empty (same contract as
