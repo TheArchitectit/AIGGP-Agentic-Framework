@@ -274,3 +274,73 @@ def _run_all() -> int:
 
 if __name__ == "__main__":
     sys.exit(_run_all())
+
+
+# --- the ALLOWLIST overlay (base-own-01) -------------------------------------
+# The bundled allowlist may name only paths of the repository that ships it, so
+# a CONSUMER's markers are covered from <project>/.guardrails/
+# silent-success-allowlist.json at scan time. Additive, never id-keyed: the
+# overlay can widen coverage, it cannot delete a baseline requirement.
+
+ALLOW_OVERLAY_REL = ".guardrails/silent-success-allowlist.json"
+
+
+def _allow_entry(file: str, marker: str, family: str = "go_close") -> dict:
+    return {"file": file, "marker": marker, "family": family,
+            "reason": "fixture", "removal": "n/a"}
+
+
+def test_project_allowlist_overlay_covers_a_consumer_marker():
+    with tempfile.TemporaryDirectory() as d:
+        tmp = _mk_project(
+            Path(d), bundled_rules=_rules(GO_CLOSE), overlay_rules=None,
+            allowlist_entries=[],
+            files={"a.go": "_ = f.Close()\n",
+                   ALLOW_OVERLAY_REL: json.dumps(
+                       {"entries": [_allow_entry("a.go", "_ = f.Close()")]})})
+        p = _run(tmp)
+        out = _out(p)
+        assert p.returncode == 0, f"the overlay entry must cover the marker: {out}"
+        assert "allowlist merged (bundled 0 +" in out, out
+        assert ALLOW_OVERLAY_REL in out, out
+
+
+def test_overlay_allowlist_does_not_cover_a_different_marker():
+    # Control: the same file with a DIFFERENT marker still fails. An overlay
+    # entry is coverage for one (file, marker), not a mute for the file.
+    with tempfile.TemporaryDirectory() as d:
+        tmp = _mk_project(
+            Path(d), bundled_rules=_rules(GO_CLOSE), overlay_rules=None,
+            allowlist_entries=[],
+            files={"a.go": "x := 1\n_ = f.Close()\n",
+                   ALLOW_OVERLAY_REL: json.dumps(
+                       {"entries": [_allow_entry("a.go", "_ = somethingElse(")]})})
+        p = _run(tmp)
+        out = _out(p)
+        assert p.returncode == 1, f"a stale overlay marker must not cover it: {out}"
+        assert "a.go:2 (go_close)" in out, out
+
+
+def test_bundled_allowlist_still_covers_with_an_overlay_present():
+    with tempfile.TemporaryDirectory() as d:
+        tmp = _mk_project(
+            Path(d), bundled_rules=_rules(GO_CLOSE), overlay_rules=None,
+            allowlist_entries=[_allow_entry("a.go", "_ = f.Close()")],
+            files={"a.go": "_ = f.Close()\n",
+                   ALLOW_OVERLAY_REL: json.dumps(
+                       {"entries": [_allow_entry("b.go", "_ = g.Close()")]})})
+        p = _run(tmp)
+        out = _out(p)
+        assert p.returncode == 0, f"overlay must ADD to the baseline, not replace: {out}"
+
+
+def test_malformed_allowlist_overlay_fails_closed():
+    with tempfile.TemporaryDirectory() as d:
+        tmp = _mk_project(
+            Path(d), bundled_rules=_rules(GO_CLOSE), overlay_rules=None,
+            allowlist_entries=[_allow_entry("a.go", "_ = f.Close()")],
+            files={"a.go": "_ = f.Close()\n", ALLOW_OVERLAY_REL: "{not json"})
+        p = _run(tmp)
+        out = _out(p)
+        assert p.returncode == 1, f"a malformed allowlist overlay must fail closed: {out}"
+        assert "cannot read project allowlist overlay" in out, out

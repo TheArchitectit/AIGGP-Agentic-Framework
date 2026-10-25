@@ -18,8 +18,15 @@
 #   on a matching "family" id (replaced in place), new families append; a project
 #   with no overlay gets byte-identical baseline behaviour. This is the same
 #   bundled-baseline + project-overlay convention as gate_overlay.py /
-#   guardrails-scan.mjs (the allowlist is NOT overlaid — it keys into one repo's
-#   tree, so it stays submodule-only by design).
+#   guardrails-scan.mjs.
+#   The ALLOWLIST follows that convention too (base-own-01): the bundled
+#   .guardrails/silent-success-allowlist.json may name only paths of the
+#   repository that ships it, so a consuming project's entries live in
+#   <project>/.guardrails/silent-success-allowlist.json and are ADDED to the
+#   baseline's. Entries are additive, never id-keyed: coverage is a
+#   (file, marker) set, so an overlay can widen coverage but can never delete a
+#   baseline requirement. No overlay -> baseline only; a malformed overlay
+#   fails closed.
 #   For each ENABLED family, every file matching its file_glob is scanned line by
 #   line, EXCEPT files matching that family's optional "exclude_globs" (e.g.
 #   ["*_test.go"] to keep a Go family out of test files — where discarding an
@@ -143,7 +150,46 @@ except (OSError, json.JSONDecodeError) as exc:
     print(f"silent-success-scan: cannot read {allowlist_path}: {exc}", file=sys.stderr)
     sys.exit(1)
 
-entries = allow.get("entries", [])
+entries = list(allow.get("entries", []))
+if not all(isinstance(e, dict) for e in entries):
+    print(f"silent-success-scan: {allowlist_path} has a non-object entry",
+          file=sys.stderr)
+    sys.exit(1)
+
+# base-own-01: the BUNDLED allowlist may name only paths of the repository that
+# ships it, so a CONSUMER's markers belong in the consumer's own overlay — the
+# same bundled-baseline + project-overlay convention the rules already use
+# (gate_overlay.py's contract). Entries are additive rather than keyed by id:
+# coverage is a (file, marker) set, so an overlay entry can only WIDEN coverage
+# and can never delete a baseline requirement. No overlay file -> baseline only,
+# byte-identical to the pre-overlay behaviour. A present-but-malformed overlay
+# FAILS CLOSED, for the same reason a malformed rules overlay does.
+overlay_allow_path = project_root / allowlist_path
+if overlay_allow_path.exists() and \
+        overlay_allow_path.resolve() != allow_src.resolve():
+    try:
+        overlay_allow = json.loads(overlay_allow_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        print(f"silent-success-scan: cannot read project allowlist overlay "
+              f"{overlay_allow_path}: {exc}", file=sys.stderr)
+        sys.exit(1)
+    if not isinstance(overlay_allow, dict):
+        print(f"silent-success-scan: project allowlist overlay "
+              f"{overlay_allow_path} is not a JSON object", file=sys.stderr)
+        sys.exit(1)
+    overlay_entries = overlay_allow.get("entries", [])
+    if not isinstance(overlay_entries, list):
+        print(f"silent-success-scan: project allowlist overlay "
+              f"{overlay_allow_path} has a non-list 'entries' key", file=sys.stderr)
+        sys.exit(1)
+    if not all(isinstance(e, dict) for e in overlay_entries):
+        print(f"silent-success-scan: project allowlist overlay "
+              f"{overlay_allow_path} has a non-object entry", file=sys.stderr)
+        sys.exit(1)
+    print(f"silent-success-scan: allowlist merged (bundled "
+          f"{len(entries)} + {overlay_allow_path.relative_to(project_root)} "
+          f"{len(overlay_entries)})")
+    entries = entries + overlay_entries
 
 # Coverage key: (file_rel, marker_substring).
 coverage = {(e.get("file", ""), e.get("marker", "")) for e in entries

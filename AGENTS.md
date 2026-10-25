@@ -39,6 +39,7 @@ your-project/               ← YOUR project code lives here (any structure, any
     │   └── WRITE_AUDIT_REVIEW.md   ← The four-gate agent process
     ├── scripts/
     │   ├── deploy.sh
+    │   ├── baseline_ownership_check.py  ← base-own-01: bundled baselines name only this repo
     │   ├── guardrails-scan.mjs
     │   ├── log_failure.py          ← Append a failure-registry entry
     │   ├── regression_check.py

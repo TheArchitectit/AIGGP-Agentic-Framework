@@ -17,6 +17,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The bundled silent-success allowlist had 1,727 foreign entries again, and
+  nothing noticed.** `beedec1` (2026-09-19, QA H3) emptied
+  `.guardrails/silent-success-allowlist.json` and wrote the "empty by design"
+  note; `16ce30e` (2026-09-20) wrote a pre-decontamination copy back over it
+  while retiring two `internal/admin/bootstrap.go` markers — removing 2 entries
+  from 1,727 and restoring the other 1,725 — and `b3f951b`, `eeb2884` and
+  `239e30b` edited that restored copy afterwards (`239e30b` recorded it as
+  "verified intact (1727 entries)"). Every one of the 1,727 names a path absent
+  from this tree (`internal/` 1454, `tests/` 225, `go/` 40, `cmd/` 8):
+  `baseline-ownership` / `base-own-01` states that a bundled baseline entry may
+  reference only this repository's paths. The file is empty again, and two
+  gates now keep it that way: the new `scripts/baseline_ownership_check.py`
+  fails on any bundled allowlist entry whose `file` does not exist or whose
+  `family` the bundled rules do not declare (run in CI's gates job), and
+  `scripts/silent-success-scan.sh` merges a `<project>/.guardrails/
+  silent-success-allowlist.json` overlay into the baseline so a consumer's
+  entries have a correct home — the contract the note had already described but
+  the scanner did not implement.
 - **Size-gate directory scope covered `web`/`infra`.** The walk roots were a
   hardcoded candidate list that omitted `web` and `infra`, so
   `web/render3d.js` (1470) and `web/index.html` (685) sat past SRC_HARD while

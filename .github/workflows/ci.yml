@@ -160,6 +160,14 @@ jobs:
         run: bash scripts/silent-success-scan.sh
       - name: Failure-registry hygiene
         run: python3 scripts/failure_registry_check.py
+      # base-own-01: every entry in a BUNDLED baseline data file may name only
+      # this repository's paths and capabilities. failure_registry_check.py
+      # above enforces the failure-registry half; this is the silent-success
+      # allowlist half - the file a consumer overwrites with its own entries,
+      # and the one that went back to 1,725 gamerepo01 entries the day after it
+      # was emptied (2026-09-19 -> 2026-09-20, unnoticed until 2026-10-25).
+      - name: Bundled baseline ownership (base-own-01 - silent-success allowlist)
+        run: python3 scripts/baseline_ownership_check.py
       # rule-truth-01 (design D7): an enabled rule with no executing checker
       # is dead coverage presented as live. This gate fails on it, on rules
       # files that no longer validate, and on enabled rules missing a message
