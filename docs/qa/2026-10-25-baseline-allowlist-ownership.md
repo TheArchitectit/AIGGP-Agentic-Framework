@@ -146,6 +146,19 @@ entries produced, which is the point: they suppressed nothing here.
 - `tests/expected-counts.json` regenerated with `gen_floors.py --update` for the
   new suite (the `test-suite-floor` join fails on a suite with no row).
 
+### One gate was green locally and red in CI, and CI was right
+
+`check_exec_bits.py` failed the first CI run of this slice on
+`tests/test_baseline_ownership_check.py`: the file carries a
+`#!/usr/bin/env python3` shebang (the convention for the 39 dual-runnable test
+files here) but was committed `100644`. The local battery had run that gate
+**before the file was staged**, and the gate reads the index — an untracked
+shebang'd file is invisible to it, so "OK - 121 shebang'd files, all 100755"
+was a true statement about a set the new file was not yet in. Fixed with
+`git update-index --chmod=+x` and re-verified locally (121 files, all 100755).
+The lesson is the same one the size gate taught: a local gate run over a dirty
+tree is a statement about the index, so stage first, then run.
+
 ## Not done here, and said rather than implied
 
 - **The 1,727 entries were not migrated anywhere.** They are preserved in git

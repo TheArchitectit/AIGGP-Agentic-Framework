@@ -52,6 +52,15 @@ the overlay wins on `rule_id` / `failure_id` collision. Never edit files inside
 `.devgate/` to customize behavior — that is what the overlay is for
 (`gate-configuration-contract` / `rule-config-01`, `doc-truth` / `doc-overlay-01`).
 
+Two overlay files are **additive** rather than id-keyed, because their entries
+have no id to collide on: `.guardrails/failure-registry.jsonl` is append-only,
+and `.guardrails/silent-success-allowlist.json` is a coverage set. The bundled
+silent-success allowlist is empty by contract (`baseline-ownership` /
+`base-own-01`: a bundled entry may name only DevGate's own paths), so a project's
+own markers belong in the overlay and `scripts/silent-success-scan.sh` adds them
+to the baseline's — an overlay can widen coverage, never delete a baseline
+requirement.
+
 ---
 
 ## Step 1 — Add the submodule and the overlay
@@ -339,6 +348,9 @@ when the bug is genuinely generic to the framework. Entries are append-only.
 - [ ] No stub test bodies; state targets are reached via a real seam
 - [ ] No secrets, tokens, host names, or IPs in any tracked file
 - [ ] `failure-registry.jsonl` overlay receives project bugs (not the baseline)
+- [ ] `silent-success-allowlist.json` overlay holds this project's markers (the
+      bundled baseline is empty by contract, and `baseline_ownership_check.py`
+      fails on any bundled entry naming a path outside DevGate)
 
 ### Per-work-cycle checklist (Step 4b)
 
