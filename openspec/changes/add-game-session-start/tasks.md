@@ -39,8 +39,13 @@ marked complete from spec authoring.
       honest-empty lines, log semantics and the exit-code contract.
 - [x] 4.2 Floor row in `tests/expected-counts.json` (the manifest-join gate
       requires every collected suite to carry one).
-- [ ] 4.3 Gate re-run record and the mutation proofs (seed rule removed,
-      gap line re-pointed at a rescan) appended to the QA note.
+- [x] 4.3 Gate re-run record and the mutation proofs (seed rule removed,
+      gap line silenced) appended to the QA note - done in
+      `docs/qa/2026-10-25-game-session-start.md`: every gate run by me from the
+      CI workflow's own commands with captured exit codes, both mutation proofs
+      measured and reverted, and the stated boundaries. CI on `f5fe603`: run
+      [40202312789](https://github.com/TheArchitectit/AIGGP-Agentic-Framework/actions/runs/40202312789),
+      all seven jobs success.
 
 ## 5. Out of scope (rollout steps 2-5, each its own delivery)
 
