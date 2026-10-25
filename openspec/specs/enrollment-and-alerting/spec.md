@@ -15,18 +15,19 @@ Spokes enroll with one-time tokens, authenticate heartbeats with per-runner revo
 <!-- id: mon-enroll-01 -->
 A new runner SHALL enroll by a single operator command on its host
 (`scripts/runner-enroll.sh <hub-url> <enrollment-token>`), where the hub
-URL is a local-network address (loopback or LAN); the hub SHALL verify a
-one-time enrollment token, record the runner identity
-(name, repo, labels, host alias), issue a per-runner heartbeat token, and
-the script SHALL install a systemd user timer that posts heartbeats to the
-same local address. The hub SHALL reject enrollment or heartbeat posts
-bearing unknown or revoked tokens.
+URL is a local-network address. The hub SHALL verify a one-time enrollment
+token, record the runner identity, and issue a per-runner heartbeat token; the
+script SHALL install a systemd user timer for heartbeats. The hub SHALL reject
+enrollment or heartbeat posts bearing unknown or revoked tokens.
 
 #### Scenario: first enrollment
 - **WHEN** the operator runs runner-enroll.sh with a valid token against
   the hub's local-network URL
 - **THEN** the runner appears in runners.json and heartbeats begin within
   one interval
+- **AND** the recorded runner identity is its name, repo, labels, and host alias
+- **AND** the hub URL is a local-network address (loopback or LAN), and the
+  timer posts heartbeats to the same local address
 
 #### Scenario: revoked runner
 - **WHEN** a runner's heartbeat token is revoked
@@ -47,15 +48,16 @@ appended to an append-only JSONL alert log on the hub volume.
 
 ### Requirement: monitor-hub machine duties stay off-repo
 <!-- id: mon-monitor-hub-01 -->
-Everything requiring the monitor-hub machine itself — creating the hub volume,
-minting the GitHub API token and enrollment tokens into chmod-600 env
-drop-ins, binding the hub listen address to loopback or LAN only (with no
-inbound firewall opening into the owner's environment), enabling linger,
-starting the quadlet — SHALL be documented as a runbook
-(docs/runner-monitor-monitor-hub.md) and SHALL NOT be represented by any
-committed credential, token, or host detail.
+Everything requiring the monitor-hub machine itself SHALL be documented as a
+runbook (docs/runner-monitor-monitor-hub.md) and SHALL NOT be represented by
+any committed credential, token, or host detail.
 
 #### Scenario: fresh monitor-hub rebuild
 - **WHEN** the hub is redeployed from a bare monitor-hub machine
 - **THEN** the runbook alone is sufficient and no step requires reading a
   secret from this repository or opening an inbound firewall rule
+- **AND** the duties the runbook covers are creating the hub volume, minting
+  the GitHub API token and enrollment tokens into chmod-600 env drop-ins,
+  binding the hub listen address to loopback or LAN only (with no inbound
+  firewall opening into the owner's environment), enabling linger, starting
+  the quadlet

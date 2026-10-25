@@ -12,13 +12,14 @@ A decision is a canonical enum with one precedence over the same evidence; consu
 
 <!-- id: coh-dec-01 -->
 
-The service MUST apply one published total ordering over error and outcome classes when computing the top-level decision and exit code. ERROR-class conditions (invalid input, untrusted policy, evaluator/resource failure, evidence or signing failure) take precedence over FAIL-class conditions within the same run; FAIL takes precedence over ADVISORY; ADVISORY takes precedence over PASS. Every exit code MUST map to exactly one decision state, and every decision state to exactly one exit code.
+The service MUST apply one published total ordering over error and outcome classes when computing the top-level decision and exit code. ERROR-class conditions take precedence over FAIL-class conditions within the same run; FAIL takes precedence over ADVISORY; ADVISORY takes precedence over PASS. Every exit code MUST map to exactly one decision state, and every decision state to exactly one exit code.
 
 #### Scenario: simultaneous crash and violation
 
 - **GIVEN** one required evaluator crashed (UNRESOLVED) and another produced an enforced VIOLATED finding
 - **WHEN** the decision is computed
-- **THEN** the matrix yields a single deterministic decision and exit code, recorded with both condition classes visible in the result, and repeated runs of the same inputs yield the same decision.
+- **THEN** the matrix yields a single deterministic decision and exit code, recorded with both condition classes visible in the result, and repeated runs of the same inputs yield the same decision
+- **AND** ERROR-class conditions (invalid input, untrusted policy, evaluator/resource failure, evidence or signing failure) outrank every FAIL-class condition in the same run
 
 #### Scenario: exit code and result disagree
 
@@ -60,13 +61,14 @@ The canonical result MUST exclude runtime duration, host name, wall-clock timest
 
 <!-- id: coh-dec-04 -->
 
-The service MUST use the published exit codes: 0 PASS, 10 ADVISORY, 20 FAIL, 30 invalid input or package, 31 policy resolution error, 32 evaluator error or incomplete execution, 33 evidence or attestation error, 40 unsupported protocol version. Callers MUST use both the exit code and the parsed result. Exit codes 30–33 and 40 are ERROR-class: in enforced mode they block promotion, and in inventory (Stage 0) mode they MUST NOT be reported as a coherence authorization for the subject.
+The service MUST use the published exit codes. Callers MUST use both the exit code and the parsed result. Exit codes 30-33 and 40 are ERROR-class: in enforced mode they block promotion, and in inventory (Stage 0) mode they MUST NOT be reported as a coherence authorization for the subject.
 
 #### Scenario: full exit-code sweep
 
 - **GIVEN** a conformance fixture suite with one fixture per exit code
 - **WHEN** each fixture is evaluated
-- **THEN** each produces its documented exit code, matching decision state, and a parseable result or error envelope.
+- **THEN** each produces its documented exit code, matching decision state, and a parseable result or error envelope
+- **AND** the published exit codes: 0 PASS, 10 ADVISORY, 20 FAIL, 30 invalid input or package, 31 policy resolution error, 32 evaluator error or incomplete execution, 33 evidence or attestation error, 40 unsupported protocol version.
 
 #### Scenario: ERROR in enforced mode
 

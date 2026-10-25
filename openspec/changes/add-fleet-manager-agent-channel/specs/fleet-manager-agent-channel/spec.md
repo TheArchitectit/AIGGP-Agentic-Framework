@@ -27,12 +27,10 @@ enforce that.
 An enrollment token SHALL be bound to exactly one host and its pools, SHALL have
 a bounded lifetime, and SHALL be redeemable once. The host identity of an
 enrollment SHALL be taken from the token, never from the request. A token SHALL
-be treated as a bearer secret: it SHALL have no document form and SHALL NOT
-appear in a refusal message.
+be treated as a bearer secret.
 
 A public key SHALL identify exactly one host. Enrollment and rotation SHALL both
-refuse a key that is already enrolled, and revocation SHALL NOT free a key for
-re-enrollment.
+refuse a key that is already enrolled.
 
 #### Scenario: a token is redeemed twice
 
@@ -45,24 +43,28 @@ re-enrollment.
   holds
 - **THEN** it is refused, and the refusal names the host that holds it
 
+#### Scenario: a revoked key is offered again
+
+- **WHEN** a revoked host's public key is offered for enrollment
+- **THEN** it is refused
+- **AND** revocation SHALL NOT free a key for re-enrollment
+
 #### Scenario: a refusal for an unknown token
 
 - **WHEN** an unknown token is presented
 - **THEN** it is refused without the token value appearing in the message
+- **AND** the token SHALL have no document form and SHALL NOT appear in a refusal
+  message
 
 ### Requirement: Reports are signed over one frozen profile
 <!-- id: fleet-004-03 -->
 A report SHALL carry a signature over exactly the canonical bytes of the
-envelope without its signature field: sorted keys, no whitespace, UTF-8, and no
-NaN or Infinity. The body SHALL be stored as that canonical text, and an
-envelope whose body is not canonical SHALL be refused, so the bytes that were
-signed and the bytes a consumer reads cannot differ.
+envelope without its signature field. The body SHALL be stored as that canonical
+text, and an envelope whose body is not canonical SHALL be refused.
 
 The manager SHALL verify the signature against the enrolled key before acting on
-any part of the report. The signature provider SHALL be supplied by the caller.
-A provider that raises SHALL produce a refusal, not a crash, and SHALL NOT be
-replaced by a fallback; a result that is not exactly `True` SHALL be treated as
-a failed verification.
+any part of the report. A result that is not exactly `True` SHALL be treated as a
+failed verification.
 
 #### Scenario: a forged signature
 
@@ -73,23 +75,27 @@ a failed verification.
 
 - **WHEN** any signed field differs from the field the signature covers
 - **THEN** verification fails
+- **AND** the canonical profile is sorted keys, no whitespace, UTF-8, and no NaN
+  or Infinity
+- **AND** the bytes that were signed and the bytes a consumer reads cannot differ
 
 #### Scenario: the provider is unavailable
 
 - **WHEN** the verifier raises
 - **THEN** the report is refused, the reason names a provider refusal, and the
   channel does not fall back to another check
+- **AND** the signature provider SHALL be supplied by the caller, and a provider
+  that raises SHALL produce a refusal, not a crash
 
 ### Requirement: Replay protection is stateful and strict
 <!-- id: fleet-004-04 -->
 Per (host, key), a report's sequence SHALL strictly increase and its nonce SHALL
-not have been used. A gap in the sequence SHALL be accepted. A report's lifetime
-SHALL be bounded, and freshness SHALL be judged against an instant supplied by
-the caller, never the host clock; a report older than its lifetime, or issued
-beyond the permitted clock skew, SHALL be refused.
+not have been used. A report's lifetime SHALL be bounded, and freshness SHALL be
+judged against an instant supplied by the caller, never the host clock; a report
+older than its lifetime, or issued beyond the permitted clock skew, SHALL be
+refused.
 
-Replay state SHALL be recorded only after the signature has verified, so a
-report that fails verification cannot consume a sequence number or a nonce.
+Replay state SHALL be recorded only after the signature has verified.
 
 #### Scenario: a captured report is replayed
 
@@ -100,12 +106,15 @@ report that fails verification cannot consume a sequence number or a nonce.
 
 - **WHEN** the sequence skips from 1 to 7
 - **THEN** the report with sequence 7 is accepted
+- **AND** a gap in the sequence SHALL be accepted
 
 #### Scenario: a forged report arrives first
 
 - **WHEN** a report with a bad signature is refused and the genuine report with
   the same sequence follows
 - **THEN** the genuine report is accepted
+- **AND** a report that fails verification cannot consume a sequence number or a
+  nonce
 
 #### Scenario: a nonce is reused under a new sequence
 
@@ -115,19 +124,19 @@ report that fails verification cannot consume a sequence number or a nonce.
 ### Requirement: Rotation overlaps for a bounded window; revocation is immediate
 <!-- id: fleet-004-05 -->
 Rotation SHALL issue a new active credential and SHALL keep the previous key
-verifying until a fixed instant, so a report signed before the agent learned of
-the rotation is still accepted. After that instant the previous key SHALL be
+verifying until a fixed instant. After that instant the previous key SHALL be
 refused. Rotation SHALL refuse the current key, a revoked credential, and a key
 enrolled elsewhere, and SHALL advance the generation by exactly one.
 
 Revocation SHALL take effect immediately for the active credential and for any
-still-retiring one, and a second revocation SHALL be refused. A credential's
-absolute lifetime SHALL be enforced separately from the rotation overlap.
+still-retiring one, and a second revocation SHALL be refused.
 
 #### Scenario: a report in flight during rotation
 
 - **WHEN** a report signed with the previous key arrives within the overlap
 - **THEN** it is accepted
+- **AND** a report signed before the agent learned of the rotation is still
+  accepted
 
 #### Scenario: a report after the overlap
 
@@ -144,3 +153,5 @@ absolute lifetime SHALL be enforced separately from the rotation overlap.
 
 - **WHEN** a report arrives after the credential's `not_after`
 - **THEN** it is refused even though the rotation window has not closed
+- **AND** a credential's absolute lifetime SHALL be enforced separately from the
+  rotation overlap

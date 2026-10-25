@@ -14,13 +14,10 @@ public templates.
 <!-- id: fleet-add-01 -->
 The runner templates SHALL include a walkthrough for adding a runner to a
 fleet that already has runners, a shared entrypoint, and a monitor-hub. The
-walkthrough SHALL cover submodule transport options (HTTPS default, SSH with
-per-repo deploy key for private repos), token hygiene, durability, and the
-registration+verification steps. The walkthrough SHALL use role placeholders
-in place of real hostnames, IPs, or tokens per mon-registry-01. It SHALL NOT
-instruct readers to edit inside a `.devgate/` submodule per base-own-01. It
-SHALL point to the operator's private infra repo for machine-specific details.
-It SHALL be discoverable from `templates/runner/README.md`.
+walkthrough SHALL cover submodule transport options, token hygiene, durability,
+and the registration+verification steps. It SHALL NOT instruct readers to edit
+inside a `.devgate/` submodule per base-own-01, and SHALL point to the
+operator's private infra repo for machine-specific details.
 
 #### Scenario: operator adds a runner to a running fleet
 - **WHEN** an operator follows the walkthrough on a fleet host
@@ -36,13 +33,18 @@ It SHALL be discoverable from `templates/runner/README.md`.
 - **WHEN** the target repo's `.devgate` submodule is private
 - **THEN** the walkthrough documents the SSH+deploy-key fallback with
   per-repo key scoping
+- **AND** the submodule transport options (HTTPS default, SSH with per-repo
+  deploy key for private repos)
 
 #### Scenario: no secrets in the walkthrough
 - **WHEN** the add-a-runner.md is scanned for tokens, IPs, or hostnames
 - **THEN** none are found — only role placeholder names per mon-registry-01
+- **AND** the walkthrough SHALL use role placeholders in place of real
+  hostnames, IPs, or tokens per mon-registry-01
 
 #### Scenario: discoverability
 - **WHEN** an operator reads templates/runner/README.md (the first-provision
   guide)
 - **THEN** a link to add-a-runner.md is visible for operators who already
   have a fleet
+- **AND** it SHALL be discoverable from `templates/runner/README.md`

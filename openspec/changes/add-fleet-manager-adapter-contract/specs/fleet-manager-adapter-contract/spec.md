@@ -4,22 +4,11 @@
 
 ### Requirement: One closed adapter contract, checked without calling it
 <!-- id: fleet-007-01 -->
-The manager SHALL define exactly one adapter contract, naming the eleven calls
-the program's Sec. 5.2 requires: `discover_capabilities`, `validate_host`,
-`ensure_image`, `create_runner`, `observe_runner`, `mark_drain`,
-`cancel_or_timeout`, `destroy_runner`, `prove_cleanup`, `report_receipts`, and
-`rollback_configuration`.
-
-A candidate adapter SHALL be checked against that contract without being called.
-The check SHALL refuse, in one refusal, every member that is missing and every
-member that is present but not callable, naming each.
-
-The check SHALL verify that every mutating call accepts a parameter named
-`operation_key`; that `ensure_image` accepts `digest`; that `create_runner`
-accepts `registration_ref` and no parameter whose name suggests registration
-material; that `cancel_or_timeout` accepts `policy`; and that `prove_cleanup`
-accepts `instance_id`. A catch-all `**kwargs` SHALL NOT satisfy any of those
-names.
+The manager SHALL define exactly one adapter contract. A candidate adapter SHALL
+be checked against that contract without being called. The check SHALL refuse,
+in one refusal, every member that is missing and every member that is present
+but not callable, naming each member. The check SHALL verify every parameter
+the contract names.
 
 An adapter SHALL serve exactly one runtime, and a pool whose runtime differs
 from the adapter's SHALL be refused rather than attempted.
@@ -28,6 +17,10 @@ from the adapter's SHALL be refused rather than attempted.
 
 - **WHEN** an object implements every call with the required parameters
 - **THEN** the check accepts it and returns the contract it satisfies
+- **AND** the contract names the eleven calls the program's Sec. 5.2 requires:
+  `discover_capabilities`, `validate_host`, `ensure_image`, `create_runner`,
+  `observe_runner`, `mark_drain`, `cancel_or_timeout`, `destroy_runner`,
+  `prove_cleanup`, `report_receipts`, and `rollback_configuration`
 
 #### Scenario: a missing call
 
@@ -45,11 +38,18 @@ from the adapter's SHALL be refused rather than attempted.
 - **WHEN** `ensure_image` has no parameter named `digest`, or a mutating call has
   no `operation_key`, or `cancel_or_timeout` has no `policy`
 - **THEN** the refusal names the call and the parameter that is absent
+- **AND** the check SHALL verify that every mutating call accepts a parameter
+  named `operation_key`
+- **AND** `ensure_image` SHALL accept `digest`, `cancel_or_timeout` SHALL accept
+  `policy`, and `prove_cleanup` SHALL accept `instance_id`
+- **AND** `create_runner` SHALL accept `registration_ref` and no parameter whose
+  name suggests registration material
 
 #### Scenario: a catch-all signature
 
 - **WHEN** a call is defined as `def create_runner(self, **kwargs)`
 - **THEN** it does not satisfy `registration_ref` and the adapter is refused
+- **AND** a catch-all `**kwargs` SHALL NOT satisfy any of those names
 
 #### Scenario: the wrong runtime
 
@@ -66,36 +66,38 @@ from the adapter's SHALL be refused rather than attempted.
 ### Requirement: Adapter failures are typed and closed
 <!-- id: fleet-007-02 -->
 Every adapter failure SHALL be an `AdapterError` whose kind is one of exactly
-eight: invalid desired state, unavailable host, registration failure, runtime
-failure, cleanup failure, capacity exhaustion, policy denial, and unknown state.
-A kind that is not one of those values, including a string that equals one,
-SHALL be refused at construction.
+eight. A kind that is not one of those values, including a string that equals
+one, SHALL be refused at construction.
 
-An error's detail SHALL NOT be echoed when it matches the credential shape the
-package already refuses in audit reasons and receipt details; the refusal SHALL
-state that a value was withheld, not what it was.
+An error's detail SHALL NOT be echoed when it matches the credential shape;
+the refusal SHALL state that a value was withheld, not what it was.
 
 An unexpected exception SHALL be classifiable as a runtime failure that records
-the exception's type and not its message, because an arbitrary message is where
-a credential is most likely to appear.
+the exception's type and not its message.
 
 #### Scenario: an unknown kind
 
 - **WHEN** an `AdapterError` is built with `kind="runtime_failure"` or with any
   value outside the eight
 - **THEN** it is refused at construction, naming the eight valid kinds
+- **AND** the eight kinds are invalid desired state, unavailable host,
+  registration failure, runtime failure, cleanup failure, capacity exhaustion,
+  policy denial, and unknown state
 
 #### Scenario: a detail that looks like a credential
 
 - **WHEN** an error's detail matches the credential shape
 - **THEN** it is refused, and neither the refusal nor the error's text contains
   the detail
+- **AND** the credential shape is the one the package already refuses in audit
+  reasons and receipt details
 
 #### Scenario: an unexpected exception
 
 - **WHEN** a non-`AdapterError` exception is classified
 - **THEN** the result is a runtime failure whose text names the exception type
   and not its message
+- **AND** an arbitrary message is where a credential is most likely to appear
 
 #### Scenario: an empty kind argument
 
@@ -106,14 +108,9 @@ a credential is most likely to appear.
 <!-- id: fleet-007-03 -->
 The fleet's runner image SHALL be referenced by repository and an immutable
 `sha256` digest, never by tag. A reference containing a tag rather than a digest
-SHALL be refused, naming that a tag is mutable.
-
-The package's default runner image digest SHALL equal the digest recorded by the
-fleet's runner standard in `templates/runner/self-hosted-runner.container`, and
-a test SHALL compare them so the two cannot drift.
-
-A pool's pinned digest SHALL be the digest used to build its instances, and an
-instance SHALL NOT be built from any other image.
+SHALL be refused, naming that a tag is mutable. A pool's pinned digest SHALL be
+the digest used to build its instances, and an instance SHALL NOT be built from
+any other image.
 
 #### Scenario: a tag instead of a digest
 
@@ -124,6 +121,10 @@ instance SHALL NOT be built from any other image.
 
 - **WHEN** the fleet standard's quadlet records an `Image=` digest
 - **THEN** it equals the package's default, or the suite fails
+- **AND** the package's default runner image digest SHALL equal the digest
+  recorded by the fleet's runner standard in
+  `templates/runner/self-hosted-runner.container`, and a test SHALL compare
+  them so the two cannot drift
 
 #### Scenario: an instance from another image
 
@@ -138,13 +139,10 @@ run a job and is stopped clean. An instance that has run a job SHALL NOT count a
 warm, and a warm pool SHALL refuse to hold one.
 
 Warm stock SHALL be within the pool's `warm_min`..`warm_max` bounds: stock above
-`warm_max` SHALL be refused as well as admitted up to it, and every warm
-instance SHALL carry the pool's own id and pinned image digest.
+`warm_max` SHALL be refused as well as admitted up to it.
 
 A job instance SHALL be created with an anonymous work directory and SHALL be
-removed when it exits; its rendered command SHALL contain no durable work
-volume and no `/_work` mount. Registration material SHALL reach the instance
-through an environment file, never as a value in the command's arguments.
+removed when it exits.
 
 #### Scenario: a used container offered as warm
 
@@ -160,6 +158,8 @@ through an environment file, never as a value in the command's arguments.
 
 - **WHEN** a warm instance carries a digest other than the pool's
 - **THEN** it is refused, naming both digests
+- **AND** every warm instance SHALL carry the pool's own id and pinned image
+  digest
 
 #### Scenario: a shortfall below the floor
 
@@ -172,3 +172,7 @@ through an environment file, never as a value in the command's arguments.
 - **THEN** the command removes the container on exit, sets ephemerality, mounts
   no durable work volume, and names the registration reference only through an
   environment file
+- **AND** its rendered command SHALL contain no durable work volume and no
+  `/_work` mount
+- **AND** registration material SHALL reach the instance through an environment
+  file, never as a value in the command's arguments
