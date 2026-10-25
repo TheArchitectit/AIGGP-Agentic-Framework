@@ -19,6 +19,7 @@
   "test_game_session_start": 33,
   "test_gate_common": 20,
   "test_gate_common_parity": 3,
+  "test_gate_containment": 18,
   "test_gate_overlay": 6,
   "test_guardrails_scan_node": 2,
   "test_hub_alert": 18,

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# spec: coh-sec-01, spec-intake-gate, spec-template-provenance
 """spec-fleet-classify.py — per-repo classifier for the spec intake gate.
 
 Spec: spec-intake-gate (SGA-10..15), spec-template-provenance (SGA-20..22).
@@ -41,6 +42,11 @@ import subprocess
 import sys
 import urllib.request
 from pathlib import Path
+
+
+if str(Path(__file__).resolve().parent) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+from gate_common import contained_path  # noqa: E402
 
 STATE_SPACED = "spaced"
 STATE_GAPS = "gaps"
@@ -345,7 +351,7 @@ def check_provenance(root: Path, lock_path: Path) -> dict:
     (unlocked), and a vendored file the lock does not know (unlocked).
     """
     out = {"templates": {}, "drift": [], "unlocked": [], "fault": False,
-           "unknown": []}
+           "unknown": [], "escaping": []}
     templates, err = load_lock_templates(lock_path)
     if err:
         out["reason"] = err
@@ -364,8 +370,19 @@ def check_provenance(root: Path, lock_path: Path) -> dict:
         if vendored_path is None:
             # Deliberately not vendored: a documented decision, not a finding.
             continue
-        vpath = root / vendored_path
+        # The lock is repository-supplied input (coh-sec-01): contain
+        # `vendored_path` before stat and hash, or the gate becomes a host-file
+        # digest oracle. An escaping row is a FAULT, not "unlocked" (which
+        # would read as "go vendor it" and hide the real defect).
+        vpath, verr = contained_path(root, vendored_path)
         state = {"name": name, "pinned": pinned, "vendored_path": vendored_path}
+        if verr:
+            out["fault"] = True
+            out["unknown"].append(name)
+            out["escaping"].append({"template": name, "reason": verr})
+            state["status"] = "unknown (vendored_path refused)"
+            out["templates"][name] = state
+            continue
         if not vpath.is_file():
             out["unlocked"].append(name)
             state["status"] = "missing-vendored"

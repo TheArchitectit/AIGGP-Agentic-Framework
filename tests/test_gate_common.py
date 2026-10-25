@@ -211,6 +211,37 @@ def test_load_source_dirs_extra_and_explicit(tmp_path):
     assert gate_common.load_source_dirs(dg2) == ["only"]
 
 
+def test_load_source_dirs_refuses_escaping_walk_root(tmp_path):
+    """scope.json is repository-supplied input (coh-sec-01): a walk root that
+    escapes the project must be refused, not enumerated."""
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    dg = _scope_layout(tmp_path, {"skip_dirs": [],
+                                  "extra_source_dirs": ["../outside"]})
+    try:
+        gate_common.load_source_dirs(dg)
+        raise AssertionError("an escaping walk root must be refused")
+    except ValueError as err:
+        assert "../outside" in str(err)
+        assert "refused" in str(err)
+
+
+def test_load_source_dirs_refuses_absolute_walk_root(tmp_path):
+    dg = _scope_layout(tmp_path, {"skip_dirs": [],
+                                  "source_dirs": [str(tmp_path / "abs")]})
+    try:
+        gate_common.load_source_dirs(dg)
+        raise AssertionError("an absolute walk root must be refused")
+    except ValueError as err:
+        assert "absolute" in str(err)
+
+
+def test_load_source_dirs_dot_walk_root_allowed(tmp_path):
+    """A declared walk root of the repository root itself is contained."""
+    dg = _scope_layout(tmp_path, {"skip_dirs": [], "source_dirs": ["."]})
+    assert gate_common.load_source_dirs(dg) == ["."]
+
+
 def test_load_size_overrides_require_reason(tmp_path):
     dg = _scope_layout(tmp_path, {"skip_dirs": [], "size_overrides": {
         "web/render3d.js": {"hard": 1600, "reason": "renderer; split queued"}}})

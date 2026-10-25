@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# // spec: fw-scope-01
+# // spec: fw-scope-01, coh-sec-01
 """gate_common.py — one home for the primitives every gate needs.
 
 This exists because the 2026-09-19 scripts review found the same logic
@@ -22,6 +22,7 @@ Public surface (stdlib-only; safe to `import gate_common` after putting
     is_ignored(file, root, pats)    relpath / basename / dir-prefix match
     line_has_allow(line, *ids)      guardrails-allow <ID>: <reason>
     glob_matches(path, globs)       basename OR relpath, with ** globstar
+    contained_path(root, rel)       repository-supplied path containment (coh-sec-01)
     nothing_scanned(gate, reason)   vacuous-scan report (never a green pass)
     detect_package_manager(root)    npm | cargo | pip | go | godot | None
 
@@ -157,6 +158,69 @@ DEFAULT_SOURCE_DIR_CANDIDATES: tuple[str, ...] = (
 )
 
 
+def contained_path(root: Path | str, rel: str) -> tuple[Path | None, str | None]:
+    """Contain a repository-supplied relative path under ``root`` (coh-sec-01).
+
+    Returns ``(resolved_path, None)`` when the path may be read, or
+    ``(None, reason)`` when it may not. It never opens the target: the check
+    is on the *name*, so a rejected path cannot leak content, length, or
+    existence. The reason always names the offending path.
+
+    Rejected, in this order: absolute paths (including ``~`` and drive
+    letters), paths with an embedded NUL, and paths containing an empty,
+    ``.`` or ``..`` segment — ``inside/../../x`` starts with a legal segment,
+    so a startswith check would miss it. The surviving path is resolved and
+    confirmed to stay under the resolved root, which is what catches a
+    symlink (file or directory) pointing outside the tree.
+
+    Missing files are NOT a containment error: the answer is "may this be
+    read", not "does it exist", so each caller keeps its own missing-file
+    path (stale join entry, unlocked template, missing affected file).
+
+    Deliberately duplicated with ``hub/coherence/manifest.py:check_safe``:
+    the shipped service must not import dev-gate scripts, and routing the
+    service through ``scripts/`` would make the tooling a runtime dependency.
+    Both copies are covered by tests (tests/test_gate_containment.py,
+    tests/test_hub_coherence_containment.py) — the duplication is pinned, not
+    assumed.
+    """
+    if not isinstance(rel, str) or not rel:
+        return None, f"path is not a non-empty string: {rel!r}"
+    if "\x00" in rel:
+        return None, f"embedded NUL in path: {rel!r}"
+    if rel.startswith("/") or rel.startswith("~") or Path(rel).is_absolute():
+        return None, f"absolute path not allowed: {rel!r}"
+    parts = rel.split("/")
+    if any(p in ("", ".", "..") for p in parts):
+        return None, f"path traversal or empty segment: {rel!r}"
+    base = Path(root).resolve()
+    try:
+        resolved = (base / rel).resolve()
+    except (OSError, ValueError):
+        return None, f"path cannot be resolved: {rel!r}"
+    if resolved != base and base not in resolved.parents:
+        return None, f"path escapes root: {rel!r}"
+    return resolved, None
+
+
+def _check_walk_root(root: Path, name: str, scope_path: Path,
+                     field: str) -> Path:
+    """Contain a declared walk root (coh-sec-01).
+
+    ``source_dirs``/``extra_source_dirs`` come from ``.guardrails/scope.json``
+    — repository-supplied input. A walk root of ``../elsewhere`` would make the
+    size gate enumerate a tree it does not own (the file *contents* are skipped
+    by the relative-path guard downstream, but the listing is not). ``.`` is
+    the repository root itself and is allowed.
+    """
+    if name == ".":
+        return Path(root)
+    p, err = contained_path(root, name)
+    if err:
+        raise ValueError(f"{scope_path}: {field} entry refused: {err}")
+    return p
+
+
 def load_source_dirs(devgate_root_: Path | str | None = None) -> list[str]:
     """Source directories the size gate walks (fw-scope-01).
 
@@ -173,6 +237,8 @@ def load_source_dirs(devgate_root_: Path | str | None = None) -> list[str]:
     if explicit is not None:
         if not isinstance(explicit, list):
             raise ValueError(f"{_path}: source_dirs must be a list")
+        for d in explicit:
+            _check_walk_root(root, str(d), _path, "source_dirs")
         return [str(d) for d in explicit] or ["."]
 
     found: list[str] = []
@@ -187,7 +253,8 @@ def load_source_dirs(devgate_root_: Path | str | None = None) -> list[str]:
             raise ValueError(f"{_path}: extra_source_dirs must be a list")
         for d in extra:
             name = str(d)
-            if name not in found and name not in skip and (root / name).is_dir():
+            walk_root = _check_walk_root(root, name, _path, "extra_source_dirs")
+            if name not in found and name not in skip and walk_root.is_dir():
                 found.append(name)
 
     return found or ["."]

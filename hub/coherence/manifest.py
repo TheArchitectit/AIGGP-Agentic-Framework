@@ -1,4 +1,4 @@
-# // spec: coh-id-02
+# // spec: coh-id-02, coh-sec-01
 """Subject manifest: normalized relative paths, raw-byte SHA-256, explicit
 policy outcomes for non-file entries, traversal/collision rejection, and
 read-time re-verification. Deterministic traversal (sorted).
@@ -23,13 +23,24 @@ def _norm(path: str) -> str:
     return unicodedata.normalize("NFC", path.replace("\\", "/"))
 
 
-def _check_safe(rel: str, root: Path) -> None:
+def check_safe(rel: str, root: Path) -> None:
+    """Contain a repository-supplied path under `root` (coh-sec-01).
+
+    Public because the containment contract is not manifest-specific: the
+    evaluation context's captured-fact ids and the evidence manifest's object
+    paths are the same class of input and use the same three layers
+    (absolute / segment / resolved-containment). Raises SubjectError, whose
+    message names the offending path and never quotes target content.
+    """
     if rel.startswith("/") or rel.startswith("~"):
         raise SubjectError(f"absolute path not allowed: {rel!r}")
+    if "\x00" in rel:
+        raise SubjectError(f"embedded NUL in path: {rel!r}")
     parts = rel.split("/")
     if any(p in ("", ".", "..") for p in parts):
         raise SubjectError(f"path traversal or empty segment: {rel!r}")
-    # Resolve and confirm containment.
+    # Resolve and confirm containment. A missing target still resolves
+    # (non-strict), so this answers "may it be read", not "does it exist".
     resolved = (root / rel).resolve()
     if root not in resolved.parents and resolved != root:
         raise SubjectError(f"path escapes root: {rel!r}")
@@ -187,7 +198,7 @@ def build(root: str, subject_kind: str = "source-tree",
         for name in sorted(filenames):
             fp = Path(dirpath) / name
             rel = _norm(str(fp.relative_to(root_p)))
-            _check_safe(rel, root_p)
+            check_safe(rel, root_p)
             _check_collision(seen_paths, rel)
             if fp.is_symlink():
                 entries.append({

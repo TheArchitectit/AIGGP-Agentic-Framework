@@ -16,7 +16,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from hub.coherence import canon, evaluators, package  # noqa: E402
+from hub.coherence import canon, context, evaluators, package  # noqa: E402
+from hub.coherence import store as store_mod  # noqa: E402
 
 
 def _world(tmp: Path) -> tuple:
@@ -145,6 +146,96 @@ class TestSelectorContainment(unittest.TestCase):
                 self._assertion("README.md"),
                 {"product": {"identity": {"name": "widget"}}}, str(subj))
             self.assertEqual(findings, [])
+
+
+class TestCapturedFactContainment(unittest.TestCase):
+    """Captured-fact ids are repository-supplied (coh-sec-01 names them).
+
+    The id is already segment-checked, so the remaining escape is a symlink:
+    `facts/<id>` pointing outside the run root. Without a resolve-and-contain
+    step the service digests and then CONSUMES host content as the captured
+    response — the digest check does not help, because a caller who can plant
+    the link also knows the content it points at.
+    """
+
+    def test_symlinked_fact_escaping_root_rejected_before_read(self):
+        with tempfile.TemporaryDirectory() as td:
+            root, _pkg = _world(Path(td))
+            run = root / "run"          # the captured-facts root
+            (run / "facts").mkdir(parents=True)
+            (run / "facts" / "f1").symlink_to(root / "secret.txt")
+            dig = canon.digest_bytes("file/v1", (root / "secret.txt").read_bytes())
+            # A digest that MATCHES: only containment can refuse this read.
+            ctx = {"captured_facts": [{"fact_id": "f1", "digest": dig}]}
+            with self.assertRaises(context.ContextError) as err:
+                context.load_captured_facts(str(run), ctx)
+            self.assertIn("captured-fact-escapes-root", str(err.exception))
+            self.assertNotIn("LEAKED-HOST-SECRET", str(err.exception))
+
+    def test_nul_in_fact_id_rejected(self):
+        with tempfile.TemporaryDirectory() as td:
+            root, _pkg = _world(Path(td))
+            ctx = {"captured_facts": [{"fact_id": "f1\x00", "digest": "x"}]}
+            with self.assertRaises(context.ContextError):
+                context.load_captured_facts(str(root), ctx)
+
+    def test_contained_fact_still_loads(self):
+        with tempfile.TemporaryDirectory() as td:
+            root, _pkg = _world(Path(td))
+            facts = root / "facts"
+            facts.mkdir()
+            (facts / "f1").write_text('{"ok": true}', encoding="utf-8")
+            dig = canon.digest_bytes(
+                "file/v1", (facts / "f1").read_bytes())
+            out = context.load_captured_facts(
+                str(root), {"captured_facts": [{"fact_id": "f1", "digest": dig}]})
+            self.assertEqual(out, {"f1": {"ok": True}})
+
+
+class TestEvidenceManifestContainment(unittest.TestCase):
+    """The sealed bundle's manifest objects are inventory entries too.
+
+    `upload_bundle` reads `<bundle>/<path>` for every manifest object and puts
+    the bytes into the evidence store. An object path of `../secret` therefore
+    uploads host content into the store — exfiltration through the durability
+    path, not a read-only leak.
+    """
+
+    def test_object_path_escaping_bundle_fails_closed_and_is_never_stored(self):
+        with tempfile.TemporaryDirectory() as td:
+            root, _pkg = _world(Path(td))
+            bundle = root / "bundle"
+            bundle.mkdir()
+            secret = (root / "secret.txt").read_bytes()
+            digest = canon.digest_bytes("evidence-manifest/v1", secret)
+            (bundle / "evidence-manifest.json").write_text(json.dumps(
+                {"objects": [{"path": "../secret.txt", "digest": digest}]}),
+                encoding="utf-8")
+            store = store_mod.LocalBundleStore(str(root / "store"))
+            out = store_mod.upload_bundle(store, str(bundle))
+            uploaded_paths = [u["path"] for u in out["uploaded"]]
+            self.assertNotIn("../secret.txt", uploaded_paths, out)
+            self.assertEqual(len(out["failed"]), 1, out)
+            self.assertIn("escapes", out["failed"][0]["reason"])
+            self.assertEqual(out["failed"][0]["path"], "../secret.txt")
+            self.assertFalse(store_mod.store_has(store, digest),
+                             "host content must never reach the store")
+
+    def test_contained_object_still_uploads(self):
+        with tempfile.TemporaryDirectory() as td:
+            root, _pkg = _world(Path(td))
+            bundle = root / "bundle"
+            bundle.mkdir()
+            payload = b"evidence bytes"
+            (bundle / "obj.bin").write_bytes(payload)
+            digest = canon.digest_bytes("evidence-manifest/v1", payload)
+            (bundle / "evidence-manifest.json").write_text(json.dumps(
+                {"objects": [{"path": "obj.bin", "digest": digest}]}),
+                encoding="utf-8")
+            store = store_mod.LocalBundleStore(str(root / "store"))
+            out = store_mod.upload_bundle(store, str(bundle))
+            self.assertIn("obj.bin", [u["path"] for u in out["uploaded"]], out)
+            self.assertEqual(store.get(digest), payload)
 
 
 if __name__ == "__main__":

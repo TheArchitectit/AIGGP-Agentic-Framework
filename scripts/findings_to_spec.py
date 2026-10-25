@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# spec: coh-sec-01
 """findings_to_spec.py — turn gate findings into openspec requirement skeletons.
 
 The loop the gates feed:
@@ -45,6 +46,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import gate_overlay  # noqa: E402
+from gate_common import contained_path  # noqa: E402
 
 # Same layout contract as guardrails-scan.mjs: the project root is the directory
 # CONTAINING .devgate/ — but standalone, DevGate is its own project.
@@ -202,7 +204,17 @@ def main() -> int:
 
     total_new = 0
     for cap, fs in sorted(by_cap.items()):
-        spec_dir = root / "openspec" / "specs" / cap
+        # The capability becomes a directory this tool CREATES and APPENDS to,
+        # and it comes from `--capability` or from a finding's `category`
+        # (i.e. from scanner output — scanned content, coh-sec-01). Contain it
+        # before the existence check, the mkdir, and the append: `../escaped`
+        # would otherwise write a spec file outside the repository.
+        spec_dir, cap_err = contained_path(root, f"openspec/specs/{cap}")
+        if cap_err:
+            print(f"findings-to-spec: FAIL - capability {cap!r} is not a "
+                  f"contained directory name ({cap_err}); nothing written",
+                  file=sys.stderr)
+            return 2
         spec_path = spec_dir / "spec.md"
         have_ids, covered = existing_state(spec_path)
         # Stable ordering: registry-backed first, then scan; by source id.

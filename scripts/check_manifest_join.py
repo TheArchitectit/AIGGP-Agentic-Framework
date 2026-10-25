@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# spec: fw-manifest-join-01
+# spec: fw-manifest-join-01, coh-sec-01
 """check_manifest_join.py — declared ⇄ wired names must agree (fw-manifest-join-01).
 
 A capability is declared in one place and wired in another: a tool registered
@@ -81,20 +81,42 @@ def load_manifest(root: Path) -> list[dict]:
     return joins
 
 
-def _expand(paths: list[str], root: Path) -> list[Path]:
-    """Expand repo-relative paths, allowing a directory (all files, recursive)."""
+class ManifestPathError(Exception):
+    """A manifest-supplied path is not contained under the repository root."""
+
+
+def _expand(paths: list[str], root: Path, jid: str = "?") -> list[Path]:
+    """Expand repo-relative paths, allowing a directory (all files, recursive).
+
+    The paths come out of `.guardrails/manifest-joins.json`, which is
+    repository-supplied input like any other (coh-sec-01): they are contained
+    before any stat, listing, or read, and a directory's expansion is checked
+    again per file so a symlink inside it cannot escape either. A rejected
+    path is a manifest error (exit 2), never a silent skip — a gate that
+    cannot read its own declaration must not report clean.
+    """
+    contained_path = _load_gate_common().contained_path
+    base = Path(root).resolve()
     out: list[Path] = []
     for rel in paths:
-        p = root / rel
+        p, err = contained_path(base, rel)
+        if err:
+            raise ManifestPathError(f"[{jid}] {err}")
         if p.is_dir():
             out.extend(sorted(q for q in p.rglob("*") if q.is_file()))
         elif p.is_file():
             out.append(p)
+    for q in out:
+        resolved = q.resolve()
+        if resolved != base and base not in resolved.parents:
+            raise ManifestPathError(
+                f"[{jid}] path escapes root via symlink: "
+                f"{q.relative_to(base).as_posix()!r}")
     return out
 
 
 def extract(paths: list[str], pattern: str, root: Path,
-            source: str = "content") -> set[str]:
+            source: str = "content", jid: str = "?") -> set[str]:
     """The names this side provides.
 
     source="content" (default) matches `pattern` group 1 inside each file.
@@ -104,7 +126,7 @@ def extract(paths: list[str], pattern: str, root: Path,
     """
     rx = re.compile(pattern, re.MULTILINE)
     out: set[str] = set()
-    for p in _expand(paths, root):
+    for p in _expand(paths, root, jid):
         if source == "filename":
             m = rx.match(p.name)
             if m:
@@ -127,9 +149,9 @@ def check_join(j: dict, root: Path) -> list[str]:
     jid = j["id"]
 
     declared = extract(j["declared"]["paths"], j["declared"]["pattern"], root,
-                       j["declared"].get("source", "content"))
+                       j["declared"].get("source", "content"), jid)
     wired = extract(j["wired"]["paths"], j["wired"]["pattern"], root,
-                    j["wired"].get("source", "content"))
+                    j["wired"].get("source", "content"), jid)
 
     # Fail-closed on a stale join: either side extracting nothing means the
     # pattern or the path no longer describes the tree, so agreement is
@@ -175,16 +197,25 @@ def main() -> int:
 
     joins = load_manifest(root)
     findings: list[str] = []
-    for j in joins:
-        got = check_join(j, root)
-        findings.extend(got)
-        if args.list:
-            d = extract(j["declared"]["paths"], j["declared"]["pattern"], root,
-                        j["declared"].get("source", "content"))
-            w = extract(j["wired"]["paths"], j["wired"]["pattern"], root,
-                        j["wired"].get("source", "content"))
-            print(f"  {j['id']}: declared={len(d)} wired={len(w)} "
-                  f"{'OK' if not got else 'DRIFT'}")
+    try:
+        for j in joins:
+            got = check_join(j, root)
+            findings.extend(got)
+            if args.list:
+                d = extract(j["declared"]["paths"], j["declared"]["pattern"],
+                            root, j["declared"].get("source", "content"),
+                            j["id"])
+                w = extract(j["wired"]["paths"], j["wired"]["pattern"], root,
+                            j["wired"].get("source", "content"), j["id"])
+                d_count, w_count = len(d), len(w)
+                print(f"  {j['id']}: declared={d_count} wired={w_count} "
+                      f"{'OK' if not got else 'DRIFT'}")
+    except ManifestPathError as exc:
+        print(f"check-manifest-join: FAIL - manifest path refused: {exc} "
+              f"(paths in {MANIFEST.as_posix()} are repository-supplied and "
+              f"must stay under the repository root; nothing outside it is "
+              f"read)", file=sys.stderr)
+        return EXIT_USAGE
 
     if findings:
         print(f"check-manifest-join: FAIL - {len(findings)} finding(s) "
