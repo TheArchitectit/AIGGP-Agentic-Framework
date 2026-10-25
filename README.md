@@ -464,7 +464,7 @@ evidence v2 signature path must be the same version where tests run and where
 mutations are killed — a skipped provider test cannot kill a mutation.
 
 Strict OpenSpec validation uses the pinned CLI:
-`npm install --no-save --no-audit --no-fund @fission-ai/openspec@1.13.0`
+`npm install --no-save --no-audit --no-fund @fission-ai/openspec@1.14.3`
 then `npx openspec validate --all --strict`.
 
 ## License

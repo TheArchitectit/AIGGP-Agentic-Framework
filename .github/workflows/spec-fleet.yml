@@ -44,7 +44,7 @@ jobs:
       # rather than relying on PATH.
       - name: Install the pinned openspec CLI
         env:
-          OPENSPEC_PACKAGE: "@fission-ai/openspec@1.13.0"
+          OPENSPEC_PACKAGE: "@fission-ai/openspec@1.14.3"
         run: npm install --no-save --no-audit --no-fund "$OPENSPEC_PACKAGE"
 
       - name: Generate the declaration (reuse secret-scan-declared.sh)

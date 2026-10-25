@@ -347,7 +347,7 @@ jobs:
       # with no commit on our side. Bump deliberately, and re-run the negative
       # control below when you do — the pin and the control are a pair.
       - name: Install openspec CLI (pinned)
-        run: npm install --no-save --no-audit --no-fund @fission-ai/openspec@1.13.0
+        run: npm install --no-save --no-audit --no-fund @fission-ai/openspec@1.14.3
       - name: openspec validate (strict, hard gate)
         run: npx openspec validate --all --strict
       # The hard gate above proves the tree is well-formed. It does NOT prove

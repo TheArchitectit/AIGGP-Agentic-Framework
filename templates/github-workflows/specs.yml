@@ -58,7 +58,7 @@ jobs:
 
     env:
       # CUSTOMIZE (2/2): pinned CLI. The gate's rules must not float.
-      OPENSPEC_PACKAGE: "@fission-ai/openspec@1.13.0"
+      OPENSPEC_PACKAGE: "@fission-ai/openspec@1.14.3"
 
     steps:
       - name: Checkout code (with DevGate submodule)
