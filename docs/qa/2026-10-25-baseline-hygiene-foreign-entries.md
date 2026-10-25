@@ -18,16 +18,22 @@ Both halves were false, and the warning half was hiding the error half.
 Those warnings were real, but they were the smaller half of the problem, and
 counting them was the wrong way to size it. A path-existence check cannot see
 an entry whose path happens to exist here while its bug and its fix belong to
-another repository. Five of the ten entries removed below named paths that DO
-exist in this tree (`.github/workflows/ci.yml`, `.gitignore`,
-`scripts/regression_diff.py`, `.guardrails/failure-registry.jsonl`,
-`.devgate/.guardrails/failure-registry.jsonl`), and two of those names
-(`ci.yml`, `regression_diff.py`) are shared script/workflow names, so the
-existence check passed a foreign entry on a filename coincidence.
+another repository. **Four** of the ten entries removed below named at least
+one path that exists in this tree - `.github/workflows/ci.yml`,
+`.gitignore`, `scripts/regression_diff.py` - and two of those names are shared
+script and workflow names, so the existence check passed a foreign entry on a
+filename coincidence: `FAIL-d6c6e7c5` and `FAIL-3bc44d38` name a `ci.yml`,
+`FAIL-3bc44d38` and `FAIL-9231181d` name `regression_diff.py`.
 
 An earlier draft of this record counted **six** removals and **eight** warned
 entries. Both figures came from the warning list alone; the correct counts are
-**ten** and **seven**. The correction is recorded here rather than carried.
+**ten** and **seven**. It also said five entries named a path that exists here,
+and that "every one of the nine removed entries that carried a SHA" used a
+7-character prefix; the measured split is **four** and **eight of nine** (the
+ninth is `FAIL-20cc1a39`, whose 40-character SHA passed only because a backfill
+had put a real local commit there). The first two of those figures also appear
+in the message of `a8bde2d`, which cannot be edited without rewriting pushed
+history; they are corrected here instead.
 
 ## What was wrong
 
@@ -106,10 +112,12 @@ what the requirement says ("a *bundled* entry"):
 | `fix_commit` short SHA (7-39 hex) absent from the owner's history | **error** (new) | not resolved, unchanged |
 | any of the above where the owner has no git history at all | warning `unverified` (new) | n/a |
 
-The short-SHA clause is the one that mattered in practice: **every one of the
-nine removed entries that carried a SHA carried a 7-character prefix**, and the
-old rule only resolved 40-character values, so none of them had ever been
-checked. A copy or tarball install (no `.git`) now warns
+The short-SHA clause is the one that mattered in practice: **eight of the nine
+removed entries that carried a SHA carried a 7-character prefix**, and the old
+rule only resolved 40-character values, so none of those eight had ever been
+checked. (The ninth, `FAIL-20cc1a39`, carried a 40-character SHA and passed
+only because `ac6e13e` had backfilled a real local commit into it.) A copy or
+tarball install (no `.git`) now warns
 `fix_commit '...' unverified - no git history at <owner>` instead of failing:
 the question is unanswerable there, and a warning is what that is.
 
