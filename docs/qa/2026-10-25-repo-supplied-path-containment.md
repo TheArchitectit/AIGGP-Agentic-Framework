@@ -69,16 +69,21 @@ gate scripts.
 
 ## Evidence after the fix
 
-- `tests/test_gate_containment.py` — 20 tests: the primitive (12), the four
-  gate scripts (8), and three healthy controls so the fix cannot pass by
-  refusing everything.
+- `tests/test_gate_containment.py` — 20 tests: the primitive (11) and the four
+  gate scripts (9), of which six are positive controls (a contained path, a
+  symlink that stays inside, a missing-but-inside path, and one healthy case
+  per contained gate script) so the fix cannot pass by refusing everything.
 - `tests/test_hub_coherence_containment.py` — 3 new cases: a symlinked
   captured fact whose digest **matches** (only containment can refuse it), a
   NUL-bearing fact id, and an escaping bundle object that must never reach
   the store. Plus a contained control.
 - `tests/test_gate_common.py` — 3 new cases: escaping and absolute walk
   roots refused, `.` accepted.
-- `python3 -m pytest tests/ -q` → 1809 passed, 184 subtests.
+- `python3 -m pytest tests/ -q` → **1812 passed, 184 subtests**, exit 0 —
+  measured on `725dd1e` in a scratch worktree as well as on the merged tree.
+  An earlier draft of this record said 1809; that reading was taken
+  mid-authoring and does not match the commit, so it is corrected here rather
+  than carried.
 
 ## Not fixed here (and why)
 
