@@ -11,6 +11,15 @@ Exit codes:
     1  — findings (parse errors, missing fields, duplicates, invalid status,
           non-existent paths, broken fix_commits)
 
+`base-own-01` splits the two path/commit verdicts by SOURCE, not by severity:
+a BUNDLED (baseline) entry must reference only this repository's paths and
+bugs, so a stale path or a fix_commit absent from this repo's history there is
+an ERROR ("a hygiene gate SHALL fail when a bundled entry references a path
+absent from this tree"). A project OVERLAY entry keeps the older lenient rule —
+its paths warn, and its short fix_commits are not resolved — because an overlay
+legitimately goes stale as the project renames files, and the overlay is the
+thing the project refreshes.
+
 Environment:
     FAILURE_REGISTRY_PATH   check this ONE file only (no bundled+overlay merge)
 
@@ -71,6 +80,35 @@ def _git_cat_file_t(repo_root: Path, sha: str) -> bool:
         return False
 
 
+_SHA_CHARS = frozenset("0123456789abcdefABCDEF")
+
+
+def _looks_like_sha(value: str) -> bool:
+    """True when `value` is a git SHA prefix (7-40 hex chars).
+
+    Short prefixes count. Every foreign entry the 2026-10-25 `base-own-01`
+    sweep found carried a 7-char SHA, which a 40-hex-only rule never resolved.
+    """
+    return 7 <= len(value) <= 40 and all(c in _SHA_CHARS for c in value)
+
+
+def _is_git_repo(repo_root: Path) -> bool:
+    """True when `git rev-parse --git-dir` succeeds in repo_root.
+
+    Separates "this SHA is absent from the repo" (a finding) from "there is no
+    git history here to ask" (a copy/tarball install, which may only warn).
+    """
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--git-dir"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            cwd=str(repo_root), timeout=10,
+        )
+        return result.returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
 def _parse_affected_files(raw) -> list[str]:
     """Normalise `affected_files` to a list regardless of its original shape.
 
@@ -94,17 +132,25 @@ def _load_entries(registry_path: Path) -> tuple[list[dict], list[str]]:
     return read_jsonl_registry(registry_path)
 
 
-def check(registry_path: Path | None = None) -> tuple[int, list[str]]:
+def check(registry_path: Path | None = None, *,
+          devgate_root: Path | None = None,
+          project_root: Path | None = None) -> tuple[int, list[str]]:
     """Run all hygiene checks over the EFFECTIVE registry — bundled baseline +
     project overlay merged by failure_id (the overlay entry replacing a same-id
     baseline entry is the overlay contract, not a duplicate; duplicates are
     only errors WITHIN one source file). An explicit registry_path checks that
     one file only.
 
+    `devgate_root` / `project_root` are injectable for tests; they default to
+    this file's checkout and the root-anchor contract.
+
     Returns (exit_code, findings).  findings are one-line messages for stdout/stderr.
     Exit 0 means clean; exit 1 means at least one ERROR was emitted.
-    Warnings (stale affected_files paths) are included in findings but do not
-    affect the exit code.
+
+    `base-own-01` decides which findings are errors: a BUNDLED ("devgate") entry
+    with a stale affected_files path or a fix_commit absent from this repo's
+    history is an ERROR; the same findings on a project overlay entry are
+    WARNINGS, because an overlay goes stale as its project renames files.
 
     Every entry is validated against the repo that OWNS it (DevGate entries
     against .devgate's git history and files, project entries against the
@@ -112,8 +158,10 @@ def check(registry_path: Path | None = None) -> tuple[int, list[str]]:
     """
     errors: list[str] = []
     warnings: list[str] = []
-    project_root = PROJECT_ROOT
-    devgate_root = Path(__file__).resolve().parent.parent
+    if project_root is None:
+        project_root = PROJECT_ROOT
+    if devgate_root is None:
+        devgate_root = Path(__file__).resolve().parent.parent
 
     if registry_path is not None:
         # An EXPLICITLY named registry that does not exist is a configuration
@@ -184,7 +232,10 @@ def check(registry_path: Path | None = None) -> tuple[int, list[str]]:
                 f"invalid status '{status}' — expected one of {sorted(VALID_STATUSES)}"
             )
 
-    # 4. fix_commit via git — in the repo that owns the entry
+    # 4. fix_commit via git — in the repo that owns the entry.
+    # A bundled entry's bug must be THIS repository's bug (base-own-01), so its
+    # SHA is resolved here whether it is written long or short; an overlay entry
+    # keeps the older rule and only has a full 40-char SHA resolved.
     for entry, owner, label, lineno in merged:
         fix = (entry.get("fix_commit") or "").strip()
         if not fix:
@@ -193,16 +244,24 @@ def check(registry_path: Path | None = None) -> tuple[int, list[str]]:
             )
         elif fix in DUMMY_COMMITS:
             pass  # allowed dummy
-        elif len(fix) == 40 and all(c in "0123456789abcdefABCDEF" for c in fix):
-            # looks like a SHA; verify it exists in the owning repo
-            if not _git_cat_file_t(owner, fix):
+        elif _looks_like_sha(fix):
+            if label != "devgate" and len(fix) != 40:
+                continue  # overlay short SHA — not resolved (documented leniency)
+            if label == "devgate" and not _is_git_repo(owner):
+                warnings.append(
+                    f"{label}:line {lineno} [{entry.get('failure_id','?')}]: "
+                    f"fix_commit '{fix}' unverified — no git history at {owner}"
+                )
+            elif not _git_cat_file_t(owner, fix):
                 errors.append(
                     f"{label}:line {lineno} [{entry.get('failure_id','?')}]: "
                     f"fix_commit '{fix}' not found in git history of {owner}"
                 )
         # else: unusual value — accept but don't validate
 
-    # 5. affected_files: path existence (WARN only — stale paths are not errors)
+    # 5. affected_files: path existence. base-own-01 makes a stale path in the
+    # BUNDLED baseline an error ("a hygiene gate SHALL fail when a bundled entry
+    # references a path absent from this tree"); an overlay keeps the warning.
     for entry, owner, label, lineno in merged:
         raw = entry.get("affected_files")
         if raw is None:
@@ -210,11 +269,19 @@ def check(registry_path: Path | None = None) -> tuple[int, list[str]]:
         paths = _parse_affected_files(raw)
         for p in paths:
             abs_path = owner / p
-            if not abs_path.exists():
-                warnings.append(
-                    f"{label}:line {lineno} [{entry.get('failure_id','?')}]: "
-                    f"affected_files path not found: '{p}'  (warning — stale entry)"
+            if abs_path.exists():
+                continue
+            message = (
+                f"{label}:line {lineno} [{entry.get('failure_id','?')}]: "
+                f"affected_files path not found: '{p}'"
+            )
+            if label == "devgate":
+                errors.append(
+                    message + "  (base-own-01 — bundled entry references a path"
+                              " absent from this tree)"
                 )
+            else:
+                warnings.append(message + "  (warning — stale entry)")
 
     findings = errors + warnings
     return (0 if not errors else 1), findings
