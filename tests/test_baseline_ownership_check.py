@@ -36,8 +36,9 @@ def _entry(file: str, *, family: str = FAMILY, marker: str = "_ = f.Close()") ->
 class _Tree:
     """A throwaway repo with the two bundled files and a real source file."""
 
-    def __init__(self, entries, *, families=(FAMILY,), file_text="# x\n",
-                 rel="pkg/thing.go", allowlist=_DEFAULT, rules=_DEFAULT):
+    def __init__(self, entries, *, families=(FAMILY,), disabled=(),
+                 file_text="# x\n", rel="pkg/thing.go", allowlist=_DEFAULT,
+                 rules=_DEFAULT):
         self._td = tempfile.TemporaryDirectory(prefix="dg-bown-")
         self.root = Path(self._td.name)
         if file_text is not None:
@@ -55,7 +56,7 @@ class _Tree:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(
                 rules if rules is not _DEFAULT else json.dumps(
-                    {"rules": [{"family": f, "regex": "x", "enabled": False}
+                    {"rules": [{"family": f, "regex": "x", "enabled": f not in disabled}
                                for f in families]}), encoding="utf-8")
 
     def check(self, *args):
@@ -97,6 +98,18 @@ class TestBundledAllowlistOwnership(unittest.TestCase):
         r = self._run([_entry("pkg/thing.go", family="rust_noop_ok_return")])
         self.assertEqual(r.returncode, 1)
         self.assertIn("rust_noop_ok_return", r.stderr)
+
+    def test_entry_for_a_disabled_family_is_error(self):
+        # Declared but disabled: the scanner never evaluates the family, so the
+        # entry suppresses nothing while still counting as coverage.
+        r = self._run([_entry("pkg/thing.go")], disabled=(FAMILY,))
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("ships disabled", r.stderr)
+
+    def test_enabled_family_with_a_live_path_is_clean(self):
+        # Positive control for the clause above: same family, enabled.
+        r = self._run([_entry("pkg/thing.go")], families=(FAMILY,), disabled=())
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
     def test_absolute_path_is_error(self):
         r = self._run([_entry("/etc/passwd")])

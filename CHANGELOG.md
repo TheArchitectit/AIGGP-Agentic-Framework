@@ -17,6 +17,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`base-own-01`'s other two named file classes were measured, not assumed.**
+  The requirement names prevention rules and openspec specs as well as the
+  registry and allowlist. The rule files carry no repository paths, but four of
+  their `note` fields asserted another project's state as current:
+  `go_return_nil_after_ignored_error` and `python_pass_todo_body` claimed
+  "existing occurrences allowlisted in silent-success-allowlist.json" (false —
+  the bundled file is empty by contract, and the 1,725 entries removed on
+  2026-10-25 were all the *Go* family, so the Python claim never held), and both
+  Zig families ended "Ships disabled like every family here" (false — 4 of 11
+  families ship enabled, and this tree contains no `.zig` file). All four notes
+  now state their family's shipped state and point a consumer at its own
+  overlay; zero provenance tags remain in the bundled rule files. Openspec
+  specs were checked the same way: every foreign-repository mention outside the
+  archive is provenance, which `base-specs-01` permits, and no bundled spec
+  claims a path of this repository that does not exist.
+  `scripts/baseline_ownership_check.py` also gained a third clause: an entry
+  whose family is **declared but disabled** is a finding, because a disabled
+  family never evaluates a file and such an entry suppresses nothing while
+  counting as coverage. `tests/test_baseline_ownership_check.py` 14 → 16.
 - **The bundled silent-success allowlist had 1,727 foreign entries again, and
   nothing noticed.** `beedec1` (2026-09-19, QA H3) emptied
   `.guardrails/silent-success-allowlist.json` and wrote the "empty by design"

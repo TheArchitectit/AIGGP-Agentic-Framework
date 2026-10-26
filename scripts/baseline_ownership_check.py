@@ -19,14 +19,22 @@ entries on 2026-09-20 until 2026-10-25. Two checks, both mechanical:
   2. every entry's "family" must be declared by the bundled rules file
      .guardrails/prevention-rules/silent-success-rules.json (the "capabilities
      of this repository" clause - an entry for a detector this repo does not
-     ship describes another repository's gate).
+     ship describes another repository's gate);
+  3. that family must also be ENABLED there. A declared-but-disabled family
+     never evaluates a file, so an entry for it suppresses nothing while
+     counting as coverage - the same "a number the gate never uses" defect as
+     the 1,727 inert entries, one level down.
 
 What this gate deliberately does NOT claim: prevention-rules files carry globs
 ("*.go", "Dockerfile") rather than repository paths, so there is no
 path-existence predicate to settle for them; and openspec specs are prose whose
-"references" cannot be decided mechanically. Those halves are covered by other
-gates (spec_traceability.py for requirement ids, base-specs-01's game-merge
-pointer rule) and are named here so the omission is stated, not implied.
+"references" cannot be decided mechanically. Both were measured on 2026-10-25
+rather than assumed (docs/qa/2026-10-25-baseline-allowlist-ownership.md): the
+bundled rule files carried four foreign-project state assertions in `note`
+fields, all corrected, and no foreign path claimed to be in this tree. Those
+halves remain covered by other gates (spec_traceability.py for requirement ids,
+base-specs-01's game-merge pointer rule) and are named here so the omission is
+stated, not implied.
 
 Usage:
   python3 scripts/baseline_ownership_check.py [--repo PATH] [--max-report N]
@@ -75,6 +83,7 @@ def check(repo: Path) -> tuple[int, list[str]]:
         return 1, findings
 
     declared = set()
+    enabled = set()
     rules = rules_doc.get("rules") if isinstance(rules_doc, dict) else None
     if not isinstance(rules, list):
         findings.append(f"{RULES_REL}: 'rules' is not a list (fail closed)")
@@ -82,6 +91,8 @@ def check(repo: Path) -> tuple[int, list[str]]:
     for rule in rules:
         if isinstance(rule, dict) and rule.get("family"):
             declared.add(rule["family"])
+            if rule.get("enabled") is True:
+                enabled.add(rule["family"])
 
     for index, entry in enumerate(entries):
         if not isinstance(entry, dict):
@@ -109,6 +120,12 @@ def check(repo: Path) -> tuple[int, list[str]]:
                 f"{ALLOWLIST_REL}: entry #{index} names family '{family}', which "
                 f"{RULES_REL.as_posix()} does not declare (base-own-01 - not a "
                 f"capability of this repository)"
+            )
+        elif family not in enabled:
+            findings.append(
+                f"{ALLOWLIST_REL}: entry #{index} names family '{family}', which "
+                f"{RULES_REL.as_posix()} ships disabled (base-own-01 - an entry for "
+                f"a disabled detector suppresses nothing)"
             )
 
     return (1 if findings else 0), findings

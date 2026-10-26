@@ -159,6 +159,50 @@ was a true statement about a set the new file was not yet in. Fixed with
 The lesson is the same one the size gate taught: a local gate run over a dirty
 tree is a statement about the index, so stage first, then run.
 
+## The other two named file classes, measured instead of assumed
+
+`base-own-01` names four file classes. The gate above covers the allowlist, and
+this record's first draft said prevention rules and openspec specs were "out of
+mechanical reach". That is true of a *path* predicate; it says nothing about
+whether those files are clean. Measured on 2026-10-25:
+
+- **Prevention rules** — 58 entries across three files
+  (`pattern-rules.json` 37, `semantic-rules.json` 10,
+  `silent-success-rules.json` 11). No entry carried a repository path. Four
+  carried a foreign-project **state assertion** in a `note` field: two tagged
+  `[gamerepo01: enabled 2026-09-07 — existing occurrences allowlisted in
+  silent-success-allowlist.json; new ones fail CI]`, two tagged `[dead-air: …]`
+  and ending *"Ships disabled like every family here."*
+  - Both allowlist claims were false. The bundled allowlist is empty by
+    contract, and the 1,725 entries removed the same day (and the copy at
+    `16ce30e`) were **all** family `go_return_nil_after_ignored_error` — the
+    Python family's note claimed coverage of markers that never existed in this
+    file at all.
+  - *"Ships disabled like every family here"* was false twice over: **4 of the
+    11 families ship enabled**, and this tree has no `.zig` file for either Zig
+    family to match.
+  - Corrected in place: each note now states its family's shipped state and
+    sends a consumer to its own overlay. Zero provenance tags remain in the
+    three bundled rule files.
+- **openspec specs** — every foreign-repository mention outside
+  `openspec/changes/archive/` is provenance (*"Imported from the former
+  `devgate-game-framework` repository"*), which `base-specs-01` explicitly
+  permits, and the active `add-runner-toolchain-requests` change names
+  `mission-control-rs/` as a directory inside `TheArchitectit/missioncontrol`,
+  not inside this tree. No bundled spec asserts a path of **this** repository
+  that does not exist.
+
+**One clause was added to the gate, not just a note corrected.** An entry whose
+family is *declared but disabled* is now a finding: a disabled family never
+evaluates a file, so such an entry suppresses nothing while still counting as
+coverage — the 1,727-entry defect one level down. Proven on the pre-change tree
+with a live path and one planted entry: family `rust_noop_ok_return` (declared,
+disabled) → `entry #0 names family 'rust_noop_ok_return', which … ships
+disabled (base-own-01 — an entry for a disabled detector suppresses nothing)`,
+exit 1; the same entry with `go_return_nil_after_ignored_error` (declared,
+enabled) → exit 0. `tests/test_baseline_ownership_check.py` 14 → **16**, the
+disabled case paired with an enabled-family positive control.
+
 ## Not done here, and said rather than implied
 
 - **The 1,727 entries were not migrated anywhere.** They are preserved in git
