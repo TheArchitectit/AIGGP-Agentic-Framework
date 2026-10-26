@@ -17,6 +17,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`game_regression.py` reported the checks as the bugs (60 → 0 on
+  MergeKingdom).** Its Godot table matched single lines, so it could not see a
+  guard written on the next one: `preload("…tscn")` on a constant counted as an
+  unchecked scene load, `var file := FileAccess.open(...)` followed by
+  `if file == null:` counted as save corruption, and `SCRIPT_ERROR` matched
+  `push_error(` / `assert(` — the recommended handling and a deliberate guard.
+  Measured on MergeKingdom (`--all --pre-commit`): 60 issues, 0 real — 3 preload
+  constants, 13 checked opens (7 `== null`, 6 Godot truthiness `if file:`), 43
+  `push_error(...)` call sites. A rule may now be `(regex, guard, window)` and
+  stays silent when one of the next `window` lines matches `guard`; whole-line
+  comments are never scanned (the gate was reporting its own docstrings); and
+  `SCRIPT_ERROR` is retired with the measurement recorded. After the change the
+  same run reported one genuine hit — an unchecked `FileAccess.open` in
+  `ad_manager.gd`, now fixed in MergeKingdom — and then 0. `test_game_regression`
+  grew from 13 to 20 tests, one per false-positive shape plus a bounded-window
+  negative control.
 - **`scene_inventory.py` now sees code-side button wiring (`screen-inv-01`).**
   The Godot scanner read `.tscn` connection blocks only, so a UI wired the way
   Godot's editor and docs produce — `btn.pressed.connect(...)` in `_ready()`,

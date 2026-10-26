@@ -8,10 +8,20 @@ Adds game-specific failure classes beyond DevGate's generic scanner:
   NULL_DEREF       — runtime null dereference
   SCENE_LOAD_FAIL  — scene fails to instantiate
   SAVE_CORRUPT     — save/load round-trip breaks
-  SCRIPT_ERROR     — engine script runtime error
   ORPHAN_SIGNAL    — button/signal with no handler
   DETERMINISM_BREAK — seeded run diverges
   PERF_REGRESSION  — frame time / memory exceeds budget
+
+SCRIPT_ERROR was retired 2026-10-26 (see GAME_PATTERNS): its rules flagged
+`push_error(` and `assert(`, which are the recommended handling and a
+deliberate guard rather than defects. DETERMINISM_BREAK and PERF_REGRESSION
+are documented classes with no line-regex rule yet — they need a seeded run /
+a timing harness, not a text scan, and the scanner does not pretend otherwise.
+
+Patterns are matched line by line; a rule may be a `(regex, guard, window)`
+tuple that suppresses its hit when one of the next `window` lines matches
+`guard`, so a null check written on the following line is recognised instead
+of reported as the bug.
 
 The engine is detected from game-manifest.json (else project files) and the
 matching pattern table is applied; unknown engines fall back to the Godot set.
@@ -46,24 +56,53 @@ from gate_common import (  # noqa: E402
     nothing_scanned,
 )
 
-# Game-class patterns (regex-based, loaded from failure-registry.jsonl)
+# Game-class patterns (regex-based, loaded from failure-registry.jsonl).
+#
+# A rule is either a bare regex, matched against one line, or a
+# `(regex, guard, window)` tuple: the hit is NOT reported when any of the next
+# `window` lines matches `guard`. That is how a one-line heuristic honours the
+# check the author actually wrote on the following line — without it the gate
+# reports the check itself as the failure.
+#
+# Measured on MergeKingdom, 2026-10-26 (`--all --pre-commit`, 60 issues):
+# every SCENE_LOAD_FAIL and SAVE_CORRUPT hit was this shape — a `preload` on a
+# compile-time constant, or a `FileAccess.open` whose very next line is
+# `if file == null:`. None of the 60 was a defect.
+#
+# The guard has to accept GDScript's truthiness check too: `if file:` and
+# `if not file:` are the idiom the save system actually uses (6 of the first 7
+# hits left after the null-check guard), and a one-line `if …:` head is the
+# only form that can be recognised without tracking variable names.
+_CHECKED = r"(==\s*null|!=\s*null|is_instance_valid\(|^\s*if\b.*:\s*$)"
+_OK_GUARD = r"(!=\s*(Error\.)?OK|==\s*(Error\.)?OK)"
+
 GAME_PATTERNS = {
     "NULL_DEREF": [
         r"\.get_node\([^)]*\)\s*\.\s*\w+",      # unsafe get_node chain
         r"if\s+\w+\s*==\s*null\s*:\s*pass",       # null check + no-op (swallowed)
     ],
     "SCENE_LOAD_FAIL": [
-        r"load\([^)]*\.tscn[^)]*\)\s*$",          # load without null check
-        r"change_scene_to_file\([^)]*\)",         # scene change without error handling
+        # `preload` resolves at compile time and cannot fail, so the lookbehind
+        # keeps a PackedScene constant out of the "unchecked load" family.
+        (r"(?<!pre)\bload\([^)]*\.tscn[^)]*\)\s*$", _CHECKED, 2),
+        (r"change_scene_to_file\([^)]*\)", _OK_GUARD, 2),  # scene change without error handling
     ],
     "SAVE_CORRUPT": [
-        r"json\.parse\([^)]*\)\s*$",              # JSON.parse without error check
-        r"FileAccess\.open[^)]*\)\s*$",           # file open without error check
+        # Lowercase `json.parse` callers (JS/Lua-shaped). GDScript spells it
+        # `JSON.parse_string` and every real site checks the result in one of
+        # three idioms (== null, `is Dictionary`, bare truthiness) that a
+        # one-line regex cannot tell apart, so that spelling is deliberately
+        # NOT covered here rather than covered by a guard loose enough to pass
+        # everything. See the spec's SAVE_CORRUPT coverage note.
+        (r"json\.parse\([^)]*\)\s*$", _CHECKED, 2),   # JSON.parse without error check
+        (r"FileAccess\.open[^)]*\)\s*$", _CHECKED, 2),  # file open without error check
     ],
-    "SCRIPT_ERROR": [
-        r"push_error\(",                           # explicit push_error call
-        r"assert\(",                               # bare assert (crashes on fail)
-    ],
+    # SCRIPT_ERROR was retired 2026-10-26: its two rules were `push_error(` and
+    # `assert(`, i.e. it flagged the RECOMMENDED handling and a deliberate
+    # guard. On MergeKingdom all 43 of its hits were `push_error(...)` call
+    # sites; zero were defects. A one-line regex cannot see a GDScript runtime
+    # error anyway — that needs a real engine run. See the spec's retired-family
+    # scenario for what replaced it.
     "ORPHAN_SIGNAL": [
         r'\.connect\("pressed"',                   # signal connect without method check
     ],
@@ -227,6 +266,44 @@ def get_changed_files(root, staged=True):
         return []
     return [f.strip() for f in result.stdout.splitlines() if f.strip()]
 
+def _split_rule(rule):
+    """Normalize one rule to (regex, guard, window).
+
+    A rule is a bare regex string, or a `(regex, guard, window)` tuple whose
+    `guard` regex suppresses the hit when any of the next `window` lines
+    matches it — the author checked the result, just on the following line.
+    Bare strings stay valid so callers (and tests) can hand in ad-hoc tables.
+    """
+    if isinstance(rule, str):
+        return rule, None, 0
+    regex, guard, window = rule
+    return regex, guard, int(window)
+
+
+def _guarded(lines, index, guard, window):
+    """True when the hit at `lines[index]` (0-based) has its guard nearby."""
+    if not guard or window <= 0:
+        return False
+    return any(re.search(guard, follow) for follow in lines[index + 1:index + 1 + window])
+
+
+def _is_comment_line(line):
+    """True for a full-line comment in the languages this scanner reads.
+
+    Only whole-line comments: a line whose first non-space characters are `#`
+    or `//`. Trailing comments stay unscanned-as-code because a hit before them
+    is real code; and nothing is stripped from inside strings, so a URL or a
+    pattern quoted mid-line is unaffected. A comment cannot be a live defect —
+    it is either documentation or code that was deliberately disabled — and
+    this scanner's own docstrings describe the patterns it looks for, which
+    otherwise makes it report itself (measured 2026-10-26: the only hit in
+    DevGate's own tree was `scene_inventory.py` explaining `.connect("pressed")`
+    in a comment).
+    """
+    stripped = line.lstrip()
+    return stripped.startswith("#") or stripped.startswith("//")
+
+
 def scan_file_for_patterns(file_path, patterns):
     """Scan a file for game-class regression patterns."""
     issues = []
@@ -235,18 +312,25 @@ def scan_file_for_patterns(file_path, patterns):
     except Exception:
         return issues
 
-    for line_num, line in enumerate(content.splitlines(), 1):
+    lines = content.splitlines()
+    for index, line in enumerate(lines):
+        if _is_comment_line(line):
+            continue
         for pattern_name, regexes in patterns.items():
             if line_has_allow(line, pattern_name):
                 continue
-            for regex in regexes:
-                if re.search(regex, line):
-                    issues.append({
-                        "file": file_path,
-                        "line": line_num,
-                        "pattern": pattern_name,
-                        "match": line.strip()[:120],
-                    })
+            for rule in regexes:
+                regex, guard, window = _split_rule(rule)
+                if not re.search(regex, line):
+                    continue
+                if _guarded(lines, index, guard, window):
+                    continue
+                issues.append({
+                    "file": file_path,
+                    "line": index + 1,
+                    "pattern": pattern_name,
+                    "match": line.strip()[:120],
+                })
     return issues
 
 def scan_failure_registry_patterns(file_path, entries, root):
@@ -277,6 +361,8 @@ def scan_failure_registry_patterns(file_path, entries, root):
         prevention_rule = entry.get("prevention_rule")
         try:
             for line_num, line in enumerate(content.splitlines(), 1):
+                if _is_comment_line(line):
+                    continue
                 if line_has_allow(line, failure_id, prevention_rule):
                     continue
                 if re.search(pattern, line):

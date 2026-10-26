@@ -4,6 +4,20 @@
 
 Track game-class runtime failures (null derefs, scene-load failures, save corruption, orphaned signals, determinism breaks, perf regressions) as an append-only project registry, and block changes that re-introduce a registered failure. The registry is shared by `scripts/log_failure.py` and the regression scanner: an append-only `.guardrails/failure-registry.jsonl` — one JSON object per bug/failure, never edited, only appended via `scripts/log_failure.py`.
 
+The scanner also carries a built-in pattern table per engine. `SCRIPT_ERROR` was
+retired from the Godot table on 2026-10-25 rather than repaired: its rules were
+`push_error(` and `assert(` — the recommended error handling and a deliberate
+guard — and on the only Godot project in the fleet all 43 of its hits were
+`push_error(...)` call sites, none a defect. A one-line regexp cannot see a
+GDScript runtime error at all; that needs a real engine run.
+
+Measured on MergeKingdom, 2026-10-25: `--all --pre-commit` reported 60 issues
+and none was a defect — 3 `preload` constants, 13 `FileAccess.open` calls whose
+next line checks the result (7 `== null`, 6 Godot truthiness `if file:`), and 43
+`push_error(...)` call sites. With the guard mechanism in place and the family
+retired the same run reports 0 — the one hit that survived both guards was an
+unchecked `FileAccess.open` in `ad_manager.gd`, a real defect, now fixed.
+
 ## Requirements
 
 ### Requirement: failure registry is append-only
@@ -43,15 +57,35 @@ any further divergence as a regression.
 ### Requirement: Game-class pattern scan
 <!-- id: game-reg-01 -->
 The game regression scanner SHALL scan changed or discovered source files
-against its built-in game-class pattern families (NULL_DEREF, SCENE_LOAD_FAIL,
-SAVE_CORRUPT, SCRIPT_ERROR, ORPHAN_SIGNAL) and SHALL report each hit with
-pattern class, file, and line. With `--pre-commit` it SHALL exit non-zero when
-any issue is found.
+against its built-in game-class families (NULL_DEREF, SCENE_LOAD_FAIL,
+SAVE_CORRUPT, ORPHAN_SIGNAL) and SHALL report each hit with pattern class, file,
+and line; `--pre-commit` SHALL exit non-zero on any issue. A rule MAY declare a
+guard: when one of the next `window` lines matches it, the hit SHALL NOT be
+reported. Whole-line comments SHALL never be scanned.
 
 #### Scenario: orphaned signal detected
 - **WHEN** a scanned source line connects a `pressed` signal in the pattern
   family ORPHAN_SIGNAL targets
 - **THEN** the scanner reports the ORPHAN_SIGNAL hit with file and line
+
+#### Scenario: the check on the next line is not the bug
+- **WHEN** a line opens a file (`FileAccess.open(...)`) and the following line
+  guards the result (`if file == null:`, `if file:`, `if not file:`)
+- **THEN** the scanner reports nothing for that line
+
+#### Scenario: an unchecked open is still reported
+- **WHEN** a line opens a file and no line within the guard window checks the
+  result
+- **THEN** the scanner reports SAVE_CORRUPT with file and line
+
+#### Scenario: compile-time preload is not a scene-load failure
+- **WHEN** a `preload("res://…tscn")` result is assigned to a constant
+- **THEN** the scanner does not report SCENE_LOAD_FAIL, because preload
+  resolves at compile time and cannot fail
+
+#### Scenario: a comment describing a pattern is not a hit
+- **WHEN** a whole-line comment quotes a pattern the scanner looks for
+- **THEN** the scanner does not report it
 
 #### Scenario: pre-commit blocking
 - **WHEN** the scanner runs with `--pre-commit` and finds issues

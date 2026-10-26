@@ -18,7 +18,7 @@ below ships here and is specified under `openspec/specs/`:
 
 | Tool | Spec | What it enforces |
 |---|---|---|
-| `scripts/game_regression.py` | `game-regression` | Game-class failure patterns (NULL_DEREF, SCENE_LOAD_FAIL, SAVE_CORRUPT, SCRIPT_ERROR, ORPHAN_SIGNAL) plus failure-registry patterns with `file_glob` scoping, `guardrails-allow` annotations, and `.guardrailsignore` support. Empty scopes print NOTHING SCANNED; `--fail-if-empty` exits 2 for CI. |
+| `scripts/game_regression.py` | `game-regression` | Game-class failure patterns (NULL_DEREF, SCENE_LOAD_FAIL, SAVE_CORRUPT, ORPHAN_SIGNAL; SCRIPT_ERROR retired 2026-10-25 as `push_error`/`assert` noise) whose rules may name a guard (`(regex, guard, window)`) so the check written on the next line is not reported as the bug, plus failure-registry patterns with `file_glob` scoping, `guardrails-allow` annotations, and `.guardrailsignore` support; whole-line comments are never scanned. Empty scopes print NOTHING SCANNED; `--fail-if-empty` exits 2 for CI. |
 | `scripts/scene_inventory.py` | `per-screen-tracking` | Static Godot `.tscn` inventory: discovers scenes under `src/` and `scenes/`, parses the text-scene grammar, reports Buttons whose `pressed` signal has no connected handler. |
 | `openspec/specs/game-type-phase-matrix/` | `game-matrix-01` | **Planned, not implemented here** — the manifest-driven per-phase gate is owned by the consuming game repo. |
 
