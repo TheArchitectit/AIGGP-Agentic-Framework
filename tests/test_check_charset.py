@@ -11,7 +11,12 @@ Locks the contract that matters:
   * a missing allowlist refuses to run (exit 2) - never a silent ban-nothing;
   * a zero-file scan FAILS (no vacuous green);
   * non-UTF-8 bytes FAIL with a named reason;
-  * the deny list beats the allow list.
+  * the deny list beats the allow list;
+  * a reasoned `ignore` row exempts a content fixture (post content of
+    record) from the whole check, artifacts included;
+  * an `ignore` row without a reason (or path) is a usage error;
+  * an `ignore` row covering a `strict_zero` scope refuses to run - content
+    fixtures are exemptable, code scopes are not.
 """
 from __future__ import annotations
 
@@ -200,6 +205,59 @@ class CharsetGate(unittest.TestCase):
             r = run(t)
             self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
             self.assertIn("new.md", r.stdout)
+
+    def test_ignore_row_exempts_content_fixture(self):
+        """Content fixtures (post content of record) may sit outside the standard.
+
+        The failure this closes: an as-received WordPress.com export is the
+        import source of record - its bytes must stay verbatim - yet original
+        author prose carries dotted runs that trip the substitution-artifact
+        heuristic and glyphs outside the allow list. The exemption is per-path
+        and reason-carrying; the same bytes outside the exempt path still fail
+        (pinned by the section-sign test above).
+        """
+        with tempfile.TemporaryDirectory() as d:
+            t = Path(d)
+            # Built at runtime: literal artifacts here would trip the gate on
+            # this test file itself.
+            art = "Sec." + " " + "Sec. 3, 5.\n"
+            prose = ("emails" + "." * 4 + " please" + "." * 4 + " wait"
+                     + "." * 6 + " " + chr(0x00A7) + " " + chr(0x2014) + " ")
+            pol = dict(POLICY)
+            pol["ignore"] = [
+                {"path": "content/import.json",
+                 "reason": "as-received post content fixture (import source "
+                           "of record)"}]
+            make_repo(t, {
+                "content/import.json": (prose + art).encode(),
+                "src/main.py": b"print('code stays under the standard')\n",
+            }, policy=pol)
+            r = run(t)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertIn("ignored", r.stdout)
+
+    def test_ignore_row_without_reason_is_usage_error(self):
+        with tempfile.TemporaryDirectory() as d:
+            t = Path(d)
+            pol = dict(POLICY)
+            pol["ignore"] = [{"path": "content/import.json"}]
+            make_repo(t, {"a.md": b"x\n"}, policy=pol)
+            r = run(t)
+            self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+            self.assertIn("without a reason", r.stderr)
+
+    def test_ignore_row_may_not_cover_strict_scope(self):
+        """Ignore is for content fixtures, never for code scopes."""
+        with tempfile.TemporaryDirectory() as d:
+            t = Path(d)
+            pol = dict(POLICY)
+            pol["strict_zero"] = [{"path": "src", "reason": "code"}]
+            pol["ignore"] = [{"path": "src",
+                              "reason": "would swallow the code scope"}]
+            make_repo(t, {"a.md": b"x\n"}, policy=pol)
+            r = run(t)
+            self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+            self.assertIn("strict_zero", r.stderr)
 
     def test_baseline_may_only_decrease(self):
         with tempfile.TemporaryDirectory() as d:
