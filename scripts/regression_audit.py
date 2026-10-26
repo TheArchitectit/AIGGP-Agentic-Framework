@@ -70,9 +70,11 @@ def check_npm_audit(repo_root: Path) -> tuple[int, int, list[dict]]:
 
     pkg_path = repo_root / "package.json"
     runtime_deps: set[str] | None = set()
+    dev_deps: set[str] = set()
     try:
         pkg = json.loads(pkg_path.read_text(encoding="utf-8"))
         runtime_deps = set((pkg.get("dependencies") or {}).keys())
+        dev_deps = set((pkg.get("devDependencies") or {}).keys())
     except (OSError, json.JSONDecodeError):
         runtime_deps = None
 
@@ -87,11 +89,17 @@ def check_npm_audit(repo_root: Path) -> tuple[int, int, list[dict]]:
         # lodash@4.17.15, isDirect=true, effects=[]). The direct signal is npm's
         # own isDirect flag; for transitive vulns, an effect chain reaching a
         # runtime dependency still makes it runtime-reachable.
+        #
+        # isDirect alone is still not "runtime": npm flags a directly declared
+        # devDependency the same way (vite HIGH read as RUNTIME on vbrainstorm
+        # 2026-10-26 while `npm audit --omit=dev` showed no high). A direct dep
+        # is runtime only when it sits in `dependencies`, or when it is declared
+        # in neither list (npm has no classification — stay conservative).
         is_direct = bool(info.get("isDirect"))
         is_runtime = (
-            is_direct
-            or (name in runtime_deps if runtime_deps is not None else True)
-            or any(eff in (runtime_deps or set()) for eff in effects)
+            (name in runtime_deps)
+            or (is_direct and name not in dev_deps)
+            or any(eff in runtime_deps for eff in effects)
         ) if runtime_deps is not None else True
         issues.append({"name": name, "severity": severity, "is_runtime": is_runtime,
                        "advisory": str(info.get("via", ""))[:80],
