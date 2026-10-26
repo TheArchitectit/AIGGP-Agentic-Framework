@@ -46,22 +46,18 @@ def _run_script(script: Path, *args: str) -> subprocess.CompletedProcess:
 
 
 def _configured_copy(tmp: Path, columns: str,
-                     uncomment_adapter: bool = True) -> Path:
+                     adapter: str = "sqlite") -> Path:
     """Copy the script with consumer configuration applied.
 
     Exercises the REAL shipped code with the configuration the header tells
     consumers to apply, rather than re-implementing its logic in the test.
-    uncomment_adapter=False leaves the adapter block commented out — the
-    "DB_ADAPTER selected but no adapter configured" misconfiguration.
+    Adapters are selected by name at runtime (config overlay or DB_ADAPTER);
+    passing a name with no implementation ("oracle") is the "selected but
+    unusable" misconfiguration.
     """
     text = SCHEMA_SCRIPT.read_text(encoding="utf-8")
     text = text.replace(
-        'const DB_ADAPTER = "none";', 'const DB_ADAPTER = "sqlite";')
-    if uncomment_adapter:
-        # Uncomment the sqlite adapter block (the first /*...*/ pair in the
-        # adapters section that contains the DatabaseSync import).
-        text = re.sub(r"/\*\n(// --- SQLite adapter.*?)\n\*/",
-                      r"\1", text, count=1, flags=re.DOTALL)
+        'const DB_ADAPTER = "none";', f'const DB_ADAPTER = "{adapter}";')
     text = re.sub(r"const EXPECTED_COLUMNS = \[.*?\];",
                   f"const EXPECTED_COLUMNS = {columns};",
                   text, count=1, flags=re.DOTALL)
@@ -79,14 +75,16 @@ class TestExitCodeContract(unittest.TestCase):
         self.assertIn("SKIPPED", proc.stdout)
 
     @unittest.skipUnless(SQLITE_OK, "node:sqlite not available in this runtime")
-    def test_adapter_selected_without_block_is_exit_1(self):
+    def test_unusable_adapter_is_exit_1(self):
         with tempfile.TemporaryDirectory() as td:
-            # Adapter block left commented: selected engine, no adapter wired.
+            # Selected engine with no implementation behind the name: unusable
+            # config is exit 1, never a skip (a skip and a failure must not
+            # share an exit code).
             script = _configured_copy(Path(td), '[["t1", "id"]]',
-                                      uncomment_adapter=False)
+                                      adapter="oracle")
             proc = _run_script(script)
             self.assertEqual(proc.returncode, 1)
-            self.assertIn("no adapter is configured", proc.stderr)
+            self.assertIn("unknown adapter", proc.stderr)
 
     @unittest.skipUnless(SQLITE_OK, "node:sqlite not available in this runtime")
     def test_missing_database_is_a_skip_exit_2(self):
@@ -153,6 +151,14 @@ class TestDeployDispatch(unittest.TestCase):
                      # (changes since the last tag), and without a tag it
                      # would audit the copied framework tree itself.
                      ("tag", "-a", "v0.0.1", "-m", "base")):
+            subprocess.run(["git", "-C", str(proj), *args],
+                           capture_output=True, check=True)
+        # Deploy the change under review: --all scopes to changes since the
+        # last tag, and gate-vacuous-01 refuses an empty scope (exit 2), so a
+        # sandbox with nothing after the tag would abort in the regression
+        # gate before the schema gate under test is ever consulted.
+        (proj / "feature.txt").write_text("the release under review\n")
+        for args in (("add", "."), ("commit", "-qm", "feature")):
             subprocess.run(["git", "-C", str(proj), *args],
                            capture_output=True, check=True)
         shim = Path(td.name) / "shim"

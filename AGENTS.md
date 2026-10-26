@@ -240,9 +240,10 @@ edit files inside `.devgate/`):
 ```
 
 If no config file exists the gate skips gracefully (`DB_ADAPTER = "none"`).
-Note: until the config-file surface lands in `schema-health-check.mjs`
-(tracked in the audit roadmap), the gate reads only its built-in constants —
-do not hand-edit the script; flag the gap instead.
+Adapter implementations are selected by the config `adapter` name at runtime
+(sqlite / postgres / mysql / none) — a half-configured gate (adapter without
+columns, columns without adapter, unknown adapter name) FAILS, never skips
+green. Do not hand-edit the script; flag the gap instead.
 
 **DevGate will NOT change your database engine or suggest one.** It only validates schema integrity for whatever engine you've chosen.
 

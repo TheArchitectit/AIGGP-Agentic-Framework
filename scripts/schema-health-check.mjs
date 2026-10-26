@@ -6,11 +6,12 @@
  * in your database. Fails hard (exit 1) if any column is missing, any FK
  * constraint is violated, or integrity check fails.
  *
- * This script does NOT assume any specific database engine. Configure the
- * DB_ADAPTER constant and EXPECTED_COLUMNS array for your database.
+ * This script does NOT assume any specific database engine. Select one via
+ * <project>/.guardrails/schema-health.json ({"adapter": "..."}) — never by
+ * editing this file (README overlay contract: "Don't modify DevGate scripts").
  *
- * Supported adapters (uncomment and configure one):
- *   - "sqlite"   — Node 22+ built-in `node:sqlite` (no external deps)
+ * Supported adapters (selected by name; implementations are always available):
+ *   - "sqlite"   — Node 22.5+ built-in `node:sqlite` (no external deps)
  *   - "postgres" — requires `pg` package (`npm install pg`)
  *   - "mysql"    — requires `mysql2` package (`npm install mysql2`)
  *   - "none"     — skip schema checks entirely (for projects without a DB)
@@ -29,7 +30,8 @@ import { homedir } from "node:os";
 // Exit-code contract (deploy.sh dispatches on these — do not collapse them):
 //   0 = the gate RAN and the schema passed
 //   1 = the gate ran and FAILED, or the configuration is unusable
-//       (adapter selected but no adapter block configured)
+//       (unknown adapter name, or a selected engine whose driver package
+//       cannot be loaded)
 //   2 = the gate was SKIPPED (DB_ADAPTER "none" or no columns declared)
 // A skip and a pass must not share an exit code: a consumer that configured a
 // database wrongly would otherwise read "could not evaluate" as "clean".
@@ -82,97 +84,124 @@ const COLUMNS = Array.isArray(projectConfig?.expected_columns)
 // --- database adapters -------------------------------------------------------
 // Each adapter provides: open(connStr), close(), integrityCheck(),
 // fkCheck(), tableColumns(table).
+//
+// Adapters are SELECTED BY NAME from the effective config and lazy-load their
+// engine, so every adapter is available to every consumer without editing this
+// file (README overlay contract: "Don't modify DevGate scripts") and a project
+// that selects one engine never needs another engine's driver package.
 
-let adapter = null;
+const ADAPTER_NAMES = ["sqlite", "postgres", "mysql"];
 
-/*
-// --- SQLite adapter (Node 22+ built-in, no external deps) ---
-import { DatabaseSync } from "node:sqlite";
-let _db = null;
-adapter = {
-	open(connStr) {
-		if (!existsSync(connStr)) return false;
-		_db = new DatabaseSync(connStr);
-		_db.exec("PRAGMA journal_mode=WAL");
-		return true;
-	},
-	close() { if (_db) _db.close(); },
-	integrityCheck() {
-		return _db.prepare("PRAGMA integrity_check").all()
-			.map(r => r.integrity_check || r["integrity_check"] || "");
-	},
-	fkCheck() { return _db.prepare("PRAGMA foreign_key_check").all(); },
-	tableColumns(table) {
-		return _db.prepare(`PRAGMA table_info('${table}')`).all().map(r => r.name);
-	},
-};
-*/
-
-/*
-// --- PostgreSQL adapter (requires: npm install pg) ---
-import pg from "pg";
-let _client = null;
-adapter = {
-	async open(connStr) {
-		_client = new pg.Client({ connectionString: connStr });
-		await _client.connect();
-		return true;
-	},
-	async close() { if (_client) await _client.end(); },
-	async integrityCheck() {
-		// PostgreSQL doesn't have a built-in integrity_check — run a vacuum analyze
-		// and check for orphaned FK rows instead. Adjust for your needs.
-		await _client.query("VACUUM ANALYZE");
-		return ["ok"];
-	},
-	async fkCheck() {
-		const r = await _client.query(`
-			SELECT conrelid::regclass AS table_name
-			FROM pg_constraint
-			WHERE contype = 'f' AND NOT convalidated
-		`);
-		return r.rows;
-	},
-	async tableColumns(table) {
-		const r = await _client.query(`
-			SELECT column_name FROM information_schema.columns
-			WHERE table_name = $1
-		`, [table]);
-		return r.rows.map(row => row.column_name);
-	},
-};
-*/
-
-/*
-// --- MySQL adapter (requires: npm install mysql2) ---
-import mysql from "mysql2/promise";
-let _conn = null;
-adapter = {
-	async open(connStr) {
-		_conn = await mysql.createConnection(connStr);
-		return true;
-	},
-	async close() { if (_conn) await _conn.end(); },
-	async integrityCheck() {
-		await _conn.execute("CHECK TABLE mysql.user");
-		return ["ok"];
-	},
-	async fkCheck() {
-		const [rows] = await _conn.execute(`
-			SELECT TABLE_NAME FROM information_schema.KEY_COLUMN_USAGE
-			WHERE REFERENCED_TABLE_NAME IS NOT NULL
-		`);
-		return rows;
-	},
-	async tableColumns(table) {
-		const [rows] = await _conn.execute(`
-			SELECT COLUMN_NAME FROM information_schema.COLUMNS
-			WHERE TABLE_NAME = ?
-		`, [table]);
-		return rows.map(r => r.COLUMN_NAME);
-	},
-};
-*/
+async function loadAdapter(name) {
+	if (name === "sqlite") {
+		// Node 22.5+ built-in, no external deps. Lazy: a runtime without
+		// node:sqlite can still run this gate with adapter "none".
+		let DatabaseSync;
+		try {
+			({ DatabaseSync } = await import("node:sqlite"));
+		} catch (err) {
+			throw new Error(
+				`the "sqlite" adapter needs Node 22.5+ built-in node:sqlite: ${err?.message ?? err}`);
+		}
+		let _db = null;
+		return {
+			open(connStr) {
+				if (!connStr || !existsSync(connStr)) return false;
+				_db = new DatabaseSync(connStr);
+				_db.exec("PRAGMA journal_mode=WAL");
+				return true;
+			},
+			close() { if (_db) _db.close(); },
+			integrityCheck() {
+				return _db.prepare("PRAGMA integrity_check").all()
+					.map(r => r.integrity_check || r["integrity_check"] || "");
+			},
+			fkCheck() { return _db.prepare("PRAGMA foreign_key_check").all(); },
+			tableColumns(table) {
+				return _db.prepare(`PRAGMA table_info('${table}')`).all().map(r => r.name);
+			},
+		};
+	}
+	if (name === "postgres") {
+		// Requires: npm install pg. Lazy so sqlite-only projects never need it.
+		let pg;
+		try {
+			const pgmod = await import("pg");
+			pg = pgmod.default ?? pgmod;
+		} catch (err) {
+			throw new Error(
+				`the "postgres" adapter needs the pg package (npm install pg): ${err?.message ?? err}`);
+		}
+		let _client = null;
+		return {
+			async open(connStr) {
+				_client = new pg.Client({ connectionString: connStr });
+				await _client.connect();
+				return true;
+			},
+			async close() { if (_client) await _client.end(); },
+			async integrityCheck() {
+				// PostgreSQL doesn't have a built-in integrity_check — run a vacuum analyze
+				// and check for orphaned FK rows instead. Adjust for your needs.
+				await _client.query("VACUUM ANALYZE");
+				return ["ok"];
+			},
+			async fkCheck() {
+				const r = await _client.query(`
+					SELECT conrelid::regclass AS table_name
+					FROM pg_constraint
+					WHERE contype = 'f' AND NOT convalidated
+				`);
+				return r.rows;
+			},
+			async tableColumns(table) {
+				const r = await _client.query(`
+					SELECT column_name FROM information_schema.columns
+					WHERE table_name = $1
+				`, [table]);
+				return r.rows.map(row => row.column_name);
+			},
+		};
+	}
+	if (name === "mysql") {
+		// Requires: npm install mysql2. Lazy so sqlite-only projects never need it.
+		let mysql;
+		try {
+			const mymod = await import("mysql2/promise");
+			mysql = mymod.default ?? mymod;
+		} catch (err) {
+			throw new Error(
+				`the "mysql" adapter needs the mysql2 package (npm install mysql2): ${err?.message ?? err}`);
+		}
+		let _conn = null;
+		return {
+			async open(connStr) {
+				_conn = await mysql.createConnection(connStr);
+				return true;
+			},
+			async close() { if (_conn) await _conn.end(); },
+			async integrityCheck() {
+				await _conn.execute("CHECK TABLE mysql.user");
+				return ["ok"];
+			},
+			async fkCheck() {
+				const [rows] = await _conn.execute(`
+					SELECT TABLE_NAME FROM information_schema.KEY_COLUMN_USAGE
+					WHERE REFERENCED_TABLE_NAME IS NOT NULL
+				`);
+				return rows;
+			},
+			async tableColumns(table) {
+				const [rows] = await _conn.execute(`
+					SELECT COLUMN_NAME FROM information_schema.COLUMNS
+					WHERE TABLE_NAME = ?
+				`, [table]);
+				return rows.map(r => r.COLUMN_NAME);
+			},
+		};
+	}
+	return null;
+}
 
 // --- main -------------------------------------------------------------------
 const args = process.argv.slice(2);
@@ -205,9 +234,17 @@ if (ADAPTER === "none" && COLUMNS.length > 0) {
 	process.exit(1);
 }
 
-if (!adapter) {
-	console.error(`[schema-health-check] ERROR: DB_ADAPTER is set ("${ADAPTER}") but no adapter is configured — no adapter implementation is enabled.`);
-	console.error("[schema-health-check] Uncomment the adapter block for your database engine in scripts/schema-health-check.mjs (engine CODE lives here; project CONFIG lives in .guardrails/schema-health.json).");
+if (!ADAPTER_NAMES.includes(ADAPTER)) {
+	console.error(`[schema-health-check] ERROR: unknown adapter "${ADAPTER}" — supported: ${ADAPTER_NAMES.join(", ")}, none.`);
+	console.error("[schema-health-check] Set the adapter in <project>/.guardrails/schema-health.json (engine CODE lives here; project CONFIG lives in .guardrails/schema-health.json).");
+	process.exit(1);
+}
+
+let adapter = null;
+try {
+	adapter = await loadAdapter(ADAPTER);
+} catch (err) {
+	console.error(`[schema-health-check] ERROR: adapter "${ADAPTER}" is not usable — ${err?.message ?? err}`);
 	process.exit(1);
 }
 

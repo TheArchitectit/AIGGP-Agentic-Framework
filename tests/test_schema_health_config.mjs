@@ -50,11 +50,16 @@ check("adapter without columns fails", r.status === 1, r.stdout + r.stderr);
 r = runWith({ adapter: "none", expected_columns: [["t", "c", "T"]] });
 check("columns without adapter fails", r.status === 1, r.stdout + r.stderr);
 
-// 4. Fully configured but the engine implementation is not enabled in the
-//    script: fail loud (a config naming an unavailable adapter is an error,
-//    never a skip).
+// 4. A config naming an adapter that does not exist: fail loud (a config
+//    naming an unavailable adapter is an error, never a skip).
+r = runWith({ adapter: "oracle", expected_columns: [["t", "c", "T"]] });
+check("unknown adapter name fails", r.status === 1, r.stdout + r.stderr);
+
+// 4b. Fully configured against a real engine with no database file: the
+//     cold-install skip (exit 2), proving config alone selects the adapter
+//     (no script edit needed) and a skip is never a pass.
 r = runWith({ adapter: "sqlite", expected_columns: [["t", "c", "T"]] });
-check("configured adapter without implementation fails", r.status === 1,
+check("configured adapter with no db is a loud skip", r.status === 2,
 	r.stdout + r.stderr);
 
 // 5. Malformed config JSON: fail loud, not silently ignored.
