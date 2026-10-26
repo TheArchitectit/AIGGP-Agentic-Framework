@@ -29,6 +29,7 @@ from regression_sizes import (  # noqa: E402
     TEST_HARD,
     check_file_sizes,
     check_scope_coverage,
+    print_file_size_report,
 )
 
 
@@ -347,6 +348,38 @@ def test_size_overrides_raise_the_limit_and_stay_visible():
         issues = check_file_sizes(root, ["web"], overrides=overrides)
         assert any(i["kind"] == "hard" and i["file"] == "web/toobig.html"
                    for i in issues), issues
+
+
+def test_scope_empty_report_is_inventory_not_a_blocks_commit_claim():
+    """gate-vacuous-01 report arm: on a run whose diff scope evaluated zero
+    files, the size summary must not claim "N over hard limit (blocks commit)"
+    and oversize files must not be labeled "pre-existing; not touched by this
+    diff" — no diff exists to classify them against. This exact green-sounding
+    summary on an empty staged set is what let oversize files land."""
+    import io
+    from contextlib import redirect_stdout
+    issues = [
+        {"file": "src/big.py", "lines": 700, "hard": 500, "soft": 300,
+         "kind": "hard-untouched", "severity": "warning", "reason": None},
+        {"file": "src/soft.py", "lines": 400, "hard": 500, "soft": 300,
+         "kind": "soft", "severity": "warning", "reason": None},
+    ]
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        print_file_size_report(issues, scope_empty=True)
+    out = buf.getvalue()
+    assert "blocks commit" not in out, f"vacuous run claimed a commit verdict: {out}"
+    assert "pre-existing; not touched by this diff" not in out, (
+        f"vacuous run classified files against a nonexistent diff: {out}")
+    assert "INVENTORY" in out, f"scope-empty report missing inventory marker: {out}"
+    assert "scope empty" in out, f"scope-empty summary missing: {out}"
+    # Non-empty scope keeps the honest touched/untouched verdict intact.
+    buf2 = io.StringIO()
+    with redirect_stdout(buf2):
+        print_file_size_report(issues, scope_empty=False)
+    out2 = buf2.getvalue()
+    assert "0 over hard limit (blocks commit)" in out2, out2
+    assert "pre-existing; not touched by this diff" in out2, out2
 
 
 def main() -> int:

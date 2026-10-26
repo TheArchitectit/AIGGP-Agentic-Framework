@@ -9,6 +9,7 @@ Locks one behaviour per historical divergence:
   * glob_matches covers basename, path, **, and zero-directory /**
   * load_ignore_patterns / is_ignored share one .guardrailsignore contract
   * nothing_scanned is a report + exit code, never a bare green
+  * exit_code_for: --pre-commit implies --fail-if-empty on an empty scope
   * detect_package_manager covers go and godot
 """
 from __future__ import annotations
@@ -256,3 +257,67 @@ def test_load_size_overrides_require_reason(tmp_path):
         assert "reason" in str(exc)
     else:
         raise AssertionError("override without reason must raise, not widen the limit")
+
+
+# exit_code_for — the gate verdict (gate-vacuous-01 commit-gate arm) ---------
+
+def test_pre_commit_fails_loud_on_empty_scope():
+    """gate-vacuous-01: the commit gate must never green-light zero inputs.
+
+    `--staged --pre-commit` before `git add` used to exit 0 with a green
+    "0 over hard limit (blocks commit)" summary — the run that let oversize
+    files land. --pre-commit now implies --fail-if-empty."""
+    assert gate_common.exit_code_for(vacuous=True, fail_if_empty=False,
+                                     pre_commit=True, blocking=0, size_hard=0,
+                                     soft_as_hard=0, audit_blocking=0,
+                                     registry_regressions=0) == 2, (
+        "pre-commit passed a vacuous scope; empty scope must exit 2")
+
+
+def test_fail_if_empty_still_fails_loud_on_empty_scope():
+    """The CI contract is unchanged: --fail-if-empty + zero files -> exit 2."""
+    assert gate_common.exit_code_for(vacuous=True, fail_if_empty=True,
+                                     pre_commit=False, blocking=0, size_hard=0,
+                                     soft_as_hard=0, audit_blocking=0,
+                                     registry_regressions=0) == 2
+
+
+def test_vacuous_notice_without_fail_loud_flags_stays_notice_only():
+    """Without --pre-commit/--fail-if-empty a vacuous run is a notice, not a
+    failure — the force-push-with-no-changes / exploratory case. Only the
+    fail-loud flags escalate it."""
+    assert gate_common.exit_code_for(vacuous=True, fail_if_empty=False,
+                                     pre_commit=False, blocking=0, size_hard=0,
+                                     soft_as_hard=0, audit_blocking=0,
+                                     registry_regressions=0) == 0
+
+
+def test_vacuous_wins_over_blocking_findings():
+    """A run that scanned nothing cannot claim a verdict on findings — the
+    empty-scope exit (2) is reported first so the caller re-scopes, even if
+    scope-independent checks (npm audit) found something."""
+    assert gate_common.exit_code_for(vacuous=True, fail_if_empty=True,
+                                     pre_commit=True, blocking=3, size_hard=2,
+                                     soft_as_hard=1, audit_blocking=5,
+                                     registry_regressions=4) == 2
+
+
+def test_pre_commit_still_blocks_on_real_findings():
+    """Regression guard for the other arm: non-empty scope + blocking findings
+    must still exit 1, at every blocking channel."""
+    for channel in ("blocking", "size_hard", "soft_as_hard",
+                    "audit_blocking", "registry_regressions"):
+        counts = dict(blocking=0, size_hard=0, soft_as_hard=0,
+                      audit_blocking=0, registry_regressions=0)
+        counts[channel] = 1
+        code = gate_common.exit_code_for(vacuous=False, fail_if_empty=False,
+                                         pre_commit=True, **counts)
+        assert code == 1, f"{channel}=1 did not block the commit gate: exit {code}"
+
+
+def test_pre_commit_clean_nonempty_scope_passes():
+    """The happy path must stay green: real scope, no findings -> exit 0."""
+    assert gate_common.exit_code_for(vacuous=False, fail_if_empty=True,
+                                     pre_commit=True, blocking=0, size_hard=0,
+                                     soft_as_hard=0, audit_blocking=0,
+                                     registry_regressions=0) == 0

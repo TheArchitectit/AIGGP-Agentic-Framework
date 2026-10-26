@@ -214,7 +214,11 @@ def check_scope_coverage(repo_root: Path, source_dirs: list[str]) -> list[dict]:
     return gaps
 
 
-def print_file_size_report(size_issues: list[dict]) -> None:
+def print_file_size_report(size_issues: list[dict], scope_empty: bool = False) -> None:
+    """Report file sizes. `scope_empty` marks a run whose diff scope evaluated
+    zero files: the listing below is then size INVENTORY only — no file can be
+    classified touched/untouched against a diff that does not exist, and the
+    summary must not claim a "(blocks commit)" verdict (gate-vacuous-01)."""
     if not size_issues:
         print("✓ All source files within soft/hard line limits")
         return
@@ -226,13 +230,18 @@ def print_file_size_report(size_issues: list[dict]) -> None:
     print("\n" + "=" * 70)
     print("FILE-SIZE CHECK")
     print("=" * 70)
+    if scope_empty:
+        print("NOTE: scope evaluated zero files — size INVENTORY only. No diff")
+        print("was evaluated, so nothing below is classified touched/untouched")
+        print("and this is NOT a verdict on any change.")
     for issue in size_issues:
         severity = format_severity(issue["severity"])
         if issue["kind"] == "hard":
             tag = "OVER HARD LIMIT"
             limit = issue["hard"]
         elif issue["kind"] == "hard-untouched":
-            tag = "over hard limit (pre-existing; not touched by this diff)"
+            tag = ("over hard limit (not classified — scope empty)" if scope_empty
+                   else "over hard limit (pre-existing; not touched by this diff)")
             limit = issue["hard"]
         elif issue["kind"] == "overridden":
             tag = f"over default limit (override: {issue.get('reason', '')})"
@@ -247,9 +256,14 @@ def print_file_size_report(size_issues: list[dict]) -> None:
         print(f"  {severity}  {issue['file']}  ({issue['lines']} lines, "
               f"limit {limit})  {tag}")
     print("-" * 70)
-    print(f"  {hard_count} over hard limit (blocks commit), "
-          f"{untouched_count} pre-existing oversize (warning), "
-          f"{soft_count} over soft limit (warning), "
-          f"{over_count} reasoned overrides (warning), "
-          f"{gap_count} scope gaps (warning)")
+    if scope_empty:
+        print(f"  scope empty: no files classified against a diff "
+              f"(inventory: {untouched_count} oversize, {soft_count} soft, "
+              f"{over_count} overrides, {gap_count} gaps)")
+    else:
+        print(f"  {hard_count} over hard limit (blocks commit), "
+              f"{untouched_count} pre-existing oversize (warning), "
+              f"{soft_count} over soft limit (warning), "
+              f"{over_count} reasoned overrides (warning), "
+              f"{gap_count} scope gaps (warning)")
     print("=" * 70)

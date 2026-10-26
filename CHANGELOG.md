@@ -17,6 +17,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`--pre-commit` no longer green-lights an empty scope (gate-vacuous-01).**
+  `--staged --pre-commit` run before `git add` scanned zero files, printed a
+  NOTHING SCANNED banner followed by a green `0 over hard limit (blocks
+  commit)` summary, labeled every oversize file "pre-existing; not touched by
+  this diff", and exited 0 — exactly the run that let 500+-line files land in
+  vbrainstorm while the gate read clean. `--pre-commit` now implies
+  `--fail-if-empty` (empty scope → exit 2, vacuous wins over other counts),
+  the verdict logic is one shared primitive (`gate_common.exit_code_for`),
+  and on an empty scope the file-size report is explicitly inventory-only:
+  no "(blocks commit)" claim and no touched/untouched classification against
+  a diff that does not exist. Without the fail-loud flags a vacuous run stays
+  a notice (exit 0), preserving the force-push-with-no-changes case.
 - **PREVENT-026/029 no longer fire on standard Cloudflare Workers shapes.**
   Measured on vbrainstorm (community-subsite 3.1, which adds a Durable Object
   WebSocket endpoint): 4 false positives, 0 true positives. `fetch(request:

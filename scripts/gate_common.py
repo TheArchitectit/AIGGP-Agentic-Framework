@@ -430,6 +430,25 @@ def nothing_scanned(gate: str, reason: str, *, fail_if_empty: bool = False) -> i
     return 2 if fail_if_empty else 0
 
 
+def exit_code_for(vacuous: bool, fail_if_empty: bool, pre_commit: bool,
+                  blocking: int, size_hard: int, soft_as_hard: int,
+                  audit_blocking: int, registry_regressions: int) -> int:
+    """Gate verdict for a run that counts blocking findings per channel.
+
+    A gate that evaluated zero inputs is not a passed gate (gate-vacuous-01):
+    ``--pre-commit`` implies ``--fail_if_empty``, so the commit gate can never
+    green-light an empty scope — the classic trap is a staged gate run before
+    the change was added. Vacuous wins over other counts: a run that scanned
+    nothing cannot claim a verdict on what it did not look at.
+    """
+    if vacuous and (fail_if_empty or pre_commit):
+        return 2
+    if pre_commit and (blocking > 0 or size_hard > 0 or soft_as_hard > 0
+                       or audit_blocking > 0 or registry_regressions > 0):
+        return 1
+    return 0
+
+
 def detect_package_manager(repo_root: Path | str) -> str | None:
     """Return the package manager of ``repo_root``, or None.
 
