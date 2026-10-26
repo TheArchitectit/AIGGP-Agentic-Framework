@@ -17,6 +17,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **PREVENT-026/029 no longer fire on standard Cloudflare Workers shapes.**
+  Measured on vbrainstorm (community-subsite 3.1, which adds a Durable Object
+  WebSocket endpoint): 4 false positives, 0 true positives. `fetch(request:
+  Request)` type signatures are skipped by the `(?!\s*:)` lookahead; binding
+  proxies — `env.ASSETS.fetch(request)` and DO namespace forwards carrying
+  `idFromName` — join `forbidden_context`; and `new WebSocketPair()` (the
+  socket-accept primitive, not a network call) no longer matches `new
+  WebSocket`. Genuine SSRF shapes (`fetch(userUrl)`, `fetch(request.url)`) and
+  real `new WebSocket(` clients still fire. Per-repo transport-boundary files
+  (a DO `fetch` entrypoint) remain the job of each repo's `.guardrails`
+  `exclude_glob`, the mechanism the rule's own suggestion prescribes.
 - **`game_regression.py` reported the checks as the bugs (60 → 0 on
   MergeKingdom).** Its Godot table matched single lines, so it could not see a
   guard written on the next one: `preload("…tscn")` on a constant counted as an
