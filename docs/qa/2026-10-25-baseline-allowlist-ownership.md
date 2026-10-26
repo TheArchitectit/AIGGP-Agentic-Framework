@@ -203,6 +203,16 @@ exit 1; the same entry with `go_return_nil_after_ignored_error` (declared,
 enabled) → exit 0. `tests/test_baseline_ownership_check.py` 14 → **16**, the
 disabled case paired with an enabled-family positive control.
 
+**The requirement's other scenario, re-checked on a clean clone rather than on a
+dirty tree.** `base-own-01` says *"WHEN failure_registry_check.py runs on a
+clean clone THEN it exits 0 with no stale-path warnings."* `git clone` of this
+repository at `4ef6c42` (full history, clean worktree): `failure_registry_check.py`
+exit 0 with **no output at all**, and `baseline_ownership_check.py` exit 0. The
+same two gates on a `git archive` of the same commit also exit 0, but print
+`fix_commit … unverified — no git history` for every SHA-bearing entry — the
+warning the gate already emits when the owner's history is absent, which is
+also why the scenario is checked on a clone and not on an export.
+
 ## Not done here, and said rather than implied
 
 - **The 1,727 entries were not migrated anywhere.** They are preserved in git
