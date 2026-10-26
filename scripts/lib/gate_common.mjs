@@ -14,6 +14,8 @@
 //   lineHasAllow(line, id)          guardrails-allow <ID>: <reason>
 //   loadIgnorePatterns(root)        .guardrailsignore
 //   walk(dir, opts)                 EACCES-safe, no symlinked dirs, SKIP_DIRS
+//   readRulesFile(path)             rules[] from a prevention-rules doc
+//   mergeRuleOverlay(rules, overlay) overlay wins on rule_id (gate_overlay.py)
 
 import { basename, dirname, join } from "node:path";
 import { existsSync, lstatSync, readdirSync, readFileSync } from "node:fs";
@@ -123,6 +125,37 @@ export function walk(dir, opts) {
 		}
 	}
 	return acc;
+}
+
+// Rule-doc loading + the overlay merge (same contract as gate_overlay.py on the
+// Python side): an overlay entry with the same rule_id REPLACES the bundled
+// entry in place (overlay wins on collision), new ids append. Callers pass the
+// already-read bundled array; this mutates a copy so the caller's list is the
+// merged result. Lived as a private helper inside guardrails-scan.mjs only —
+// semantic-scan.mjs never merged the overlay at all (2026-10-26: a project
+// could not retune or disable a semantic rule without editing the submodule),
+// which is what extracting this closes.
+export function readRulesFile(path) {
+	if (!existsSync(path)) return [];
+	let data;
+	try {
+		data = JSON.parse(readFileSync(path, "utf-8"));
+	} catch {
+		return [];
+	}
+	return Array.isArray(data.rules) ? data.rules : [];
+}
+
+export function mergeRuleOverlay(rules, overlay) {
+	const index = new Map();
+	rules.forEach((r, i) => {
+		if (r.rule_id != null) index.set(r.rule_id, i);
+	});
+	for (const r of overlay) {
+		if (r.rule_id != null && index.has(r.rule_id)) rules[index.get(r.rule_id)] = r;
+		else rules.push(r);
+	}
+	return rules;
 }
 
 export { basename, dirname };

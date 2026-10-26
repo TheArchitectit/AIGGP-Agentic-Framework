@@ -17,7 +17,9 @@ import {
 	lineHasAllow,
 	loadIgnorePatterns,
 	loadSkipDirs,
+	mergeRuleOverlay,
 	projectRootFor,
+	readRulesFile,
 	walk,
 } from "./lib/gate_common.mjs";
 
@@ -51,17 +53,6 @@ const SOURCE_EXTENSIONS = [".ts", ".js", ".py", ".rs", ".go", ".gd", ".java", ".
 // definition in .guardrails/scope.json, loaded by gate_common.loadSkipDirs.
 const SKIP_DIRS = loadSkipDirs({ devgateRoot, projectRoot });
 
-function readRulesFile(path) {
-	if (!existsSync(path)) return [];
-	let data;
-	try {
-		data = JSON.parse(readFileSync(path, "utf-8"));
-	} catch {
-		return [];
-	}
-	return Array.isArray(data.rules) ? data.rules : [];
-}
-
 function loadRules() {
 	let rules;
 	const explicit = process.env.GUARDRAILS_RULES;
@@ -73,14 +64,7 @@ function loadRules() {
 		// "overlay" is the same file; merging it with itself is a no-op, so skip.
 		const overlay = resolve(overlayRulesPath) === resolve(bundledRulesPath) ? [] : readRulesFile(overlayRulesPath);
 		if (overlay.length) {
-			const index = new Map();
-			rules.forEach((r, i) => {
-				if (r.rule_id != null) index.set(r.rule_id, i);
-			});
-			for (const r of overlay) {
-				if (r.rule_id != null && index.has(r.rule_id)) rules[index.get(r.rule_id)] = r;
-				else rules.push(r);
-			}
+			rules = mergeRuleOverlay(rules, overlay);
 		}
 	}
 	return rules.filter(

@@ -17,7 +17,7 @@
 // Supports inline allow: // guardrails-allow <RULE-ID>: <reason>
 
 import { readFileSync, existsSync } from "node:fs";
-import { join, dirname } from "node:path";
+import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
@@ -25,7 +25,9 @@ import {
 	lineHasAllow,
 	loadIgnorePatterns,
 	loadSkipDirs,
+	mergeRuleOverlay,
 	projectRootFor,
+	readRulesFile,
 	walk,
 } from "./lib/gate_common.mjs";
 
@@ -38,6 +40,26 @@ const root = projectRootFor(devgateRoot);
 
 // Scope contract is DATA (fw-scope-01): .guardrails/scope.json, one loader.
 const SKIP_DIRS = loadSkipDirs({ devgateRoot, projectRoot: root });
+
+// Rule sources: DevGate's bundled baseline plus the PROJECT's .guardrails/
+// overlay merged on top — same contract as guardrails-scan.mjs and
+// gate_overlay.py (overlay wins on rule_id collision, new ids append). Until
+// 2026-10-26 this scanner read ONLY the bundled file, so a project could not
+// retune or disable a semantic rule from its overlay at all (the one gate the
+// overlay contract could not reach). tests/test_semantic_scan.mjs locks it.
+const bundledRulesPath = join(devgateRoot, ".guardrails", "prevention-rules", "semantic-rules.json");
+const overlayRulesPath = join(root, ".guardrails", "prevention-rules", "semantic-rules.json");
+
+function loadRules() {
+	let rules = readRulesFile(bundledRulesPath);
+	// In DevGate standalone the project root IS the devgate root — the
+	// "overlay" is the same file; merging it with itself is a no-op, so skip.
+	const overlay = resolve(overlayRulesPath) === resolve(bundledRulesPath) ? [] : readRulesFile(overlayRulesPath);
+	if (overlay.length) {
+		rules = mergeRuleOverlay(rules, overlay);
+	}
+	return rules;
+}
 
 const ignorePatterns = loadIgnorePatterns(root);
 
@@ -290,12 +312,13 @@ async function main() {
 	}
 
 	let totalViolations = 0;
-	const rulesDoc = JSON.parse(readFileSync(
-		join(devgateRoot, ".guardrails", "prevention-rules", "semantic-rules.json"),
-		"utf8"));
 	// Enabled AND registered: enabled-without-checker is rules_check.py's
 	// failure (hygiene), while disabled rules are honest "not implemented yet".
-	const activeRules = (rulesDoc.rules || []).filter((r) => r.enabled && CHECKERS[r.rule_id]);
+	const activeRules = loadRules().filter((r) => r.enabled && CHECKERS[r.rule_id]);
+	if (activeRules.length && existsSync(overlayRulesPath)
+		&& resolve(overlayRulesPath) !== resolve(bundledRulesPath)) {
+		console.log(`GUARDRAILS: ${activeRules.length} rule(s) in effect (bundled baseline + ${rel(overlayRulesPath)} overlay merged)`);
+	}
 	const activeIds = activeRules.map((r) => r.rule_id).join(", ");
 	if (activeRules.length === 0) {
 		console.log("GUARDRAILS: semantic scan clean (no enabled rule has a checker).");
