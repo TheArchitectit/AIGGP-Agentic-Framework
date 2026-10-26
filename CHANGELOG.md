@@ -17,6 +17,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`scene_inventory.py` now sees code-side button wiring (`screen-inv-01`).**
+  The Godot scanner read `.tscn` connection blocks only, so a UI wired the way
+  Godot's editor and docs produce — `btn.pressed.connect(...)` in `_ready()`,
+  or an `@onready var btn = $Panel/Btn` followed by that call — reported every
+  button as orphaned. Measured on MergeKingdom: 4 scenes / 8 correctly wired
+  buttons failed the gate, and the same run's orphans also hid five real
+  defects (three popups whose `@onready` paths named nodes their scenes do not
+  contain, aborting `_ready()` before the UI was built). The gate resolves the
+  root node's Script ext_resource and counts the connections that script makes;
+  a script wiring a different node leaves the orphan, and a commented-out
+  `connect()` is not a handler (both negative controls pinned). 8 → 15 tests;
+  `tests/test_scene_inventory.py` and the spec's scenario set now state the
+  code-wiring contract.
 - **`base-own-01`'s other two named file classes were measured, not assumed.**
   The requirement names prevention rules and openspec specs as well as the
   registry and allowlist. The rule files carry no repository paths, but four of

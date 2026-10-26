@@ -6,7 +6,14 @@ Engine-aware: detects the project engine (game-manifest.json, else project
 files) and dispatches to the matching scanner.
 
 Godot        — discovers .tscn files under src/, parses Button nodes and their
-                 'pressed' signal connections, reports orphaned signals.
+                 'pressed' signal connections, reports orphaned signals. A
+                 handler wired from the scene's own script
+                 (`$Panel/Btn.pressed.connect(f)`, or an `@onready var btn =
+                 $Panel/Btn` followed by `btn.pressed.connect(f)`) counts as
+                 connected: it is the convention Godot's editor and its docs
+                 both produce, and reading only .tscn connection blocks
+                 reported every code-wired UI as orphaned (measured on
+                 MergeKingdom 2026-10-25: 4 scenes, 8 buttons).
   Zig + OpenGL — discovers .zig UI screens under src/ui/, validates handler
                  bindings declared alongside .label buttons.
 
@@ -119,6 +126,94 @@ def parse_tscn_buttons(scene_path):
 
     return buttons, connections, orphaned
 
+def resolve_scene_script(scene_path, project_root=None):
+    """Return the .gd file the scene's ROOT node runs, or None.
+
+    A Godot scene attaches its script through an ext_resource and a
+    `script = ExtResource("N")` line inside the root node's block. Reading the
+    first Script ext_resource instead would pick up an instanced child scene's
+    script in scenes that declare one first.
+    """
+    scene_path = Path(scene_path)
+    try:
+        text = scene_path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+
+    ext = {}
+    for m in re.finditer(r'\[ext_resource\s+([^\]]*)\]', text):
+        attrs = dict(re.findall(r'(\w+)="([^"]*)"', m.group(1)))
+        if attrs.get("type") == "Script" and attrs.get("path", "").startswith("res://"):
+            ext[attrs.get("id", "")] = attrs["path"][len("res://"):]
+    if not ext:
+        return None
+
+    # The root node is the first [node] block without a parent attribute; its
+    # block runs until the next top-level section.
+    root_block = None
+    for m in re.finditer(r'\n\[node\s+([^\]]*)\]', text):
+        attrs = dict(re.findall(r'(\w+)="([^"]*)"', m.group(1)))
+        if "parent" not in attrs:
+            end = text.find("\n[", m.end())
+            root_block = text[m.end():end if end != -1 else len(text)]
+            break
+    if root_block is None:
+        return None
+    sm = re.search(r'script\s*=\s*ExtResource\("([^"]+)"\)', root_block)
+    if not sm or sm.group(1) not in ext:
+        return None
+
+    rel = ext[sm.group(1)]
+    if project_root is None:
+        # Fall back to the project root nearest the scene, so a direct call with
+        # a scene path still resolves res:// the way the editor means it.
+        project_root = next((p for p in scene_path.parents
+                             if (p / "project.godot").exists()), None)
+        if project_root is None:
+            return None
+    script = Path(project_root) / rel
+    return script if script.is_file() else None
+
+# `@onready var btn: Button = $Panel/Btn` (or = get_node("Panel/Btn")) —
+# the variable that later receives .pressed.connect.
+_ONREADY_NODE_RE = re.compile(
+    r'@onready\s+var\s+(\w+)\s*(?::\s*[\w\[\]]+\s*)?=\s*'
+    r'(?:\$([\w/.-]+)|get_node(?:_or_null)?\(\s*"([^"]+)"\s*\))')
+# Direct wiring: $Panel/Btn.pressed.connect(...) / get_node("Panel/Btn").pressed…
+_DIRECT_WIRE_RE = re.compile(
+    r'(?:\$([\w/.-]+)|get_node(?:_or_null)?\(\s*"([^"]+)"\s*\))'
+    r'\s*\.\s*pressed\s*\.\s*connect\s*\(')
+# Variable wiring: btn.pressed.connect(...) / btn.connect("pressed", ...)
+_VAR_WIRE_RE = re.compile(
+    r'\b(\w+)\s*(?:\.\s*pressed\s*\.\s*connect\s*\(|\.\s*connect\(\s*"pressed")')
+
+
+def parse_script_wiring(script_path):
+    """Return the scene-relative node paths a scene script wires to 'pressed'.
+
+    Both conventions count, because both are what Godot itself produces:
+    connecting through an `@onready` node reference, and connecting to a `$`
+    path or get_node() result inline. Comments are stripped first so a
+    commented-out `# btn.pressed.connect(...)` does not read as live wiring.
+    """
+    try:
+        text = Path(script_path).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return set()
+    text = re.sub(r'#[^\n]*', '', text)
+
+    node_vars = {}
+    for m in _ONREADY_NODE_RE.finditer(text):
+        node_vars[m.group(1)] = m.group(2) or m.group(3)
+
+    wired = set()
+    for m in _DIRECT_WIRE_RE.finditer(text):
+        wired.add(m.group(1) or m.group(2))
+    for m in _VAR_WIRE_RE.finditer(text):
+        if m.group(1) in node_vars:
+            wired.add(node_vars[m.group(1)])
+    return wired
+
 def scan_godot(root, fail_if_empty=False):
     root = Path(root)
     scenes = discover_scenes_godot(root)
@@ -133,7 +228,15 @@ def scan_godot(root, fail_if_empty=False):
 
     for scene in scenes:
         full = root / scene
-        buttons, connections, orphaned = parse_tscn_buttons(full)
+        buttons, connections, scene_orphaned = parse_tscn_buttons(full)
+
+        # A button wired from the scene's script is connected too (see the
+        # module docstring): only the buttons the script does not touch remain
+        # orphans.
+        script = resolve_scene_script(full, root)
+        code_wired = parse_script_wiring(script) if script else set()
+        code_names = {p.rsplit("/", 1)[-1] for p in code_wired}
+        orphaned = [b for b in scene_orphaned if b not in code_names]
 
         status = "OK"
         if orphaned:
@@ -143,7 +246,15 @@ def scan_godot(root, fail_if_empty=False):
 
         button_count = len(buttons)
         conn_count = len(connections)
-        print(f"  {'FAIL' if orphaned else 'OK'} {scene} — {button_count} button(s), {conn_count} connection(s){' — ' + status if orphaned else ''}")
+        extras = []
+        if code_wired:
+            extras.append(f"{len(code_wired)} code-wired")
+        if scene_orphaned and not orphaned:
+            extras.append("scene-side orphans are wired in the script")
+        suffix = f" [{'; '.join(extras)}]" if extras else ""
+        if orphaned:
+            suffix = ' — ' + status + suffix
+        print(f"  {'FAIL' if orphaned else 'OK'} {scene} — {button_count} button(s), {conn_count} connection(s){suffix}")
 
         for o in orphaned:
             print(f"    ORPHAN: Button '{o}' has no 'pressed' signal connection")

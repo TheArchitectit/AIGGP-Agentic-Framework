@@ -38,11 +38,67 @@ ORPHAN_SCENE = """[gd_scene format=3]
 text = "Quit"
 """
 
+# The same scene as ORPHAN_SCENE, plus the script it runs — no [connection]
+# block, because the handler is wired in _ready(). This is what Godot's editor
+# and its own docs produce, and what MergeKingdom's popups do.
+CODE_WIRED_SCENE = """[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://src/ui/Menu.gd" id="1"]
+
+[node name="Menu" type="Control"]
+script = ExtResource("1")
+
+[node name="Panel" type="PanelContainer" parent="."]
+
+[node name="QuitButton" type="Button" parent="Panel"]
+text = "Quit"
+"""
+
+DIRECT_WIRING_SCRIPT = """extends Control
+
+func _ready() -> void:
+\t$Panel/QuitButton.pressed.connect(_on_quit)
+
+func _on_quit() -> void:
+\tget_tree().quit()
+"""
+
+ONREADY_WIRING_SCRIPT = """extends Control
+
+@onready var quit_btn: Button = $Panel/QuitButton
+
+func _ready() -> void:
+\tquit_btn.pressed.connect(_on_quit)
+
+func _on_quit() -> void:
+\tget_tree().quit()
+"""
+
+# Wires a DIFFERENT button, so the scene's own button must stay an orphan.
+OTHER_BUTTON_SCRIPT = """extends Control
+
+func _ready() -> void:
+\t$Panel/SomethingElse.pressed.connect(_on_other)
+"""
+
+COMMENTED_OUT_SCRIPT = """extends Control
+
+func _ready() -> void:
+\t# $Panel/QuitButton.pressed.connect(_on_quit)
+\tpass
+"""
+
 
 def write_scene(root: Path, rel: str, content: str) -> None:
     p = root / rel
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(content)
+
+
+def write_tree(root: Path, script_src: str) -> None:
+    """A scene plus the script it runs, mirroring a real Godot layout."""
+    write_scene(root, "src/ui/Menu.tscn", CODE_WIRED_SCENE)
+    write_scene(root, "src/ui/Menu.gd", script_src)
 
 
 class TestTscnParsing(unittest.TestCase):
@@ -86,6 +142,61 @@ class TestTscnParsing(unittest.TestCase):
             scenes = si.discover_scenes_godot(root)
         self.assertIn("scenes/Main.tscn", scenes,
                       "standard res://scenes layout must not be invisible")
+
+
+class TestCodeSideWiring(unittest.TestCase):
+    """A button wired from the scene's script is connected — the gate used to
+    read .tscn connection blocks only, so every code-wired Godot UI read as
+    orphaned (MergeKingdom 2026-10-25: 4 scenes / 8 buttons, all correctly
+    wired). These tests pin both directions: code wiring clears the orphan, and
+    a script that wires something else does not.
+    """
+
+    def test_resolve_scene_script_finds_the_root_scripts_resource(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            write_tree(root, DIRECT_WIRING_SCRIPT)
+            script = si.resolve_scene_script(root / "src/ui/Menu.tscn", root)
+        self.assertEqual(script.name, "Menu.gd")
+
+    def test_direct_dollar_path_wiring_is_not_orphaned(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            write_tree(root, DIRECT_WIRING_SCRIPT)
+            self.assertEqual(si.scan_project(root), 0)
+
+    def test_onready_variable_wiring_is_not_orphaned(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            write_tree(root, ONREADY_WIRING_SCRIPT)
+            self.assertEqual(si.scan_project(root), 0)
+
+    def test_script_that_wires_another_button_leaves_the_orphan(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            write_tree(root, OTHER_BUTTON_SCRIPT)
+            self.assertEqual(si.scan_project(root), 1,
+                             "wiring a different node must not clear the orphan")
+
+    def test_commented_out_wiring_still_reads_as_orphaned(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            write_tree(root, COMMENTED_OUT_SCRIPT)
+            self.assertEqual(si.scan_project(root), 1,
+                             "a commented-out connect() is not a handler")
+
+    def test_scene_with_no_script_keeps_its_orphan(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            write_scene(root, "src/ui/Menu.tscn", ORPHAN_SCENE)
+            self.assertEqual(si.scan_project(root), 1)
+
+    def test_wired_paths_are_reported_as_a_set(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            write_tree(root, ONREADY_WIRING_SCRIPT)
+            wired = si.parse_script_wiring(root / "src/ui/Menu.gd")
+        self.assertEqual(wired, {"Panel/QuitButton"})
 
 
 class TestNoVacuousGreen(unittest.TestCase):
