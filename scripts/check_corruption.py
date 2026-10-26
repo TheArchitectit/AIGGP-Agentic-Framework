@@ -23,6 +23,8 @@ changed line whose length is within +/-15% of the original and whose
 character-level difference exceeds 60% is a substitution flip. A file where
 most lines changed at once is reported as a mass rewrite (the ransomware /
 runaway-script shape) and FAILS unless it is on the reviewed allowlist.
+Submodule pointer updates (gitlink, mode 160000) are skipped: a pin bump
+is a commit pointer, not text. A pin-bump-only diff passes with a note.
 
 Fail-closed, non-vacuous: a zero-file scan FAILS; a zero-line diff scan
 FAILS; the ratchet baseline may only decrease.
@@ -44,6 +46,11 @@ EXIT_VIOLATIONS = 1
 EXIT_USAGE = 2
 
 BASELINE = Path(".guardrails") / "corruption-baseline.json"
+
+# Gitlink metadata in a unified diff: a commit pointer, not a text file
+# (measured flip false positive - see the gitlink test in test_check_corruption).
+_GITLINK_META = re.compile(
+    r"^(?:index \S+\.\.\S+|new file mode|deleted file mode) 160000$")
 ALLOWLIST = Path(".guardrails") / "corruption-allowlist.json"
 
 REPLACEMENT = "\ufffd"
@@ -223,16 +230,20 @@ def _diff_hunks(diff: str):
     hunk: list[tuple[str, int, str]] = []
     old_no = new_no = 0
     seen_plus = False
+    gitlink = False
     for line in diff.splitlines():
         if line.startswith("diff --git "):
-            if hunk and path is not None:
+            if hunk and path is not None and not gitlink:
                 yield path, hunk
             hunk = []
             path = old_path = None
             seen_plus = False
+            gitlink = False
             continue
         if not seen_plus and not line.startswith("@@"):
-            if line.startswith("--- "):
+            if _GITLINK_META.match(line):
+                gitlink = True         # commit pointer, not text: skip hunks
+            elif line.startswith("--- "):
                 p = line[6:].strip()
                 old_path = p[2:] if p.startswith("a/") else p
             elif line.startswith("+++ "):
@@ -243,7 +254,7 @@ def _diff_hunks(diff: str):
             continue                    # index/new-file-mode/binary metadata
         seen_plus = True
         if line.startswith("@@"):
-            if hunk and path is not None:
+            if hunk and path is not None and not gitlink:
                 yield path, hunk
             hunk = []
             m = re.search(r"-(\d+)(?:,\d+)? \+(\d+)", line)
@@ -261,8 +272,14 @@ def _diff_hunks(diff: str):
             hunk.append((" ", new_no, line[1:]))
             old_no += 1
             new_no += 1
-    if hunk and path is not None:
+    if hunk and path is not None and not gitlink:
         yield path, hunk
+
+
+def _gitlink_update_count(diff: str) -> int:
+    """Submodule pointer updates in the diff (gitlink blocks, mode 160000)."""
+    return sum(any(_GITLINK_META.match(ln) for ln in b.splitlines())
+               for b in diff.split("diff --git ")[1:])
 
 
 def _added_lines(diff: str):
@@ -328,6 +345,13 @@ def scan_diff(diff: str, allow: dict[str, str], max_report: int,
     added = list(_added_lines(diff))
     removed = list(_removed_lines(diff))
     if not added and not removed:
+        # Pin bumps only is a real range with nothing textual to judge; zero
+        # lines with zero pin bumps means an empty range - vacuous, so FAILS.
+        gitlinks = _gitlink_update_count(diff)
+        if gitlinks:
+            print(f"check-corruption: OK - diff scan: {gitlinks} submodule "
+                  f"pointer update(s) (gitlink) - nothing textual to judge")
+            return EXIT_OK
         print("check-corruption: FAIL - diff scan evaluated zero lines "
               "(no vacuous green)", file=sys.stderr)
         return EXIT_VIOLATIONS
@@ -392,9 +416,12 @@ def scan_diff(diff: str, allow: dict[str, str], max_report: int,
 
     for w in warnings[:max_report]:
         print(f"check-corruption: WARNING - {w}")
+    skipped = _gitlink_update_count(diff)
     print(f"check-corruption: OK - diff scan clean "
           f"({len(added)} added / {len(removed)} removed line(s), "
-          f"{bulk_files} whole-file rewrite(s) warned)")
+          f"{bulk_files} whole-file rewrite(s) warned"
+          + (f", {skipped} gitlink pin update(s) skipped" if skipped else "")
+          + ")")
     return EXIT_OK
 
 

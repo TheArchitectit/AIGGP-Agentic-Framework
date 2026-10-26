@@ -13,7 +13,10 @@ Locks the contract:
   * the ratchet grandfathers existing corruption but blocks new;
   * diff scan: a substitution flip FAILS;
   * diff scan: an 11-file whole rewrite FAILS as BULK MUTATION;
-  * diff scan: a normal small edit PASSES.
+  * diff scan: a normal small edit PASSES;
+  * diff scan: a submodule pin bump (gitlink) is NOT a flip and a
+    pin-bump-only diff PASSES - it is a real range with nothing textual
+    to judge, never a vacuous scan.
 """
 from __future__ import annotations
 
@@ -194,6 +197,45 @@ class CorruptionDiff(unittest.TestCase):
         cc = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(cc)
         self.assertEqual(cc.scan_diff("", {}, 30), 1)
+
+    def test_submodule_pin_bump_is_not_a_flip(self):
+        """A gitlink SHA->SHA pin bump is a commit pointer, not text data.
+
+        The measured false positive: bumping the DevGate submodule pin
+        presented as 'Subproject commit <40hex>' vs '<40hex>' - equal length,
+        ~90% characters different - and tripped the substitution-flip rule,
+        so the diff arm could never pass at a pin-bump head. Every DevGate
+        consumer bumps this pin routinely.
+        """
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("cc", str(SCRIPT))
+        cc = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cc)
+        old = "955c6f2a42c0d3c8596183bdd45430657bb040fc"
+        new = "b01d5e1ba3f0e7b007921a1d4b18c9f8b0c381e5"
+        diff = ("diff --git a/.devgate b/.devgate\n"
+                f"index {old[:7]}..{new[:7]} 160000\n"
+                "--- a/.devgate\n"
+                "+++ b/.devgate\n"
+                "@@ -1 +1 @@\n"
+                f"-Subproject commit {old}\n"
+                f"+Subproject commit {new}\n")
+        self.assertEqual(cc.scan_diff(diff, {}, 30), 0)
+        # Mixed change: the pin bump is skipped and a real flip still fails.
+        flip = ("diff --git a/.devgate b/.devgate\n"
+                f"index {old[:7]}..{new[:7]} 160000\n"
+                "--- a/.devgate\n"
+                "+++ b/.devgate\n"
+                "@@ -1 +1 @@\n"
+                f"-Subproject commit {old}\n"
+                f"+Subproject commit {new}\n"
+                "diff --git a/x.md b/x.md\n"
+                "--- a/x.md\n"
+                "+++ b/x.md\n"
+                "@@ -1 +1 @@\n"
+                "-alpha bravo charlie delta echo foxtrot golf\n"
+                "+qwerty uiopas dfghjkl zxcvbnm nm,./ poiuyt\n")
+        self.assertEqual(cc.scan_diff(flip, {}, 30), 1)
 
 
 class CorruptionFlipPairing(unittest.TestCase):
