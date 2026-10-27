@@ -119,8 +119,9 @@ runs as a hard gate) and the marker gate (`scripts/spec_traceability.py`).
 - **Requirement IDs**: every requirement carries an `<!-- id: <req-id> -->`
   marker right under its heading. ID namespaces: `mon-*` (monitor hub),
   `gate-*`, `base-*`, `doc-*`, `pub-*`, `rel-*`, `rule-*`, `scan-*`,
-  `fw-ci-*`, `game-*`, `screen-*`, `coh-*` (spec-coherence service), and the
-  security requirements (`coh-sec-*`, `mon-sec-*`, `ci-sec-*`).
+  `fw-ci-*`, `game-*`, `screen-*`, `coh-*` (spec-coherence service),
+  `comm-*` (community sub-site capabilities), and the security requirements
+  (`coh-sec-*`, `mon-sec-*`, `ci-sec-*`).
 - **Source markers**: enforcing code carries `// spec: <id>` (C-family, JS)
   or `# spec: <id>` (Python/Ruby/shell) — both comment styles count; the
   marker line may carry several comma-separated IDs.
