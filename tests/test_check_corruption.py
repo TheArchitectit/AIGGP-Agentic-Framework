@@ -17,6 +17,9 @@ Locks the contract:
   * diff scan: a submodule pin bump (gitlink) is NOT a flip and a
     pin-bump-only diff PASSES - it is a real range with nothing textual
     to judge, never a vacuous scan.
+  * diff scan: a 100%-similarity rename (pure file move) PASSES for the
+    same reason - the move is a real range with nothing textual to judge,
+    while a rename WITH edits is still judged line-by-line.
 """
 from __future__ import annotations
 
@@ -238,6 +241,60 @@ class CorruptionDiff(unittest.TestCase):
                 "-alpha bravo charlie delta echo foxtrot golf\n"
                 "+qwerty uiopas dfghjkl zxcvbnm nm,./ poiuyt\n")
         self.assertEqual(cc.scan_diff(flip, {}, 30), 1)
+
+    def test_pure_rename_is_not_a_vacuous_range(self):
+        """A 100%-similarity rename is a real range, not an empty one.
+
+        The measured false positive: an openspec archive move (git mv of the
+        change directory, zero content edits) failed corruption-range with
+        "diff scan evaluated zero lines (no vacuous green)". The range was
+        real - four files moved with byte-identical content - but git reports
+        100% renames with no hunks, so the scanner saw nothing and
+        fail-closed. Rename-only diffs pass with a note, exactly like a
+        gitlink pin bump; a truly empty diff still FAILS.
+        """
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("cc", str(SCRIPT))
+        cc = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cc)
+        move = ("diff --git a/old/dir/tasks.md b/new/dir/tasks.md\n"
+                "similarity index 100%\n"
+                "rename from old/dir/tasks.md\n"
+                "rename to new/dir/tasks.md\n")
+        self.assertEqual(cc.scan_diff(move, {}, 30), 0)
+        # Mixed change: the move is accounted for and a real flip still fails.
+        flip = ("diff --git a/old/dir/tasks.md b/new/dir/tasks.md\n"
+                "similarity index 100%\n"
+                "rename from old/dir/tasks.md\n"
+                "rename to new/dir/tasks.md\n"
+                "diff --git a/x.md b/x.md\n"
+                "--- a/x.md\n"
+                "+++ b/x.md\n"
+                "@@ -1 +1 @@\n"
+                "-alpha bravo charlie delta echo foxtrot golf\n"
+                "+qwerty uiopas dfghjkl zxcvbnm nm,./ poiuyt\n")
+        self.assertEqual(cc.scan_diff(flip, {}, 30), 1)
+
+    def test_rename_with_edits_is_still_judged(self):
+        """A rename that also edits text is not covered by the move note.
+
+        git reports this as a rename WITH hunks; the scanner must evaluate
+        those added/removed lines like any other edit.
+        """
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("cc", str(SCRIPT))
+        cc = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cc)
+        edited_move = ("diff --git a/old/x.md b/new/x.md\n"
+                       "similarity index 50%\n"
+                       "rename from old/x.md\n"
+                       "rename to new/x.md\n"
+                       "--- a/old/x.md\n"
+                       "+++ b/new/x.md\n"
+                       "@@ -1 +1 @@\n"
+                       "-alpha bravo charlie delta echo foxtrot golf\n"
+                       "+qwerty uiopas dfghjkl zxcvbnm nm,./ poiuyt\n")
+        self.assertEqual(cc.scan_diff(edited_move, {}, 30), 1)
 
 
 class CorruptionFlipPairing(unittest.TestCase):

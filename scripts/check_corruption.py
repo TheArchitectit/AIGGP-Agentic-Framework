@@ -25,9 +25,13 @@ most lines changed at once is reported as a mass rewrite (the ransomware /
 runaway-script shape) and FAILS unless it is on the reviewed allowlist.
 Submodule pointer updates (gitlink, mode 160000) are skipped: a pin bump
 is a commit pointer, not text. A pin-bump-only diff passes with a note.
+100%-similarity renames are the same shape - a move with no textual delta -
+so a rename-only diff also passes with a note (renames WITH edits carry
+hunks and are judged line-by-line).
 
 Fail-closed, non-vacuous: a zero-file scan FAILS; a zero-line diff scan
-FAILS; the ratchet baseline may only decrease.
+FAILS unless it carries gitlink pin bumps or 100% renames; the ratchet
+baseline may only decrease.
 
 The hunk-level diff parser the diff scan is built on (_diff_hunks and the
 replacement pairing) lives in scripts/corruption_diff.py — split out to keep
@@ -225,7 +229,7 @@ def scan_content(root: Path, gc, skip_dirs, allow: dict[str, str],
 # split); re-exported here so callers and tests keep importing one module.
 from corruption_diff import (  # noqa: E402
     _GITLINK_META, _added_lines, _diff_hunks, _gitlink_update_count,
-    _removed_lines, _replacement_blocks)
+    _removed_lines, _rename_update_count, _replacement_blocks)
 
 
 def scan_diff(diff: str, allow: dict[str, str], max_report: int,
@@ -233,12 +237,18 @@ def scan_diff(diff: str, allow: dict[str, str], max_report: int,
     added = list(_added_lines(diff))
     removed = list(_removed_lines(diff))
     if not added and not removed:
-        # Pin bumps only is a real range with nothing textual to judge; zero
-        # lines with zero pin bumps means an empty range - vacuous, so FAILS.
+        # Pin bumps and 100% renames are real ranges with nothing textual to
+        # judge (the moved bytes are covered by the full-tree content scan);
+        # zero lines with neither means an empty range - vacuous, so FAILS.
         gitlinks = _gitlink_update_count(diff)
         if gitlinks:
             print(f"check-corruption: OK - diff scan: {gitlinks} submodule "
                   f"pointer update(s) (gitlink) - nothing textual to judge")
+            return EXIT_OK
+        renames = _rename_update_count(diff)
+        if renames:
+            print(f"check-corruption: OK - diff scan: {renames} file move(s) "
+                  f"(100% rename) - nothing textual to judge")
             return EXIT_OK
         print("check-corruption: FAIL - diff scan evaluated zero lines "
               "(no vacuous green)", file=sys.stderr)

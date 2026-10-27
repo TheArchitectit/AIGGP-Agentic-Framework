@@ -90,6 +90,18 @@ def _gitlink_update_count(diff: str) -> int:
                for b in diff.split("diff --git ")[1:])
 
 
+def _rename_update_count(diff: str) -> int:
+    """File moves in the diff (blocks carrying a `rename from` header).
+
+    Only meaningful in the zero-text-lines case: a rename WITH edits carries
+    hunks and is judged line-by-line, so the caller only reaches here when
+    every rename is a 100%-similarity move - a real range with nothing
+    textual to judge, same as a gitlink pin bump.
+    """
+    return sum(any(ln.startswith("rename from ") for ln in b.splitlines())
+               for b in diff.split("diff --git ")[1:])
+
+
 def _added_lines(diff: str):
     """Yield (path, new_lineno, text) for added lines, hunk-accurate."""
     for path, hunk in _diff_hunks(diff):
