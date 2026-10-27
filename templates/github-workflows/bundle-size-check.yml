@@ -1,0 +1,96 @@
+# Bundle Size Check — Reusable CI Template
+#
+# This workflow enforces a per-file size budget on build output in CI
+# (JS/CSS chunks, typically). It builds the project and fails when any one
+# emitted asset exceeds the budget — the fatal form of vite's
+# chunkSizeWarningLimit.
+#
+# SETUP:
+#   - Copy this file into your repo at .github/workflows/bundle-size-check.yml
+#   - Self-contained: no framework script required. For the full gate
+#     (overlay config, loud-skip contract, fail-closed empty input) run
+#     .devgate/scripts/bundle-size-check.mjs instead.
+#   - Customize the following placeholders:
+#     BUILD_CMD    — command that produces the build output (default: "npm run build")
+#     DIST_DIR     — build output directory to scan (default: "dist")
+#     MAX_KB       — per-file budget in KiB (bytes/1024), same unit vite uses
+#                    for chunkSizeWarningLimit (default: 900)
+#     INCLUDE_GLOBS — find -name patterns for the assets to measure
+#                    (default: "*.js" and "*.css")
+#   - Run this AFTER the build step it validates; a missing or empty
+#     DIST_DIR fails the job on purpose (nothing measured is never a pass).
+
+name: Bundle Size Check
+
+on:
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+jobs:
+  check-bundle-sizes:
+    name: Check Bundle Sizes
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4 (SHA resolved 2026-09-19)
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4
+        with:
+          node-version: "24"
+
+      - name: Build
+        run: |
+          # CUSTOMIZE: the command that produces your build output
+          BUILD_CMD="npm run build"
+          $BUILD_CMD
+
+      - name: Check bundle sizes
+        run: |
+          # CUSTOMIZE: adjust these to match your project
+          DIST_DIR="dist"
+          MAX_KB=900
+          # find -name patterns for the assets to measure
+          INCLUDE_NAMES=("*.js" "*.css")
+
+          if [ ! -d "$DIST_DIR" ]; then
+            echo "FAIL: build output $DIST_DIR does not exist - nothing measured is never a pass."
+            exit 1
+          fi
+
+          # KiB (bytes/1024) — the same unit vite uses for chunkSizeWarningLimit.
+          MAX_BYTES=$((MAX_KB * 1024))
+          VIOLATIONS=0
+          MEASURED=0
+
+          NAME_ARGS=()
+          for n in "${INCLUDE_NAMES[@]}"; do
+            if [ "${#NAME_ARGS[@]}" -gt 0 ]; then NAME_ARGS+=(-o); fi
+            NAME_ARGS+=(-name "$n")
+          done
+
+          while IFS= read -r -d '' file; do
+            bytes=$(wc -c < "$file")
+            MEASURED=$((MEASURED + 1))
+            if [ "$bytes" -gt "$MAX_BYTES" ]; then
+              printf "VIOLATION: %s: %s bytes (limit %s kB)\n" "$file" "$bytes" "$MAX_KB"
+              VIOLATIONS=$((VIOLATIONS + 1))
+            fi
+          done < <(find "$DIST_DIR" -type f \( "${NAME_ARGS[@]}" \) -print0)
+
+          if [ "$MEASURED" -eq 0 ]; then
+            echo "FAIL: no assets matched in $DIST_DIR - a build with nothing measurable is not a pass."
+            exit 1
+          fi
+
+          if [ "$VIOLATIONS" -gt 0 ]; then
+            printf "\n%d asset(s) exceed the %s kB per-file budget.\n" "$VIOLATIONS" "$MAX_KB"
+            exit 1
+          fi
+
+          echo "All $MEASURED asset(s) are under ${MAX_KB} kB."
+          exit 0

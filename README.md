@@ -102,6 +102,7 @@ pull-request-style range.
 | `run-tests.mjs` | Per-file process isolation, up to eight workers, serial lanes, flake adjudication, and hang-on-exit detection. |
 | `deploy.sh` | Gated build, test, lint, and publish for npm, cargo, pip, or Go projects. |
 | `schema-health-check.mjs` | Adapter-based SQLite, PostgreSQL, and MySQL schema validation; skips when unconfigured. |
+| `bundle-size-check.mjs` | Per-file build-output budget (vite's chunkSizeWarningLimit, made fatal) from a `.guardrails/bundle-size.json` overlay; fail-closed on empty input. |
 | `findings_to_spec.py` | Converts registry entries and live findings into OpenSpec requirement skeletons. |
 | `hub/` | Shipped runner-fleet monitoring and spec-coherence services. |
 | `tools/oap_produce.py` | Observe-only OAP evidence v2 producer CLI — NDJSON envelopes over stdout for a co-located receiver; no socket, no effect. |

@@ -330,6 +330,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **bundle-size-check: the build-output budget gate.**
+  `scripts/bundle-size-check.mjs` measures built assets against a per-file
+  budget from the consumer's `.guardrails/bundle-size.json` overlay (never by
+  editing the submodule) - the build-output counterpart of the source line
+  limits in `regression_sizes.py`. `max_kb` is KiB (bytes/1024), the same
+  unit vite uses for `chunkSizeWarningLimit`, so the warning becomes fatal
+  without changing its number. Exit contract matches `schema-health-check`:
+  `0` ran and passed, `1` failed / config unusable / configured but missing
+  or empty input, `2` loud skip when unconfigured - and a configured run with
+  nothing measurable FAILS rather than passing vacuously. `tests/test_bundle_size_check.mjs`
+  locks the contract (skip vs pass, fail-closed empty input, bytes/1024
+  comparison, invalid config). Reusable CI template:
+  `templates/github-workflows/bundle-size-check.yml` (self-contained,
+  BUILD_CMD / DIST_DIR / MAX_KB placeholders, file-size-check idiom).
 - **gameSessionStart, step 1: the session brain.** `scripts/game_session_start.py`
   validates one `aiggp.session/v1` manifest (schema:
   `.guardrails/prevention-rules/session-manifest.schema.json`), applies the one
