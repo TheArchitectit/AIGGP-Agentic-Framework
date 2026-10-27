@@ -1,4 +1,4 @@
-# DevGate release checksums — generated 2026-10-27T18:54:30Z
+# DevGate release checksums — generated 2026-10-27T19:05:16Z
 # Verify before use: python3 scripts/gen-checksums.py verify
 3ba50bc8b31743b05c2d11a2fe8156c44477548600ac9c2e1b4fa8f78e09c378  hub/__init__.py
 ee9d420de2f1a6dd228e9166b508e106f753dace985884ec6355581cabdbeb91  hub/alerts.py
@@ -93,6 +93,7 @@ d77e9d9a476d309b0f942eaf517e9961aefc81122fd68433012eb0eae2e6810a  scripts/lib/pr
 9862c02fa84b9173f552fa76a70e7e36fe5500cb4a21beb9ba132f3f870b17b3  scripts/lib/runner-installs.sh
 57d40f65e023ae68badddd7a8dd3c518f547e16b889c566bd7b74718872a66a3  scripts/lib/runner-units.sh
 35c64fe636df7a739982e6221c03891c83a1262f6960e57ca8d484eb3e8a896c  scripts/lib/spec_discovery.py
+c751ed8e3c3d7dfc1856538ff11444321e6af40b433ae6f4c4f4562fcc1c8530  scripts/lib/test-runner-select.mjs
 d0db7d8b8bfc1c77e171acc9e9f0d7cd8d1afe4737f5745c8cb3de31ceb012f5  scripts/lib/toolchain_probe.py
 f230e7fe067131f4473472d08da7e7f175362db699021e9055719a856dc60354  scripts/log_failure.py
 3ebafd3449447f9b08a747d25e08ce15c91c6c19b3cffaeb2b15250fef7c4de4  scripts/migrate_spec_format.py
@@ -108,7 +109,7 @@ efcfd53e55216bd155b09fb805b5422348919d83e13090476fb5c65f8421ad90  scripts/regres
 3e15b2e0120f7e30f51e06f8504f82d378f2fdacb49cc6ff6bf190a350df85b0  scripts/regression_sizes.py
 70e60c6a30a25ed00a01f64759e818e2482d80b9950e1895b2c1854cad40cd43  scripts/resource_audit.py
 5a6a0df4f41534659f29a5d00dc2a2bc1997f216e6cecdc87d99fc7ade0d2be4  scripts/rules_check.py
-c946142a7f89558b1160f150260f9e7034657deb221f50a3558a758f8a70b6ab  scripts/run-tests.mjs
+1d22039827603f12c00088af79ec51b5676e1e278b9f5f0b97fc34a507925b3b  scripts/run-tests.mjs
 1c13c26851f806deec915cb3cce2420aba701f64f54d62bf86ec6c505f054cbf  scripts/runner-enroll.sh
 0003ba27bdf19d63d69346d80d0756906177d0381ea7c7e45deb0c2e40b2f3f1  scripts/runner-heartbeat.sh
 d3343622996e52d68ed2796f7bf6c179088e8c0ecf16942214b603570cb14c52  scripts/runner-image-cycle.sh

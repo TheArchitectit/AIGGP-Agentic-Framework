@@ -17,6 +17,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A spawned test engine always runs top-level — the runner scrubs
+  `NODE_TEST_CONTEXT` from its children's env.** Measured 2026-10-27 on
+  v26.11.1: when run-tests.mjs itself executes under `node --test` (its own
+  fixture suite is run that way), the outer runner marks the test file with
+  `NODE_TEST_CONTEXT`, the fixture spawns run-tests.mjs with that marker still
+  in its env, and every nested `node --test` treats its invocation as
+  recursive — "run() is being called recursively within a test file. skipping
+  running files." — evaluates ZERO tests, prints no TAP and exits 0. The
+  root-anchor green-exit checks died on it (2 of 15 red only under
+  `node --test`, green direct). `childTestEnv()` (lib/test-runner-select.mjs)
+  deletes the marker before spawning any engine (node, vitest, pytest, cargo);
+  pinned by `test_run_tests_runner.mjs` ("children run top-level even when the
+  runner sits under node --test").
+- **A run that executed ZERO tests fails closed instead of passing.**
+  `node --test` on a file with no tests and vitest with a non-matching filter
+  both print a `1..0` plan and exit 0 — under a naive verdict that reads as
+  ✓ 0 pass / 0 fail, the gate-vacuous-01 shape. `isEmptyRun()` (lib/
+  test-runner-select.mjs) names the state (skips count as evidence; todo-only
+  fails closed), and run-tests.mjs refuses it in the verdict ("(ran zero tests
+  — vacuous, not a pass)") and in solo flake adjudication alike.
+- **A consumer whose package.json declares vitest runs its suffix-style JS/TS
+  on vitest, not `node --test`.** Measured 2026-10-27 on the vbrainstorm
+  consumer: every vitest file crashed before a single test ran with
+  `ERR_MODULE_NOT_FOUND` on its extensionless TS imports ("Cannot find module
+  '.../src/community/media'") — `node --test` loads the file but does not do
+  TypeScript module resolution. The TS discovery arm existed but could not run
+  the dominant TS layout (Decision 8: fix the written-but-broken arm, don't
+  delete it). `selectJsRunner()` delegates suffix-style files to the local
+  vitest binary (`run --reporter=tap --root <projectRoot> <relative-filter>`;
+  the filter MUST be relative — an absolute path matches nothing and hits the
+  1..0 trap), keeps prefix-style `test_*.mjs` on `node --test` (vitest's
+  default include does not collect it), and keeps every file on `node --test`
+  when vitest is not declared. Real consumer: 17/17 vitest files green.
 - **`get_changed_files` counts metadata-only and deletion-only diffs as real
   scope.** Measured 2026-10-27 on the fleet (AIGGP run 40562221604, the
   exec-bit fix `88c3223`): the CI regression check printed "NOTHING SCANNED —

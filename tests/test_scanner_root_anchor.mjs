@@ -59,7 +59,7 @@ const PASSING_TEST = "import { test } from 'node:test';\ntest('t', () => {});\n"
 // point: it REDs before the shared home exists and GREENs after.
 function copySharedLib(destLibDir) {
 	mkdirSync(destLibDir, { recursive: true });
-	for (const f of ["project-root.mjs", "gate_common.mjs"]) {
+	for (const f of ["project-root.mjs", "gate_common.mjs", "test-runner-select.mjs"]) {
 		try {
 			copyFileSync(join(scriptsDir, "lib", f), join(destLibDir, f));
 		} catch { /* pre-fix */ }
@@ -87,10 +87,11 @@ function installStandalone(parent, repoName) {
 	// .js plus one .mjs: DevGate's own first-party modules are .mjs, and this
 	// repo has zero .js/.ts — a walk that matches only the old extensions
 	// reports "no files, skipped" over an entire ESM codebase. The semantic
-	// count assertions expect 12 = these 4 + the 5 copied scripts/*.mjs
-	// (3 scanners + project-root.mjs + gate_common.mjs) + the 3
-	// tests/in_repo_*.test.mjs (the walk excludes only .test.ts/.spec.ts,
-	// not .mjs tests), so any extension drift in the walk shows immediately.
+	// count assertions expect 13 = these 4 + the 6 copied scripts/*.mjs
+	// (3 scanners + project-root.mjs + gate_common.mjs +
+	// test-runner-select.mjs) + the 3 tests/in_repo_*.test.mjs (the walk
+	// excludes only .test.ts/.spec.ts, not .mjs tests), so any extension
+	// drift in the walk shows immediately.
 	for (const f of ["mod_1.js", "mod_2.js", "mod_3.js", "mod_4.mjs"]) {
 		writeFileSync(join(repo, "src", f), "export const x = 1;\n");
 	}
@@ -185,8 +186,8 @@ function countFiles(out) {
 // 3. semantic-scan.mjs — standalone under a marker-bearing parent. With
 //    DEVGATE_SEMANTIC_REQUIRED=0 the script prints the count of files it
 //    COUNTED (and says it evaluated none) and exits 0; the count is the anchor
-//    assertion. Correct = 12 (the fixture's own tree: 4 src + 5 scripts/*.mjs
-//    + 3 tests); escaped = 12 + the parent decoys.
+//    assertion. Correct = 13 (the fixture's own tree: 4 src + 6 scripts/*.mjs
+//    + 3 tests); escaped = 13 + the parent decoys.
 // --------------------------------------------------------------------------
 {
 	const parent = freshParent();
@@ -198,8 +199,8 @@ function countFiles(out) {
 	const out = (res.stdout ?? "") + (res.stderr ?? "");
 	const m = out.match(/counted (\d+) TS\/JS file\(s\)/);
 	check("semantic-scan: standalone counts only the repo's own files, not the parent's decoys",
-		m && Number(m[1]) === 12,
-		`expected 12 counted, got: ${m ? m[1] : "no match"} :: ${JSON.stringify(out.slice(-200))}`);
+		m && Number(m[1]) === 13,
+		`expected 13 counted, got: ${m ? m[1] : "no match"} :: ${JSON.stringify(out.slice(-200))}`);
 }
 
 // --------------------------------------------------------------------------
@@ -299,8 +300,8 @@ function countFiles(out) {
 	const semOut = (sem.stdout ?? "") + (sem.stderr ?? "");
 	const sm = semOut.match(/counted (\d+) TS\/JS file\(s\)/);
 	check("semantic-scan: resolves its own tree when invoked from an unrelated cwd",
-		sm && Number(sm[1]) === 12,
-		`expected 12 counted, got: ${sm ? sm[1] : "no match"} :: ${JSON.stringify(semOut.slice(-200))}`);
+		sm && Number(sm[1]) === 13,
+		`expected 13 counted, got: ${sm ? sm[1] : "no match"} :: ${JSON.stringify(semOut.slice(-200))}`);
 }
 
 // --------------------------------------------------------------------------

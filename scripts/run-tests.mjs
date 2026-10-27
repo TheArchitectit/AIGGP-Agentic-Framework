@@ -3,7 +3,9 @@
  * run-tests.mjs — isolated per-file test runner (language-agnostic).
  *
  * Auto-detects test files by extension:
- *   .test.js / .spec.js  → node --test
+ *   .test.js / .spec.js  → node --test (vitest when the consumer's
+ *                          package.json declares it — see
+ *                          lib/test-runner-select.mjs)
  *   _test.py / test_*.py → pytest (if available)
  *   *_test.rs / tests/   → cargo test (if Cargo.toml exists)
  *
@@ -23,6 +25,7 @@ import { tmpdir } from "node:os";
 import os from "node:os";
 
 import { loadSkipDirs, projectRootFor, walk } from "./lib/gate_common.mjs";
+import { childTestEnv, declaresVitest, selectJsRunner, isEmptyRun } from "./lib/test-runner-select.mjs";
 
 const DEVGATE_ROOT = join(fileURLToPath(import.meta.url), "..", "..");
 
@@ -32,6 +35,11 @@ const DEVGATE_ROOT = join(fileURLToPath(import.meta.url), "..", "..");
 // the directory above the checkout, discovering zero of DevGate's own tests,
 // and still exiting 0. tests/test_scanner_root_anchor.mjs locks it.
 const PROJECT_ROOT = projectRootFor(DEVGATE_ROOT);
+
+// JS/TS engine: node --test, unless the consumer's package.json DECLARES
+// vitest — then suffix-style files go to vitest (see
+// lib/test-runner-select.mjs for the measured ERR_MODULE_NOT_FOUND reason).
+const VITEST_DECLARED = declaresVitest(PROJECT_ROOT);
 
 const PER_FILE_TIMEOUT_MS = Number(process.env.DEVGATE_TEST_TIMEOUT ?? 120_000);
 const HARD_CAP_MS = PER_FILE_TIMEOUT_MS + 10_000;
@@ -113,19 +121,26 @@ function runOne(file) {
 			cmd = "python3";
 			args = ["-m", "pytest", "-v", "--tb=short", file];
 		} else {
-			// Node test runner for JS/TS
-			cmd = process.execPath;
-			args = ["--test", "--test-concurrency=1", "--test-reporter=tap",
-				"--test-force-exit", `--test-timeout=${PER_FILE_TIMEOUT_MS}`, file];
+			// JS/TS: node --test, or the consumer's declared vitest (see
+			// lib/test-runner-select.mjs — node --test cannot load a vitest
+			// suite at all).
+			({ cmd, args } = selectJsRunner(file, {
+				projectRoot: PROJECT_ROOT,
+				vitestDeclared: VITEST_DECLARED,
+				timeoutMs: PER_FILE_TIMEOUT_MS,
+			}));
 		}
 
 		// Per-file scratch space (the advertised isolation, now load-bearing):
 		// the child's TMPDIR points at its own temp dir, so temp-heavy tests
-		// cannot collide across pool workers. The test process itself still
-		// runs with cwd=PROJECT_ROOT (pytest collection and cargo need it).
+		// cannot collide across pool workers. The env is also scrubbed of
+		// NODE_TEST_CONTEXT (childTestEnv) so a nested `node --test` runs the
+		// files instead of skipping them as "recursive" — the runner itself
+		// is executed under `node --test` by its own fixture suite. The test
+		// process itself still runs with cwd=PROJECT_ROOT (pytest collection
+		// and cargo need it).
 		const iso = mkdtempSync(join(tmpdir(), "dg-test-iso-"));
-		const env = { ...process.env, TMPDIR: iso };
-		const child = spawn(cmd, args, { cwd: PROJECT_ROOT, env });
+		const child = spawn(cmd, args, { cwd: PROJECT_ROOT, env: childTestEnv(process.env, iso) });
 		child.on("close", () => {
 			setTimeout(() => { try { rmSync(iso, { recursive: true, force: true }); } catch { /* best-effort */ } }, 500);
 		});
@@ -172,6 +187,7 @@ function runOne(file) {
 			try { rmSync(iso, { recursive: true, force: true }); } catch { /* best-effort */ }
 			const pass = (out.match(/^# pass\s+(\d+)/m) || out.match(/(\d+)\s+passed/))?.[1];
 			const fail = (out.match(/^# fail\s+(\d+)/m) || out.match(/(\d+)\s+failed/))?.[1];
+			const skipped = (out.match(/^# skipped\s+(\d+)/m) || out.match(/(\d+)\s+skipped/))?.[1];
 			const okCount = (out.match(/^ok\s+\d+/gm) || []).length;
 			const notOkCount = (out.match(/^not ok\s+\d+/gm) || []).length;
 			resolve({
@@ -179,6 +195,7 @@ function runOne(file) {
 				hung: okCount > 0 && code !== 0 && !timedOut,
 				pass: pass ? Number(pass) : okCount,
 				fail: fail ? Number(fail) : notOkCount,
+				skipped: skipped ? Number(skipped) : 0,
 				ms: Date.now() - start,
 				snippet: out.split("\n").filter((l) => /^# (fail|not ok|FAILED|ERROR)/.test(l)).slice(0, 3).join("  "),
 			});
@@ -245,10 +262,15 @@ async function main() {
 		const r = await runOne(f);
 		totalPass += r.pass; totalFail += r.fail;
 		const crashedBeforeTests = r.code !== 0 && !r.tapDone && r.okCount === 0 && r.pass === 0;
-		const ok = !r.timedOut && r.fail === 0 && !crashedBeforeTests;
+		// gate-vacuous-01: a file that executed ZERO tests must not look green
+		// (node --test on an empty file and vitest with a non-matching filter
+		// both print a 1..0 plan and exit 0 — see lib/test-runner-select.mjs).
+		const emptyRun = r.code === 0 && !r.timedOut && isEmptyRun(r);
+		const ok = !r.timedOut && r.fail === 0 && !crashedBeforeTests && !emptyRun;
 		const mark = ok ? "✓" : "✗";
 		const tail = r.fail > 0 ? `  ${r.snippet}` : r.timedOut ? "  TIMED OUT" :
-			r.hung ? "  (tests passed; exit-hung)" : crashedBeforeTests ? `  (crashed, code ${r.code})` : "";
+			r.hung ? "  (tests passed; exit-hung)" : crashedBeforeTests ? `  (crashed, code ${r.code})` :
+			emptyRun ? "  (ran zero tests — vacuous, not a pass)" : "";
 		console.error(`${mark} ${relative(PROJECT_ROOT, f)}  (${r.pass} pass / ${r.fail} fail, ${fmt(r.ms)})${tail}`);
 		if (!ok) failed.push(r);
 		return r;
@@ -271,11 +293,12 @@ async function main() {
 			console.error(`▶ solo: ${r.file}`);
 			const solo = await runOne(join(PROJECT_ROOT, r.file));
 			// A solo re-run only clears a failure if it GENUINELY succeeded:
-			// zero failures AND a clean exit. A file that crashed before any
-			// test ran (collection error, missing import) emits no "N failed"
-			// lines — fail parses as 0 — and must NOT be adjudicated as a
-			// flake. That masking is a silent-success failure mode.
-			const soloClean = solo.fail === 0 && solo.code === 0 && !solo.timedOut;
+			// zero failures AND a clean exit AND tests that actually ran. A
+			// file that crashed before any test ran (collection error, missing
+			// import) emits no "N failed" lines — fail parses as 0 — and must
+			// NOT be adjudicated as a flake; neither must a 1..0 empty run.
+			// That masking is a silent-success failure mode.
+			const soloClean = solo.fail === 0 && solo.code === 0 && !solo.timedOut && !isEmptyRun(solo);
 			if (soloClean) {
 				totalFail -= r.fail; flakes.push(r.file);
 				failed.splice(failed.indexOf(r), 1);
