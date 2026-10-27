@@ -503,6 +503,35 @@ check("html: a full-line HTML comment mentioning the pattern is NOT reported", !
 	htmlCommentReported ? "isCommentLine does not cover .html -- the .zig mistake" : "");
 cleanup(dir17);
 
+// --- 12b. exclude_glob applies even when the rule has no file_glob ----------
+// ruleAppliesTo used to return true before reading exclude_glob when file_glob
+// was empty, so a boundary exemption only worked on glob-scoped rules — and
+// regression_check.py ignored exclude_glob entirely. Both scanners now honor
+// the exemption for every rule shape (2026-10-27, postSeo.ts false positive).
+const dir18 = mkdtempSync(join(tmpdir(), "devgate-scan-"));
+makeProject(dir18, {
+	"docs/notes.md": "see https://example.com for the spec\n",
+	"src/app.ts": "export const url = \"https://example.com\";\n",
+});
+mkdirSync(join(dir18, ".guardrails", "prevention-rules"), { recursive: true });
+writeFileSync(join(dir18, ".guardrails", "prevention-rules", "pattern-rules.json"), JSON.stringify({
+	version: "1.0.0",
+	rules: [{
+		rule_id: "PREVENT-XI-BARE",
+		name: "url literal",
+		enabled: true,
+		pattern: "https?://",
+		severity: "error",
+		exclude_glob: ["docs/*"],
+		message: "url literal",
+		suggestion: "-",
+	}],
+}));
+r = runScan(dir18);
+check("12b: exclude_glob silences the exempt path on an unscoped rule", !r.err.includes("docs/notes.md"));
+check("12b: the same unscoped rule still fires outside the exemption", r.err.includes("src/app.ts"));
+cleanup(dir18);
+
 // --- 13. Python-side semantics agree: file_glob + allow + ignore -------------
 // (game_regression.py is exercised by tests/test_game_regression.py,
 //  gate_overlay.py by tests/test_gate_overlay.py)

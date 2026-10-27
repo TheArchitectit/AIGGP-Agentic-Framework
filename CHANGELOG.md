@@ -17,6 +17,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Pattern-rule `exclude_glob` honored by both scanners.** The Python
+  `regression_check.py rules_for_file` applied a rule's `file_glob` but never
+  its `exclude_glob`, and `guardrails-scan.mjs ruleAppliesTo` only read
+  `exclude_glob` when `file_glob` was also set. So a boundary-file exemption
+  could silence one scanner and not the other: vbrainstorm's PREVENT-029
+  overlay exempts `src/lib/**` (documented boundary layer — JSON-LD URL
+  literals in `postSeo.ts` are data, not network calls), which
+  guardrails-scan honored and regression_check flagged CRITICAL on
+  2026-10-27. Both now honor `exclude_glob` for every rule shape via the
+  shared `glob_matches` contract; `tests/test_rule_scoping.py` (new) locks
+  the Python side and `test_guardrails_scan.mjs` case 12b the Node side.
+
 - **stitcher-codereview lint surface clean (5 errors removed).** Four
   `no-useless-escape` hits (`checks/drift.ts:62`, `checks/tests.ts:48,60`,
   `spec/parser.ts:95`) were `\-` inside character classes where a literal

@@ -73,15 +73,19 @@ function loadRules() {
 }
 
 function ruleAppliesTo(rule, file) {
+	const rel = file.startsWith(projectRoot + "/") ? file.slice(projectRoot.length + 1) : file;
+	// exclude_glob is the rule's boundary-file exemption contract — honored
+	// for every rule shape, with or without file_glob (regression_check.py
+	// rules_for_file agrees; a divergence here made one rule fire in one
+	// scanner and not the other, 2026-10-27).
+	const excludes = rule.exclude_glob;
+	if (Array.isArray(excludes) && excludes.length > 0 && globMatchesAny(excludes, rel, basename(file))) return false;
 	const globs = rule.file_glob;
 	if (!Array.isArray(globs) || globs.length === 0) return true;
-	const rel = file.startsWith(projectRoot + "/") ? file.slice(projectRoot.length + 1) : file;
 	// A bare-extension glob like "*.go" must reach nested files, not just the
 	// project root — without the basename arm, "*.go" anchored to "[^/]*" matches
 	// nothing nested and every glob-scoped rule is silently dead on a real tree.
 	if (!globMatchesAny(globs, rel, basename(file))) return false;
-	const excludes = rule.exclude_glob;
-	if (Array.isArray(excludes) && excludes.length > 0 && globMatchesAny(excludes, rel, basename(file))) return false;
 	return true;
 }
 

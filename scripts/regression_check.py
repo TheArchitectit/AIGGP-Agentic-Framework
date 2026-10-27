@@ -203,16 +203,16 @@ def check_file_against_failures(file_path: str, failures: list[dict]) -> list[di
 
 def rules_for_file(rules: list[dict], file_path: str) -> list[dict]:
     """Scope rules to the file via their optional file_glob (full-path OR
-    basename match); empty/missing glob = every file. Without this, a
-    glob-scoped rule like PREVENT-027 (pattern ".*", file_glob
-    ["Dockerfile"]) fires on every changed file's diff."""
+    basename match); empty/missing glob = every file. exclude_glob is the
+    rule's boundary-file exemption contract (guardrails-scan.mjs
+    `ruleAppliesTo` honors it) — both must, or the scanners disagree."""
     scoped = []
     for rule in rules:
+        excludes = rule.get("exclude_glob") or []
+        if excludes and glob_matches(file_path, excludes):
+            continue
         globs = rule.get("file_glob") or []
-        if globs and not any(
-            fnmatch.fnmatch(file_path, g) or fnmatch.fnmatch(os.path.basename(file_path), g)
-            for g in globs
-        ):
+        if globs and not glob_matches(file_path, globs):
             continue
         scoped.append(rule)
     return scoped
