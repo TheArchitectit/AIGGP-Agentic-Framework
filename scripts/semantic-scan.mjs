@@ -281,7 +281,7 @@ function freeIdentifiers(fn) {
 // contradiction — an array that cannot satisfy both gates — is what this
 // exempts. Component-scope values (props, state, component-locals) are NOT
 // module bindings and stay required; a component that shadows a module name
-// is the rare residue (see the rule note in semantic-rules.json).
+// is the rare residue this exemption leaves behind.
 function moduleScopeNames(sourceFile) {
 	const names = new Set();
 	function declare(nameNode) { bindingIdentifiers(nameNode, names); }

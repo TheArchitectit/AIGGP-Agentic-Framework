@@ -82,7 +82,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Audio/MediaMetadata media constructors), type-position identifiers green,
   binding-target/declare-global/heritage residues green, and the
   no-dependency-array branch unchanged. `test_semantic_scan.mjs`
-  grew 12 → 25 checks.
+  grew 11 → 25 checks.
 - **`--pre-commit` no longer green-lights an empty scope (gate-vacuous-01).**
   `--staged --pre-commit` run before `git add` scanned zero files, printed a
   NOTHING SCANNED banner followed by a green `0 over hard limit (blocks
