@@ -79,6 +79,7 @@ from regression_diff import (  # noqa: E402
     SCANNED_STATUSES,
     SELF_REFERENTIAL,
     check_added_against_registry,
+    check_diff_against_patterns,
     compile_registry_patterns,
     get_added_lines,
     get_changed_files,
@@ -218,32 +219,6 @@ def rules_for_file(rules: list[dict], file_path: str) -> list[dict]:
     return scoped
 
 
-def check_diff_against_patterns(diff_content: str, rules: list[dict]) -> list[dict]:
-    violations = []
-    added_lines = []
-    for line in diff_content.split("\n"):
-        if line.startswith("+") and not line.startswith("+++"):
-            added_lines.append(line[1:])
-    added_content = "\n".join(added_lines)
-    for rule in rules:
-        if rule.get("rule_type") != "pattern":
-            continue
-        pattern = rule.get("pattern")
-        if not pattern:
-            continue
-        try:
-            if re.search(pattern, added_content, re.MULTILINE):
-                forbidden = rule.get("forbidden_context")
-                if forbidden and re.search(forbidden, added_content, re.MULTILINE):
-                    continue
-                violations.append({"rule_id": rule.get("rule_id"), "name": rule.get("name"),
-                                  "message": rule.get("message"), "severity": rule.get("severity", "warning"),
-                                  "suggestion": rule.get("suggestion"), "failure_id": rule.get("failure_id")})
-        except re.error:
-            continue
-    return violations
-
-
 ADVISORY_SEVERITIES = ("low", "medium", "warning", "info")
 
 def is_blocking(failures: list[dict], violations: list[dict]) -> bool:
@@ -285,7 +260,7 @@ def run_regression_check(registry_path: Path | None = None, rules_path: Path | N
             file_issues["failures"] = matching_failures
         diff = get_diff_content(run_git_command, file_path, staged=staged, unstaged=unstaged, git_range=git_range, base=base)
         if diff:
-            violations = check_diff_against_patterns(diff, rules_for_file(rules, file_path))
+            violations = check_diff_against_patterns(diff, rules_for_file(rules, file_path), file_path)
             if violations:
                 file_issues["violations"] = violations
         if file_issues["failures"] or file_issues["violations"]:

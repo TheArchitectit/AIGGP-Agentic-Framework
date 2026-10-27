@@ -360,6 +360,68 @@ def check_added_against_registry(added: list[tuple[str, int, str]],
     return violations
 
 
+def _is_test_file(rel: str) -> bool:
+    """Mirror guardrails-scan.mjs isTestFile — test paths carry no production
+    pattern obligations."""
+    norm = str(rel).replace("\\", "/")
+    base = norm.rsplit("/", 1)[-1]
+    if re.search(r"(^|/)tests?/", norm):
+        return True
+    if base.endswith(("_test.go", "_test.rs", "_test.py", "_test.zig")):
+        return True
+    return bool(re.match(r"^(conftest|test_.*|.*\.test\.|.*\.spec\.)", base))
+
+
+def check_diff_against_patterns(diff_content: str, rules: list[dict],
+                                file_path: str = "") -> list[dict]:
+    """Pattern rules against the ADDED lines of one file's diff.
+
+    Per-line semantics, identical to guardrails-scan.mjs (the shared scanner
+    contract: gate_common.line_has_allow — "identical semantics intended for
+    every scanner", FAIL-9231181d). A hit is silenced when that line carries
+    `guardrails-allow <rule_id>: <reason>`, or when the same line carries the
+    rule's forbidden_context safe usage — with the test-scoped inversion, so
+    context words like (test|spec|mock) suppress only in test files or on
+    lines that themselves read as test code. The earlier blob join ignored
+    both: editing an annotated observability line re-flagged it, and one test
+    word on any added line silenced the rule for the whole file.
+    """
+    violations = []
+    added_lines = []
+    for line in diff_content.split("\n"):
+        if line.startswith("+") and not line.startswith("+++"):
+            added_lines.append(line[1:])
+    test_file = _is_test_file(file_path)
+    for rule in rules:
+        if rule.get("rule_type") != "pattern":
+            continue
+        pattern = rule.get("pattern")
+        if not pattern:
+            continue
+        try:
+            rx = re.compile(pattern, re.MULTILINE)
+            forbidden = rule.get("forbidden_context")
+            forbidden_rx = re.compile(forbidden, re.MULTILINE) if forbidden else None
+            test_scoped = bool(re.search(r"(?:test|spec|mock|__tests__|bench)", forbidden or "", re.I))
+        except re.error:
+            continue
+        rule_id = rule.get("rule_id") or ""
+        for text in added_lines:
+            if rule_id and line_has_allow(text, rule_id):
+                continue
+            if not rx.search(text):
+                continue
+            if forbidden_rx is not None and forbidden_rx.search(text):
+                line_is_test = bool(re.search(r"(?:test|spec|mock|__tests__|bench)", text, re.I))
+                if not test_scoped or test_file or line_is_test:
+                    continue
+            violations.append({"rule_id": rule.get("rule_id"), "name": rule.get("name"),
+                              "message": rule.get("message"), "severity": rule.get("severity", "warning"),
+                              "suggestion": rule.get("suggestion"), "failure_id": rule.get("failure_id")})
+            break  # one record per rule per file — the report lists rules, not lines
+    return violations
+
+
 def load_failure_registry(registry_path: Path) -> list[dict]:
     """Load registry entries whose status is scanned (active or resolved).
 
