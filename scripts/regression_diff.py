@@ -21,6 +21,11 @@ What lives here:
     bug is exactly the one that must not come back), while the affected-files
     advisory stays active-only.
 
+The per-line prevention-pattern contract (test-file scope, comment-line scope,
+check_diff_against_patterns) lives in scripts/regression_patterns.py — split
+out again to keep both modules under the 500-line hard limit. It is
+re-exported below so callers keep importing one module.
+
 Only ADDED lines are ever scanned, so pre-existing legitimate code is never
 flagged — only new introductions.
 """
@@ -139,18 +144,32 @@ def _collect_git_scope(run_git, *, staged: bool, unstaged: bool,
     """Shared endpoint validation for get_added_lines and get_changed_files.
 
     Runs each requested scope's `git diff` and returns the raw stdout blobs to
-    parse. Every scope fails loud on a non-zero git exit (gate-vacuous-01): an
-    unresolvable ref/range must never read as 'scanned, found nothing'.
+    parse. Every scope fails loud on a git exit that is not 0/1
+    (gate-vacuous-01): an unresolvable ref/range — or a staged scope that
+    cannot be read (lock contention, corrupt index, rc 128) — must never read
+    as 'scanned, found nothing'. rc 0 (no diff / plain `git diff`) and 1
+    (diff exists under --exit-code-style wrappers) are data; the old
+    `if rc == 0: append` silently dropped both an error AND a diff seen by a
+    rc-1 git, emptying the scope exactly like the mode-only parse bug this
+    module also carries a regression class for.
     """
     outputs: list[str] = []
+
+    def _scope(cmd: list[str], what: str) -> str:
+        rc, stdout, stderr = run_git(cmd)
+        if rc not in (0, 1):
+            raise RuntimeError(
+                f"git {' '.join(cmd)} failed (rc {rc}): "
+                f"{(stderr or stdout).strip()[:200]} — the {what} scope "
+                "cannot be read and must not read as an empty one "
+                "(gate-vacuous-01)"
+            )
+        return stdout
+
     if staged:
-        rc, stdout, _ = run_git(["diff", "--cached"])
-        if rc == 0:
-            outputs.append(stdout)
+        outputs.append(_scope(["diff", "--cached"], "staged"))
     if unstaged:
-        rc, stdout, _ = run_git(["diff"])
-        if rc == 0:
-            outputs.append(stdout)
+        outputs.append(_scope(["diff"], "unstaged"))
     if all_scope:
         all_base = resolve_all_base(run_git)
         # The empty tree is not a commit, so merge-base (...) syntax cannot
@@ -219,6 +238,20 @@ def get_changed_files(run_git, staged: bool = True, unstaged: bool = False,
     checkout the staged scope is empty, and without the base range in this
     file set the known-bug and pattern checks would evaluate nothing while the
     run still printed a clean pass.
+
+    A path is in scope when the diff NAMES it — including hunks that carry no
+    `+++` target at all: git omits the ---/+++ pair entirely for a pure mode
+    change (old mode/new mode only), and a pure deletion's only `+++` target
+    is /dev/null. Parsing just the `+++` headers dropped both, so a
+    metadata-only push read as an EMPTY scope and --fail-if-empty failed a
+    real change (measured 2026-10-27: AIGGP run 40562221604, the exec-bit fix
+    88c3223 → "NOTHING SCANNED — the selected scope contains 0 changed files"
+    → exit 2). The `diff --git a/<old> b/<new>` header names the path on both
+    sides in every form, so its b/ side is taken too (post-image name — the
+    same rename semantics as the `+++` parse; the set dedupes). A header pair
+    quoting a path with spaces stays ambiguous in git's own format and is
+    only resolved when its `+++` line names the file, matching the previous
+    parse.
     """
     names: set[str] = set()
     for blob in _collect_git_scope(run_git, staged=staged, unstaged=unstaged,
@@ -228,6 +261,10 @@ def get_changed_files(run_git, staged: bool = True, unstaged: bool = False,
             if raw.startswith("+++ "):
                 target = raw[4:].strip()
                 if target != "/dev/null":
+                    names.add(re.sub(r"^b/", "", target))
+            elif raw.startswith("diff --git ") and " b/" in raw:
+                target = raw.split(" b/", 1)[1].strip()
+                if target and not target.startswith('"') and target != "/dev/null":
                     names.add(re.sub(r"^b/", "", target))
     return sorted(names)
 
@@ -360,119 +397,10 @@ def check_added_against_registry(added: list[tuple[str, int, str]],
     return violations
 
 
-def _is_test_file(rel: str) -> bool:
-    """Mirror guardrails-scan.mjs isTestFile — test paths carry no production
-    pattern obligations."""
-    norm = str(rel).replace("\\", "/")
-    base = norm.rsplit("/", 1)[-1]
-    if re.search(r"(^|/)tests?/", norm):
-        return True
-    if base.endswith(("_test.go", "_test.rs", "_test.py", "_test.zig")):
-        return True
-    if re.match(r"^(conftest|test_.*|.*\.test\.|.*\.spec\.)", base):
-        return True
-    # Shared test-fixture modules (`*-test-helpers.ts` / `*-test-utils.ts`) —
-    # see guardrails-scan.mjs isTestFile.
-    return bool(re.search(r"(^|[.-])test[-_]?(helpers|utils)\.(ts|tsx|js|jsx|mjs|cjs)$",
-                          base, re.I))
-
-
-# Comment families mirror guardrails-scan.mjs isCommentLine: only FULL-line
-# comments are out of scope; a trailing comment on a code line is still a
-# code line and the code portion is scanned.
-_SLASH_COMMENT_EXTS = frozenset(
-    (".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".svelte", ".rs", ".go",
-     ".java", ".kt", ".gd", ".php", ".zig"))
-_HASH_COMMENT_EXTS = frozenset((".py", ".rb", ".sh"))
-_MARKUP_COMMENT_EXTS = frozenset((".html", ".xml", ".svg"))
-
-
-def _is_comment_line(line: str, ext: str) -> bool:
-    """Mirror guardrails-scan.mjs isCommentLine (scan_comments opt-in aside)."""
-    trimmed = line.strip()
-    if not trimmed:
-        return False
-    if ext in _HASH_COMMENT_EXTS:
-        return trimmed.startswith("#")
-    if ext in _MARKUP_COMMENT_EXTS:
-        return trimmed.startswith("<!--")
-    if ext in _SLASH_COMMENT_EXTS:
-        return trimmed.startswith("//") or trimmed.startswith("/*") or trimmed.startswith("*")
-    return False
-
-
-def check_diff_against_patterns(diff_content: str, rules: list[dict],
-                                file_path: str = "") -> list[dict]:
-    """Pattern rules against the ADDED lines of one file's diff.
-
-    Per-line semantics, identical to guardrails-scan.mjs (the shared scanner
-    contract: gate_common.line_has_allow — "identical semantics intended for
-    every scanner", FAIL-9231181d). A hit is silenced when that line carries
-    `guardrails-allow <rule_id>: <reason>`, or when the same line carries the
-    rule's forbidden_context safe usage — with the test-scoped inversion, so
-    context words like (test|spec|mock) suppress only in test files or on
-    lines that themselves read as test code. The earlier blob join ignored
-    both: editing an annotated observability line re-flagged it, and one test
-    word on any added line silenced the rule for the whole file.
-
-    Two more shared-contract exclusions, measured as false positives on the
-    vbrainstorm 2026-10-27 acceptance tree (this gate runs --pre-commit in CI
-    where they hard-blocked correct code):
-
-    * comment lines are out of scope unless the rule opts in via
-      `scan_comments` — doc comments explaining why a pattern exists fire the
-      rule on their own prose ("D5): any non-banned member …" matched
-      PREVENT-011/PREVENT-VB-001's `:\\s*any` as if it were a type). Same
-      rule guardrails-scan.mjs applies.
-    * error/critical rules do not apply to test code (`_is_test_file`) —
-      synthetic `new Request("http://localhost…")` route fixtures and
-      `origin:` Request options are in-process harness plumbing, not network
-      calls. guardrails-scan.mjs has always skipped blocking rules on test
-      paths; this checker reported them anyway, so the same correct diff
-      passed one scanner and failed the other.
-    """
-    violations = []
-    added_lines = []
-    for line in diff_content.split("\n"):
-        if line.startswith("+") and not line.startswith("+++"):
-            added_lines.append(line[1:])
-    test_file = _is_test_file(file_path)
-    ext = "." + file_path.replace("\\", "/").rsplit(".", 1)[-1] if "." in file_path else ""
-    for rule in rules:
-        if rule.get("rule_type") != "pattern":
-            continue
-        pattern = rule.get("pattern")
-        if not pattern:
-            continue
-        # guardrails-scan.mjs: only severity "warning" is advisory; every
-        # other severity is blocking and does not apply to test code.
-        if test_file and rule.get("severity") != "warning":
-            continue
-        try:
-            rx = re.compile(pattern, re.MULTILINE)
-            forbidden = rule.get("forbidden_context")
-            forbidden_rx = re.compile(forbidden, re.MULTILINE) if forbidden else None
-            test_scoped = bool(re.search(r"(?:test|spec|mock|__tests__|bench)", forbidden or "", re.I))
-        except re.error:
-            continue
-        rule_id = rule.get("rule_id") or ""
-        scan_comments = bool(rule.get("scan_comments"))
-        for text in added_lines:
-            if not scan_comments and _is_comment_line(text, ext):
-                continue
-            if rule_id and line_has_allow(text, rule_id):
-                continue
-            if not rx.search(text):
-                continue
-            if forbidden_rx is not None and forbidden_rx.search(text):
-                line_is_test = bool(re.search(r"(?:test|spec|mock|__tests__|bench)", text, re.I))
-                if not test_scoped or test_file or line_is_test:
-                    continue
-            violations.append({"rule_id": rule.get("rule_id"), "name": rule.get("name"),
-                              "message": rule.get("message"), "severity": rule.get("severity", "warning"),
-                              "suggestion": rule.get("suggestion"), "failure_id": rule.get("failure_id")})
-            break  # one record per rule per file — the report lists rules, not lines
-    return violations
+# The per-line prevention-pattern contract moved to
+# scripts/regression_patterns.py (500-line cap split); re-exported here so
+# callers (regression_check.py, tests) keep importing one helper module.
+from regression_patterns import check_diff_against_patterns  # noqa: E402,F401
 
 
 def load_failure_registry(registry_path: Path) -> list[dict]:

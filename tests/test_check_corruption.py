@@ -416,5 +416,76 @@ class CorruptionFlipPairing(unittest.TestCase):
         self.assertEqual(cc.scan_diff(small, {}, 30), 1)
 
 
+class CorruptionDiffPathResolution(unittest.TestCase):
+    """Diff headers resolve to the real path on BOTH sides.
+
+    The header parser used to slice ``line[6:]`` — stripping ``--- `` plus two
+    more characters. That works by accident for git's usual ``a/``/``b/``
+    prefixed paths (the prefix is consumed by the slice), but a pure
+    deletion's ``+++ /dev/null`` became ``ev/null``: the deleted file's
+    removed lines were attributed to a nonsense path, so per-file accounting
+    (mass-rewrite counting, allowlist lookup, report lines) named the wrong
+    file. The slice is the 4-char header marker; the optional prefix is
+    stripped separately. Measured shape: any `git rm` hunk in a range.
+    """
+
+    def _load(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("cc", str(SCRIPT))
+        cc = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cc)
+        return cc
+
+    def test_pure_deletion_attributes_to_the_real_path(self):
+        cc = self._load()
+        diff = (
+            "diff --git a/gone.txt b/gone.txt\n"
+            "deleted file mode 100644\n"
+            "index 1234567..0000000\n"
+            "--- a/gone.txt\n"
+            "+++ /dev/null\n"
+            "@@ -1,2 +0,0 @@\n"
+            "-alpha line here\n"
+            "-bravo line here\n"
+        )
+        removed = [(p, t) for p, _ln, t in cc._removed_lines(diff)]
+        self.assertEqual(removed,
+                         [("gone.txt", "alpha line here"),
+                          ("gone.txt", "bravo line here")])
+
+    def test_new_file_addition_resolves_to_the_new_path(self):
+        cc = self._load()
+        diff = (
+            "diff --git a/fresh.txt b/fresh.txt\n"
+            "new file mode 100644\n"
+            "index 0000000..1234567\n"
+            "--- /dev/null\n"
+            "+++ b/fresh.txt\n"
+            "@@ -0,0 +1,2 @@\n"
+            "+alpha line here\n"
+            "+bravo line here\n"
+        )
+        added = [(p, t) for p, _ln, t in cc._added_lines(diff)]
+        self.assertEqual(added,
+                         [("fresh.txt", "alpha line here"),
+                          ("fresh.txt", "bravo line here")])
+
+    def test_pure_deletion_scan_stays_clean(self):
+        # Negative control: resolving the path correctly must not invent a
+        # finding — a deletion replaces nothing.
+        cc = self._load()
+        diff = (
+            "diff --git a/gone.txt b/gone.txt\n"
+            "deleted file mode 100644\n"
+            "index 1234567..0000000\n"
+            "--- a/gone.txt\n"
+            "+++ /dev/null\n"
+            "@@ -1,2 +0,0 @@\n"
+            "-alpha line here\n"
+            "-bravo line here\n"
+        )
+        self.assertEqual(cc.scan_diff(diff, {}, 30), 0)
+
+
 if __name__ == "__main__":
     unittest.main()

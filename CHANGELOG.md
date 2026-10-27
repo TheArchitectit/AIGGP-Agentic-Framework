@@ -17,6 +17,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`get_changed_files` counts metadata-only and deletion-only diffs as real
+  scope.** Measured 2026-10-27 on the fleet (AIGGP run 40562221604, the
+  exec-bit fix `88c3223`): the CI regression check printed "NOTHING SCANNED —
+  the selected scope contains 0 changed files" and `--fail-if-empty` exited 2
+  on a push that changed a real file's mode. The scope reader parsed only
+  `+++ ` diff headers, but git emits NO `---`/`+++` pair at all for a pure
+  mode change (`old mode`/`new mode` only), and a pure deletion's only `+++`
+  target is `/dev/null` — so both read as empty scope. `get_changed_files`
+  now also takes the b-side path from each `diff --git a/<old> b/<new>`
+  header (post-image name, same rename semantics, deduped against the `+++`
+  parse), so a path the diff NAMES is in scope. The vacuous-empty failure for
+  genuinely empty ranges is untouched. `tests/test_regression_scope.py`
+  grows 5 → 12 checks: FakeGit cases for mode-only / pure deletion / content
+  / rename / mixed blobs, plus a real-git exec-bit + `git rm` round trip —
+  the exact fleet shape.
+- **`_collect_git_scope` fails loud instead of silently emptying the
+  staged/unstaged scope.** The staged and unstaged arms did `if rc == 0:
+  append` while the docstring promised fail-loud (gate-vacuous-01): a lock
+  contended or corrupt index (rc 128) dropped the blob and the run scanned
+  ZERO files with a green report — the same vacuous-empty shape as the
+  mode-only parse bug above. rc 0/1 are data (matching `_diff_or_raise`);
+  anything else now raises. Pinned by
+  `TestGetChangedFilesScope::test_unreadable_staged_scope_raises_not_swallows`.
+- **Corruption-gate diff headers resolve to the real path on both sides.**
+  The header parser sliced `line[6:]` — stripping `--- ` plus two more
+  characters — which works by accident for git's `a/`/`b/` prefixed paths but
+  turned a pure deletion's `+++ /dev/null` into `ev/null`: a deleted file's
+  removed lines were attributed to a nonsense path in per-file accounting
+  (mass-rewrite counting, allowlist lookup, report lines). The slice is the
+  4-char header marker and the optional prefix is stripped separately;
+  `tests/test_check_corruption.py` grows
+  `CorruptionDiffPathResolution` (3 checks: deletion path, new-file path,
+  deletion scan stays clean).
+- **The 500-line hard cap's own violators are split, not squeezed.**
+  `check_corruption.py` stood at 518 (a touched hard oversize blocks) and
+  `regression_diff.py` at 496 (4 lines of headroom). The hunk-level diff
+  parser moves to `scripts/corruption_diff.py` (check_corruption 518 → 398)
+  and the prevention-pattern contract to `scripts/regression_patterns.py`
+  (regression_diff 496 → 410); both originals re-export the moved helpers so
+  every importer and the importlib-based tests keep one module. Pinned by
+  `tests/test_python_root_anchor.py` `_PY_DEPS` (the synthetic repo must
+  carry the full sibling-import chain).
 - **`check_diff_against_patterns` honors the shared scanner contract
   (comment lines + test-code scope).** Measured 2026-10-27 on the vbrainstorm
   community-acceptance tree: the prevention-pattern checker treated full-line

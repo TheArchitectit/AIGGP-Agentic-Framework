@@ -5,7 +5,7 @@
   "test_baseline_ownership_check": 14,
   "test_check_boundary": 12,
   "test_check_charset": 14,
-  "test_check_corruption": 18,
+  "test_check_corruption": 21,
   "test_check_encoding": 9,
   "test_check_manifest_join": 8,
   "test_coherence_image_identity": 13,
@@ -103,7 +103,7 @@
   "test_regression_audit": 8,
   "test_regression_check": 31,
   "test_regression_corpus": 12,
-  "test_regression_scope": 6,
+  "test_regression_scope": 12,
   "test_regression_sizes": 14,
   "test_repin_operation": 18,
   "test_resource_governance": 16,
@@ -132,5 +132,5 @@
   "test_template_supply_chain": 4,
   "test_workflow_read": 15
  },
- "total_floor": 1692
+ "total_floor": 1701
 }
