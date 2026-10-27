@@ -162,6 +162,24 @@ def test_zig_marker_counts_as_coverage(tmp_path):
     assert "router-req-01: covered" in result.stdout
 
 
+def test_tsx_marker_counts_as_coverage(tmp_path):
+    """TSX components are the shipped enforcement surface for UI flows, so a
+    // spec: <id> marker in a .tsx file must satisfy the requirement. Without
+    .tsx in SCAN_EXTS the marker is invisible and the requirement reads
+    UNCOVERED -- coverage that looks asserted in the source but is never counted.
+    TSX uses // comments, so the marker grammar already fits; only the
+    extension allowlist kept it out."""
+    write(tmp_path / "openspec/specs/router/spec.md", SPEC)
+    write(tmp_path / "src/Router.tsx",
+          'export function Router() {\n'
+          '  // spec: router-req-01 -- enforced by the route switch\n'
+          '  return null;\n'
+          '}\n')
+    result = run(tmp_path, "--report")
+    assert result.returncode == 0
+    assert "router-req-01: covered" in result.stdout
+
+
 def test_hash_marker_covers_python_requirement(tmp_path):
     """H6 fix: `# spec: <id>` must count for Python/Ruby/shell sources. The
     `//`-only grammar meant a Python consumer in blocking mode could never

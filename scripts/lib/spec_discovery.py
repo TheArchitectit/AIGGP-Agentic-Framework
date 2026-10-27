@@ -34,7 +34,7 @@ ID = re.compile(r"[a-z0-9-]+")
 # repos mark coverage in GDScript source, and a marker the discovery cannot
 # read is an uncovered requirement forever. No .gd file exists in this repo
 # and MergeKingdom has no markers yet, so no existing number shifts.
-SCAN_EXTS = {".rs", ".py", ".mjs", ".js", ".ts", ".sh", ".zig", ".gd"}
+SCAN_EXTS = {".rs", ".py", ".mjs", ".js", ".ts", ".tsx", ".sh", ".zig", ".gd"}
 SCAN_SKIP = {"target", "node_modules", ".git", "openspec", ".devgate"}
 
 
