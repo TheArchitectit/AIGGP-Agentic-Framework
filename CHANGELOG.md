@@ -17,6 +17,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A runtime-capability check skips loudly instead of measuring the runtime.**
+  `test_schema_health_config.mjs`'s cold-install path needs `node:sqlite`
+  (Node 22.5+); the fleet's minimum runtime is Node 20 (ci.yml), where the
+  gate correctly fails loud ("adapter not usable", exit 1) for an engine that
+  cannot load — so check 4b asserted a skip the gate rightly refuses to give
+  and the suite went red on the fleet (run 40564317112: 2310 passed, 1 failed,
+  this file). The check now probes `node:sqlite` at load and skips LOUDLY when
+  the runtime cannot provide it — the same honesty guard
+  `tests/test_schema_health_exitcodes.py` already uses (`SQLITE_OK`) — and is
+  never reported as passed on a runtime that never ran it.
 - **Layout-asserting tests build the layout they claim to verify.** The four
   standalone-layout checks (log_failure default registry, detect-host-ci CLI
   ×2, schema-health unconfigured skip) ran the LIVE scripts against the live

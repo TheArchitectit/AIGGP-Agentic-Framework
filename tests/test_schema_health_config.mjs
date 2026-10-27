@@ -20,6 +20,19 @@ function check(name, cond, detail = "") {
 	else { failures++; console.error(`FAIL - ${name}${detail ? `: ${detail}` : ""}`); }
 }
 
+// node:sqlite is Node 22.5+; the fleet's minimum runtime is Node 20 (ci.yml).
+// The cold-install skip path below needs the engine to LOAD first — on a
+// runtime without it the gate correctly fails loud ("adapter not usable",
+// exit 1) instead of skipping, so the assertion would measure the runtime,
+// not the gate. Same honesty guard the Python suite uses (SQLITE_OK in
+// tests/test_schema_health_exitcodes.py): skip the check loudly, never
+// report it as passed.
+let HAS_NODE_SQLITE = false;
+try {
+	await import("node:sqlite");
+	HAS_NODE_SQLITE = true;
+} catch { /* runtime cannot load it */ }
+
 function runWith(cfg) {
 	const tmp = mkdtempSync(join(tmpdir(), "dg-schema-"));
 	mkdirSync(join(tmp, ".guardrails"), { recursive: true });
@@ -58,9 +71,13 @@ check("unknown adapter name fails", r.status === 1, r.stdout + r.stderr);
 // 4b. Fully configured against a real engine with no database file: the
 //     cold-install skip (exit 2), proving config alone selects the adapter
 //     (no script edit needed) and a skip is never a pass.
-r = runWith({ adapter: "sqlite", expected_columns: [["t", "c", "T"]] });
-check("configured adapter with no db is a loud skip", r.status === 2,
-	r.stdout + r.stderr);
+if (HAS_NODE_SQLITE) {
+	r = runWith({ adapter: "sqlite", expected_columns: [["t", "c", "T"]] });
+	check("configured adapter with no db is a loud skip", r.status === 2,
+		r.stdout + r.stderr);
+} else {
+	console.log("skip - configured-adapter cold-install path needs node:sqlite (absent in this runtime)");
+}
 
 // 5. Malformed config JSON: fail loud, not silently ignored.
 {
