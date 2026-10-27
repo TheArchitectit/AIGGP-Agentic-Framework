@@ -69,10 +69,21 @@ def _configured_copy(tmp: Path, columns: str,
 class TestExitCodeContract(unittest.TestCase):
     def test_unconfigured_skip_is_exit_2_not_0(self):
         """A skip and a pass must not share an exit code."""
-        proc = _run_script(SCHEMA_SCRIPT)
-        self.assertEqual(proc.returncode, 2,
-                         f"stderr: {proc.stderr}\nstdout: {proc.stdout}")
-        self.assertIn("SKIPPED", proc.stdout)
+        # The UNCONFIGURED path must be BUILT, not assumed: run from a vendored
+        # checkout the script serves the HOST project, whose
+        # .guardrails/schema-health.json is configured — a different skip path
+        # ("Database not found", message on stderr) than the unconfigured one
+        # this test pins (message on stdout). A clone-layout copy with no
+        # config reaches the unconfigured skip wherever this suite runs.
+        with tempfile.TemporaryDirectory() as td:
+            scripts = Path(td) / "gameproj" / "scripts"
+            scripts.mkdir(parents=True)
+            shutil.copy2(SCHEMA_SCRIPT, scripts / SCHEMA_SCRIPT.name)
+            proc = _run_script(scripts / SCHEMA_SCRIPT.name)
+            self.assertEqual(proc.returncode, 2,
+                             f"stderr: {proc.stderr}\nstdout: {proc.stdout}")
+            self.assertIn("SKIPPED", proc.stdout)
+            self.assertIn("No database configured", proc.stdout)
 
     @unittest.skipUnless(SQLITE_OK, "node:sqlite not available in this runtime")
     def test_unusable_adapter_is_exit_1(self):

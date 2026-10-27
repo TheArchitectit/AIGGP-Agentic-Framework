@@ -17,6 +17,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Layout-asserting tests build the layout they claim to verify.** The four
+  standalone-layout checks (log_failure default registry, detect-host-ci CLI
+  ×2, schema-health unconfigured skip) ran the LIVE scripts against the live
+  checkout and asserted clone-layout behavior — green only when the framework
+  is checked out standalone (CI), red whenever it is vendored as
+  `<host>/.devgate`, which is exactly the layout every consumer runs. Each
+  now copies the script into a real clone-layout tree (`<tmp>/gameproj/scripts/`,
+  a root NOT named `.devgate`) and asserts there; the schema-health case also
+  pins the unconfigured skip's message on stdout, because the vendored run
+  took a different skip path (host's configured DB absent — message on stderr)
+  than the unconfigured one its name promises. Full pytest suite now green in
+  both layouts (1890 passed, 0 failed).
 - **A spawned test engine always runs top-level — the runner scrubs
   `NODE_TEST_CONTEXT` from its children's env.** Measured 2026-10-27 on
   v26.11.1: when run-tests.mjs itself executes under `node --test` (its own

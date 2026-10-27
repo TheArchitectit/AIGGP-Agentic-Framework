@@ -6,7 +6,9 @@ accumulated entries referencing other repos' files. Now: project overlay by
 default, --baseline for maintainers, --registry / FAILURE_REGISTRY_PATH
 override, and the append-only contract (never rewrites existing lines).
 """
+import importlib.util
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -46,12 +48,24 @@ class TestLogFailureTargeting(unittest.TestCase):
         self.assertTrue(target.exists())
 
     def test_standalone_default_is_the_repo_registry(self):
-        # Standalone layout: DevGate IS the project, so the default target
-        # resolves to this repo's own .guardrails/failure-registry.jsonl —
-        # the same file the old default used. (Verified by resolution, not by
-        # writing into the real registry.)
-        sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-        from scripts import log_failure as lf
+        # Standalone (clone) layout: DevGate IS the project, so the default
+        # target resolves to the repo's own .guardrails/failure-registry.jsonl.
+        # The layout must be BUILT, not assumed: when this checkout is vendored
+        # as <host>/.devgate the module correctly resolves the parent as the
+        # project — asserting standalone against the live tree fails in exactly
+        # the layout every consumer uses. Copy the script into a tree NOT named
+        # .devgate and import that copy. (Verified by resolution, not by
+        # writing into any registry.)
+        standalone = Path(tempfile.mkdtemp(prefix="dg-logf-standalone-"))
+        self.addCleanup(shutil.rmtree, standalone, ignore_errors=True)
+        scripts = standalone / "scripts"
+        scripts.mkdir()
+        shutil.copy2(SCRIPT, scripts / "log_failure.py")
+        spec = importlib.util.spec_from_file_location(
+            "log_failure_standalone", scripts / "log_failure.py")
+        lf = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(lf)
+        self.assertEqual(lf.DEVGATE_ROOT, standalone)
         self.assertEqual(lf.PROJECT_ROOT, lf.DEVGATE_ROOT)
         self.assertEqual(lf.DEFAULT_REGISTRY,
                          lf.DEVGATE_ROOT / ".guardrails" / "failure-registry.jsonl")

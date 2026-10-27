@@ -1,4 +1,4 @@
-# DevGate release checksums — generated 2026-10-27T19:05:16Z
+# DevGate release checksums — generated 2026-10-27T19:11:09Z
 # Verify before use: python3 scripts/gen-checksums.py verify
 3ba50bc8b31743b05c2d11a2fe8156c44477548600ac9c2e1b4fa8f78e09c378  hub/__init__.py
 ee9d420de2f1a6dd228e9166b508e106f753dace985884ec6355581cabdbeb91  hub/alerts.py

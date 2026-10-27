@@ -7,6 +7,7 @@ robustness, and `FROM --platform=... <image>` parsing.
 """
 import importlib.util
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -88,16 +89,33 @@ class TestRunnerAssets(unittest.TestCase):
 
 
 class TestCLIStandalone(unittest.TestCase):
+    # Clone layout: DevGate IS the repo (scripts/ directly under the root,
+    # not under a .devgate/). The layout must be BUILT, not assumed: running
+    # the live script from a vendored checkout reports "submodule" (correctly)
+    # and these assertions fail in exactly the layout every consumer uses.
+    # host_repo_root() keys on the script's own file location — a copy under
+    # <tmp>/gameproj/scripts/ is standalone no matter what the live tree is.
+    def _standalone_copy(self):
+        root = Path(tempfile.mkdtemp(prefix="dg-detect-standalone-"))
+        self.addCleanup(shutil.rmtree, root, ignore_errors=True)
+        scripts = root / "scripts"
+        scripts.mkdir()
+        shutil.copy2(SCRIPT, scripts / SCRIPT.name)
+        return root, scripts / SCRIPT.name
+
     def test_standalone_reports_no_host(self):
-        r = subprocess.run([sys.executable, str(SCRIPT)],
-                           capture_output=True, text=True, cwd=str(REPO))
+        root, script = self._standalone_copy()
+        r = subprocess.run([sys.executable, str(script)],
+                           capture_output=True, text=True, cwd=str(root))
         self.assertEqual(r.returncode, 0, r.stderr)
         data = json.loads(r.stdout)
         self.assertEqual(data["devgate_layout"], "standalone")
+        self.assertIsNone(data["host_repo"])
 
     def test_fail_on_missing_standalone_exits_1(self):
-        r = subprocess.run([sys.executable, str(SCRIPT), "--fail-on-missing"],
-                           capture_output=True, text=True, cwd=str(REPO))
+        root, script = self._standalone_copy()
+        r = subprocess.run([sys.executable, str(script), "--fail-on-missing"],
+                           capture_output=True, text=True, cwd=str(root))
         self.assertEqual(r.returncode, 1)
 
 
