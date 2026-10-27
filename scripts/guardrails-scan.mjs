@@ -116,6 +116,15 @@ function isTestFile(rel) {
 	if (base.endsWith("_test.go") || base.endsWith("_test.rs") || base.endsWith("_test.py") || base.endsWith("_test.zig")) return true;
 	if (base === "tests.rs" || /_tests\.rs$/.test(base)) return true; // Rust sibling cfg(test) modules
 	if (/^(conftest|test_.*|.*\.test\.|.*\.spec\.)/.test(base)) return true;
+	// Shared test-fixture modules (JS/TS convention `*-test-helpers.ts` /
+	// `*-test-utils.ts`, e.g. vbrainstorm's space-test-helpers.ts and
+	// invite-test-helpers.ts) hold test harness code only — synthetic
+	// Request builders, in-memory DB shims — never production behavior.
+	// Measured 2026-10-27: PREVENT-029 fired on a fixture module's
+	// `new Request(`http://localhost…`)` while the equivalent line in a
+	// `*.test.ts` file was correctly exempt. Test paths carry no production
+	// pattern obligations; the fixture-module naming is part of that.
+	if (/(^|[.-])test[-_]?(helpers|utils)\.(ts|tsx|js|jsx|mjs|cjs)$/i.test(base)) return true;
 	return false;
 }
 

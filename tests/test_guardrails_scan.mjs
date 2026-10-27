@@ -532,6 +532,43 @@ check("12b: exclude_glob silences the exempt path on an unscoped rule", !r.err.i
 check("12b: the same unscoped rule still fires outside the exemption", r.err.includes("src/app.ts"));
 cleanup(dir18);
 
+// --- 19. Shared test-fixture modules are test code --------------------------
+// Measured 2026-10-27 (vbrainstorm acceptance tree): `invite-test-helpers.ts`
+// holds a synthetic `new Request(`http://localhost…`)` route-fixture builder
+// imported only by *.test.ts suites. The `*.test.ts` files' identical lines
+// were exempt ("Error/critical rules do not apply to test code"), but the
+// fixture module's name matched no test pattern, so PREVENT-029 (critical)
+// hard-blocked correct test infrastructure. The JS/TS fixture-module naming
+// (`*-test-helpers.*` / `*-test-utils.*`) is test code in both scanners.
+const dir19 = mkdtempSync(join(tmpdir(), "devgate-scan-"));
+makeProject(dir19, {
+	"src/community/invite-test-helpers.ts":
+		"export function api(path) {\n  return new Request(`http://localhost${path}`);\n}\n",
+	"src/community/routes.ts":
+		"export function api(path) {\n  return new Request(`http://localhost${path}`);\n}\n",
+	"src/community/join-flow.test.ts":
+		"export function api(path) {\n  return new Request(`http://localhost${path}`);\n}\n",
+});
+mkdirSync(join(dir19, ".guardrails", "prevention-rules"), { recursive: true });
+writeFileSync(join(dir19, ".guardrails", "prevention-rules", "pattern-rules.json"), JSON.stringify({
+	version: "1.0.0",
+	rules: [{
+		rule_id: "PREVENT-TST-NET",
+		name: "no network calls in core modules",
+		enabled: true,
+		pattern: "(fetch\\(|https?://)",
+		severity: "critical",
+		file_glob: ["src/**/*.ts"],
+		message: "Core modules should not make network calls at runtime",
+		suggestion: "-",
+	}],
+}));
+r = runScan(dir19);
+check("19: a fixture module's synthetic Request is test code — silent", !r.err.includes("invite-test-helpers.ts"));
+check("19: the same line in a *.test.ts file stays exempt", !r.err.includes("join-flow.test.ts"));
+check("19: the same line in production code still blocks", r.err.includes("routes.ts"));
+cleanup(dir19);
+
 // --- 13. Python-side semantics agree: file_glob + allow + ignore -------------
 // (game_regression.py is exercised by tests/test_game_regression.py,
 //  gate_overlay.py by tests/test_gate_overlay.py)

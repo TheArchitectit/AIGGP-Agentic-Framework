@@ -324,7 +324,15 @@ def _replacement_blocks(hunk):
     Named limit: an in-place substitution buried inside a block whose line
     counts differ is NOT compared, and so is not reported. That is a deliberate
     false-negative for the false-positive this gate shipped; whole-file
-    rewrites remain covered by the mass-rewrite rule below.
+    rewrites remain covered by the mass-rewrite rule below. The caller also
+    skips flip pairing for whole-file rewrites outright (scan_diff): a
+    rewrite asserts no line correspondence at all, so its equal-size
+    alignment blocks pair unrelated lines (measured 2026-10-27 on the
+    invites.ts barrel split — a deleted 'This replaces the Phase-1
+    FIXTURE_INVITES map…' comment paired with an added 'Every public name
+    this module historically exported…' comment: 78% "changed", length
+    within 3%, called a substitution flip). Those files are judged by the
+    mass-rewrite rule alone.
     """
     rems = [text for kind, _ln, text in hunk if kind == "-"]
     adds = [(ln, text) for kind, ln, text in hunk if kind == "+"]
@@ -371,8 +379,19 @@ def scan_diff(diff: str, allow: dict[str, str], max_report: int,
     for p, _ln, _t in added:
         add_by_file[p] += 1
 
+    # Whole-file rewrites assert no line correspondence (see
+    # _replacement_blocks): their equal-size alignment blocks pair unrelated
+    # lines and invent substitution flips. They are judged by the mass-rewrite
+    # rule below alone (warn by default, fatal under --strict-mass-rewrite,
+    # counted toward BULK MUTATION).
+    rewrite_paths = {
+        p for p in add_by_file
+        if add_by_file[p] >= MASS_REWRITE_MIN_LINES
+        and rem_by_file[p] >= MASS_REWRITE_MIN_LINES
+    }
+
     for path, hunk in _diff_hunks(diff):
-        if path in allow:
+        if path in allow or path in rewrite_paths:
             continue
         for rems, adds in _replacement_blocks(hunk):
             for i in range(min(len(rems), len(adds))):

@@ -12,7 +12,7 @@
   "test_coherence_local_wrapper": 12,
   "test_coherence_workflow_template": 12,
   "test_detect_host_ci": 8,
-  "test_diff_pattern_allow": 4,
+  "test_diff_pattern_allow": 6,
   "test_evidence_integrity": 18,
   "test_failure_registry_check": 11,
   "test_findings_to_spec": 4,
@@ -132,5 +132,5 @@
   "test_template_supply_chain": 4,
   "test_workflow_read": 15
  },
- "total_floor": 1689
+ "total_floor": 1692
 }

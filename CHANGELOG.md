@@ -17,6 +17,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`check_diff_against_patterns` honors the shared scanner contract
+  (comment lines + test-code scope).** Measured 2026-10-27 on the vbrainstorm
+  community-acceptance tree: the prevention-pattern checker treated full-line
+  comments as code — doc prose reading "D5): any non-banned member …" and
+  "model by Space type\"): any visitor may enroll" matched PREVENT-011 /
+  PREVENT-VB-001's `:\\s*any` as if it were a TypeScript `any` type — and it
+  applied blocking rules to test code, so synthetic in-process route fixtures
+  (``new Request(`http://localhost${path}`)``, Request `origin:
+  "http://localhost"` options) hard-failed CI's `--pre-commit` mode with
+  PREVENT-029 CRITICAL on `*.test.ts` files that `guardrails-scan.mjs`
+  correctly exempted. The same diff passed one scanner and failed the other —
+  FAIL-9231181d's "identical semantics intended for every scanner" contract
+  broken two ways. `check_diff_against_patterns` now skips full-comment lines
+  unless the rule opts in via `scan_comments` (exactly guardrails's comment
+  contract; trailing inline comments still scan their code portion), and skips
+  blocking rules (severity != "warning") on test files — warning-severity rules
+  stay advisory everywhere, matching guardrails. `tests/test_diff_pattern_allow.py`
+  grows 5 → 7 checks pinning both exclusions and their controls (code-line hits
+  still fire, `scan_comments: true` still opts a marker rule back in, production
+  paths still block).
+
+- **Whole-file rewrites no longer feed flip pairing in `check_corruption`.**
+  Measured 2026-10-27: vbrainstorm's `invites.ts` stability-barrel rewrite
+  (9.13) reported `substitution flip (78% of characters changed, length within
+  3%)` by pairing the old file's first comment ("This replaces the Phase-1
+  FIXTURE_INVITES map; the InviteView response") with the barrel's first
+  comment ("Every public name this module historically exported is re-exported
+  here,") — SequenceMatcher alignment across a whole-file rewrite invents
+  comment-to-comment pairs that share no content. The detector's own coverage
+  model already judges rewrites via the mass-rewrite rule (≥8 add AND ≥8 rem
+  per file; ≥10 files = BULK MUTATION), which reported the same rewrite as an
+  intentional mass rewrite. Files that cross the mass-rewrite threshold are
+  now excluded from flip pairing and judged by that rule alone;
+  1↔1 edits of the same comment pair still fail flip (control test), and
+  `tests/test_check_corruption.py` pins both legs.
+
+- **`*-test-helpers.ts` / `*-test-utils.ts` are test code in both scanners.**
+  Shared fixture modules (vbrainstorm's `space-test-helpers.ts`,
+  `invite-test-helpers.ts`) hold harness-only code — synthetic Request
+  builders, in-memory DB shims — but neither scanner's test-file classifier
+  recognized the naming, so `guardrails-scan.mjs` fired PREVENT-029 CRITICAL on
+  a fixture module's synthetic `new Request(\`http://localhost…\`)` while the
+  identical line in a `*.test.ts` file was exempt. `isTestFile` (Node) and
+  `_is_test_file` (Python) now match `(^|[.-])test[-_]?(helpers|utils)\.(ts|tsx|js|jsx|mjs|cjs)$`,
+  keeping blocking-rule exemptions consistent for the fixture-module
+  convention. `test_guardrails_scan.mjs` case 19 pins fixture/test silent +
+  production blocking for the same line.
+
 - **Pattern-rule `exclude_glob` honored by both scanners.** The Python
   `regression_check.py rules_for_file` applied a rule's `file_glob` but never
   its `exclude_glob`, and `guardrails-scan.mjs ruleAppliesTo` only read

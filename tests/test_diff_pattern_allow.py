@@ -92,6 +92,52 @@ def test_test_scoped_context_does_not_silence_production_lines():
     assert check_diff_against_patterns(prod, rules, "tests/test_app.py") == []
 
 
+def test_comment_lines_are_out_of_scope_unless_scan_comments():
+    """Measured 2026-10-27 (vbrainstorm acceptance tree): a doc comment
+    reading "D5): any non-banned member …" matched PREVENT-011 /
+    PREVENT-VB-001's `:\\s*any` as if it were a TypeScript any type, and
+    "model by Space type\"): any visitor may enroll" matched the same. Full-
+    comment lines are out of scope unless the rule opts in via
+    scan_comments — exactly guardrails-scan.mjs's comment contract."""
+    rules = [_rule(rule_id="PREVENT-011", pattern=r"(:\s*any|as\s+any)")]
+    prose = _diff("// Member invite powers (D5): any non-banned member may mint invites")
+    assert check_diff_against_patterns(prose, rules, "src/community/invites-member-powers.test.ts") == []
+    # A code line carrying the same shape still fires (comments only).
+    code = _diff("const fallback: any = pick();")
+    violations = check_diff_against_patterns(code, rules, "src/app.ts")
+    assert len(violations) == 1, f"code-line hit missed: {violations}"
+    # scan_comments: true opts the rule back into comment prose (marker rules).
+    marker = [_rule(rule_id="PREVENT-020", pattern=r"TODO", scan_comments=True)]
+    todo = _diff("// TODO: track this")
+    violations = check_diff_against_patterns(todo, marker, "src/app.ts")
+    assert len(violations) == 1, f"scan_comments opt-in ignored: {violations}"
+
+
+def test_blocking_rules_do_not_apply_to_test_code():
+    """Measured 2026-10-27 (vbrainstorm acceptance tree): synthetic in-process
+    route fixtures — `new Request(`http://localhost${path}`)` and Request
+    `origin: "http://localhost"` options — fired PREVENT-029 (critical) on
+    *.test.ts files in THIS scanner while guardrails-scan.mjs correctly
+    skipped them ("Error/critical rules do not apply to test code"). The
+    same correct diff passed one scanner and hard-failed the other in CI
+    (--pre-commit). Blocking = severity != "warning", the guardrails line."""
+    net = _rule(rule_id="PREVENT-029", severity="critical",
+                pattern=r"(fetch\(|https?://)")
+    fixture = _diff('return handle(new Request(`http://localhost${path}`), env, path);')
+    assert check_diff_against_patterns(fixture, [net], "src/community/invite-test-helpers.ts") == []
+    assert check_diff_against_patterns(fixture, [net], "src/community/join-flow.test.ts") == []
+    # Production code still fails the same rule.
+    violations = check_diff_against_patterns(fixture, [net], "src/community/routes.ts")
+    assert len(violations) == 1, f"production network call missed: {violations}"
+    # Warning-severity rules stay advisory everywhere — including test code
+    # (guardrails reports them there too; only blocking rules are exempt).
+    warn = _rule(rule_id="PREVENT-012", severity="warning",
+                 pattern=r"console\.(log|debug|info)")
+    noisy = _diff("console.log(err);")
+    violations = check_diff_against_patterns(noisy, [warn], "src/app.test.ts")
+    assert len(violations) == 1, f"warning rule wrongly dropped on test code: {violations}"
+
+
 def main() -> int:
     tests = [(n, f) for n, f in sorted(globals().items())
              if n.startswith("test_") and callable(f)]

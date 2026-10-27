@@ -20,11 +20,13 @@ Locks the contract:
 """
 from __future__ import annotations
 
+import io
 import json
 import subprocess
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "check_corruption.py"
@@ -376,6 +378,42 @@ class CorruptionFlipPairing(unittest.TestCase):
             "+--- qwerty uiopas dfghjkl zxcvbnm nm,./ poiuyt\n"
         )
         self.assertEqual(cc.scan_diff(diff, {}, 30), 1)
+
+    def test_whole_file_rewrite_alignment_artifact_is_not_a_flip(self):
+        # Measured 2026-10-27 on the vbrainstorm invites.ts barrel split (a
+        # 548-line implementation rewritten to a 37-line re-export barrel).
+        # The diff is a whole-file rewrite: no line correspondence exists
+        # between the sides, but SequenceMatcher still emits equal-size
+        # replace blocks from its local alignment, and positional pairing
+        # inside one compared a DELETED comment ("This replaces the Phase-1
+        # FIXTURE_INVITES map…") with an UNRELATED ADDED comment ("Every
+        # public name this module historically exported…") — 78% "changed",
+        # length within 3% — and failed the gate on correct code. A rewrite
+        # asserts no correspondence at all: the mass-rewrite rule judges it
+        # (still warned here — never silent), never flip pairs.
+        cc = self._load()
+        removed = ["// This replaces the Phase-1 FIXTURE_INVITES map; the InviteView response"]
+        removed += [f"// old implementation line {i} carries the moved logic text" for i in range(11)]
+        added = ["// Every public name this module historically exported is re-exported here,"]
+        added += [f"// barrel re-export stub number {i} keeps import sites unchanged" for i in range(11)]
+        diff = ("diff --git a/src/community/invites.ts b/src/community/invites.ts\n"
+                "--- a/src/community/invites.ts\n+++ b/src/community/invites.ts\n"
+                "@@ -1,12 +1,12 @@\n"
+                + "".join(f"-{line}\n" for line in removed)
+                + "".join(f"+{line}\n" for line in added))
+        out = io.StringIO()
+        with redirect_stdout(out):
+            verdict = cc.scan_diff(diff, {}, 30)
+        self.assertEqual(verdict, 0, out.getvalue())
+        self.assertIn("MASS REWRITE", out.getvalue())
+        # Control: the SAME tuned pair outside a rewrite is a 1-to-1 in-place
+        # substitution and must still fail — the fix narrows scope, not
+        # detection (same contract as test_insert_then_substitute_fails_on_the_substitution).
+        small = ("diff --git a/src/community/invites.ts b/src/community/invites.ts\n"
+                 "--- a/src/community/invites.ts\n+++ b/src/community/invites.ts\n"
+                 "@@ -6 +6 @@\n"
+                 f"-{removed[0]}\n+{added[0]}\n")
+        self.assertEqual(cc.scan_diff(small, {}, 30), 1)
 
 
 if __name__ == "__main__":
