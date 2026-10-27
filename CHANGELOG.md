@@ -17,6 +17,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **stitcher-codereview lint surface clean (5 errors removed).** Four
+  `no-useless-escape` hits (`checks/drift.ts:62`, `checks/tests.ts:48,60`,
+  `spec/parser.ts:95`) were `\-` inside character classes where a literal
+  trailing `-` is the same set — verified equivalent over a 22-char alphabet
+  plus split/replace samples. `templates/types.ts:98` typed its `file`
+  parameter as `any` behind a PREVENT-011 allow comment; it is a parsed diff
+  record, so it now takes the module's own `DiffFile` and the allow comment is
+  gone. `npm run build` (tsc) EXIT 0 after the change; the package's `npm test`
+  (vitest) finds no shipped test files — behavior evidence is the regex
+  equivalence check and the clean build, not a suite run.
+
+- **SEMANTIC-005 no longer demands dependencies the React lint forbids.**
+  Measured on vbrainstorm (2026-10-27, community-acceptance-fixes warning
+  sweep): the rule required module-scope bindings (ES imports, top-level
+  declarations) and host builtins (`encodeURIComponent`) in every `useEffect`
+  dependency array — the exact names `react-hooks/exhaustive-deps` rejects as
+  "unnecessary dependencies … Outer scope values like 'X' aren't valid
+  dependencies because mutating them doesn't re-render". Listing one silenced
+  SEMANTIC-005 but fired the React lint; omitting it did the reverse, so no
+  array could win on both gates — the contradiction the rule's own header
+  already disclaims ("module plumbing" is exempt). Three exemptions close it:
+  `moduleScopeNames(sourceFile)` treats every module-scope binding as the
+  module plumbing it is (name-based, no scope walk — a rare component-local
+  shadowing false negative is the accepted trade, matching the header
+  philosophy); `EFFECT_GLOBALS` now spells the frozen ECMA-262 /
+  web-platform builtins (`encodeURI*`, `decodeURI*`, `atob`/`btoa`, `URL`,
+  `URLSearchParams`, `TextEncoder`/`TextDecoder`, `AbortController`/
+  `AbortSignal`, `structuredClone`, `queueMicrotask`, `performance`, `crypto`,
+  observer constructors `MutationObserver`/`IntersectionObserver`/
+  `ResizeObserver`, and the media constructors `Audio`/`MediaMetadata` —
+  `new Audio()` in AudioContext.tsx on vbrainstorm 2026-10-27 tripped the same
+  class); and free-identifier gathering now skips type-position identifiers
+  (`e: MessageEvent`, `querySelector<HTMLIFrameElement>`) — erased at compile
+  time, so a callback never reads them, and demanding one produced another
+  dependency the React lint forbids.
+  Component-scope values the callback reads stay required. The independent
+  audit's differential matrix (16 cases, pre/post-fix scanners, 2026-10-27)
+  then caught four residues where that last claim leaked, all now closed:
+  binding patterns collected property keys and default-initializer names as
+  bindings (`{ apiBase: API_BASE }` exempted a local `apiBase`; `{ a = helper() }`
+  exempted a local `helper`) — `bindingIdentifiers` now walks binding TARGETS
+  only; `declare global` registered its marker name `global` as a module
+  binding (exempting a local `global`) — ambient `global` is declaration
+  merging, not a binding; and `class X extends Base` / `extends makeBase()`
+  were treated as type positions because `ExpressionWithTypeArguments` is a
+  TypeNode — heritage EXPRESSIONS evaluate at runtime and are reads again,
+  while their `<T>` arguments stay exempt. Fixture coverage:
+  module-scope exempt, component-scope omitted local still flagged, the
+  ChatPane-shaped session effect green on the eslint-legal array, the
+  VerifyEmail-shaped host-builtin effect green (including the
+  Audio/MediaMetadata media constructors), type-position identifiers green,
+  binding-target/declare-global/heritage residues green, and the
+  no-dependency-array branch unchanged. `test_semantic_scan.mjs`
+  grew 12 → 25 checks.
 - **`--pre-commit` no longer green-lights an empty scope (gate-vacuous-01).**
   `--staged --pre-commit` run before `git add` scanned zero files, printed a
   NOTHING SCANNED banner followed by a green `0 over hard limit (blocks

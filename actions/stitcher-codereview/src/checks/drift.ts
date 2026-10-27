@@ -59,7 +59,7 @@ export interface FileMatch {
 /** Best-matching capability for a file path, or null. Threshold keeps strays unmapped. */
 export function mapFileToCapability(path: string, index: CapabilityIndex[]): FileMatch | null {
   const low = path.toLowerCase();
-  const segments = low.split(/[/_.\-]/).filter((s) => s.length >= 3);
+  const segments = low.split(/[/_.-]/).filter((s) => s.length >= 3);
   let best: { cap: string; score: number; via: string[] } | null = null;
   for (const c of index) {
     let score = 0;

@@ -155,6 +155,12 @@ function findUnhandledThenCalls(sourceFile) {
 
 // Values an effect reads without listing them: React, host globals, module
 // plumbing, and state setters (useState/reducer setters are contract-stable).
+// Module plumbing is BOTH the CJS names below AND, per file, every module-
+// scope binding (ES imports and top-level declarations) — see
+// moduleScopeNames(). Those are not reactive: react-hooks/exhaustive-deps
+// rejects listing them ("Outer scope values like 'X' aren't valid
+// dependencies because mutating them doesn't re-render the component"), so
+// flagging their absence here forced dependency arrays no React lint accepts.
 const EFFECT_GLOBALS = new Set([
 	"React", "console", "window", "document", "navigator", "location",
 	"localStorage", "sessionStorage", "fetch", "setTimeout", "clearTimeout",
@@ -162,6 +168,19 @@ const EFFECT_GLOBALS = new Set([
 	"Math", "JSON", "Date", "Number", "String", "Boolean", "Array", "Object",
 	"Promise", "Error", "globalThis", "process", "require", "module", "exports",
 	"undefined", "NaN", "Infinity",
+	// ECMA-262 / web-platform built-ins: frozen globals like the ones above —
+	// encodeURIComponent and friends tripped SEMANTIC-005 on vbrainstorm
+	// 2026-10-27 (VerifyEmail.tsx), demanding a dependency the React lint
+	// forbids. Same false-positive class as module plumbing.
+	"encodeURI", "decodeURI", "encodeURIComponent", "decodeURIComponent",
+	"atob", "btoa", "URL", "URLSearchParams", "TextEncoder", "TextDecoder",
+	"AbortController", "AbortSignal", "structuredClone", "queueMicrotask",
+	"performance", "crypto", "parseInt", "parseFloat", "isNaN", "isFinite",
+	"MutationObserver", "IntersectionObserver", "ResizeObserver",
+	// Media constructors of the same class: `new Audio()` / `new MediaMetadata()`
+	// (AudioContext.tsx on vbrainstorm 2026-10-27) — frozen host builtins whose
+	// listing is the "unnecessary dependency" warning above.
+	"Audio", "MediaMetadata",
 ]);
 
 const DECLARATION_KIND_NAMES = [
@@ -181,14 +200,24 @@ function declarationNameOf(node) {
 }
 
 // Every identifier a binding pattern introduces (`const {a, [b]: c} = …`).
+// Binding TARGETS only: `{ apiBase: API_BASE }` binds API_BASE (the property
+// key is a lookup name, not a binding), and `{ a = helper() }` binds a (the
+// initializer's free names are reads of something else, not bindings). The
+// SEMANTIC-005 audit cases C/D (2026-10-27) caught both leaking into the
+// declared set and wrongly exempting component-locals of the same spelling.
 function bindingIdentifiers(nameNode, out) {
 	if (!nameNode) return;
 	if (ts.isIdentifier(nameNode)) { out.add(nameNode.text); return; }
+	if (ts.isBindingElement(nameNode)) { bindingIdentifiers(nameNode.name, out); return; }
 	ts.forEachChild(nameNode, (c) => bindingIdentifiers(c, out));
 }
 
-// Identifiers the callback READS, minus what it declares itself and minus
-// property/key positions (`obj.prop` reads `obj`, never `prop`).
+// Identifiers the callback READS at RUNTIME, minus what it declares itself
+// and minus property/key positions (`obj.prop` reads `obj`, never `prop`).
+// Type-position identifiers (`e: MessageEvent`, `querySelector<HTMLIFrameElement>`)
+// are erased at compile time — a callback never reads them — so they are not
+// reads (demanding one produced another dependency the React lint forbids;
+// caught on vbrainstorm 2026-10-27).
 function freeIdentifiers(fn) {
 	const declared = new Set();
 	for (const p of fn.parameters) bindingIdentifiers(p.name, declared);
@@ -199,6 +228,29 @@ function freeIdentifiers(fn) {
 	}
 	collect(fn);
 
+	function isTypePosition(node) {
+		for (let n = node.parent; n && n !== fn; n = n.parent) {
+			if (ts.isExpressionWithTypeArguments(n)) {
+				// `class X extends Base` / `extends makeBase()` EVALUATES the
+				// expression at runtime — only the `<T>` type arguments are
+				// erased (audit cases I/L, 2026-10-27). ExpressionWithTypeArguments
+				// is a TypeNode, so the plain check below would hide the read.
+				if (n.typeArguments) {
+					for (const t of n.typeArguments) {
+						if (t === node || isAncestorOf(t, node)) return true;
+					}
+				}
+				return false;
+			}
+			if (ts.isTypeNode(n)) return true;
+		}
+		return false;
+	}
+	function isAncestorOf(ancestor, node) {
+		for (let p = node.parent; p; p = p.parent) if (p === ancestor) return true;
+		return false;
+	}
+
 	const refs = new Set();
 	function gather(node) {
 		if (ts.isIdentifier(node)) {
@@ -206,7 +258,7 @@ function freeIdentifiers(fn) {
 			const isDeclName = parent && declarationNameOf(parent) === node;
 			const isProp = parent && ts.isPropertyAccessExpression(parent) && parent.name === node;
 			const isKey = parent && ts.isPropertyAssignment(parent) && parent.name === node;
-			if (!isDeclName && !isProp && !isKey) refs.add(node.text);
+			if (!isDeclName && !isProp && !isKey && !isTypePosition(node)) refs.add(node.text);
 			return;
 		}
 		ts.forEachChild(node, gather);
@@ -220,8 +272,50 @@ function freeIdentifiers(fn) {
 	return refs;
 }
 
+// Names bound at MODULE scope: ES import bindings plus top-level declarations
+// (values and type declarations alike). These are the "module plumbing"
+// EFFECT_GLOBALS can only spell for CJS — a module binding is never a valid
+// React dependency (mutating it does not re-render), so
+// react-hooks/exhaustive-deps rejects listing one ("Outer scope values like
+// 'X' aren't valid dependencies") while this rule used to demand it. That
+// contradiction — an array that cannot satisfy both gates — is what this
+// exempts. Component-scope values (props, state, component-locals) are NOT
+// module bindings and stay required; a component that shadows a module name
+// is the rare residue (see the rule note in semantic-rules.json).
+function moduleScopeNames(sourceFile) {
+	const names = new Set();
+	function declare(nameNode) { bindingIdentifiers(nameNode, names); }
+	for (const stmt of sourceFile.statements) {
+		if (ts.isImportDeclaration(stmt) && stmt.importClause) {
+			const c = stmt.importClause;
+			if (c.name) declare(c.name); // import X from …
+			if (c.namedBindings) {
+				if (ts.isNamespaceImport(c.namedBindings)) declare(c.namedBindings.name); // import * as ns
+				else if (ts.isNamedImports(c.namedBindings)) {
+					for (const el of c.namedBindings.elements) declare(el.name); // { a as b } binds b
+				}
+			}
+			continue;
+		}
+		if (ts.isVariableStatement(stmt)) {
+			for (const d of stmt.declarationList.declarations) declare(d.name);
+			continue;
+		}
+		const n = declarationNameOf(stmt); // top-level function/class
+		if (n) declare(n);
+		// enum/interface/type-alias/namespace declarations carry .name —
+		// except `declare global { … }`, whose `global` is a declaration-merging
+		// marker, not a binding (audit case G, 2026-10-27: it wrongly exempted
+		// a component-local named `global`).
+		const isAmbientGlobal = ts.isModuleDeclaration(stmt) && stmt.name && ts.isIdentifier(stmt.name) && stmt.name.text === "global";
+		if (stmt.name && ts.isIdentifier(stmt.name) && !isAmbientGlobal) names.add(stmt.name.text);
+	}
+	return names;
+}
+
 function findEffectMissingDeps(sourceFile) {
 	const violations = [];
+	const moduleScope = moduleScopeNames(sourceFile);
 	function lineOf(node) {
 		return sourceFile.getLineAndCharacterOfPosition(node.getStart()).line + 1;
 	}
@@ -239,7 +333,9 @@ function findEffectMissingDeps(sourceFile) {
 		if (!ts.isArrayLiteralExpression(deps)) return;
 		if (deps.elements.some((e) => !ts.isIdentifier(e))) return;
 		const provided = new Set(deps.elements.map((e) => e.text));
-		const missing = [...freeIdentifiers(cb)].filter((n) => !provided.has(n)).sort();
+		const missing = [...freeIdentifiers(cb)]
+			.filter((n) => !provided.has(n) && !moduleScope.has(n))
+			.sort();
 		if (missing.length > 0) {
 			violations.push({
 				line: lineOf(call),

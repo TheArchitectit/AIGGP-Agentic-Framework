@@ -1,4 +1,5 @@
-// Fixture tests for semantic-scan.mjs's project-overlay merge.
+// Fixture tests for semantic-scan.mjs's project-overlay merge and
+// SEMANTIC-005's module-scope exemption.
 //
 // History these tests prevent from regressing:
 //   * semantic-scan.mjs loaded ONLY the bundled `.devgate/.guardrails/
@@ -16,6 +17,20 @@
 //     must actually replace it — its `suggestion` (the only rule-doc field the
 //     finding line prints, next to the checker's own message) must show up in
 //     the finding.
+//   * SEMANTIC-005 used to demand module-scope bindings (ES imports, top-level
+//     declarations) in every dependency array — the exact names
+//     react-hooks/exhaustive-deps rejects as "unnecessary dependencies …
+//     Outer scope values like 'X' aren't valid dependencies because mutating
+//     them doesn't re-render". No array could satisfy both gates. Module
+//     plumbing is exempt (matching the rule's own header claim); component-
+//     scope values the callback reads remain required.
+//   * Same conflict for host builtins: encodeURIComponent and friends are
+//     frozen globals (verifiable on vbrainstorm 2026-10-27, VerifyEmail.tsx
+//     where the effect builds a /verify-email?token= URL) — listing one in a
+//     dependency array is an eslint "unnecessary dependency" warning, omitting
+//     it used to be a SEMANTIC-005 finding. The EFFECT_GLOBALS set spells the
+//     exempt host-globals class incompletely; these fixtures lock the ECMA-262
+//     / web-platform builtins in it.
 //
 // Note on `message`: finding text comes from the CHECKER (it carries dynamic
 // detail, e.g. SEMANTIC-005's missing names), not from rule.message. The
@@ -201,6 +216,278 @@ const TRIP = "export function main() {\n\tdoWork().then(() => {});\n}\n";
 		r.err.slice(-300));
 	check("standalone: no overlay-merge banner for the self-file",
 		!r.out.includes("overlay merged"));
+	cleanup(dir);
+}
+
+// --- 5. SEMANTIC-005 exempts module-scope bindings (ES imports, top-level) ---
+// Pre-fix this fails: readSession (an ES import) and PAGE (a top-level const)
+// were demanded in the dependency array — the exact names react-hooks/
+// exhaustive-deps calls "unnecessary dependencies … Outer scope values …
+// aren't valid dependencies because mutating them doesn't re-render the
+// component". Listing them silences SEMANTIC-005 but fires the React lint;
+// omitting them does the reverse. No array could win.
+{
+	const dir = mkdtempSync(join(tmpdir(), "devgate-sem-"));
+	makeProject(dir, {
+		"src/session.ts": "export function readSession() { return null; }\n",
+		"src/list.ts": [
+			'import { readSession } from "./session";',
+			"const PAGE = 50;",
+			"export function useList(logPath: string) {",
+			"\tuseEffect(() => {",
+			"\t\tvoid readSession();",
+			"\t\tvoid PAGE;",
+			"\t\tvoid logPath;",
+			"\t}, [logPath]);",
+			"}",
+			"",
+		].join("\n"),
+	});
+	const r = runScan(dir);
+	check("module-scope: import + top-level const need not be listed",
+		r.code === 0 && !r.err.includes("SEMANTIC-005"),
+		r.err.slice(-300));
+	check("module-scope: scan reports clean", r.out.includes("semantic scan clean"));
+	cleanup(dir);
+}
+
+// --- 6. SEMANTIC-005 still demands component-scope values -------------------
+// The exemption is module-scope ONLY. A value created inside the component
+// (fetchData below) is exactly what a stale closure reads — omitting it stays
+// a finding, or the fix above would disarm the rule.
+{
+	const dir = mkdtempSync(join(tmpdir(), "devgate-sem-"));
+	makeProject(dir, {
+		"src/comp.ts": [
+			"export function useList(logPath: string) {",
+			"\tconst fetchData = () => { void logPath; };",
+			"\tuseEffect(() => {",
+			"\t\tfetchData();",
+			"\t}, []);",
+			"}",
+			"",
+		].join("\n"),
+	});
+	const r = runScan(dir);
+	check("component-scope: omitted local is still a finding",
+		r.code === 1 && r.err.includes("SEMANTIC-005") && r.err.includes("fetchData"),
+		r.err.slice(-300));
+	cleanup(dir);
+}
+
+// --- 7. real consumer shape: ChatPane-style session effect ------------------
+// The vbrainstorm ChatPane effect that started all this: reads an ES import
+// class + a session reader, lists its props/callback/refs and nothing else.
+// Pre-fix this demands ChatSession/readCommunitySession in the array; post-
+// fix the exact array eslint accepts is clean here too.
+{
+	const dir = mkdtempSync(join(tmpdir(), "devgate-sem-"));
+	makeProject(dir, {
+		"src/chat-session.ts": "export class ChatSession { connect() {} close() {} }\n",
+		"src/session.ts": "export function readCommunitySession() { return null; }\n",
+		"src/chat-pane.ts": [
+			'import { ChatSession } from "./chat-session";',
+			'import { readCommunitySession } from "./session";',
+			"export function useChat(spaceId: string, activeRoomId: string | null, refresh: () => void) {",
+			"\tconst sessionRef = { current: null as ChatSession | null };",
+			"\tuseEffect(() => {",
+			"\t\tif (!activeRoomId) { sessionRef.current = null; return; }",
+			"\t\tconst session = readCommunitySession();",
+			"\t\tif (!session) return;",
+			"\t\tconst chat = new ChatSession();",
+			"\t\tsessionRef.current = chat;",
+			"\t\tchat.connect();",
+			"\t\trefresh();",
+			"\t\treturn () => { sessionRef.current = null; chat.close(); };",
+			"\t}, [spaceId, activeRoomId, refresh, sessionRef]);",
+			"}",
+			"",
+		].join("\n"),
+	});
+	const r = runScan(dir);
+	check("chat-pane shape: eslint-compatible array passes SEMANTIC-005",
+		r.code === 0 && !r.err.includes("SEMANTIC-005"),
+		r.err.slice(-300));
+	cleanup(dir);
+}
+
+// --- 8. the no-dependency-array branch is unchanged --------------------------
+{
+	const dir = mkdtempSync(join(tmpdir(), "devgate-sem-"));
+	makeProject(dir, {
+		"src/tick.ts": "export function useTick() {\n\tuseEffect(() => { void 1; });\n}\n",
+	});
+	const r = runScan(dir);
+	check("no-deps: missing dependency array still blocks",
+		r.code === 1 && r.err.includes("no dependency array"),
+		r.err.slice(-300));
+	cleanup(dir);
+}
+
+// --- 9. host builtins need not be listed (encodeURIComponent et al.) ---------
+// The VerifyEmail shape: an effect builds a URL with a frozen ECMA-262
+// builtin. Pre-fix this demands encodeURIComponent in the array — the exact
+// "unnecessary dependency: Outer scope values" warning eslint emits — so no
+// array could satisfy both gates, same class as module plumbing (test 5).
+// Media constructors (`new Audio()`, `new MediaMetadata()`, AudioContext.tsx)
+// are the same frozen-host class and must stay exempt alongside them.
+{
+	const dir = mkdtempSync(join(tmpdir(), "devgate-sem-"));
+	makeProject(dir, {
+		"src/verify.ts": [
+			"export function useVerify(token: string) {",
+			"\tuseEffect(() => {",
+			"\t\tif (!token) return;",
+			"\t\tvoid encodeURIComponent(token);",
+			"\t\tvoid new URLSearchParams({ token });",
+			"\t\tvoid parseInt(token, 10);",
+			"\t\tconst a = new Audio();",
+			"\t\tvoid new MediaMetadata({ title: token });",
+			"\t\ta.pause();",
+			"\t}, [token]);",
+			"}",
+			"",
+		].join("\n"),
+	});
+	const r = runScan(dir);
+	check("host-globals: encodeURIComponent/URLSearchParams need not be listed",
+		r.code === 0 && !r.err.includes("SEMANTIC-005"),
+		r.err.slice(-300));
+	check("host-globals: scan reports clean", r.out.includes("semantic scan clean"));
+	cleanup(dir);
+}
+
+// --- 10. type-position identifiers are erased, not read ----------------------
+// `e: MessageEvent` and `querySelector<HTMLIFrameElement>` name types, not
+// runtime values — demanding them (vbrainstorm SettingsPanel/WritePost/Comments
+// 2026-10-27) forced another dependency the React lint forbids. Runtime global
+// constructors like `new MutationObserver()` still count (via EFFECT_GLOBALS).
+{
+	const dir = mkdtempSync(join(tmpdir(), "devgate-sem-"));
+	makeProject(dir, {
+		"src/types-effect.ts": [
+			"export function useTheme() {",
+			"\tuseEffect(() => {",
+			"\t\tconst onMsg = (e: MessageEvent) => { void e; };",
+			"\t\tconst el = document.querySelector<HTMLIFrameElement>('iframe');",
+			"\t\tconst ob = new MutationObserver(() => {});",
+			"\t\tob.observe(document.documentElement, { attributes: true });",
+			"\t\twindow.addEventListener('message', onMsg);",
+			"\t\tvoid el;",
+			"\t\treturn () => { window.removeEventListener('message', onMsg); ob.disconnect(); };",
+			"\t}, []);",
+			"}",
+			"",
+		].join("\n"),
+	});
+	const r = runScan(dir);
+	check("type-positions: MessageEvent/HTMLIFrameElement need not be listed",
+		r.code === 0 && !r.err.includes("SEMANTIC-005"),
+		r.err.slice(-300));
+	check("type-positions: scan reports clean", r.out.includes("semantic scan clean"));
+	cleanup(dir);
+}
+
+// --- 11. binding patterns bind targets only (audit cases C/D, 2026-10-27) -----
+// `{ apiBase: API_BASE }` binds API_BASE — the property key is a lookup name.
+// `{ a = helper() }` binds a — the initializer reads some OTHER binding.
+// Pre-fix both leaked into moduleScope and wrongly exempted component-locals
+// of the same spelling (C vs C2, D vs D2 on the audit matrix).
+{
+	const dir = mkdtempSync(join(tmpdir(), "devgate-sem-"));
+	makeProject(dir, {
+		"src/prop.ts": [
+			"const config = { apiBase: 'x' };",
+			"const { apiBase: API_BASE } = config;",
+			"void API_BASE;",
+			"export function useThing() {",
+			"\tconst apiBase = 'y';",
+			"\tuseEffect(() => { console.log(apiBase); }, []);",
+			"}",
+			"",
+		].join("\n"),
+		"src/def.ts": [
+			"const config: Record<string, unknown> = {};",
+			"const { a = someHelper() } = config;",
+			"void a;",
+			"export function useThing2() {",
+			"\tconst someHelper = () => {};",
+			"\tuseEffect(() => { someHelper(); }, []);",
+			"}",
+			"",
+		].join("\n"),
+	});
+	const r = runScan(dir);
+	check("binding-targets: property-key rename does not exempt a local",
+		r.code === 1 && r.err.includes("apiBase"),
+		r.err.slice(-300));
+	check("binding-targets: initializer name does not exempt a local",
+		r.err.includes("someHelper"),
+		r.err.slice(-300));
+	cleanup(dir);
+}
+
+// --- 12. `declare global` is merging, not a binding (audit case G) -----------
+// Its `global` marker-name must not enter moduleScope — pre-fix it exempted a
+// component-local named `global` (G vs G2 on the audit matrix).
+{
+	const dir = mkdtempSync(join(tmpdir(), "devgate-sem-"));
+	makeProject(dir, {
+		"src/glob.ts": [
+			"declare global { interface Window { x: number } }",
+			"export function useG() {",
+			"\tconst global = 1;",
+			"\tuseEffect(() => { console.log(global); }, []);",
+			"}",
+			"",
+		].join("\n"),
+	});
+	const r = runScan(dir);
+	check("declare-global: marker name does not exempt a local",
+		r.code === 1 && r.err.includes("global"),
+		r.err.slice(-300));
+	cleanup(dir);
+}
+
+// --- 13. heritage expressions are runtime reads (audit cases I/L) ------------
+// `class X extends Base {}` evaluates Base when the class is defined;
+// `extends makeBase()` evaluates makeBase. ExpressionWithTypeArguments is a
+// TypeNode, so the plain type-position check pre-fix hid these reads — while
+// the `<T>` arguments really are erased and must stay exempt.
+{
+	const dir = mkdtempSync(join(tmpdir(), "devgate-sem-"));
+	makeProject(dir, {
+		"src/heritage.ts": [
+			"export function useT() {",
+			"\tconst Base = class {};",
+			"\tconst makeBase = () => class {};",
+			"\tuseEffect(() => {",
+			"\t\tclass X extends Base {}",
+			"\t\tclass Y extends makeBase() {}",
+			"\t\tvoid new X(); void new Y();",
+			"\t}, []);",
+			"}",
+			"",
+		].join("\n"),
+		"src/heritage-typearg.ts": [
+			"export interface Shape { x: number }",
+			"export function useU() {",
+			"\tconst makeBase = <T,>() => class {};",
+			"\tuseEffect(() => {",
+			"\t\tclass Z extends makeBase<Shape>() {}",
+			"\t\tvoid new Z();",
+			"\t}, [makeBase]);",
+			"}",
+			"",
+		].join("\n"),
+	});
+	const r = runScan(dir);
+	check("heritage: extends Base is a required dependency",
+		r.code === 1 && r.err.includes("Base"),
+		r.err.slice(-300));
+	check("heritage: extends makeBase() is a required dependency",
+		r.err.includes("makeBase"),
+		r.err.slice(-300));
 	cleanup(dir);
 }
 
