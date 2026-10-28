@@ -77,7 +77,12 @@ runner-monitor and coherence services.
 ### Run the gates
 
 Scripts auto-detect the project root (the parent of `.devgate/`) and scan source
-files regardless of language or directory structure.
+files regardless of language or directory structure. Prerequisites:
+`.guardrails/scope.json` (scan scope), the fail-closed overlay configs
+(`charset-allowlist.json`, `manifest-joins.json`, `silent-success-allowlist.json`),
+pinned gitleaks on PATH, `typescript@5` for the semantic scan, and a
+pytest-capable `python3` for `run-tests.mjs` — see
+[docs/NEW_REPO_ONBOARDING.md](docs/NEW_REPO_ONBOARDING.md) for shapes and pins.
 
 ```bash
 node .devgate/scripts/guardrails-scan.mjs         # pattern scan, all source types

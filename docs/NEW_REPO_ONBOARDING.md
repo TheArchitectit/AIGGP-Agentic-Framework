@@ -36,11 +36,18 @@ git submodule add <devgate-url> devgate
 ├── .devgate/                  ← the submodule (fixed name)
 └── .guardrails/               ← THIS project's overlay (never inside .devgate/)
     ├── failure-registry.jsonl
+    ├── scope.json                 ← scan scope: skip_dirs for vendored/generated trees
+    ├── silent-success-allowlist.json  ← {"entries": [...]} shape, not a bare list
+    ├── charset-allowlist.json     ← check_charset is fail-closed without it
+    ├── manifest-joins.json        ← check_manifest_join is fail-closed without it
+    ├── bundle-size.json           ← bundle-size-check skips until configured
     ├── prevention-rules/
     │   └── pattern-rules.json
     └── openspec/
+        ├── config.yaml            ← schema: spec-driven (openspec CLI)
         ├── gate-config.json
         └── changes/<change-id>/
+            ├── .openspec.yaml     ← schema/created/skip_specs metadata (see below)
             ├── spec.md
             ├── tasks.md
             ├── package.json          ← identity (see below)
@@ -72,6 +79,28 @@ mkdir -p .guardrails/openspec/changes
 touch .guardrails/failure-registry.jsonl
 ```
 
+Declare scan scope before the first run — `.guardrails/scope.json`:
+
+```json
+{ "skip_dirs": ["vendor-dir", "build-output", "node_modules"] }
+```
+
+Without it, gates walk vendored and generated trees (the isolated test runner
+has been seen executing a vendored repo's test suite and the framework's own
+`.devgate/tests/`). `.devgate` is skipped by the walker by default, but list
+every vendored/generated directory your project keeps in-tree.
+
+Two gates are **fail-closed on their overlay config** and cannot report clean
+until the files exist (a gate that bans nothing is worse than no gate):
+
+- `check_charset.py` → `.guardrails/charset-allowlist.json` — `{"allow": [{"codepoint": "0x00A7", "reason": "..."}], "deny": [...]}`; every row carries a `reason`; deny rows are tripwires that survive later allowlist edits.
+- `check_manifest_join.py` → `.guardrails/manifest-joins.json` — `{"joins": [{"id", "reason", "declared": {"paths", "pattern", "source"}, "wired": {...}, "bidirectional": true}]}`; each side must extract names or the join is stale and fails.
+
+And one that silently skips until configured: `bundle-size-check.mjs` →
+`.guardrails/bundle-size.json` (`{"dist_dir": "dist", "max_kb": 900}`). The
+silent-success allowlist, when you need one, is `{"entries": []}` — a bare
+`[]` fails `allowlist_health.py`.
+
 Add the secrets ignore patterns **before** the first gate run — the forbidden-file
 check will otherwise block on a stray `.env` (and it should):
 
@@ -86,6 +115,25 @@ check will otherwise block on a stray `.env` (and it should):
 ---
 
 ## Step 2 — Verify the gates run against *your* tree
+
+Tooling the scanners expect on PATH (install before trusting a red gate):
+
+- **gitleaks** (`secret-scan.sh`) — the *pinned* release, not latest; the pin
+  is recorded with its tarball sha256 in `docs/qa/` (currently `8.30.1`,
+  `551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb`).
+  Verify the checksum; the gate refuses to run with any other scanner.
+- **typescript@5** (`semantic-scan.mjs`) — `npm install --no-save --no-package-lock typescript@5`
+  (v7 dropped the root compiler API). Gitignore `node_modules/`.
+- **a python3 with pytest** if you ship `test_*.py` / `*_test.py` —
+  `run-tests.mjs` spawns `python3 -m pytest`, so a distro python without pip
+  needs a project venv on PATH (`uv venv .venv && uv pip install --python
+  .venv/bin/python pytest`).
+
+Make the **initial commit first**. The tracked-tree gates (`check_charset`,
+`check_corruption`, `check_encoding`, `check_exec_bits`) and
+`regression_check.py --all` read committed content; before any commit they
+report zero-input failures or `NOTHING SCANNED`. That is the gate saying it
+has no evidence — never a pass.
 
 ```bash
 node .devgate/scripts/guardrails-scan.mjs
@@ -160,6 +208,23 @@ sha256sum specs/capability.md | cut -d' ' -f1
 (sorted-key RFC 8785 JSON, domain-separated `package/v1` + `subject-manifest/v1`
 prefixes) and exits `0` verified / `1` violated / `2` malformed. Copy it into a
 new repo's `.guardrails/scripts/` and wire `verify-all-packages.sh` into CI.
+
+> **Pending:** that reference implementation is not yet shipped in any
+> published tree — until it lands, a consumer's own digest verifier is the
+> seal gate, and this section is a description of the contract, not a copyable
+> artifact.
+
+**CLI-compat metadata.** `openspec validate --all --strict` (the hard gate
+this framework's seal cycle names) also reads two YAML files: the project's
+`openspec/config.yaml` (`schema: spec-driven`) and, per change package,
+`.openspec.yaml` with `schema`, `created`, and — for an identity-only package
+that carries no delta specs — `skip_specs: true`. Without valid
+`.openspec.yaml` metadata the `skip_specs` marker is not honored and the
+validator demands delta headers a seal package does not have.
+
+**`kind: informative` digests do not gate.** `tasks.md` churns by design; a
+digest mismatch on an informative entry is a note, never a failure. Only
+`kind: normative` entries invalidate the seal (coh-id-03).
 
 ---
 
@@ -334,6 +399,13 @@ when the bug is genuinely generic to the framework. Entries are append-only.
 - [ ] Submodule at `.devgate/` (exact name)
 - [ ] `.guardrails/` overlay exists; baseline untouched
 - [ ] Secret ignore patterns added before first gate run
+- [ ] `.guardrails/scope.json` names every vendored/generated tree
+- [ ] Fail-closed overlay configs exist: `charset-allowlist.json`,
+      `manifest-joins.json`, `silent-success-allowlist.json` (object shape)
+- [ ] Pinned gitleaks + typescript@5 + pytest-capable python3 installed
+- [ ] Initial commit made before trusting tracked-tree gate results
+- [ ] `openspec validate --all --strict` passes (config.yaml + per-change
+      `.openspec.yaml` metadata)
 - [ ] Every gate reports **this** project's paths
 - [ ] No gate reported green with zero inputs
 - [ ] `openspec` symlink → `.guardrails/openspec`
