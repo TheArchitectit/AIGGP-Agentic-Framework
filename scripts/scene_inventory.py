@@ -37,6 +37,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
 from project_root import project_root_for  # noqa: E402  # guardrails-allow PREVENT-024: shared root-contract module defined in scripts/lib/project_root.py, not an external package
 
 PROJECT_ROOT = project_root_for(Path(__file__).resolve().parent.parent)
+DEFAULT_REPORT_REL = Path(".guardrails") / "scene-inventory-report.json"
+
+
+def write_report(report: dict, dest: Path) -> Path:
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    tmp = dest.with_suffix(dest.suffix + ".tmp")
+    tmp.write_text(json.dumps(report, indent=1) + "\n", encoding="utf-8")
+    tmp.replace(dest)
+    return dest
+
 
 def detect_engine(root):
     """Detect the project engine from game-manifest.json, else project files.
@@ -214,12 +224,17 @@ def parse_script_wiring(script_path):
             wired.add(node_vars[m.group(1)])
     return wired
 
-def scan_godot(root, fail_if_empty=False):
+def scan_godot(root, fail_if_empty=False, last_report=None):
     root = Path(root)
     scenes = discover_scenes_godot(root)
 
     if not scenes:
         print("[scene-inventory] NOTHING SCANNED — no .tscn scenes found under src/")
+        if isinstance(last_report, dict):
+            last_report.update({
+                "root": str(root.resolve()), "engine": "Godot",
+                "summary": {"scenes": 0, "failures": 0, "orphans": 0},
+            })
         return 2 if fail_if_empty else 0
 
     print(f"[scene-inventory] discovered {len(scenes)} scene(s)")
@@ -262,6 +277,11 @@ def scan_godot(root, fail_if_empty=False):
     print()
     print(f"=== Scene Inventory Summary ===")
     print(f"Scenes: {len(scenes)}, Failures: {failures}, Orphaned buttons: {orphan_count}")
+    if isinstance(last_report, dict):
+        last_report.update({
+            "root": str(root.resolve()), "engine": "Godot",
+            "summary": {"scenes": len(scenes), "failures": failures, "orphans": orphan_count},
+        })
     return 1 if failures > 0 else 0
 
 # === ZIG + OPENGL SCANNER ===
@@ -330,10 +350,15 @@ def parse_zig_handlers(screen_path):
     orphans = [h for h in handlers if h not in button_handlers]
     return buttons, handlers, orphans
 
-def scan_zig(root, fail_if_empty=False):
+def scan_zig(root, fail_if_empty=False, last_report=None):
     screens = discover_zig_screens(root)
     if not screens:
         print("[scene-inventory] NOTHING SCANNED — no Zig UI screens found under src/ui/")
+        if isinstance(last_report, dict):
+            last_report.update({
+                "root": str(Path(root).resolve()), "engine": "Zig + OpenGL",
+                "summary": {"scenes": 0, "failures": 0, "orphans": 0},
+            })
         return 2 if fail_if_empty else 0
 
     print(f"[scene-inventory] discovered {len(screens)} Zig screen(s) under src/ui/")
@@ -360,25 +385,35 @@ def scan_zig(root, fail_if_empty=False):
 
     print(f"\n=== Scene Inventory Summary ===")
     print(f"Screens: {len(screens)}, Failures: {failures}, Orphaned handlers: {orphan_count}")
+    if isinstance(last_report, dict):
+        last_report.update({
+            "root": str(Path(root).resolve()), "engine": "Zig + OpenGL",
+            "summary": {"scenes": len(screens), "failures": failures, "orphans": orphan_count},
+        })
     return 1 if failures > 0 else 0
 
 # === MAIN DISPATCH ===
 
-def scan_project(root, fail_if_empty=False):
+def scan_project(root, fail_if_empty=False, last_report=None):
     root = Path(root)
     engine = detect_engine(root)
     print(f"[scene-inventory] detected engine: {engine}")
 
     if engine == "Zig + OpenGL":
-        return scan_zig(root, fail_if_empty=fail_if_empty)
+        return scan_zig(root, fail_if_empty=fail_if_empty, last_report=last_report)
     if engine == "Godot":
-        return scan_godot(root, fail_if_empty=fail_if_empty)
+        return scan_godot(root, fail_if_empty=fail_if_empty, last_report=last_report)
     # Fall back to markers when the manifest is absent or names an unknown engine.
     if (root / "project.godot").exists():
-        return scan_godot(root, fail_if_empty=fail_if_empty)
+        return scan_godot(root, fail_if_empty=fail_if_empty, last_report=last_report)
     if (root / "build.zig").exists():
-        return scan_zig(root, fail_if_empty=fail_if_empty)
+        return scan_zig(root, fail_if_empty=fail_if_empty, last_report=last_report)
     print("[scene-inventory] NOTHING SCANNED — unknown engine, no scenes to scan")
+    if isinstance(last_report, dict):
+        last_report.update({
+            "root": str(root.resolve()), "engine": "unknown",
+            "summary": {"scenes": 0, "failures": 0, "orphans": 0},
+        })
     return 2 if fail_if_empty else 0
 
 if __name__ == "__main__":
@@ -387,7 +422,17 @@ if __name__ == "__main__":
                     help="project root (default: layout-contract PROJECT_ROOT)")
     ap.add_argument("--fail-if-empty", action="store_true",
                     help="turn a zero-scene scope into exit 2 (no-vacuous-green)")
+    ap.add_argument("--write-report", nargs="?", const="", default=None,
+                    metavar="PATH",
+                    help="write structured JSON report to PATH (default: "
+                         "<root>/.guardrails/scene-inventory-report.json)")
     args = ap.parse_args()
     root = Path(args.root) if args.root else PROJECT_ROOT
     print(f"[scene-inventory] project root: {root}")
-    sys.exit(scan_project(root, fail_if_empty=args.fail_if_empty))
+    report_data = {} if args.write_report is not None else None
+    rc = scan_project(root, fail_if_empty=args.fail_if_empty, last_report=report_data)
+    if report_data and report_data.get("summary", {}).get("scenes", 0) > 0:
+        dest = (Path(args.write_report) if args.write_report
+                else root.resolve() / DEFAULT_REPORT_REL).resolve()
+        write_report(report_data, dest)
+    sys.exit(rc)

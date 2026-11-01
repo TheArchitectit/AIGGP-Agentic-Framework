@@ -284,10 +284,26 @@ def scaffold_stub(cap: dict, root: Path, draft: bool) -> Path:
     return path
 
 
+DEFAULT_REPORT_REL = Path(".guardrails") / "spec-gap-report.json"
+
+
+def write_report(report: dict, dest: Path) -> Path:
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    tmp = dest.with_suffix(dest.suffix + ".tmp")
+    tmp.write_text(json.dumps(report, indent=1) + "\n", encoding="utf-8")
+    tmp.replace(dest)
+    return dest
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path.cwd())
     parser.add_argument("--json", action="store_true", dest="as_json")
+    parser.add_argument("--write-report", nargs="?", const="", default=None,
+                        metavar="PATH",
+                        help="write the JSON report to PATH (default: "
+                             "<root>/.guardrails/spec-gap-report.json) for "
+                             "game_session_start.py without changing stdout")
     parser.add_argument("--fail-on-gaps", action="store_true")
     parser.add_argument("--scaffold", action="store_true",
                         help="write openspec/specs/<capability>/spec.md "
@@ -330,6 +346,11 @@ def main() -> int:
         # Scaffold mode writes files and exits before the report/exit-code
         # path: the gap verdict belongs to the scan run that found them.
         return 0
+
+    if args.write_report is not None:
+        dest = (Path(args.write_report) if args.write_report
+                else root / DEFAULT_REPORT_REL).resolve()
+        write_report(report, dest)
 
     if args.as_json:
         print(json.dumps(report, indent=1))

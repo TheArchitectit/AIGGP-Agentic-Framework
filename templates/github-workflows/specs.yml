@@ -123,4 +123,4 @@ jobs:
         # not a build failure, at this stage.
         run: |
           set -o pipefail
-          python3 .devgate/scripts/spec_gap_scan.py --root . | tail -30 || true
+          python3 .devgate/scripts/spec_gap_scan.py --root . --write-report | tail -30 || true

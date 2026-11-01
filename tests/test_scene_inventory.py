@@ -229,6 +229,25 @@ class TestNoVacuousGreen(unittest.TestCase):
         self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
         self.assertIn("NOTHING SCANNED", r.stdout)
 
+    def test_write_report_records_scene_summary_and_skips_empty_scope(self):
+        import json
+        script = Path(__file__).resolve().parent.parent / "scripts/scene_inventory.py"
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            subprocess.run([sys.executable, str(script), "--root", td, "--write-report"],
+                           capture_output=True, text=True)
+            report_path = root / ".guardrails" / "scene-inventory-report.json"
+            self.assertFalse(report_path.exists(),
+                             "NOTHING SCANNED must not write a scene report")
+            write_scene(root, "src/UI/HUD.tscn", VALID_SCENE)
+            r = subprocess.run([sys.executable, str(script), "--root", td, "--write-report"],
+                               capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertTrue(report_path.exists())
+            doc = json.loads(report_path.read_text(encoding="utf-8"))
+            self.assertEqual(doc["summary"], {"scenes": 1, "failures": 0, "orphans": 0})
+
+
 
 if __name__ == "__main__":
     unittest.main()

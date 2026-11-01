@@ -30,6 +30,9 @@ out/
 # Local runtime state
 .devgate-state/
 .cache/
+.guardrails/sessions.jsonl
+.guardrails/spec-gap-report.json
+.guardrails/scene-inventory-report.json
 
 # Runner-monitor instance state (hub volume on monitor-hub) — NEVER commit (mon-registry-01)
 runners.json

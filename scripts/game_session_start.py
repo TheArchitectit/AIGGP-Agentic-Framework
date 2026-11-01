@@ -44,10 +44,12 @@ SCHEMA_PATH = (DEVGATE_ROOT / ".guardrails" / "prevention-rules"
                / "session-manifest.schema.json")
 LOG_REL = Path(".guardrails") / "sessions.jsonl"
 GAP_REPORT_REL = Path(".guardrails") / "spec-gap-report.json"
+SCENE_REPORT_REL = Path(".guardrails") / "scene-inventory-report.json"
 PRE_WORK_REL = Path(".guardrails") / "pre-work-check.md"
 REGISTRY_ADVICE_LIMIT = 5
 ADVICE_TEXT_LIMIT = 100
 GAP_SUMMARY_KEYS = ("unspaced", "partially_tracked", "uncovered_ids")
+SCENE_SUMMARY_KEYS = ("scenes", "failures", "orphans")
 EXIT_OK, EXIT_CANNOT_SAY, EXIT_REFUSED = 0, 1, 2
 
 
@@ -268,8 +270,48 @@ def gap_lines(block: dict) -> list[str]:
     return lines
 
 
+def screen_inventory_line(root: Path, report_path: Path | None = None) -> str:
+    """Read the scene-inventory report on the play side when evaluated."""
+    default_line = ("  screen inventory: not evaluated at session start - run "
+                    "scripts/scene_inventory.py (the Godot hook owns this block)")
+    path = Path(report_path or (root / SCENE_REPORT_REL)).resolve()
+    if not path.exists():
+        return default_line
+    try:
+        report = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return f"  screen inventory: unknown - scene report unreadable: {exc}"
+    summary = report.get("summary") if isinstance(report, dict) else None
+    if not isinstance(summary, dict) or not all(
+            isinstance(summary.get(k), int) for k in SCENE_SUMMARY_KEYS):
+        return "  screen inventory: unknown - not scene_inventory's report shape"
+    rep_root = report.get("root")
+    if isinstance(rep_root, str):
+        try:
+            same = Path(rep_root).resolve() == root.resolve()
+        except OSError:
+            same = False
+        if not same:
+            return (f"  screen inventory: unknown - scene report describes "
+                    f"{rep_root}, not this root")
+    return ("  screen inventory: {} scene(s), {} failure(s), {} orphan(s)".format(
+        summary["scenes"], summary["failures"], summary["orphans"]))
+
+
+def _format_registry_hit(entry: dict) -> str:
+    join_parts: list[str] = []
+    if isinstance(entry.get("seed"), str) and entry["seed"].strip():
+        join_parts.append(f"seed={entry['seed']}")
+    if isinstance(entry.get("stream_id"), str) and entry["stream_id"].strip():
+        join_parts.append(f"stream={entry['stream_id']}")
+    join_tag = f" [{' '.join(join_parts)}]" if join_parts else ""
+    return "    {} [{}]{} {}".format(
+        entry.get("failure_id", "?"), entry.get("severity", "?"),
+        join_tag, _one_line(entry.get("error_message")))
+
+
 def advisory(manifest: dict, root: Path, det: tuple[str, str],
-             gap: dict) -> list[str]:
+             gap: dict, scene_report: Path | None = None) -> list[str]:
     """The kind-filtered advisory block (session-03)."""
     kind = manifest["kind"]
     who = manifest.get("opened_by", "unknown")
@@ -289,9 +331,7 @@ def advisory(manifest: dict, root: Path, det: tuple[str, str],
     else:
         lines.append(f"  registry hits ({detail}): {len(hits)}")
         for entry in hits[:REGISTRY_ADVICE_LIMIT]:
-            lines.append("    {} [{}] {}".format(
-                entry.get("failure_id", "?"), entry.get("severity", "?"),
-                _one_line(entry.get("error_message"))))
+            lines.append(_format_registry_hit(entry))
         if len(hits) > REGISTRY_ADVICE_LIMIT:
             lines.append(f"    ... {len(hits) - REGISTRY_ADVICE_LIMIT} more "
                          "(see .guardrails/failure-registry.jsonl)")
@@ -303,8 +343,7 @@ def advisory(manifest: dict, root: Path, det: tuple[str, str],
                          "this root)")
         lines.extend(gap_lines(gap))
     else:
-        lines.append("  screen inventory: not evaluated at session start - run "
-                     "scripts/scene_inventory.py (the Godot hook owns this block)")
+        lines.append(screen_inventory_line(root, scene_report))
     capture = manifest.get("capture")
     if isinstance(capture, dict) and capture.get("stream_id"):
         lines.append(f"  capture: stream {capture['stream_id']} - inspect with "
@@ -370,6 +409,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--gap-report", type=Path, default=None,
                         help="spec-gap scanner --json report (default: "
                              ".guardrails/spec-gap-report.json)")
+    parser.add_argument("--scene-report", type=Path, default=None,
+                        help="scene_inventory report (default: "
+                             ".guardrails/scene-inventory-report.json)")
     parser.add_argument("--json", action="store_true", dest="as_json",
                         help="print the machine result instead of the block")
     args = parser.parse_args(argv)
@@ -389,7 +431,7 @@ def main(argv: list[str] | None = None) -> int:
         if errors:
             return refuse(errors, args.as_json)
         gap = gap_block(root, Path(args.gap_report or (root / GAP_REPORT_REL)).resolve())
-        lines = advisory(manifest, root, det, gap)
+        lines = advisory(manifest, root, det, gap, args.scene_report)
         log_path = append_session(root, manifest)
     except BrainError as exc:
         print(f"game-session-start: cannot say - {exc}", file=sys.stderr)

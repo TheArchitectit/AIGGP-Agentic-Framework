@@ -101,6 +101,10 @@ def build_entry(args: argparse.Namespace) -> dict:
     }
     if args.file_glob:
         entry["file_glob"] = args.file_glob
+    if getattr(args, "seed", ""):
+        entry["seed"] = args.seed
+    if getattr(args, "stream_id", ""):
+        entry["stream_id"] = args.stream_id
     return entry
 
 
@@ -139,6 +143,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--failure-id",
         default="",
         help="explicit failure_id (default: generated FAIL-<uuid8>)",
+    )
+    ap.add_argument(
+        "--seed",
+        default="",
+        help="session seed for play-side / red-eye regressions (optional)",
+    )
+    ap.add_argument(
+        "--stream-id",
+        default="",
+        help="capture stream_id joining to .guardrails/sessions.jsonl (optional)",
     )
     # base-write-01 names the flag `--upstream`; --baseline is kept as an
     # accepted alias so existing callers, agent instructions and CI steps that

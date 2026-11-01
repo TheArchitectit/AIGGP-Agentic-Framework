@@ -140,6 +140,25 @@ class TestBaseWrite01Contract(unittest.TestCase):
         self.assertTrue(parser.parse_args(["--error-message", "x", "--baseline"]).baseline)
         self.assertFalse(parser.parse_args(["--error-message", "x"]).baseline)
 
+    def test_seed_and_stream_id_join_fields_are_optional_and_preserved(self):
+        target = self.tmp / "reg.jsonl"
+        r = run_log(
+            "--error-message", "determinism drift on frame 42",
+            "--seed", "1337",
+            "--stream-id", "mergekingdom-alpha-1337",
+            "--registry", str(target),
+        )
+        self.assertEqual(r.returncode, 0, r.stderr)
+        entry = json.loads(target.read_text().strip())
+        self.assertEqual(entry["seed"], "1337")
+        self.assertEqual(entry["stream_id"], "mergekingdom-alpha-1337")
+        plain = self.tmp / "plain.jsonl"
+        run_log("--error-message", "no session join", "--registry", str(plain))
+        plain_entry = json.loads(plain.read_text().strip())
+        self.assertNotIn("seed", plain_entry)
+        self.assertNotIn("stream_id", plain_entry)
+
+
 
 if __name__ == "__main__":
     unittest.main()

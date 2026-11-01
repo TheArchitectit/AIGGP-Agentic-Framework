@@ -47,11 +47,20 @@ marked complete from spec authoring.
       [40202312789](https://github.com/TheArchitectit/AIGGP-Agentic-Framework/actions/runs/40202312789),
       all seven jobs success.
 
-## 5. Out of scope (rollout steps 2-5, each its own delivery)
+## 5. Rollout steps 2-5 (engine hook, carriers, red-eye join, hub ingestion, gap producer)
 
-- [ ] 5.1 Godot engine hook + play-side screen-inventory block.
-- [ ] 5.2 Carrier adapters (Claude Code, pi-extension, Codex, OpenCode,
-      MiMo) to the three-step adapter contract.
-- [ ] 5.3 `docs/REDEYE-SESSION-CONTRACT.md` and the red-eye registry join.
-- [ ] 5.4 `hub/sessions.py` ingestion of the session log.
-- [ ] 5.5 A producer that writes the gap report at its default path.
+- [x] 5.1 Godot engine hook (`engines/godot/game_session_hooks.gd`) + play-side
+      screen-inventory block (`scripts/scene_inventory.py --write-report`,
+      `scripts/game_session_start.py` `--scene-report`).
+- [x] 5.2 Carrier adapters (`templates/hooks/{claude-code/session-start.sh,
+      pi-extension/session-init.ts,codex/session-start.sh,opencode/session-start.mjs,
+      mimo/session-start.sh}`) to the three-step adapter contract +
+      `scripts/init.mjs --carriers`.
+- [x] 5.3 `docs/REDEYE-SESSION-CONTRACT.md` and the red-eye registry join
+      (`scripts/log_failure.py --seed --stream-id`, advisory `[seed=... stream=...]`
+      surfacing, and `hub/sessions.py` `join_with_registry`).
+- [x] 5.4 `hub/sessions.py` ingestion of `.guardrails/sessions.jsonl` +
+      `tests/test_hub_sessions.py`.
+- [x] 5.5 A producer that writes the gap report at its default path
+      (`scripts/spec_gap_scan.py --write-report`, wired in
+      `templates/github-workflows/specs.yml`).

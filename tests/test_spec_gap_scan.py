@@ -260,3 +260,30 @@ def test_parked_scratch_file_emits_no_claims(tmp_path):
     report = json.loads(run(["--json"], root=tmp_path).stdout)
     claims = [r["claim"] for r in report["claimed_but_absent"]]
     assert "DEADTH" not in claims
+
+
+# --- session-05 producer: --write-report -----------------------------------
+
+def test_write_report_writes_default_path_without_changing_stdout(tmp_path):
+    make_repo(tmp_path)
+    r = run(["--write-report"], root=tmp_path)
+    assert r.returncode == 0, r.stderr
+    assert "spec-gap-scan:" in r.stdout
+    dest = tmp_path / ".guardrails" / "spec-gap-report.json"
+    assert dest.exists()
+    written = json.loads(dest.read_text(encoding="utf-8"))
+    direct = json.loads(run(["--json"], root=tmp_path).stdout)
+    assert written == direct
+
+
+def test_write_report_honours_explicit_path_and_skips_unknown_scope(tmp_path):
+    (tmp_path / "src").mkdir()
+    out = tmp_path / "custom" / "gap.json"
+    r = run([f"--write-report={out}"], root=tmp_path)
+    assert r.returncode == 2
+    assert not out.exists(), "unknown scope must not materialize a stale report"
+    make_repo(tmp_path)
+    r2 = run([f"--write-report={out}"], root=tmp_path)
+    assert r2.returncode == 0
+    assert out.exists()
+

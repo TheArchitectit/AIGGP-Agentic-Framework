@@ -15,6 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > statement is the recorded intent for doc-truth (`doc-version-01`); no retroactive
 > tag was cut.
 
+### Added
+
+- **`add-game-session-start` Sec. 5 (steps 2-5) - Godot hook, carrier adapters, red-eye join, hub session ingestion, and gap-report producer.**
+  - `scripts/spec_gap_scan.py --write-report`: atomically writes `<root>/.guardrails/spec-gap-report.json` (and is wired into `templates/github-workflows/specs.yml`) so `game_session_start.py` reads the default report path without ever invoking the scanner (`session-05`).
+  - `engines/godot/game_session_hooks.gd` + `scripts/scene_inventory.py --write-report` + `scripts/game_session_start.py --scene-report`: play-side Godot runtime adapter that evaluates screen inventory, invokes the brain, refuses the play-session on exit `2`/`1`, and opt-in wires `radredeye_capture` when `capture.stream_id` is declared (`5.1`).
+  - `templates/hooks/{claude-code/session-start.sh,pi-extension/session-init.ts,codex/session-start.sh,opencode/session-start.mjs,mimo/session-start.sh}` + `scripts/init.mjs --carriers`: thin 3-step carrier adapters with zero business logic (`5.2`).
+  - `docs/REDEYE-SESSION-CONTRACT.md` + `scripts/log_failure.py --seed --stream-id`: documents the `stream_id` single-owner rule and `seed` (run identity) vs `ReviewLine.seed` (frame pixel hash), and surfaces `[seed=... stream=...]` on session-start registry hits (`5.3`).
+  - `hub/sessions.py` + `tests/test_hub_sessions.py`: defensive ingestion of `.guardrails/sessions.jsonl` with quarantine of malformed rows, `unknown` state when absent/unreadable, and `join_with_registry` joining sessions to failure-registry rows on `stream_id` / `seed` (`5.4`).
+
 ### Fixed
 
 - **A runtime-capability check skips loudly instead of measuring the runtime.**

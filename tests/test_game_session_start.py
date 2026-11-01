@@ -428,3 +428,92 @@ def test_the_machine_result_carries_the_advisory_and_the_gap(tmp_path):
     assert doc["gap"]["count"] == 7
     assert doc["log"] == ".guardrails/sessions.jsonl"
     assert any("worst-tracked gaps: 7" in line for line in doc["advisory"])
+
+
+# --- Sec. 5.1 / Sec. 5.2 / Sec. 5.3 / Sec. 5.5 integration tests ------------
+def test_spec_gap_scan_write_report_feeds_brain_default_path(tmp_path):
+    src = tmp_path / "src" / "autoload" / "economy_manager.gd"
+    src.parent.mkdir(parents=True)
+    src.write_text("extends Node\nvar coins = 0\nfunc add(n): coins += n\n")
+    scanner = REPO / "scripts" / "spec_gap_scan.py"
+    scan_res = subprocess.run(
+        [sys.executable, str(scanner), "--root", str(tmp_path), "--write-report"],
+        capture_output=True, text=True)
+    assert scan_res.returncode == 0, scan_res.stderr
+    out = run(tmp_path, work()).stdout
+    assert "worst-tracked gaps: 1" in out
+    assert "worst: economy-manager [src/autoload/economy_manager.gd:2-" in out
+
+
+def test_play_advisory_renders_evaluated_screen_inventory_report(tmp_path):
+    write_game_manifest(tmp_path, enabled=True)
+    scene = tmp_path / "src" / "ui" / "HUD.tscn"
+    scene.parent.mkdir(parents=True)
+    scene.write_text(
+        '[gd_scene format=3]\n[node name="HUD" type="Control"]\n'
+        '[node name="PlayBtn" type="Button" parent="."]\n'
+        '[connection signal="pressed" from="PlayBtn" to="." method="_on_play"]\n'
+    )
+    inv = REPO / "scripts" / "scene_inventory.py"
+    r_inv = subprocess.run(
+        [sys.executable, str(inv), "--root", str(tmp_path), "--write-report"],
+        capture_output=True, text=True)
+    assert r_inv.returncode == 0, r_inv.stderr
+    out = run(tmp_path, play()).stdout
+    assert "screen inventory: 1 scene(s), 0 failure(s), 0 orphan(s)" in out
+
+
+def test_registry_hit_surfaces_seed_and_stream_id_join_tags(tmp_path, monkeypatch):
+    entries = [{
+        "failure_id": "FAIL-det01",
+        "status": "active",
+        "severity": "high",
+        "seed": "1337",
+        "stream_id": "mk-alpha-1337",
+        "error_message": "DETERMINISM gate failed at frame 42",
+        "affected_files": ["src/autoload/game.gd"],
+    }]
+    monkeypatch.setattr(brain.gate_overlay, "resolve_registry",
+                        lambda root: (entries, {}))
+    lines = brain.advisory(work(), tmp_path, ("enabled", "determinism.enabled is true"), {
+        "state": "unknown", "count": None, "worst": None, "reason": "none"})
+    assert any("FAIL-det01 [high] [seed=1337 stream=mk-alpha-1337]" in ln for ln in lines)
+
+
+def test_shell_and_opencode_carrier_adapters_accept_and_refuse(tmp_path):
+    import os
+    import shutil
+    dg_scripts = tmp_path / ".devgate" / "scripts"
+    dg_rules = tmp_path / ".devgate" / ".guardrails" / "prevention-rules"
+    dg_scripts.mkdir(parents=True)
+    dg_rules.mkdir(parents=True)
+    for name in ("game_session_start.py", "gate_common.py", "gate_overlay.py"):
+        shutil.copy2(REPO / "scripts" / name, dg_scripts / name)
+    shutil.copytree(REPO / "scripts" / "lib", dg_scripts / "lib")
+    shutil.copy2(brain.SCHEMA_PATH, dg_rules / "session-manifest.schema.json")
+    write_game_manifest(tmp_path, enabled=True)
+
+    hooks_dir = REPO / "templates" / "hooks"
+    carriers = [
+        ("claude-code", ["bash", str(hooks_dir / "claude-code" / "session-start.sh")]),
+        ("codex", ["bash", str(hooks_dir / "codex" / "session-start.sh")]),
+        ("mimo", ["bash", str(hooks_dir / "mimo" / "session-start.sh")]),
+        ("opencode", ["node", str(hooks_dir / "opencode" / "session-start.mjs")]),
+    ]
+    for carrier_name, cmd in carriers:
+        env = dict(os.environ)
+        env["AIGGP_PROJECT_ROOT"] = str(tmp_path)
+        env["AIGGP_GAME"] = "mergekingdom"
+        env["AIGGP_PHASE"] = "alpha"
+        r = subprocess.run(cmd, input="{}", capture_output=True, text=True, env=env)
+        assert r.returncode == 0, f"{carrier_name} failed: {r.stderr}"
+        assert f"work session in mergekingdom (agent:{carrier_name})" in r.stdout
+
+        # Refusal path: play session under determinism with no seed -> exit 2
+        env_refuse = dict(env)
+        env_refuse["AIGGP_SESSION_KIND"] = "play"
+        env_refuse.pop("AIGGP_SEED", None)
+        r_ref = subprocess.run(cmd, input="{}", capture_output=True, text=True, env=env_refuse)
+        assert r_ref.returncode == 2, f"{carrier_name} expected exit 2, got {r_ref.returncode}"
+    assert len(log_rows(tmp_path)) == 4
+
