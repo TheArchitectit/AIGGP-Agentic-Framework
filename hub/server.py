@@ -20,7 +20,7 @@ replaced, and it is already reachable over the tailnet-only hub bind).
 The server never echoes secrets. Token verification lives in hub/tokens.py;
 this handler stays thin.
 
-// spec: mon-hub-01
+// spec: mon-hub-01, GLF-11
 """
 
 from __future__ import annotations
@@ -310,6 +310,10 @@ class HubHandler(BaseHTTPRequestHandler):
         labels = data.get("labels") or []
         host_alias = data.get("host_alias") or ""
         address = data.get("address") or None
+        forge = data.get("forge") or "github"
+        if forge not in ("github", "gitlab"):
+            self._send(400, {"ok": False, "error": "bad_request", "detail": "forge must be github or gitlab"})
+            return
         if not isinstance(runner_name, str) or not runner_name \
                 or not REPO_RE.match(repo or ""):
             self._send(400, {"ok": False, "error": "bad_request",
@@ -342,7 +346,7 @@ class HubHandler(BaseHTTPRequestHandler):
                 return ALREADY_ENROLLED
             if not reg.consume_enrollment_token(presented or ""):
                 return False
-            runner, heartbeat_token = reg.enroll(runner_name, repo, labels, host_alias, address)
+            runner, heartbeat_token = reg.enroll(runner_name, repo, labels, host_alias, address, forge=forge)
             return {"ok": True, "runner_name": runner_name,
                     "heartbeat_token": heartbeat_token}
 

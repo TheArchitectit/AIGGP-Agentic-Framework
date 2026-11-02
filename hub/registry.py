@@ -5,7 +5,7 @@ monitor-hub and is never committed (mon-registry-01). Only the schema and a reda
 example ship in-repo under hub/schema/. Saves are atomic (tmp + os.replace)
 so a crash mid-write cannot corrupt the fleet registry.
 
-// spec: mon-registry-01
+// spec: mon-registry-01, GLF-11
 """
 
 from __future__ import annotations
@@ -271,7 +271,7 @@ class Registry(ToolchainRegistryMixin):
         return None
 
     def enroll(self, runner_name: str, repo: str, labels: list[str],
-               host_alias: str, address: str | None = None) -> tuple[dict, str]:
+               host_alias: str, address: str | None = None, forge: str = "github") -> tuple[dict, str]:
         """Record identity and mint the per-runner heartbeat token.
 
         Returns (runner_record, plaintext_token): the plaintext leaves the hub
@@ -287,6 +287,7 @@ class Registry(ToolchainRegistryMixin):
         runner = {
             "name": runner_name,
             "repo": repo,
+            "forge": forge,
             "labels": labels,
             "host_alias": host_alias,
             "address": address,

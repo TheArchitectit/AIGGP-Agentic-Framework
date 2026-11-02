@@ -1,0 +1,22 @@
+# spec: GLF-01
+# Reusable GitLab CI template mirroring templates/github-workflows/drift-scan.yml
+
+default:
+  image: ghcr.io/aiggp/devgate-runner@sha256:4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b
+  tags:
+    - aiggp-self-hosted
+
+drift-scan:
+  stage: test
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+    - if: $CI_PIPELINE_SOURCE == "web"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  variables:
+    GIT_DEPTH: "0"
+    GIT_SUBMODULE_STRATEGY: recursive
+  script:
+    - node "${DEVGATE_DIR:-.devgate}/scripts/guardrails-scan.mjs"
+    - node "${DEVGATE_DIR:-.devgate}/scripts/semantic-scan.mjs"
+    - python3 "${DEVGATE_DIR:-.devgate}/scripts/regression_check.py" --all --rules "${DEVGATE_DIR:-.devgate}/.guardrails/prevention-rules/rules.json" --registry "${DEVGATE_DIR:-.devgate}/.guardrails/failure-registry.jsonl"
+    - bash "${DEVGATE_DIR:-.devgate}/scripts/silent-success-scan.sh"

@@ -5,7 +5,7 @@
 > cells) or its explicit `Status:` line. A spec with no closure evidence is
 > reported **UNKNOWN** rather than guessed at.
 
-**31 specs** — CLOSED 30 · PARTIAL 0 · OPEN 1 · UNKNOWN 0
+**31 specs** — CLOSED 31 · PARTIAL 0 · OPEN 0 · UNKNOWN 0
 
 | Spec | Title | Status | Evidence |
 |---|---|---|---|
@@ -24,6 +24,7 @@
 | [`evidence-and-attestation/spec.md`](specs/evidence-and-attestation/spec.md) | Evidence and Attestation | **CLOSED** | Status: CLOSED (EXERCISED 7) |
 | [`framework-ci/spec.md`](specs/framework-ci/spec.md) | Framework CI | **CLOSED** | Status: CLOSED (EXERCISED 3) |
 | [`game-regression/spec.md`](specs/game-regression/spec.md) | Game-class regression scanning | **CLOSED** | Status: CLOSED (EXERCISED 3) |
+| [`game-type-phase-matrix/spec.md`](specs/game-type-phase-matrix/spec.md) | Game-type phase matrix | **CLOSED** | Status: CLOSED (EXERCISED 1) |
 | [`gate-configuration-contract/spec.md`](specs/gate-configuration-contract/spec.md) | Gate configuration contract | **CLOSED** | Status: CLOSED (EXERCISED 2) |
 | [`gate-execution-contract/spec.md`](specs/gate-execution-contract/spec.md) | Gate execution contract | **CLOSED** | Status: CLOSED (EXERCISED 3) |
 | [`hub-architecture/spec.md`](specs/hub-architecture/spec.md) | Hub-and-spoke monitor architecture | **CLOSED** | Status: CLOSED (EXERCISED 5) |
@@ -39,7 +40,6 @@
 | [`spec-platform/spec.md`](specs/spec-platform/spec.md) | Spec platform | **CLOSED** | Status: CLOSED (EXERCISED 3) |
 | [`subjects-3d/spec.md`](specs/subjects-3d/spec.md) | 3D Subjects | **CLOSED** | Status: CLOSED (EXERCISED 4) |
 | [`zig-opengl-engine/spec.md`](specs/zig-opengl-engine/spec.md) | Zig + OpenGL Engine Support | **CLOSED** | Status: IMPLEMENTED |
-| [`game-type-phase-matrix/spec.md`](specs/game-type-phase-matrix/spec.md) | Game-type phase matrix | **OPEN** | Status: PLANNED |
 
 ## Reading the status
 

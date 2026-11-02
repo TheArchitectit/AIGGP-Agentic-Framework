@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# // spec: session-01, session-02, session-03, session-04, session-05, session-06, game-matrix-01
 """Fixture tests for game_session_start.py - the gameSessionStart brain.
 
 Each test pins a rule the design's spec names (session-01..session-06), not an
@@ -516,4 +517,15 @@ def test_shell_and_opencode_carrier_adapters_accept_and_refuse(tmp_path):
         r_ref = subprocess.run(cmd, input="{}", capture_output=True, text=True, env=env_refuse)
         assert r_ref.returncode == 2, f"{carrier_name} expected exit 2, got {r_ref.returncode}"
     assert len(log_rows(tmp_path)) == 4
+
+
+def test_work_session_makes_no_false_phase_matrix_enforcement_claim(tmp_path):
+    """game-matrix-01: no gate in this repository may claim phase-matrix
+    enforcement today; work-session output explicitly marks it planned."""
+    write_game_manifest(tmp_path, enabled=True)
+    r = run(tmp_path, work(phase="beta"))
+    assert r.returncode == 0
+    assert "phase: beta" in r.stdout
+    assert "phase gates: unknown - the phase matrix is planned (game-matrix-01), not implemented in this tree" in r.stdout
+
 

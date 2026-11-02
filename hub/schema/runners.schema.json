@@ -49,6 +49,12 @@
         "_comment": { "type": "array", "items": { "type": "string" } },
         "name": { "type": "string" },
         "repo": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" },
+        "forge": {
+          "description": "Forge type this runner serves (GLF-11).",
+          "type": "string",
+          "enum": ["github", "gitlab"],
+          "default": "github"
+        },
         "labels": { "type": "array", "items": { "type": "string" } },
         "host_alias": { "type": "string" },
         "address": {

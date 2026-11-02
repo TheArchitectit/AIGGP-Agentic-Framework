@@ -1,5 +1,7 @@
 # Game-type phase matrix
 
+Status: CLOSED (EXERCISED 1)
+
 ## Purpose
 
 The original phase-matrix proposal (per-game-type minimum screens, systems,
@@ -76,3 +78,4 @@ enforcement that must pass at that phase.
 
 ## Origin
 Derived from Sword of Hope OpenSpec prod-001..prod-015 + game-design requirements.
+

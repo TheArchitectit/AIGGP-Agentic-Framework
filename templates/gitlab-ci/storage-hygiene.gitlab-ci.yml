@@ -1,0 +1,17 @@
+# spec: GLF-01
+# Reusable GitLab CI template mirroring templates/github-workflows/storage-hygiene.yml
+
+default:
+  image: ghcr.io/aiggp/devgate-runner@sha256:4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b
+  tags:
+    - aiggp-self-hosted
+
+storage-hygiene:
+  stage: test
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  variables:
+    GIT_DEPTH: "0"
+  script:
+    - python3 "${DEVGATE_DIR:-.devgate}/scripts/artifact_hygiene.py" --repo . --audit

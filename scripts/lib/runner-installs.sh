@@ -106,3 +106,16 @@ install_runtime_libraries() {
         "$REPO_ROOT/scripts/lib/toolchain_probe.py" "$PROBE_LIB"
 }
 
+# Validate forge identity (GLF-11) and runner container digest pin (GLF-12).
+validate_runner_forge_and_image() {
+    local forge="${1:-github}"
+    local image="${2:-}"
+    if [[ "$forge" != "github" && "$forge" != "gitlab" ]]; then
+        die "--forge must be github or gitlab, got: $forge" 1
+    fi
+    if [[ -n "$image" ]] && ! [[ "$image" =~ @sha256:[0-9a-f]{64}$ ]]; then
+        die "--runner-image must be digest-pinned (@sha256:<64-hex>), got: $image" 1
+    fi
+}
+
+

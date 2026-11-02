@@ -1,11 +1,11 @@
 # Tasks: add-gitlab-forge-support
 
-- [ ] Sprint 0 (instance discovery): document the lab GitLab (version, URL, auth shape, tailnet posture); backup/restore drill; pin version. Hard gate — nothing below starts until this is evidenced.
-- [ ] Sprint 1 (runner standard): extend `scripts/runner-enroll.sh` + `hub/schema/runners.schema.json` with a forge field; rootless podman GitLab runners; digest pinning; fail-closed registration.
-- [ ] Sprint 2 (templates): create `templates/gitlab-ci/`; mirror every template in `templates/github-workflows/` (seven at writing time) as thin includes over the shared scripts; add the mirror-count check.
-- [ ] Sprint 3 (forge adapter): `hub/forge/` — webhooks (secret-verified), auth, API walk; extend the fleet declaration walk with GitLab sources; evidence through the shipped sealed-bundle format with `forge` metadata.
-- [ ] Sprint 4 (parity drill): seeded-failure corpus; run on both forges; identical-findings gate; make the drill blocking in CI.
-- [ ] Sprint 5 (hardening): monitoring, docs, external-instance configuration guide; per-instance ownership declaration (GLF-13) shipped as deployer config.
+- [x] Sprint 0 (instance discovery): document the lab GitLab (version, URL, auth shape, tailnet posture); backup/restore drill; pin version. Hard gate — nothing below starts until this is evidenced.
+- [x] Sprint 1 (runner standard): extend `scripts/runner-enroll.sh` + `hub/schema/runners.schema.json` with a forge field; rootless podman GitLab runners; digest pinning; fail-closed registration.
+- [x] Sprint 2 (templates): create `templates/gitlab-ci/`; mirror every template in `templates/github-workflows/` (seven at writing time) as thin includes over the shared scripts; add the mirror-count check.
+- [x] Sprint 3 (forge adapter): `hub/forge/` — webhooks (secret-verified), auth, API walk; extend the fleet declaration walk with GitLab sources; evidence through the shipped sealed-bundle format with `forge` metadata.
+- [x] Sprint 4 (parity drill): seeded-failure corpus; run on both forges; identical-findings gate; make the drill blocking in CI.
+- [x] Sprint 5 (hardening): monitoring, docs, external-instance configuration guide; per-instance ownership declaration (GLF-13) shipped as deployer config.
 
 ## Verification
 

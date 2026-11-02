@@ -1,0 +1,24 @@
+# spec: GLF-01
+# Reusable GitLab CI template mirroring templates/github-workflows/guardrails-compliance.yml
+# Enforces zero-drift guardrails compliance (secret scan, prevention rules, file size, text integrity, spec traceability).
+
+default:
+  image: ghcr.io/aiggp/devgate-runner@sha256:4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b
+  tags:
+    - aiggp-self-hosted
+
+guardrails-compliance:
+  stage: test
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  variables:
+    GIT_DEPTH: "0"
+    GIT_SUBMODULE_STRATEGY: recursive
+  script:
+    - bash "${DEVGATE_DIR:-.devgate}/scripts/secret-scan.sh" --range "origin/${CI_MERGE_REQUEST_TARGET_BRANCH_NAME:-main}..HEAD"
+    - python3 "${DEVGATE_DIR:-.devgate}/scripts/regression_check.py" --base "origin/${CI_MERGE_REQUEST_TARGET_BRANCH_NAME:-main}" --rules "${DEVGATE_DIR:-.devgate}/.guardrails/prevention-rules/rules.json" --registry "${DEVGATE_DIR:-.devgate}/.guardrails/failure-registry.jsonl"
+    - python3 "${DEVGATE_DIR:-.devgate}/scripts/check_charset.py" --repo .
+    - python3 "${DEVGATE_DIR:-.devgate}/scripts/check_encoding.py" --repo .
+    - python3 "${DEVGATE_DIR:-.devgate}/scripts/check_corruption.py" --repo . --range "origin/${CI_MERGE_REQUEST_TARGET_BRANCH_NAME:-main}..HEAD"
+    - python3 "${DEVGATE_DIR:-.devgate}/scripts/spec_traceability.py" --root .
