@@ -1,5 +1,7 @@
 # Assertions and Evaluators
 
+Status: CLOSED (EXERCISED 6)
+
 ## Purpose
 
 The assertion model that evaluators consume: schema-operational at planning time, identity assertions compared against approved values, a binding order for release claims, phase-separated traceability, non-canonical treatment of model-generated advice, and stable finding keys so a finding keeps its identity across runs and across evaluators.
@@ -103,3 +105,14 @@ Each finding MUST carry a stable finding key derived from deterministic content 
 - **GIVEN** the same assertion violated at the same subject location in two runs
 - **WHEN** finding keys are computed
 - **THEN** the keys are identical, enabling stable baseline fingerprinting.
+
+## Requirement Closure
+
+| Requirement | Status | Implementation | Verification |
+|---|---|---|---|
+| `coh-assert-01` (assertion schema is operational) | **EXERCISED** | `hub/coherence/plan.py` | `tests/test_hub_coherence_assertion_schema.py` |
+| `coh-assert-02` (identity assertions compare against approved values) | **EXERCISED** | `hub/coherence/evaluators.py` | `tests/test_hub_coherence.py`, `tests/test_hub_coherence_traceability.py` |
+| `coh-assert-03` (release-claim binding order) | **EXERCISED** | `hub/coherence/evaluators.py` | `tests/test_hub_coherence.py`, `tests/test_hub_coherence_traceability.py` |
+| `coh-assert-04` (traceability checks are separated by phase) | **EXERCISED** | `hub/coherence/evaluators.py`, `hub/coherence/plan.py` | `tests/test_hub_coherence_traceability.py` |
+| `coh-assert-05` (model-generated advice is non-canonical) | **EXERCISED** | `hub/coherence/adoption.py`, `hub/coherence/evaluate.py`, `hub/coherence/evaluators.py` | `tests/test_hub_coherence_3d_slice.py` |
+| `coh-assert-06` (finding key stability) | **EXERCISED** | `hub/coherence/evaluators.py` | `tests/test_hub_coherence.py`, `tests/test_hub_coherence_traceability.py` |

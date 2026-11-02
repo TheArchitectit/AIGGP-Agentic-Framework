@@ -1,5 +1,7 @@
 # Evidence and Attestation
 
+Status: CLOSED (EXERCISED 7)
+
 ## Purpose
 
 The sealed-evidence and attestation pipeline: acyclic sealing order that survives tamper-evidence audits, complete evidence manifests, findings reproducible from the sealed bundle alone, authorized input retention distinguished from public evidence, detached attestation that binds the decision digest without mutating the decision, minimal disclosure so no secret or uninvolved input appears in evidence, and detached approval records that live outside repository trust.
@@ -109,3 +111,15 @@ A package approval record MUST be detached from the normative bytes it approves:
 - **GIVEN** an approval for package digest D1
 - **WHEN** the package is edited to produce digest D2
 - **THEN** the approval does not bind D2 and an enforced evaluation rejects the unapproved revision.
+
+## Requirement Closure
+
+| Requirement | Status | Implementation | Verification |
+|---|---|---|---|
+| `coh-ev-01` (acyclic sealing order) | **EXERCISED** | `hub/coherence/__main__.py`, `hub/coherence/attest.py`, `hub/coherence/attest_detached.py` | `tests/test_hub_coherence_attest.py`, `tests/test_hub_coherence_attestation.py`, `tests/test_hub_coherence_evidence.py` |
+| `coh-ev-02` (complete evidence manifest) | **EXERCISED** | `hub/coherence/evidence.py`, `hub/coherence/store.py`, `hub/coherence/verification.py` | `tests/test_hub_coherence_evidence.py`, `tests/test_hub_coherence_store.py` |
+| `coh-ev-03` (reproducible findings) | **EXERCISED** | `hub/coherence/evidence.py`, `hub/coherence/verification.py` | `tests/test_hub_coherence_evidence.py` |
+| `coh-ev-04` (authorized input retention) | **EXERCISED** | `hub/coherence/retention.py`, `hub/coherence/store.py` | `tests/test_hub_coherence_retention.py`, `tests/test_hub_coherence_store.py` |
+| `coh-ev-05` (attestation binding) | **EXERCISED** | `hub/coherence/__main__.py`, `hub/coherence/attest.py`, `hub/coherence/attest_base.py` | `tests/fixtures/coherence/fixtures.py`, `tests/test_hub_coherence_attest.py`, `tests/test_hub_coherence_attestation.py` |
+| `coh-ev-06` (minimal disclosure) | **EXERCISED** | `hub/coherence/evidence.py`, `hub/coherence/verification.py` | `tests/test_hub_coherence_evidence.py`, `tests/test_evidence_integrity.py` |
+| `coh-ev-07` (approval records are detached) | **EXERCISED** | `hub/coherence/package.py` | `tests/test_hub_coherence_normative.py`, `tests/test_hub_coherence.py` |

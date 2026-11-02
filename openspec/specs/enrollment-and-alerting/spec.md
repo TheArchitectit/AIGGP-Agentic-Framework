@@ -1,5 +1,7 @@
 # Enrollment, heartbeat, and alerting
 
+Status: CLOSED (EXERCISED 3)
+
 ## Purpose
 
 Specify how runners enroll with and report to the monitoring hub over the local network, including talk-home enrollment, revocation, and alert routing.
@@ -61,3 +63,11 @@ any committed credential, token, or host detail.
   binding the hub listen address to loopback or LAN only (with no inbound
   firewall opening into the owner's environment), enabling linger, starting
   the quadlet
+
+## Requirement Closure
+
+| Requirement | Status | Implementation | Verification |
+|---|---|---|---|
+| `mon-enroll-01` (Talk-home enrollment over the local network) | **EXERCISED** | `hub/registry.py`, `hub/tokens.py` | `tests/test_hub_registry.py`, `tests/test_hub_enroll_heartbeat.py` |
+| `mon-alert-01` (Deduplicated failure alerts, outbound-only) | **EXERCISED** | `hub/alerts.py`, `scripts/hub_alert.py` | `tests/test_hub_alerts.py`, `tests/test_hub_alert.py` |
+| `mon-monitor-hub-01` (monitor-hub machine duties stay off-repo) | **EXERCISED** | `hub/main.py` | `tests/test_hub_main.py`, `tests/test_hub_services.py` |

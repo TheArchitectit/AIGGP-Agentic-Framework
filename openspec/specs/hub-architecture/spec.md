@@ -1,5 +1,7 @@
 # Hub-and-spoke monitor architecture
 
+Status: CLOSED (EXERCISED 5)
+
 ## Purpose
 
 Describe the hub-and-spoke monitoring architecture: a single well-known hub endpoint, dual evidence channels from runners, and the trust boundaries between them.
@@ -81,3 +83,13 @@ initiated by the hub.
 - **WHEN** the hub and spokes are deployed per the monitor-hub runbook
 - **THEN** no inbound firewall rule into the owner's environment is
   required and no component listens on a public interface
+
+## Requirement Closure
+
+| Requirement | Status | Implementation | Verification |
+|---|---|---|---|
+| `mon-hub-01` (Single hub on monitor-hub) | **EXERCISED** | `hub/config.py`, `hub/main.py`, `hub/server.py` | `tests/test_hub_config_and_deadcode.py`, `tests/test_hub_main.py`, `tests/test_hub_services.py` |
+| `mon-channels-01` (Dual evidence channels) | **EXERCISED** | `hub/github_client.py`, `hub/monitor.py` | `tests/test_hub_monitor.py`, `tests/test_hub_monitor_default_deny.py` |
+| `mon-registry-01` (Registry is instance state, never committed) | **EXERCISED** | `hub/registry.py` | `tests/test_hub_registry_schema.py` |
+| `mon-deadman-01` (Hub death is detected by a spoke) | **EXERCISED** | `hub/server.py` | `tests/test_hub_server_smoke.py`, `tests/test_hub_watchdog.py` |
+| `mon-local-01` (Local-only network posture) | **EXERCISED** | `hub/config.py` | `tests/test_hub_config_and_deadcode.py` |

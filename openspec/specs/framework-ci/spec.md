@@ -1,5 +1,7 @@
 # Framework CI
 
+Status: CLOSED (EXERCISED 3)
+
 ## Purpose
 
 The framework runs its own medicine: CI executes the full test suite and the
@@ -51,3 +53,11 @@ tags SHALL NOT appear in the framework's own CI files.
 #### Scenario: unpinned action introduced
 - **WHEN** a workflow edit adds an action referenced only by a mutable tag
 - **THEN** review or a lint step flags it before merge
+
+## Requirement Closure
+
+| Requirement | Status | Implementation | Verification |
+|---|---|---|---|
+| `fw-ci-01` (The framework runs its own tests in CI) | **EXERCISED** | `.github/workflows/`, `scripts/` | `tests/test_template_supply_chain.py` |
+| `fw-ci-02` (The framework applies its own gates to itself) | **EXERCISED** | `.github/workflows/`, `scripts/` | `tests/test_template_supply_chain.py` |
+| `fw-ci-03` (Workflow actions are digest or SHA pinned) | **EXERCISED** | `.github/workflows/`, `scripts/` | `tests/test_template_supply_chain.py` |

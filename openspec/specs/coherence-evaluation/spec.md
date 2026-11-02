@@ -1,5 +1,7 @@
 # Coherence Evaluation
 
+Status: CLOSED (EXERCISED 6)
+
 ## Purpose
 
 The evaluation lifecycle itself: deterministic execution per the frozen contract, complete required-assertion execution (or the run is not a decision), an assertion-results ledger keyed by assertion id, semantic traceability from decision back through assertions to the subject, preserved underlying truth even when the verdict is critical, and declared-input-only enforcement on evaluators.
@@ -109,3 +111,14 @@ An evaluator MUST receive only the subject locations, package content, captured 
 - **GIVEN** an evaluator requests a filesystem path not declared by its assertion
 - **WHEN** the runtime mediates the access
 - **THEN** the access is denied and recorded; if the assertion is required, its outcome is UNRESOLVED, never SATISFIED.
+
+## Requirement Closure
+
+| Requirement | Status | Implementation | Verification |
+|---|---|---|---|
+| `coh-eval-01` (deterministic evaluation) | **EXERCISED** | `hub/coherence/canon.py` | `tests/test_hub_coherence_conformance.py` |
+| `coh-eval-02` (complete required assertion execution) | **EXERCISED** | `hub/coherence/evaluate.py`, `hub/coherence/plan.py` | `tests/fixtures/coherence/fixtures.py`, `tests/test_hub_coherence.py`, `tests/test_hub_coherence_assertion_schema.py` |
+| `coh-eval-03` (assertion results ledger) | **EXERCISED** | `hub/coherence/result.py` | `tests/test_hub_coherence_adoption_ledger.py` |
+| `coh-eval-04` (semantic assertion traceability) | **EXERCISED** | `hub/coherence/evaluators.py`, `hub/coherence/plan.py` | `tests/test_hub_coherence_allowlist.py`, `tests/test_hub_coherence_traceability.py` |
+| `coh-eval-05` (underlying truth is preserved) | **EXERCISED** | `hub/coherence/adoption.py` | `tests/test_hub_coherence_adoption_ledger.py`, `tests/test_hub_coherence_adoption_policy.py`, `tests/test_hub_coherence_modes.py` |
+| `coh-eval-06` (evaluators execute only declared inputs) | **EXERCISED** | `hub/coherence/evaluate.py`, `hub/coherence/evaluators.py` | `tests/test_hub_coherence.py`, `tests/test_hub_coherence_traceability.py` |

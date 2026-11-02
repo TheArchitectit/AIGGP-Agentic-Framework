@@ -1,5 +1,7 @@
 # Decision Contract
 
+Status: CLOSED (EXERCISED 5)
+
 ## Purpose
 
 The shape and semantics of a coherence decision: one precedence matrix for PASS/ADVISORY/BLOCK/ERROR/SKIP over the same evidence, structured error envelopes instead of panic-shaped failures, strict separation of the canonical decision from its transport envelope, a frozen exit-code contract for consumers, and a stable finding sort order so machine consumers can rely on positions.
@@ -87,3 +89,13 @@ Findings MUST be sorted by assertion ID, then subject location under a defined p
 - **GIVEN** subject files traverse in different OS-dependent orders across two hosts
 - **WHEN** findings are canonicalized
 - **THEN** the sorted findings arrays are byte-identical.
+
+## Requirement Closure
+
+| Requirement | Status | Implementation | Verification |
+|---|---|---|---|
+| `coh-dec-01` (single decision precedence matrix) | **EXERCISED** | `hub/coherence/__main__.py`, `hub/coherence/result.py` | `tests/test_hub_coherence.py`, `tests/test_hub_coherence_decision.py` |
+| `coh-dec-02` (structured error envelopes) | **EXERCISED** | `hub/coherence/__main__.py` | `tests/test_hub_coherence_exitcodes.py`, `tests/test_hub_coherence_decision.py` |
+| `coh-dec-03` (canonical versus envelope separation) | **EXERCISED** | `hub/coherence/result.py`, `hub/coherence/schemacheck.py` | `tests/test_hub_coherence_decision.py`, `tests/test_hub_coherence.py` |
+| `coh-dec-04` (exit code contract) | **EXERCISED** | `hub/coherence/__main__.py`, `hub/coherence/container_exec.py`, `hub/coherence/result.py` | `tests/fixtures/coherence/fixtures.py`, `tests/test_hub_coherence.py`, `tests/test_hub_coherence_conformance.py` |
+| `coh-dec-05` (finding sort order and stability) | **EXERCISED** | `hub/coherence/result.py` | `tests/test_hub_coherence_decision.py`, `tests/test_hub_coherence.py` |

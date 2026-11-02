@@ -5,41 +5,41 @@
 > cells) or its explicit `Status:` line. A spec with no closure evidence is
 > reported **UNKNOWN** rather than guessed at.
 
-**31 specs** — CLOSED 3 · PARTIAL 0 · OPEN 1 · UNKNOWN 27
+**31 specs** — CLOSED 30 · PARTIAL 0 · OPEN 1 · UNKNOWN 0
 
 | Spec | Title | Status | Evidence |
 |---|---|---|---|
+| [`add-runner-to-fleet/spec.md`](specs/add-runner-to-fleet/spec.md) | Adding a runner to an existing fleet | **CLOSED** | Status: CLOSED (EXERCISED 1) |
+| [`adoption-and-policy/spec.md`](specs/adoption-and-policy/spec.md) | Adoption and Policy | **CLOSED** | Status: CLOSED (EXERCISED 7) |
+| [`assertions-and-evaluators/spec.md`](specs/assertions-and-evaluators/spec.md) | Assertions and Evaluators | **CLOSED** | Status: CLOSED (EXERCISED 6) |
+| [`baseline-ownership/spec.md`](specs/baseline-ownership/spec.md) | Baseline data ownership | **CLOSED** | Status: CLOSED (EXERCISED 3) |
+| [`canonical-identity/spec.md`](specs/canonical-identity/spec.md) | Canonical Identity | **CLOSED** | Status: CLOSED (EXERCISED 5) |
+| [`ci-template-contract/spec.md`](specs/ci-template-contract/spec.md) | CI template contract | **CLOSED** | Status: CLOSED (EXERCISED 3) |
+| [`coherence-evaluation/spec.md`](specs/coherence-evaluation/spec.md) | Coherence Evaluation | **CLOSED** | Status: CLOSED (EXERCISED 6) |
+| [`container-runtime/spec.md`](specs/container-runtime/spec.md) | Container Runtime | **CLOSED** | Status: CLOSED (EXERCISED 7) |
+| [`decision-contract/spec.md`](specs/decision-contract/spec.md) | Decision Contract | **CLOSED** | Status: CLOSED (EXERCISED 5) |
 | [`doc-truth/spec.md`](specs/doc-truth/spec.md) | Documentation truth | **CLOSED** | Status: CLOSED |
+| [`enrollment-and-alerting/spec.md`](specs/enrollment-and-alerting/spec.md) | Enrollment, heartbeat, and alerting | **CLOSED** | Status: CLOSED (EXERCISED 3) |
+| [`evaluation-context/spec.md`](specs/evaluation-context/spec.md) | Evaluation Context | **CLOSED** | Status: CLOSED (EXERCISED 5) |
+| [`evidence-and-attestation/spec.md`](specs/evidence-and-attestation/spec.md) | Evidence and Attestation | **CLOSED** | Status: CLOSED (EXERCISED 7) |
+| [`framework-ci/spec.md`](specs/framework-ci/spec.md) | Framework CI | **CLOSED** | Status: CLOSED (EXERCISED 3) |
+| [`game-regression/spec.md`](specs/game-regression/spec.md) | Game-class regression scanning | **CLOSED** | Status: CLOSED (EXERCISED 3) |
+| [`gate-configuration-contract/spec.md`](specs/gate-configuration-contract/spec.md) | Gate configuration contract | **CLOSED** | Status: CLOSED (EXERCISED 2) |
+| [`gate-execution-contract/spec.md`](specs/gate-execution-contract/spec.md) | Gate execution contract | **CLOSED** | Status: CLOSED (EXERCISED 3) |
+| [`hub-architecture/spec.md`](specs/hub-architecture/spec.md) | Hub-and-spoke monitor architecture | **CLOSED** | Status: CLOSED (EXERCISED 5) |
+| [`integrations/spec.md`](specs/integrations/spec.md) | Integrations | **CLOSED** | Status: CLOSED (EXERCISED 7) |
+| [`package-resolution/spec.md`](specs/package-resolution/spec.md) | Package Resolution | **CLOSED** | Status: CLOSED (EXERCISED 5) |
 | [`per-screen-tracking/spec.md`](specs/per-screen-tracking/spec.md) | Per-screen feature tracking | **CLOSED** | Status: CLOSED |
+| [`publish-safety/spec.md`](specs/publish-safety/spec.md) | Publish leg safety | **CLOSED** | Status: CLOSED (EXERCISED 3) |
+| [`release-gate-targeting/spec.md`](specs/release-gate-targeting/spec.md) | Release gate targeting and audit classification | **CLOSED** | Status: CLOSED (EXERCISED 2) |
+| [`rule-coverage-truth/spec.md`](specs/rule-coverage-truth/spec.md) | Rule coverage truth | **CLOSED** | Status: CLOSED (EXERCISED 3) |
+| [`runner-monitoring/spec.md`](specs/runner-monitoring/spec.md) | Runner health monitoring | **CLOSED** | Status: CLOSED (EXERCISED 4) |
+| [`scanner-parsing/spec.md`](specs/scanner-parsing/spec.md) | Scanner parsing correctness | **CLOSED** | Status: CLOSED (EXERCISED 3) |
+| [`security-boundaries/spec.md`](specs/security-boundaries/spec.md) | Security boundaries | **CLOSED** | Status: CLOSED (EXERCISED 4) |
+| [`spec-platform/spec.md`](specs/spec-platform/spec.md) | Spec platform | **CLOSED** | Status: CLOSED (EXERCISED 3) |
+| [`subjects-3d/spec.md`](specs/subjects-3d/spec.md) | 3D Subjects | **CLOSED** | Status: CLOSED (EXERCISED 4) |
 | [`zig-opengl-engine/spec.md`](specs/zig-opengl-engine/spec.md) | Zig + OpenGL Engine Support | **CLOSED** | Status: IMPLEMENTED |
 | [`game-type-phase-matrix/spec.md`](specs/game-type-phase-matrix/spec.md) | Game-type phase matrix | **OPEN** | Status: PLANNED |
-| [`add-runner-to-fleet/spec.md`](specs/add-runner-to-fleet/spec.md) | Adding a runner to an existing fleet | **UNKNOWN** | no closure table and no Status line |
-| [`adoption-and-policy/spec.md`](specs/adoption-and-policy/spec.md) | Adoption and Policy | **UNKNOWN** | no closure table and no Status line |
-| [`assertions-and-evaluators/spec.md`](specs/assertions-and-evaluators/spec.md) | Assertions and Evaluators | **UNKNOWN** | no closure table and no Status line |
-| [`baseline-ownership/spec.md`](specs/baseline-ownership/spec.md) | Baseline data ownership | **UNKNOWN** | no closure table and no Status line |
-| [`canonical-identity/spec.md`](specs/canonical-identity/spec.md) | Canonical Identity | **UNKNOWN** | no closure table and no Status line |
-| [`ci-template-contract/spec.md`](specs/ci-template-contract/spec.md) | CI template contract | **UNKNOWN** | no closure table and no Status line |
-| [`coherence-evaluation/spec.md`](specs/coherence-evaluation/spec.md) | Coherence Evaluation | **UNKNOWN** | no closure table and no Status line |
-| [`container-runtime/spec.md`](specs/container-runtime/spec.md) | Container Runtime | **UNKNOWN** | no closure table and no Status line |
-| [`decision-contract/spec.md`](specs/decision-contract/spec.md) | Decision Contract | **UNKNOWN** | no closure table and no Status line |
-| [`enrollment-and-alerting/spec.md`](specs/enrollment-and-alerting/spec.md) | Enrollment, heartbeat, and alerting | **UNKNOWN** | no closure table and no Status line |
-| [`evaluation-context/spec.md`](specs/evaluation-context/spec.md) | Evaluation Context | **UNKNOWN** | no closure table and no Status line |
-| [`evidence-and-attestation/spec.md`](specs/evidence-and-attestation/spec.md) | Evidence and Attestation | **UNKNOWN** | no closure table and no Status line |
-| [`framework-ci/spec.md`](specs/framework-ci/spec.md) | Framework CI | **UNKNOWN** | no closure table and no Status line |
-| [`game-regression/spec.md`](specs/game-regression/spec.md) | Game-class regression scanning | **UNKNOWN** | no closure table and no Status line |
-| [`gate-configuration-contract/spec.md`](specs/gate-configuration-contract/spec.md) | Gate configuration contract | **UNKNOWN** | no closure table and no Status line |
-| [`gate-execution-contract/spec.md`](specs/gate-execution-contract/spec.md) | Gate execution contract | **UNKNOWN** | no closure table and no Status line |
-| [`hub-architecture/spec.md`](specs/hub-architecture/spec.md) | Hub-and-spoke monitor architecture | **UNKNOWN** | no closure table and no Status line |
-| [`integrations/spec.md`](specs/integrations/spec.md) | Integrations | **UNKNOWN** | no closure table and no Status line |
-| [`package-resolution/spec.md`](specs/package-resolution/spec.md) | Package Resolution | **UNKNOWN** | no closure table and no Status line |
-| [`publish-safety/spec.md`](specs/publish-safety/spec.md) | Publish leg safety | **UNKNOWN** | no closure table and no Status line |
-| [`release-gate-targeting/spec.md`](specs/release-gate-targeting/spec.md) | Release gate targeting and audit classification | **UNKNOWN** | no closure table and no Status line |
-| [`rule-coverage-truth/spec.md`](specs/rule-coverage-truth/spec.md) | Rule coverage truth | **UNKNOWN** | no closure table and no Status line |
-| [`runner-monitoring/spec.md`](specs/runner-monitoring/spec.md) | Runner health monitoring | **UNKNOWN** | no closure table and no Status line |
-| [`scanner-parsing/spec.md`](specs/scanner-parsing/spec.md) | Scanner parsing correctness | **UNKNOWN** | no closure table and no Status line |
-| [`security-boundaries/spec.md`](specs/security-boundaries/spec.md) | Security boundaries | **UNKNOWN** | no closure table and no Status line |
-| [`spec-platform/spec.md`](specs/spec-platform/spec.md) | Spec platform | **UNKNOWN** | no closure table and no Status line |
-| [`subjects-3d/spec.md`](specs/subjects-3d/spec.md) | 3D Subjects | **UNKNOWN** | no closure table and no Status line |
 
 ## Reading the status
 

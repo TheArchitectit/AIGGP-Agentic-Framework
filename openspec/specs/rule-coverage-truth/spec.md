@@ -1,5 +1,7 @@
 # Rule coverage truth
 
+Status: CLOSED (EXERCISED 3)
+
 ## Purpose
 
 Keep the documented rule coverage honest: a rule listed as enabled must have a checker that enforces it, and docs must match what ships.
@@ -46,3 +48,11 @@ instruct implementers in the target file's own syntax.
 #### Scenario: Python marker
 - **WHEN** a requirement id appears as `# spec: <id>` in a .py source file
 - **THEN** the gate counts the requirement covered in blocking mode
+
+## Requirement Closure
+
+| Requirement | Status | Implementation | Verification |
+|---|---|---|---|
+| `rule-truth-01` (Enabled means enforced) | **EXERCISED** | `scripts/rules_check.py` | `tests/test_rule_scoping.py` |
+| `rule-behavior-01` (Behavior rules live in skills) | **EXERCISED** | `scripts/rules_check.py` | `tests/test_template_supply_chain.py` |
+| `rule-marker-01` (Language-aware spec markers) | **EXERCISED** | `scripts/findings_to_spec.py`, `scripts/lib/spec_discovery.py`, `scripts/spec_traceability.py` | `tests/test_spec_traceability.py` |

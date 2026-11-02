@@ -1,5 +1,7 @@
 # Game-class regression scanning
 
+Status: CLOSED (EXERCISED 3)
+
 ## Purpose
 
 Track game-class runtime failures (null derefs, scene-load failures, save corruption, orphaned signals, determinism breaks, perf regressions) as an append-only project registry, and block changes that re-introduce a registered failure. The registry is shared by `scripts/log_failure.py` and the regression scanner: an append-only `.guardrails/failure-registry.jsonl` — one JSON object per bug/failure, never edited, only appended via `scripts/log_failure.py`.
@@ -119,3 +121,11 @@ SHALL remain 0 so non-game consumers are not blocked.
 - **WHEN** the scanner runs against a project with no matching source files
 - **THEN** it prints NOTHING SCANNED and exits 0, or exits 2 with
   `--fail-if-empty`
+
+## Requirement Closure
+
+| Requirement | Status | Implementation | Verification |
+|---|---|---|---|
+| `game-reg-01` (Game-class pattern scan) | **EXERCISED** | `scripts/game_regression.py` | `tests/test_game_regression.py` |
+| `game-reg-02` (Registry patterns honor scoping and annotations) | **EXERCISED** | `scripts/game_regression.py` | `tests/test_game_regression.py` |
+| `game-reg-03` (Empty scope is not a pass) | **EXERCISED** | `scripts/game_regression.py` | `tests/test_game_regression.py` |

@@ -1,5 +1,7 @@
 # CI template contract
 
+Status: CLOSED (EXERCISED 3)
+
 ## Purpose
 
 Guarantee that the CI workflow templates DevGate ships actually run every gate they document, so a consumer adopting a template gets the coverage the docs promise.
@@ -52,3 +54,11 @@ warning-clean on its own scanners.
 - **WHEN** a pull request opens against main
 - **THEN** pytest, the node fixture tests, the pattern scan, the semantic
   scan, the registry hygiene check, and the regression gate all run
+
+## Requirement Closure
+
+| Requirement | Status | Implementation | Verification |
+|---|---|---|---|
+| `ci-run-01` (Templates run the gates they name) | **EXERCISED** | `templates/github/workflows/`, `.github/workflows/` | `tests/test_template_supply_chain.py` |
+| `ci-match-01` (Blocking checks match what they describe) | **EXERCISED** | `templates/github/workflows/`, `.github/workflows/` | `tests/test_template_supply_chain.py` |
+| `ci-self-01` (The framework gates itself) | **EXERCISED** | `templates/github/workflows/`, `.github/workflows/` | `tests/test_template_supply_chain.py` |

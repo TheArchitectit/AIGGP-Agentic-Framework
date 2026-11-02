@@ -1,5 +1,7 @@
 # 3D Subjects
 
+Status: CLOSED (EXERCISED 4)
+
 ## Purpose
 
 3D subject contract used by the promote-or-halt pipeline gate: a subject manifest binding world IR, GLB assets, engine scene, build, captures and evaluation records into a digest; repair invalidation that forces prior attestations to die when bytes change; a pipeline that consumes the shared decision contract rather than forking it; and captures treated as declared inputs to evaluators rather than something evaluators may re-render.
@@ -61,3 +63,12 @@ Render captures or sensor outputs used by assertions MUST be produced under a de
 - **GIVEN** the same scene captured under two different pinned capture configurations
 - **WHEN** assertions consume the captures
 - **THEN** each capture carries its configuration digest, and results record which capture identity they evaluated.
+
+## Requirement Closure
+
+| Requirement | Status | Implementation | Verification |
+|---|---|---|---|
+| `coh-3d-01` (3D subject manifest) | **EXERCISED** | `hub/coherence/manifest.py`, `scripts/world_slice_tool.py` | `tests/test_hub_coherence_3d_slice.py` |
+| `coh-3d-02` (repair invalidates prior results) | **EXERCISED** | `hub/coherence/evaluators.py`, `scripts/world_slice_tool.py` | `tests/test_hub_coherence_3d_slice.py` |
+| `coh-3d-03` (pipeline consumes the common contract) | **EXERCISED** | `hub/coherence/evaluators.py`, `scripts/world_slice_tool.py` | `tests/test_hub_coherence_3d_slice.py` |
+| `coh-3d-04` (captures are declared inputs) | **EXERCISED** | `hub/coherence/evaluators.py`, `hub/coherence/manifest.py`, `scripts/world_slice_tool.py` | `tests/test_hub_coherence_3d_slice.py` |

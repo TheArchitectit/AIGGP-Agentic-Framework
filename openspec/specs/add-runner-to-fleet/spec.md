@@ -1,5 +1,7 @@
 # Adding a runner to an existing fleet
 
+Status: CLOSED (EXERCISED 1)
+
 ## Purpose
 
 Scaling a DevGate-managed runner fleet past its first machine: the runner
@@ -48,3 +50,9 @@ operator's private infra repo for machine-specific details.
 - **THEN** a link to add-a-runner.md is visible for operators who already
   have a fleet
 - **AND** it SHALL be discoverable from `templates/runner/README.md`
+
+## Requirement Closure
+
+| Requirement | Status | Implementation | Verification |
+|---|---|---|---|
+| `fleet-add-01` (Documented N+1th runner procedure) | **EXERCISED** | `scripts/runner-enroll.sh`, `hub/registry.py` | `tests/test_template_supply_chain.py` |

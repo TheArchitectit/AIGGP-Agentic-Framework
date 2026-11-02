@@ -1,5 +1,7 @@
 # Runner health monitoring
 
+Status: CLOSED (EXERCISED 4)
+
 ## Purpose
 
 Detect runner health failures — dead quadlets, stalled queues — through the hub's monitoring of runner heartbeats and job state.
@@ -52,3 +54,12 @@ or when the latest completed scan failed.
 #### Scenario: overdue drift scan
 - **WHEN** a repo's drift scan is overdue by more than one period plus grace
 - **THEN** the hub raises an alert naming the repo and the last run time
+
+## Requirement Closure
+
+| Requirement | Status | Implementation | Verification |
+|---|---|---|---|
+| `mon-online-01` (Runner online detection) | **EXERCISED** | `hub/monitor.py` | `tests/fixtures/runner_spoke.py` |
+| `mon-queue-01` (Queue-drain detection) | **EXERCISED** | `hub/monitor.py` | `tests/test_hub_monitor.py`, `tests/test_hub_monitor_default_deny.py` |
+| `mon-gates-01` (Gate-result tracking) | **EXERCISED** | `hub/monitor.py` | `tests/test_hub_monitor.py`, `tests/test_hub_monitor_default_deny.py` |
+| `mon-drift-01` (Drift-scan recency) | **EXERCISED** | `hub/monitor.py` | `tests/test_hub_monitor.py`, `tests/test_hub_monitor_default_deny.py` |

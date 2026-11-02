@@ -1,5 +1,7 @@
 # Evaluation Context
 
+Status: CLOSED (EXERCISED 5)
+
 ## Purpose
 
 The trust and state binding for a single evaluation: a versioned context, trusted issuance by the control plane or deterministic derivation from control-plane-published state, an explicit replay-versus-fresh-promotion split that fences cached results, bound external facts supplied pre-digested and never re-fetched mid-run, and cache-key completeness so no trust state can drift inside a reused result.
@@ -85,3 +87,13 @@ Signed cached results MUST be reused only when every bound identity matches exac
 - **GIVEN** a cache entry matching subject, package, policy, and evaluator digests but bound to an older context or captured-fact set
 - **WHEN** cache lookup runs
 - **THEN** the entry is a miss and full evaluation runs.
+
+## Requirement Closure
+
+| Requirement | Status | Implementation | Verification |
+|---|---|---|---|
+| `coh-ctx-01` (versioned evaluation context) | **EXERCISED** | `hub/coherence/context.py`, `hub/coherence/issue.py` | `tests/test_hub_coherence_issue.py` |
+| `coh-ctx-02` (trusted context issuance) | **EXERCISED** | `hub/coherence/context.py`, `hub/coherence/issue.py` | `tests/test_hub_coherence_issue.py`, `tests/test_hub_coherence_modes.py`, `tests/test_hub_coherence_modes_cli.py` |
+| `coh-ctx-03` (replay versus fresh promotion) | **EXERCISED** | `hub/coherence/context.py` | `tests/test_hub_coherence_conformance.py`, `tests/test_hub_coherence_exitcodes.py`, `tests/test_hub_coherence_schema.py` |
+| `coh-ctx-04` (bound external facts) | **EXERCISED** | `hub/coherence/evaluate.py`, `hub/coherence/evaluators.py` | `tests/test_hub_coherence_runtime.py` |
+| `coh-ctx-05` (cache key completeness) | **EXERCISED** | `hub/coherence/cache.py`, `hub/coherence/store.py` | `tests/test_hub_coherence_cache.py`, `tests/test_hub_coherence_store.py` |

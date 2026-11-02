@@ -1,5 +1,7 @@
 # Canonical Identity
 
+Status: CLOSED (EXERCISED 5)
+
 ## Purpose
 
 Digest and canonicalization rules that bind every coherence identity to a specific byte-level subject: a single canonicalization profile, subject-manifest composition, a normative package digest distinct from a source-tree SHA, image and platform execution-profile identity, and domain-separated digests so one hash cannot be misread as being of a different thing.
@@ -84,3 +86,13 @@ Distinct artifact kinds (subject manifest, package, policy bundle, evaluation co
 - **GIVEN** bytes crafted so a policy file equals a subject file
 - **WHEN** digests are computed
 - **THEN** the role-tagged digests differ and no cross-role substitution verifies.
+
+## Requirement Closure
+
+| Requirement | Status | Implementation | Verification |
+|---|---|---|---|
+| `coh-id-01` (digest and canonicalization profile) | **EXERCISED** | `hub/coherence/canon.py` | `tests/fixtures/coherence/compute_golden.py`, `tests/test_hub_coherence.py`, `tests/test_hub_coherence_golden.py` |
+| `coh-id-02` (subject manifest) | **EXERCISED** | `hub/coherence/manifest.py` | `tests/test_hub_coherence.py`, `tests/test_hub_coherence_runtime_mutation.py`, `tests/test_hub_coherence_submodule_pin.py` |
+| `coh-id-03` (package normative digest) | **EXERCISED** | `hub/coherence/package.py` | `tests/test_hub_coherence_normative.py`, `tests/test_hub_coherence.py` |
+| `coh-id-04` (image and platform identity) | **EXERCISED** | `hub/coherence/container_exec.py`, `hub/coherence/launcher.py`, `hub/coherence/profiles.py` | `tests/fixtures/repin.py`, `tests/test_coherence_image_identity.py`, `tests/test_hub_coherence_container.py` |
+| `coh-id-05` (domain-separated digests) | **EXERCISED** | `hub/coherence/canon.py` | `tests/fixtures/coherence/compute_golden.py` |

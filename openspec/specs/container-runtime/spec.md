@@ -1,5 +1,7 @@
 # Container Runtime
 
+Status: CLOSED (EXERCISED 7)
+
 ## Purpose
 
 The container boundary every evaluation runs under: an immutable pinned runtime, launcher-validated isolation (non-root, read-only rootfs, dropped capabilities, no sockets, resource limits), default-deny network, least-privilege secret grants that never appear in evidence, bounded execution with exhaustion an ERROR, built-in evaluators as the initial runtime loader, and a writable-output handling path that cannot leak undeclared data.
@@ -115,3 +117,15 @@ The only writable filesystem is the bounded scratch volume plus a designated bou
 - **GIVEN** the process is killed while writing the result bundle
 - **WHEN** the caller inspects the output location
 - **THEN** no complete canonical result is present, the exit status is ERROR-class, and no consumer mistakes partial bytes for a decision.
+
+## Requirement Closure
+
+| Requirement | Status | Implementation | Verification |
+|---|---|---|---|
+| `coh-rt-01` (immutable runtime) | **EXERCISED** | `hub/coherence/container_exec.py`, `hub/coherence/invoke.py`, `hub/coherence/launcher.py` | `tests/test_coherence_image_identity.py`, `tests/test_hub_coherence_container.py`, `tests/test_hub_coherence_invoke.py` |
+| `coh-rt-02` (launcher-validated isolation) | **EXERCISED** | `hub/coherence/container_exec.py`, `hub/coherence/launcher.py` | `tests/test_hub_coherence_container.py`, `tests/test_hub_coherence_launcher.py` |
+| `coh-rt-03` (default-deny network) | **EXERCISED** | `hub/coherence/evaluate.py`, `hub/coherence/evaluators.py` | `tests/test_hub_coherence_runtime.py` |
+| `coh-rt-04` (least-privilege secrets) | **EXERCISED** | `hub/coherence/evidence.py` | `tests/test_hub_coherence_runtime.py` |
+| `coh-rt-05` (bounded execution) | **EXERCISED** | `hub/coherence/container_exec.py`, `hub/coherence/evaluate.py`, `hub/coherence/launcher.py` | `tests/test_hub_coherence_container.py`, `tests/test_hub_coherence_launcher.py` |
+| `coh-rt-06` (built-in evaluators for the initial runtime) | **EXERCISED** | `hub/coherence/evaluate.py`, `hub/coherence/plan.py` | `tests/test_hub_coherence_allowlist.py`, `tests/test_hub_coherence_assertion_schema.py`, `tests/test_hub_coherence_compat.py` |
+| `coh-rt-07` (writable output handling) | **EXERCISED** | `hub/coherence/container_exec.py`, `hub/coherence/evidence.py`, `hub/coherence/launcher.py` | `tests/test_hub_coherence_container.py`, `tests/test_hub_coherence_launcher.py`, `tests/test_hub_coherence_runtime.py` |

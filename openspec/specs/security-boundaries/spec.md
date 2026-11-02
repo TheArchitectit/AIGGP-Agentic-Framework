@@ -1,5 +1,7 @@
 # Security boundaries
 
+Status: CLOSED (EXERCISED 4)
+
 ## Purpose
 
 Trust boundaries hold even when the input is hostile: repository-supplied
@@ -79,3 +81,12 @@ SHALL be a single canonical form that the shipped unit files actually parse.
 #### Scenario: secrets drop-in parses
 - **WHEN** an operator follows the runner docs' secrets step verbatim
 - **THEN** the resulting drop-in is consumed by the shipped quadlet as written
+
+## Requirement Closure
+
+| Requirement | Status | Implementation | Verification |
+|---|---|---|---|
+| `coh-sec-01` (Repository-supplied paths are contained) | **EXERCISED** | `hub/coherence/context.py`, `hub/coherence/manifest.py`, `hub/coherence/store.py` | `tests/test_gate_containment.py`, `tests/test_hub_coherence_containment.py` |
+| `mon-sec-01` (Hub request and shutdown contracts) | **EXERCISED** | `hub/server.py`, `hub/tokens.py`, `hub/schema/runners.schema.json` | `tests/test_hub_hardening.py` |
+| `mon-sec-02` (Tokens are not stored or logged in plaintext) | **EXERCISED** | `hub/server.py`, `hub/tokens.py`, `hub/schema/runners.schema.json` | `tests/test_hub_registry_schema.py`, `tests/test_template_supply_chain.py` |
+| `ci-sec-01` (Template actions and images are immutably referenced) | **EXERCISED** | `templates/github/workflows/`, `.github/workflows/` | `tests/test_template_supply_chain.py` |
