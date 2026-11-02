@@ -1,12 +1,16 @@
-# // spec: coh-assert-02, coh-assert-03, coh-assert-04, coh-assert-06, coh-eval-04, coh-eval-06, coh-rt-03, coh-ctx-04
+# // spec: coh-assert-02, coh-assert-03, coh-assert-04, coh-assert-05, coh-assert-06, coh-eval-04, coh-eval-06, coh-rt-03, coh-ctx-04, coh-3d-02, coh-3d-03, coh-3d-04
 """Built-in slice evaluators: product-identity consistency, traceability
-completeness, release-claim consistency, captured-fact consistency.
-Deterministic, no network, no secrets. Each returns a list of findings
-(empty = satisfied). All take (assertion, package, subject_root, facts) —
-`facts` carries only the captured facts the assertion's subjects declared.
+completeness, release-claim consistency, captured-fact consistency, 3D room
+coherence, and vision observation posture. Deterministic, no network, no
+secrets. Each returns a list of findings (empty = satisfied). All take
+(assertion, package, subject_root, facts) — `facts` carries only the captured
+facts the assertion's subjects declared.
 """
+import json
 import re
 from pathlib import Path
+
+from . import canon, manifest
 
 
 class Unresolved(Exception):
@@ -147,11 +151,231 @@ def captured_fact_consistency(assertion: dict, package: dict, subject_root: str,
     return findings
 
 
+_DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
+
+
+def _read_contained_bytes(subject_root: str, rel: str) -> bytes:
+    if not rel or not isinstance(rel, str):
+        raise Unresolved("selector-empty:?")
+    root = Path(subject_root).resolve()
+    try:
+        resolved = (root / rel).resolve()
+    except (OSError, ValueError):
+        raise Unresolved(f"selector-unresolvable:{rel}")
+    if root not in resolved.parents and resolved != root:
+        raise Unresolved(f"selector-escapes-subject:{rel}")
+    fp = root / rel
+    if not fp.is_file():
+        raise Unresolved(f"selector-empty:{rel}")
+    return fp.read_bytes()
+
+
+def _read_contained_json(subject_root: str, rel: str) -> dict:
+    raw = _read_contained_bytes(subject_root, rel)
+    try:
+        doc = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        raise Unresolved(f"selector-unparseable:{rel}")
+    if not isinstance(doc, dict):
+        raise Unresolved(f"selector-not-object:{rel}")
+    return doc
+
+
+# 3D room coherence (coh-3d-02, coh-3d-03, coh-3d-04): pure evaluation over
+# declared world-bundle parts and pinned capture records — never renders or
+# invokes simulation.
+def world_room_coherence(assertion: dict, package: dict, subject_root: str,
+                         facts: dict = None) -> list:
+    params = assertion.get("parameters") or {}
+    check = params.get("check")
+    bundle_rel = params.get("bundle_path", "world-bundle.json")
+    bundle = _read_contained_json(subject_root, bundle_rel)
+    parts = bundle.get("parts")
+    if not isinstance(parts, list):
+        raise Unresolved(f"world-bundle-parts-missing:{bundle_rel}")
+    by_id = {p.get("part_id"): p for p in parts
+             if isinstance(p, dict) and isinstance(p.get("part_id"), str)}
+    by_kind = {}
+    for p in parts:
+        if isinstance(p, dict) and isinstance(p.get("kind"), str):
+            by_kind.setdefault(p["kind"], []).append(p)
+
+    findings = []
+    if check == "parts-complete":
+        req_kinds = params.get("required_part_kinds") or [
+            "world-ir", "glb", "engine-scene",
+            "executable-build", "capture", "evaluation-record"]
+        for k in req_kinds:
+            if k not in by_kind:
+                findings.append(_mk(assertion, "missing-world-part",
+                                    expected=f"part kind {k}",
+                                    observed="absent from world-bundle.json",
+                                    locations=[bundle_rel]))
+        for p in parts:
+            if not isinstance(p, dict):
+                continue
+            rel = p.get("path")
+            if isinstance(rel, str):
+                _read_contained_bytes(subject_root, rel)
+        return findings
+
+    if check == "room-bounds":
+        ir_rel = (by_kind.get("world-ir") or [{}])[0].get("path")
+        ir = _read_contained_json(subject_root, ir_rel)
+        exp_id = _dig(package, params.get("approved_room_id_ref", ""))
+        obs_id = ir.get("room_id")
+        if exp_id is not None and obs_id != exp_id:
+            findings.append(_mk(assertion, "room-id-mismatch",
+                                expected=str(exp_id), observed=str(obs_id),
+                                locations=[ir_rel]))
+        dims = ir.get("bounds_mm") or {}
+        min_dims = params.get("min_bounds_mm") or {}
+        for axis in ("width", "depth", "height"):
+            if axis in min_dims:
+                val = dims.get(axis)
+                floor = min_dims[axis]
+                if (not isinstance(val, int) or isinstance(val, bool)
+                        or val < floor):
+                    findings.append(_mk(
+                        assertion, "room-bounds-violation",
+                        expected=f"{axis}>={floor}",
+                        observed=f"{axis}={val!r}",
+                        locations=[ir_rel]))
+        return findings
+
+    if check == "doorway-clearance":
+        ir_rel = (by_kind.get("world-ir") or [{}])[0].get("path")
+        cap_part = by_id.get(params.get("capture_part_id", "")) or (
+            (by_kind.get("capture") or [{}])[0])
+        cap_rel = cap_part.get("path")
+        cfg_rel = cap_part.get("capture_config_path")
+        ir = _read_contained_json(subject_root, ir_rel)
+        cap = _read_contained_json(subject_root, cap_rel)
+        _read_contained_bytes(subject_root, cfg_rel)
+        cfg_digest = manifest._digest_file(Path(subject_root).resolve() / cfg_rel)
+        if cap.get("capture_config_digest") != cfg_digest:
+            findings.append(_mk(
+                assertion, "capture-config-digest-mismatch",
+                expected=cfg_digest,
+                observed=str(cap.get("capture_config_digest")),
+                locations=[cap_rel]))
+        min_clear = params.get("min_clear_width_mm", 1200)
+        ir_clear = (ir.get("doorway") or {}).get("clear_width_mm")
+        cap_clear = (cap.get("measurements") or {}).get(
+            "doorway_clear_width_mm")
+        blocked = bool((cap.get("measurements") or {}).get("doorway_blocked"))
+        if (not isinstance(ir_clear, int) or isinstance(ir_clear, bool)
+                or ir_clear < min_clear
+                or not isinstance(cap_clear, int)
+                or isinstance(cap_clear, bool)
+                or cap_clear < min_clear or blocked):
+            findings.append(_mk(
+                assertion, "doorway-clearance-violation",
+                expected=f"clear_width_mm>={min_clear} and doorway_blocked=False "
+                         f"(config={cfg_digest})",
+                observed=f"ir={ir_clear!r}, capture={cap_clear!r}, "
+                         f"blocked={blocked} (config={cfg_digest})",
+                locations=[cap_rel]))
+        return findings
+
+    if check == "asset-scene-binding":
+        glb_part = (by_kind.get("glb") or [{}])[0]
+        scn_part = (by_kind.get("engine-scene") or [{}])[0]
+        glb_rel = glb_part.get("path")
+        scn_rel = scn_part.get("path")
+        glb_bytes = _read_contained_bytes(subject_root, glb_rel)
+        if len(glb_bytes) < 12 or glb_bytes[:4] != b"glTF":
+            findings.append(_mk(assertion, "invalid-glb-header",
+                                expected="glTF 2.0 binary magic",
+                                observed=f"header={glb_bytes[:4]!r}",
+                                locations=[glb_rel]))
+        scn_text = _read_contained_bytes(subject_root, scn_rel).decode(
+            "utf-8", errors="replace")
+        if glb_rel not in scn_text:
+            findings.append(_mk(
+                assertion, "scene-asset-unbound",
+                expected=f"scene references {glb_rel}",
+                observed="GLB path absent from engine scene",
+                locations=[scn_rel]))
+        return findings
+
+    raise Unresolved(f"unknown-world-room-check:{check!r}")
+
+
+def is_pinned_reproducible_model(assertion: dict, facts: dict = None) -> bool:
+    """True iff a model/vision observation has pinned rubric, model digest,
+    input digest, and integer seed verified in the captured fact (coh-assert-05)."""
+    facts = facts or {}
+    params = assertion.get("parameters") or {}
+    rubric = params.get("rubric_digest")
+    model = params.get("model_digest")
+    seed = params.get("seed")
+    if (not isinstance(rubric, str) or not _DIGEST_RE.fullmatch(rubric)
+            or not isinstance(model, str) or not _DIGEST_RE.fullmatch(model)
+            or not isinstance(seed, int) or isinstance(seed, bool)):
+        return False
+    sels = [s for s in (assertion.get("subjects") or [])
+            if isinstance(s, dict) and s.get("kind") == "captured-fact"]
+    if not sels:
+        return False
+    for sel in sels:
+        fact = facts.get(sel.get("fact_id"))
+        if not isinstance(fact, dict):
+            return False
+        inp = fact.get("input_digest")
+        if (fact.get("reproducible") is False
+                or fact.get("rubric_digest") != rubric
+                or fact.get("model_digest") != model
+                or fact.get("seed") != seed
+                or not isinstance(inp, str)
+                or not _DIGEST_RE.fullmatch(inp)):
+            return False
+    return True
+
+
+# Vision/model observation posture (coh-assert-05): unpinned or stochastic
+# observations remain non-canonical advisory evidence and never block or
+# silently produce an enforced PASS; fully pinned reproducible observations
+# participate deterministically under the normal contract.
+def vision_observation(assertion: dict, package: dict, subject_root: str,
+                       facts: dict = None) -> list:
+    facts = facts or {}
+    params = assertion.get("parameters") or {}
+    expected_verdict = params.get("expected_verdict", "clear")
+    pinned = is_pinned_reproducible_model(assertion, facts)
+    findings = []
+    for sel in assertion.get("subjects") or []:
+        if sel.get("kind") != "captured-fact":
+            continue
+        fid = sel.get("fact_id")
+        fact = facts.get(fid)
+        if not isinstance(fact, dict):
+            raise Unresolved(f"captured-fact-missing:{fid}")
+        verdict = fact.get("verdict")
+        summary = fact.get("observation", str(verdict))
+        if not pinned:
+            f = _mk(assertion, "unpinned-model-advice",
+                    expected=f"pinned reproducible rubric ({expected_verdict})",
+                    observed=f"advisory-only vision observation: {summary}",
+                    locations=[fid or "vision-fact"])
+            f["enforcement"] = "ADVISORY"
+            findings.append(f)
+        elif verdict != expected_verdict:
+            findings.append(_mk(
+                assertion, "vision-rubric-violation",
+                expected=str(expected_verdict),
+                observed=str(verdict),
+                locations=[fid or "vision-fact"]))
+    return findings
+
+
 BUILTINS = {
     "devgate.builtin.identity-consistency": identity_consistency,
     "devgate.builtin.traceability-completeness": traceability_completeness,
     "devgate.builtin.release-claim-consistency": release_claim_consistency,
     "devgate.builtin.captured-fact-consistency": captured_fact_consistency,
+    "devgate.builtin.world-room-coherence": world_room_coherence,
+    "devgate.builtin.vision-observation": vision_observation,
 }
 
 

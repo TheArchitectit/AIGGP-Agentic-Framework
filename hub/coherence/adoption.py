@@ -1,4 +1,4 @@
-# // spec: coh-pol-04, coh-pol-05, coh-pol-06, coh-eval-05
+# // spec: coh-pol-04, coh-pol-05, coh-pol-06, coh-eval-05, coh-assert-05
 """Adoption ladder: fingerprinted baseline ratchet, scoped exceptions.
 
 Baselines are SETS of fingerprints, not counts (coh-pol-04). A violation whose
@@ -142,7 +142,12 @@ def evaluate(ledger: list, findings: list, planned: list, baseline: list,
                          f["subject_locations"][0] if f["subject_locations"] else "?",
                          _vclass(f))
         f["fingerprint"] = fp
-        if stage < 2:
+        if _vclass(f) == "unpinned-model-advice":
+            # coh-assert-05: output from an unpinned or stochastic model is
+            # non-canonical advisory evidence regardless of stage; it cannot
+            # block a PASS or silently become an enforced PASS.
+            f["enforcement"] = "ADVISORY"
+        elif stage < 2:
             f["enforcement"] = "ADVISORY"          # Stage 0/1: never blocks
         elif fp in expired_exc:
             f["enforcement"] = "BLOCK"             # expired exception -> blocks

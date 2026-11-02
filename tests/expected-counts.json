@@ -29,6 +29,7 @@
   "test_hub_boundary_validation": 2,
   "test_hub_build_report_wire": 8,
   "test_hub_coherence": 40,
+  "test_hub_coherence_3d_slice": 8,
   "test_hub_coherence_adoption_ledger": 9,
   "test_hub_coherence_adoption_policy": 27,
   "test_hub_coherence_allowlist": 3,
@@ -133,5 +134,5 @@
   "test_template_supply_chain": 4,
   "test_workflow_read": 15
  },
- "total_floor": 1716
+ "total_floor": 1724
 }

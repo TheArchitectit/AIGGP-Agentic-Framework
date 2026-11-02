@@ -1,9 +1,10 @@
-# // spec: coh-id-02, coh-sec-01
+# // spec: coh-id-02, coh-sec-01, coh-3d-01, coh-3d-04
 """Subject manifest: normalized relative paths, raw-byte SHA-256, explicit
 policy outcomes for non-file entries, traversal/collision rejection, and
 read-time re-verification. Deterministic traversal (sorted).
 """
 import hashlib
+import json
 import os
 import re
 import unicodedata
@@ -133,6 +134,86 @@ def _digest_and_size(fp: Path) -> tuple:
 DEFAULT_EXCLUDES = (".git", "node_modules", "__pycache__", ".venv", "venv",
                     "dist", "build", "target")
 
+WORLD_BUNDLE_FILE = "world-bundle.json"
+PART_KINDS = ("world-ir", "glb", "engine-scene", "executable-build",
+              "capture", "evaluation-record")
+
+
+def _build_world_parts(root_p: Path, entry_by_path: dict) -> list:
+    """Resolve and verify composite 3D world-bundle parts (coh-3d-01, coh-3d-04).
+
+    `world-bundle.json` at the subject root declares the composite parts by
+    relative path (and for `capture` parts, a `capture_config_path` pointing to
+    the pinned capture configuration). Every part digest is verified from the
+    walked file entries so any 1-byte mutation to any part or capture config
+    alters `parts` and therefore `subject_digest`.
+    """
+    desc_path = root_p / WORLD_BUNDLE_FILE
+    if WORLD_BUNDLE_FILE not in entry_by_path or not desc_path.is_file():
+        raise SubjectError(
+            "world-bundle subject requires world-bundle.json at subject root")
+    try:
+        doc = json.loads(desc_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as e:
+        raise SubjectError(f"invalid world-bundle.json: {e}") from None
+    if not isinstance(doc, dict):
+        raise SubjectError("world-bundle.json must be a JSON object")
+    raw_parts = doc.get("parts")
+    if not isinstance(raw_parts, list) or not raw_parts:
+        raise SubjectError("world-bundle.json parts must be a non-empty array")
+
+    seen_ids = set()
+    parts = []
+    for raw in raw_parts:
+        if not isinstance(raw, dict):
+            raise SubjectError("world-bundle part entry must be an object")
+        pid = raw.get("part_id")
+        kind = raw.get("kind")
+        rel = raw.get("path")
+        if not isinstance(pid, str) or not pid.strip():
+            raise SubjectError("world-bundle part missing non-empty part_id")
+        if pid in seen_ids:
+            raise SubjectError(f"duplicate world-bundle part_id: {pid!r}")
+        seen_ids.add(pid)
+        if kind not in PART_KINDS:
+            raise SubjectError(f"unsupported world-bundle part kind: {kind!r}")
+        if not isinstance(rel, str) or not rel:
+            raise SubjectError(f"world-bundle part {pid!r} missing path")
+        norm_rel = _norm(rel)
+        check_safe(norm_rel, root_p)
+        ent = entry_by_path.get(norm_rel)
+        if ent is None or ent.get("kind") != "file" or not ent.get("digest"):
+            raise SubjectError(
+                f"world-bundle part {pid!r} path is missing or non-regular: "
+                f"{norm_rel!r}")
+        part_obj = {
+            "part_id": pid,
+            "kind": kind,
+            "digest": ent["digest"],
+        }
+        cfg_rel = raw.get("capture_config_path")
+        if kind == "capture":
+            if not isinstance(cfg_rel, str) or not cfg_rel:
+                raise SubjectError(
+                    f"capture part {pid!r} requires capture_config_path "
+                    f"(coh-3d-04)")
+            norm_cfg = _norm(cfg_rel)
+            check_safe(norm_cfg, root_p)
+            cfg_ent = entry_by_path.get(norm_cfg)
+            if (cfg_ent is None or cfg_ent.get("kind") != "file"
+                    or not cfg_ent.get("digest")):
+                raise SubjectError(
+                    f"capture part {pid!r} config is missing or non-regular: "
+                    f"{norm_cfg!r}")
+            part_obj["capture_config_digest"] = cfg_ent["digest"]
+        elif cfg_rel is not None:
+            raise SubjectError(
+                f"non-capture part {pid!r} may not declare capture_config_path")
+        parts.append(part_obj)
+
+    parts.sort(key=lambda p: (p["kind"], p["part_id"]))
+    return parts
+
 
 def build(root: str, subject_kind: str = "source-tree",
           excludes: tuple = DEFAULT_EXCLUDES) -> dict:
@@ -217,6 +298,9 @@ def build(root: str, subject_kind: str = "source-tree",
         "subject_kind": subject_kind,
         "entries": entries,
     }
+    if subject_kind == "world-bundle":
+        entry_by_path = {e["path"]: e for e in entries}
+        manifest["parts"] = _build_world_parts(root_p, entry_by_path)
     manifest["subject_digest"] = canon.digest_obj("subject-manifest/v1", manifest)
     return manifest
 
