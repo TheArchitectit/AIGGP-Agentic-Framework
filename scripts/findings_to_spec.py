@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# spec: coh-sec-01
+# spec: coh-sec-01, rule-marker-01
 """findings_to_spec.py — turn gate findings into openspec requirement skeletons.
 
 The loop the gates feed:
@@ -138,8 +138,8 @@ def render_requirement(f: dict, req_id: str) -> str:
         "",
         f"> Implement, then mark the enforcing source with a spec marker:"
         f" `// spec: {req_id}` in C-family/JS files, `# spec: {req_id}` in"
-        "> Python/Ruby/shell — both count — so spec_traceability.py counts"
-        "> it covered.",
+        f" Python/Ruby/shell, or `-- spec: {req_id}` in SQL/Lua — all"
+        "> count — so spec_traceability.py counts it covered.",
         "",
     ]
     return "\n".join(body) + "\n"

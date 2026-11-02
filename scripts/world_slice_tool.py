@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# // spec: coh-3d-01, coh-3d-02, coh-3d-03, coh-3d-04, coh-assert-05
+# // spec: coh-3d-01, coh-3d-02, coh-3d-03, coh-3d-04, coh-assert-05, coh-int-03
 """3D vertical-slice room builder, pinned capture pipeline, and bounded repair.
 
 Lives outside `hub/` so the coherence core remains pure stdlib without

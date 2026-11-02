@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# // spec: rule-config-01, rule-fresh-01
 # silent-success-scan.sh — allowlist scan for silent-success / simulated-production
 # markers (language-agnostic).
 #

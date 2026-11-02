@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// spec: rule-config-01
 /**
  * scripts/schema-health-check.mjs — deploy gate (database-agnostic).
  *

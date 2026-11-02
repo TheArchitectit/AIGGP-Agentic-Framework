@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// spec: gate-rstest-01
 // DevGate guardrails pattern scanner — language-agnostic.
 // Scans the PARENT project's source files (not DevGate's own directory).
 // Loads .guardrails/prevention-rules/pattern-rules.json and checks all source

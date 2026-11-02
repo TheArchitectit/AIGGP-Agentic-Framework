@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# // spec: gate-size-01
 """regression_sizes.py — file-size limits + severity formatting.
 
 Helper module for scripts/regression_check.py, split out to keep every file

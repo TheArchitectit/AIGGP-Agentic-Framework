@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# // spec: spec-fmt-01
 """One-shot migration: house spec format -> OpenSpec CLI format (spec-fmt-01).
 
 House format (12 structured specs):

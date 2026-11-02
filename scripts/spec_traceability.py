@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# // spec: base-specs-01, rule-marker-01, spec-fmt-01, spec-fmt-02, spec-fmt-03
 """Spec traceability gate: every openspec requirement ID needs a spec marker
 (`// spec: <id>` or `# spec: <id>` — both comment styles count) in a source
 file. Modes: advisory (exit 0, report) / blocking (exit 1).

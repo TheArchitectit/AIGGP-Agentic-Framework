@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# // spec: gate-allwindow-01, rel-target-01
 """
 DevGate Regression Check Tool — language-agnostic.
 Auto-detects the project root and scans whatever source directories exist.

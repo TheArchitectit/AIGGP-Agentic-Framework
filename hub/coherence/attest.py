@@ -1,4 +1,4 @@
-# // spec: coh-ev-01, coh-ev-05
+# // spec: coh-ev-01, coh-ev-05, coh-pol-07
 """Detached attestation: sign and verify bound statements.
 
 Two cooperating chains (both load-bearing; both stay):

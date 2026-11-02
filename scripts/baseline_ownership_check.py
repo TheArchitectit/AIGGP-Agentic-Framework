@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# // spec: base-own-01, base-specs-01
 """baseline_ownership_check.py - base-own-01 for the bundled baseline DATA files.
 
 Requirement (openspec/specs/baseline-ownership, `base-own-01`): "Every entry in a

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# // spec: gate-allwindow-01
 """regression_diff.py — hunk-accurate diff parsing + failure-registry matching.
 
 Helper module for scripts/regression_check.py, split out to keep both files

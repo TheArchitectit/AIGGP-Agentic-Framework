@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# // spec: rel-audit-01
 """regression_audit.py — package-manager vulnerability audit.
 
 Helper module for scripts/regression_check.py, split out unchanged to keep every

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# // spec: fw-scope-01, coh-sec-01
+# // spec: fw-scope-01, coh-sec-01, gate-root-01
 """gate_common.py — one home for the primitives every gate needs.
 
 This exists because the 2026-09-19 scripts review found the same logic

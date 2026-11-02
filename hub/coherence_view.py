@@ -1,4 +1,4 @@
-# // spec: coh-int-02, coh-int-05, coh-int-06, coh-int-07
+# // spec: coh-int-02, coh-int-05, coh-int-06, coh-int-07, coh-pol-07
 """Hub-side coherence-gate detection, two independent channels.
 
 Channel A (workflow runs): presence / conclusion / recency of the

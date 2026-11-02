@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# // spec: spec-fmt-04, root-anchor-01
+# // spec: spec-fmt-01, spec-fmt-04, root-anchor-01
 # Specs-gate negative control (2026-09-20 drift audit).
 #
 # `openspec validate --all --strict` passing proves the tree is currently

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# // spec: base-write-01
 """log_failure.py — append one entry to the DevGate failure registry.
 
 The registry header points at this script ("Use scripts/log_failure.py to add

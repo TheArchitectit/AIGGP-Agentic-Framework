@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# // spec: rel-upload-01, rel-artifact-01, rel-target-01
 """Exit-code contract for schema-health-check.mjs and deploy.sh's dispatch.
 
 Regression tests for the 2026-09-27 audit finding: deploy.sh treated the
@@ -210,6 +211,32 @@ class TestDeployDispatch(unittest.TestCase):
         self.assertNotIn("FAIL: schema health", combined)
         # Later stages (tag push without a remote) may abort the sandbox run;
         # the contract under test is only that the GATE did not stop it.
+
+    def test_empty_artifact_contract_fails_as_misconfigured(self):
+        """rel-artifact-01: when .guardrails/release-artifact-contract.json
+        exists with an empty or missing must_contain, deploy.sh exits 1 naming
+        the contract file as misconfigured."""
+        proj, shim = self._sandbox()
+        contract = proj / ".devgate" / ".guardrails" / "release-artifact-contract.json"
+        contract.write_text('{"artifact_glob": "*.tgz", "must_contain": []}\n',
+                            encoding="utf-8")
+        subprocess.run(["git", "-C", str(proj), "add", "."],
+                       capture_output=True, check=True)
+        subprocess.run(["git", "-C", str(proj), "commit", "-qm", "contract"],
+                       capture_output=True, check=True)
+        remote = proj.parent / "remote.git"
+        subprocess.run(["git", "init", "--bare", "-q", str(remote)],
+                       capture_output=True, check=True)
+        subprocess.run(["git", "-C", str(proj), "remote", "add", "origin", str(remote)],
+                       capture_output=True, check=True)
+        subprocess.run(["git", "-C", str(proj), "push", "-q", "-u", "origin", "main", "--tags"],
+                       capture_output=True, check=True)
+        proc = self._deploy(proj, shim, 2)
+        combined = proc.stdout + proc.stderr
+        self.assertEqual(proc.returncode, 1, combined)
+        self.assertIn("release-artifact-contract.json", combined)
+        self.assertIn("misconfigured", combined)
+
 
 
 if __name__ == "__main__":

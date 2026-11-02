@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# // spec: base-own-01, rel-fixcommit-01
 """
 failure_registry_check.py — hygiene gate for .guardrails/failure-registry.jsonl.
 

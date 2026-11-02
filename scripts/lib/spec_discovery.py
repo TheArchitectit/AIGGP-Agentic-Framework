@@ -14,7 +14,7 @@ generated drafts cannot inflate the coverage numbers that judge them.
 `find_spec_files`/raw text readers still see the file; only the ID map is
 filtered. Reviewing a draft means deleting the marker, which admits it.
 """
-# spec: sga-05
+# spec: sga-05, rule-marker-01, spec-fmt-01
 import re
 from pathlib import Path
 
@@ -22,19 +22,20 @@ REQ_ID = re.compile(r"<!--\s*id:\s*([a-z0-9-]+)\s*-->")
 DRAFT = re.compile(r"<!--\s*draft:\s*unreviewed\s*-->")
 # One marker line may carry several IDs: `// spec: a-01, b-02, c-03`.
 # Anchored to the ID shape and comma-separated so a trailing comment
-# (`// spec: a-01 -- why`) is not swallowed into the match. Both `//`
-# (C-family, JS) and `#` (Python, shell) comment prefixes are accepted —
-# H6: the `//`-only grammar locked Python consumers out of blocking mode.
+# (`// spec: a-01 -- why`) is not swallowed into the match. `//`
+# (C-family, JS), `#` (Python, shell), and `--` (SQL, Lua) comment prefixes
+# are accepted — H6 / rule-marker-01: the `//`-only grammar locked Python
+# consumers out of blocking mode.
 # `.sh` files use the same `# // spec:` shape (see
 # scripts/specs-validate-negative-control.sh); the extension list below is
 # widened to match the shipped gate surface.
-MARKER = re.compile(r"(?://|#)\s*spec:[ \t]*([a-z0-9-]+(?:[ \t]*,[ \t]*[a-z0-9-]+)*)")
+MARKER = re.compile(r"(?://|#|--)\s*spec:[ \t]*([a-z0-9-]+(?:[ \t]*,[ \t]*[a-z0-9-]+)*)")
 ID = re.compile(r"[a-z0-9-]+")
 # `.gd` joined the set for the gap-scanner work (SGA-07 acceptance 4): game
 # repos mark coverage in GDScript source, and a marker the discovery cannot
 # read is an uncovered requirement forever. No .gd file exists in this repo
 # and MergeKingdom has no markers yet, so no existing number shifts.
-SCAN_EXTS = {".rs", ".py", ".mjs", ".js", ".ts", ".tsx", ".sh", ".zig", ".gd"}
+SCAN_EXTS = {".rs", ".py", ".mjs", ".js", ".ts", ".tsx", ".sh", ".zig", ".gd", ".sql", ".lua"}
 SCAN_SKIP = {"target", "node_modules", ".git", "openspec", ".devgate"}
 
 

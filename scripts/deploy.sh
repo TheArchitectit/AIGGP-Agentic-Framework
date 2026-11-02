@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# // spec: rel-upload-01, rel-artifact-01, rel-target-01
 #
 # scripts/deploy.sh — Generic gated publish pipeline (language-agnostic).
 #
@@ -267,6 +268,11 @@ elif val is not None:
 
 	ARTIFACT_GLOB="$(contract_field artifact_glob)"
 	ENTRY_PREFIX="$(contract_field entry_prefix)"
+	MUST_CONTAIN="$(contract_field must_contain)"
+	if [ -z "${MUST_CONTAIN//[[:space:]]/}" ]; then
+		echo "[deploy] ERROR: $ARTIFACT_CONTRACT is misconfigured — must_contain is empty or missing." >&2
+		exit 1
+	fi
 
 	# Per-package-manager pack + listing command. Each branch sets PACK_CMD (may
 	# be empty when the artifact is pre-built) and LIST_MODE.
