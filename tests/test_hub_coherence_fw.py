@@ -88,6 +88,19 @@ class TestVerifyFailClosed(unittest.TestCase):
             (bundle / "evidence-manifest.json").write_bytes(canon.canon(manifest))
             self.assertFalse(evidence.verify(str(bundle), md))
 
+    def test_unsupported_forge_in_manifest_rejected(self):
+        """A manifest declaring an unsupported forge must fail verify()
+        closed (return False), never pass."""
+        with tempfile.TemporaryDirectory() as td:
+            digest = evidence.seal([_finding()], td, forge="github")
+            manifest = json.loads(
+                (Path(td) / "evidence-manifest.json").read_text(encoding="utf-8"))
+            manifest["forge"] = "bitbucket"
+            md = canon.digest_obj("evidence-manifest/v1", manifest)
+            (Path(td) / "evidence-manifest.json").write_bytes(
+                canon.canon(manifest))
+            self.assertFalse(evidence.verify(td, md))
+
 
 class TestContainmentContract(unittest.TestCase):
     """contained() is the bundle-containment rule; its two rejection
@@ -165,6 +178,12 @@ class TestSealErrorPaths(unittest.TestCase):
             self.assertTrue(
                 (Path(td) / "evidence-manifest.json").exists())
             self.assertTrue(evidence.verify(td, digest))
+
+    def test_unsupported_forge_rejected_at_seal(self):
+        """Sealing with an unsupported forge must raise EvidenceError."""
+        with tempfile.TemporaryDirectory() as td:
+            with self.assertRaises(evidence.EvidenceError):
+                evidence.seal([_finding()], td, forge="bitbucket")
 
 
 if __name__ == "__main__":
