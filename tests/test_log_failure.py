@@ -140,7 +140,7 @@ class TestBaseWrite01Contract(unittest.TestCase):
         self.assertTrue(parser.parse_args(["--error-message", "x", "--baseline"]).baseline)
         self.assertFalse(parser.parse_args(["--error-message", "x"]).baseline)
 
-    def test_seed_and_stream_id_join_fields_are_optional_and_preserved(self):
+    def test_join_fields_are_preserved_and_optional_outside_gameplay_crash(self):
         target = self.tmp / "reg.jsonl"
         r = run_log(
             "--error-message", "determinism drift on frame 42",
@@ -157,6 +157,48 @@ class TestBaseWrite01Contract(unittest.TestCase):
         plain_entry = json.loads(plain.read_text().strip())
         self.assertNotIn("seed", plain_entry)
         self.assertNotIn("stream_id", plain_entry)
+
+    def test_gameplay_crash_entry_records_seed_and_input_trace(self):
+        target = self.tmp / "crash.jsonl"
+        r = run_log(
+            "--error-message", "null deref on scene reload",
+            "--gameplay-crash",
+            "--seed", "4242",
+            "--input-trace", "replay://run/4242/inputs.jsonl",
+            "--registry", str(target),
+        )
+        self.assertEqual(r.returncode, 0, r.stderr)
+        entry = json.loads(target.read_text().strip())
+        self.assertEqual(entry["kind"], "gameplay-crash")
+        self.assertEqual(entry["seed"], "4242")
+        self.assertEqual(entry["input_trace"], "replay://run/4242/inputs.jsonl")
+
+    def test_unseeded_gameplay_crash_is_refused_and_names_what_is_missing(self):
+        target = self.tmp / "refused.jsonl"
+        r = run_log(
+            "--error-message", "null deref on scene reload",
+            "--gameplay-crash",
+            "--registry", str(target),
+        )
+        self.assertEqual(r.returncode, 1, r.stdout)
+        self.assertFalse(target.exists(),
+                         "a refused entry must not be registered at all")
+        self.assertIn("--seed", r.stderr)
+        self.assertIn("--input-trace", r.stderr)
+        self.assertIn("refusing to register it as a regression", r.stderr)
+
+    def test_gameplay_crash_without_input_trace_is_refused(self):
+        target = self.tmp / "notrace.jsonl"
+        r = run_log(
+            "--error-message", "null deref on scene reload",
+            "--gameplay-crash",
+            "--seed", "4242",
+            "--registry", str(target),
+        )
+        self.assertEqual(r.returncode, 1, r.stdout)
+        self.assertFalse(target.exists())
+        self.assertIn("missing --input-trace", r.stderr)
+        self.assertNotIn("missing --seed", r.stderr)
 
 
 
