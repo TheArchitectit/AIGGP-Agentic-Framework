@@ -1,6 +1,7 @@
 # Game-type phase matrix
 
-Status: CLOSED (EXERCISED 1)
+Status: DEFERRED — NOT IMPLEMENTED (3 planned requirements; no gate in this
+tree enforces any of them).
 
 ## Purpose
 
@@ -12,6 +13,9 @@ exists here. Per base-specs-01 this capability stays bundled and explicitly
 marked planned; the consuming game repo owns its implementation. The gates the
 matrix would invoke — per-screen inventory and game-class regression scanning
 — exist and are specified separately (per-screen-tracking, game-regression).
+The reference matrix and the planned gate contract live with the rest of the
+unbuilt game-repo work in `scripts/game-framework-README.md` ("What does NOT
+ship here").
 
 ## Requirements
 
@@ -34,48 +38,36 @@ repository may claim phase-matrix enforcement.
 - **THEN** none claims it — the capability is marked planned and only the
   consuming game repo may implement it
 
-### Requirement: phase gating follows the matrix row
-
-The framework SHALL read the project's current phase from its manifest, and a
-release gate run SHALL fail when any gate required by that phase's matrix row —
-or any gate to its left — is missing or red.
+### Requirement: Phase gating follows the matrix row (planned — NOT IMPLEMENTED)
+<!-- id: game-matrix-02 -->
+**Status: planned — not implemented in this repository.** When implemented,
+the release gate SHALL read the project's current phase from its manifest and
+SHALL fail when any gate required by that phase's matrix row — or any gate to
+its left — is missing or red. Until it lands, no run in this repository may
+claim phase gating.
 
 #### Scenario: phase ahead of its gates
 
-- **WHEN** the manifest declares Beta but the regression gate has no result
+- **WHEN** the phase gate (once implemented) reads a manifest declaring Beta
+  but the regression gate has no result
 - **THEN** the gate run fails with the missing required gate named
 
-### Requirement: unknown game types fail closed
-
-A project whose game type is not present in the matrix SHALL fail the gate rather
-than receive an empty (passing) requirement set, so the matrix cannot be silently
-bypassed by declaring an invented type.
+### Requirement: Unknown game types fail closed (planned — NOT IMPLEMENTED)
+<!-- id: game-matrix-03 -->
+**Status: planned — not implemented in this repository.** When implemented, a
+project whose game type is not present in the matrix SHALL fail the gate
+rather than receive an empty (passing) requirement set, so the matrix cannot
+be silently bypassed by declaring an invented type.
 
 #### Scenario: invented type
 
-- **WHEN** the manifest declares a game type with no matrix row
+- **WHEN** the phase gate (once implemented) reads a manifest declaring a game
+  type with no matrix row
 - **THEN** the gate run fails and names the type as unregistered
 
-## Model
-
-Each cell lists required: screens, systems, and gates. Gate = the per-screen/regression
-enforcement that must pass at that phase.
-
-### Roguelike (reference: Sword of Hope)
-| Phase | Required screens | Required systems | Gates |
-|---|---|---|---|
-| Prototype | core loop screen | seeded RNG, single run | per-screen smoke, determinism |
-| Pre-Alpha | map, battle | procedural gen, permadeath | button validation, demo-loop |
-| Alpha | shop, meta-progression | economy lock, save/load | save round-trip, perf budget |
-| Beta | everything + codex/achievements | content complete, balance lock | regression, input/focus, demo-loop clean |
-| Release | all live screens | zero SCRIPT errors | ALL gates green; <=500-line rule |
-
-## Enforcement
-- Phase gate = the most advanced gate required by the row, plus every gate to its left.
-- `game-version` flag in the framework reads the current phase from a manifest and fails
-  if any required gate is missing/red.
-- Unknown game type => fails closed (must be added to matrix before gating).
-
 ## Origin
-Derived from Sword of Hope OpenSpec prod-001..prod-015 + game-design requirements.
 
+Derived from Sword of Hope OpenSpec prod-001..prod-015 + game-design
+requirements. The reference Roguelike matrix (screens, systems, and gates per
+phase) moved to `scripts/game-framework-README.md` with the rest of the
+planned, unbuilt game-repo work.

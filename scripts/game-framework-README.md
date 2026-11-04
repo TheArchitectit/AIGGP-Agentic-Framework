@@ -31,6 +31,29 @@ static scanners above and the generic gate machinery
 (`regression_check.py`, `guardrails-scan.mjs`, the failure registry) that a
 game repo layers its own gates onto.
 
+### Planned: the manifest-driven phase matrix (owned by consuming game repos)
+
+Bundled as `openspec/specs/game-type-phase-matrix/` per base-specs-01 and
+marked NOT IMPLEMENTED — nothing here reads a phase or gates on one. When a
+consuming repo implements it, its phase gate (`game-version` flag) reads the
+current game type and phase from the project manifest, requires every gate
+named by that phase's matrix row plus all gates to its left, and fails closed
+on a game type with no matrix row. Each cell lists required screens, systems,
+and gates (a gate is the per-screen/regression enforcement that must pass at
+that phase). Reference matrix — Roguelike (Sword of Hope):
+
+| Phase | Required screens | Required systems | Gates |
+|---|---|---|---|
+| Prototype | core loop screen | seeded RNG, single run | per-screen smoke, determinism |
+| Pre-Alpha | map, battle | procedural gen, permadeath | button validation, demo-loop |
+| Alpha | shop, meta-progression | economy lock, save/load | save round-trip, perf budget |
+| Beta | everything + codex/achievements | content complete, balance lock | regression, input/focus, demo-loop clean |
+| Release | all live screens | zero SCRIPT errors | ALL gates green; <=500-line rule |
+
+The gates the matrix would invoke — `scene_inventory.py` (per-screen-tracking)
+and `game_regression.py` (game-regression) — do ship here; the phase gate
+itself does not.
+
 ## Using the game gates in a game repo
 
 Embed DevGate as `.devgate/` (see README), then run the scanners against your
