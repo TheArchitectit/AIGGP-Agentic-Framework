@@ -7,13 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-> **Version-truth statement (doc-truth closure, 2026-10-13):** `VERSION` reads
-> `1.3.0` and this Unreleased section carries post-1.3.0 work; the newest git tag
-> remains `v1.2.0`. No release has been cut since 1.3.0's changelog entry
-> (2026-09-23) — the version artifact and the tag intentionally disagree until the
-> next tagged release, at which point Unreleased is folded into the new tag. This
-> statement is the recorded intent for doc-truth (`doc-version-01`); no retroactive
-> tag was cut.
+> **Version rule (doc-version-01):** `VERSION` always equals the newest `v*`
+> git tag, `CHANGELOG.md` documents exactly those tags, and the release
+> pipeline (`scripts/deploy.sh`) writes `VERSION` and folds this `[Unreleased]`
+> section into the new dated heading in one step. The agreement is enforced in
+> CI by `scripts/check_version_truth.py`. The notes formerly staged under a
+> `1.3.0` heading (2026-09-23) were never tagged and remain Unreleased work.
 
 ### Added
 
@@ -828,7 +827,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   requirement IDs in the <!-- id: --> format" instead of reporting both as
   "no specs found under openspec/specs/".
 
-## [1.3.0] - 2026-09-23
+*The notes below (Highlights through Added (gates)) were staged for the
+never-cut 1.3.0 release (2026-09-23); they are Unreleased work (doc-version-01).*
 
 ### Highlights
 

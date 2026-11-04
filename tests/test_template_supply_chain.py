@@ -9,6 +9,8 @@
   `.container.d/` drop-in (the unparseable form).
 """
 import re
+import subprocess
+import sys
 import unittest
 from pathlib import Path
 
@@ -144,7 +146,18 @@ class TestDocTruthAndBehaviorRuleContracts(unittest.TestCase):
         ver = (REPO / "VERSION").read_text(encoding="utf-8").strip()
         changelog = (REPO / "CHANGELOG.md").read_text(encoding="utf-8")
         self.assertTrue(ver, "VERSION must be non-empty")
-        self.assertIn(ver, changelog, "VERSION must be documented in CHANGELOG.md")
+        self.assertIn(f"## [{ver}]", changelog,
+                      "VERSION must have its own CHANGELOG release section")
+        self.assertNotIn("intentionally disagree", changelog,
+                         "doc-version-01 forbids version artifacts that "
+                         "deliberately disagree")
+        gate = REPO / "scripts" / "check_version_truth.py"
+        proc = subprocess.run(
+            [sys.executable, str(gate), "--repo", str(REPO)],
+            capture_output=True, text=True)
+        self.assertEqual(proc.returncode, 0,
+                         f"version-truth gate must pass on this tree: "
+                         f"{proc.stderr}")
 
     def test_overlay_and_behavior_rules_contracts(self):
         agents = (REPO / "AGENTS.md").read_text(encoding="utf-8")

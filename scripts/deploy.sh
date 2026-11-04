@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# // spec: rel-upload-01, rel-artifact-01, rel-target-01
+# // spec: rel-upload-01, rel-artifact-01, rel-target-01, doc-version-01
 #
 # scripts/deploy.sh — Generic gated publish pipeline (language-agnostic).
 #
@@ -12,7 +12,9 @@
 #   2. Full gate (build + test + lint + regression + guardrails)
 #   3. Schema health validation (if database configured)
 #   4. Build artifacts (if applicable)
-#   5. Version bump
+#   5. Version bump — package manifest AND the version-truth artifacts
+#      (VERSION + CHANGELOG.md fold) in one step (doc-version-01), with a
+#      tag ⇄ VERSION ⇄ CHANGELOG agreement check before anything publishes
 #   6. Commit + tag + push (before publish — push failure aborts, stderr shown)
 #   6b. Tag-reached-remote verification (--follow-tags pushes annotated tags only)
 #   6c. ARTIFACT VERIFY (manifest-driven; skipped when unconfigured)
@@ -184,6 +186,35 @@ else
 	echo "[deploy] no recognized manifest — skipping version bump (set manually)"
 fi
 
+# doc-version-01: VERSION and CHANGELOG.md are release-truth artifacts this
+# pipeline owns, and they update in the same step as the manifest — a VERSION
+# left at a hand-set value is exactly how it came to disagree with the tag.
+# The CHANGELOG fold is a pure insert: the [Unreleased] body becomes this
+# release's notes under a dated heading, and an empty [Unreleased] stays on top.
+if [ -f "VERSION" ]; then
+	CURRENT_VERSION="$(tr -d '[:space:]' < VERSION)"
+	if [[ "$CURRENT_VERSION" != "$NEW_VERSION" ]]; then
+		printf '%s\n' "$NEW_VERSION" > VERSION
+		echo "[deploy] bumped VERSION $CURRENT_VERSION → v$NEW_VERSION"
+	fi
+fi
+if [ -f "CHANGELOG.md" ]; then
+	if ! grep -q '^## \[Unreleased\]' CHANGELOG.md; then
+		echo "[deploy] FAIL: CHANGELOG.md has no '## [Unreleased]' section to fold — doc-version-01 requires the release pipeline to update every artifact it owns" >&2
+		exit 1
+	fi
+	if grep -q "^## \[$NEW_VERSION\]" CHANGELOG.md; then
+		echo "[deploy] FAIL: CHANGELOG.md already has a '## [$NEW_VERSION]' section — refusing to double-fold a release claim" >&2
+		exit 1
+	fi
+	RELEASE_DATE="$(date -u +%Y-%m-%d)"
+	awk -v ver="$NEW_VERSION" -v date="$RELEASE_DATE" '
+		{ print }
+		/^## \[Unreleased\]/ && !done { print ""; print "## [" ver "] - " date; done = 1 }
+	' CHANGELOG.md > CHANGELOG.md.fold.tmp && mv CHANGELOG.md.fold.tmp CHANGELOG.md
+	echo "[deploy] folded CHANGELOG.md [Unreleased] into v$NEW_VERSION ($RELEASE_DATE)"
+fi
+
 # --- 5. commit + tag + push ---------------------------------------------------
 cd "$PROJECT_ROOT"
 if ! git diff --quiet; then
@@ -195,6 +226,22 @@ fi
 TAG="v$NEW_VERSION"
 if ! git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
 	git tag -a "$TAG" -m "Release v$NEW_VERSION"
+fi
+
+# doc-version-01: tag ⇄ VERSION ⇄ CHANGELOG agreement, verified where the tag
+# is created and again before publish — disagreeing version truth must fail
+# the deploy, never ship and get explained afterwards.
+if [ -f "VERSION" ]; then
+	VERSION_CONTENT="$(tr -d '[:space:]' < VERSION)"
+	if [[ "v$VERSION_CONTENT" != "$TAG" ]]; then
+		echo "[deploy] FAIL: doc-version-01 — tag $TAG does not agree with VERSION ($VERSION_CONTENT); refusing to publish disagreeing version artifacts" >&2
+		exit 1
+	fi
+	echo "[deploy] tag $TAG agrees with VERSION ($VERSION_CONTENT)"
+fi
+if [ -f "CHANGELOG.md" ] && ! grep -q "^## \[$NEW_VERSION\]" CHANGELOG.md; then
+	echo "[deploy] FAIL: doc-version-01 — CHANGELOG.md has no '## [$NEW_VERSION]' section for tag $TAG" >&2
+	exit 1
 fi
 
 echo "[deploy] pushing commits + tag"

@@ -1,14 +1,13 @@
 # Documentation truth
 
-Status: Closed (2 of 2 requirements terminal 2026-10-14). `doc-version-01`:
-the version-artifact disagreement is resolved by the recorded version-truth
-statement in CHANGELOG `[Unreleased]` (landed `0a26e37a`, 2026-10-13) —
-VERSION=1.3.0 and newest tag v1.2.0 intentionally disagree until the next
-tagged release, and that intent is the recorded truth per the owner-approved
-B22 disposition; no retroactive tag. `doc-overlay-01`: live grep of AGENTS.md,
-README.md, and templates/ verified no shipped documentation instructs editing
-inside the DevGate submodule; customization instructions reference the
-project-root `.guardrails/` overlay.
+Status: Closed (2 of 2 requirements terminal 2026-11-03). `doc-version-01`:
+VERSION equals the newest `v*` git tag, CHANGELOG.md documents exactly those
+tags, `scripts/deploy.sh` writes VERSION and folds `[Unreleased]` in one step
+at release time, and `scripts/check_version_truth.py` gates the agreement in
+CI; the untagged `1.3.0` staging was folded into Unreleased (2026-11-03).
+`doc-overlay-01`: live grep of AGENTS.md, README.md, and templates/ verified
+no shipped documentation instructs editing inside the DevGate submodule;
+customization instructions reference the project-root `.guardrails/` overlay.
 
 
 ## Purpose

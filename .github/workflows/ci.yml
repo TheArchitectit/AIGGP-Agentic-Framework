@@ -232,6 +232,13 @@ jobs:
       # every upload step's retention bound where it is written.
       - name: Artifact retention bounds (fw-storage-01)
         run: python3 scripts/artifact_hygiene.py --repo . --audit
+      # doc-version-01: VERSION, CHANGELOG.md, and git tags describe the same
+      # release history — both directions. A hand-bumped VERSION, a changelog
+      # version heading with no tag, or a tag the changelog never documented
+      # FAILS naming which artifact is lying. checkout@v5 with fetch-depth 0
+      # fetches tags; the gate itself fails closed if the tag set is invisible.
+      - name: Version truth (VERSION ⇄ CHANGELOG ⇄ tags, doc-version-01)
+        run: python3 scripts/check_version_truth.py --repo .
 
   # The repository shipped a secret-scanning template for consumers and did not
   # run one on itself: every push to main passed six jobs and none of them
