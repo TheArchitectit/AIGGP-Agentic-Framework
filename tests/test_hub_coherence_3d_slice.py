@@ -418,34 +418,53 @@ class TestVisionObservationPosture(unittest.TestCase):
             self.assertEqual(f["violation_class"], "unpinned-model-advice")
             self.assertEqual(f["enforcement"], "ADVISORY")
 
+    @staticmethod
+    def _write_real_artifacts(subj: Path) -> dict:
+        """Real rubric/model artifacts inside the subject tree, really hashed."""
+        ev = subj / "eval"
+        ev.mkdir(exist_ok=True)
+        rubric = ev / "rubric.md"
+        rubric.write_text(
+            "# north-gate vision rubric\n\nVerdicts: clear, obstructed.\n",
+            encoding="utf-8")
+        model = ev / "model.bin"
+        model.write_bytes(b"synthetic-model-artifact-v1\n")
+        return {
+            "expected_verdict": "clear",
+            "rubric_path": "eval/rubric.md",
+            "model_path": "eval/model.bin",
+            "rubric_digest": manifest._digest_file(rubric),
+            "model_digest": manifest._digest_file(model),
+            "seed": 11,
+        }
+
+    @staticmethod
+    def _echo_fact(art: dict, subj: Path, verdict: str = "clear") -> dict:
+        cap = subj / "captures" / "north-gate.capture.json"
+        return {
+            "vision.north-gate": {
+                "verdict": verdict,
+                "rubric_digest": art["rubric_digest"],
+                "model_digest": art["model_digest"],
+                "input_digest": manifest._digest_file(cap),
+                "input_path": "captures/north-gate.capture.json",
+                "seed": art["seed"],
+                "reproducible": True,
+            }
+        }
+
     def test_pinned_reproducible_vision_rubric_participates_and_replays_identically(self):
-        rubric_dig = "sha256:" + "1" * 64
-        model_dig = "sha256:" + "2" * 64
-        input_dig = "sha256:" + "3" * 64
         with tempfile.TemporaryDirectory() as td:
             tdp = Path(td)
             subj = tdp / "world"
             wst.build_world_bundle(subj)
+            art = self._write_real_artifacts(subj)
             assertions = wst.room_assertions(
                 include_vision=True,
                 vision_pinned=True,
-                vision_params={
-                    "expected_verdict": "clear",
-                    "rubric_digest": rubric_dig,
-                    "model_digest": model_dig,
-                    "seed": 11,
-                },
-            )
-            good_fact = {
-                "vision.north-gate": {
-                    "verdict": "clear",
-                    "rubric_digest": rubric_dig,
-                    "model_digest": model_dig,
-                    "input_digest": input_dig,
-                    "seed": 11,
-                    "reproducible": True,
-                }
-            }
+                vision_params=art,
+                vision_artifact_root=subj)
+            good_fact = self._echo_fact(art, subj)
             req1, out1, _ = _build_world_request(
                 tdp / "run_pass_1", subj, assertions=assertions, stage=3,
                 captured_facts=good_fact)
@@ -462,12 +481,7 @@ class TestVisionObservationPosture(unittest.TestCase):
             self.assertEqual((out2 / "result.json").read_bytes(), bytes1)
 
             # When the pinned rubric observes a defect, it blocks normally at Stage 3.
-            bad_fact = {
-                "vision.north-gate": {
-                    **good_fact["vision.north-gate"],
-                    "verdict": "obstructed",
-                }
-            }
+            bad_fact = self._echo_fact(art, subj, verdict="obstructed")
             req_fail, out_fail, _ = _build_world_request(
                 tdp / "run_fail", subj, assertions=assertions, stage=3,
                 captured_facts=bad_fact)
@@ -475,6 +489,71 @@ class TestVisionObservationPosture(unittest.TestCase):
             self.assertEqual(code_f, result.EXIT_FAIL)
             self.assertEqual(res_f["decision"], "FAIL")
             self.assertEqual(res_f["findings"][0]["enforcement"], "BLOCK")
+
+    def test_pin_digest_must_match_the_real_artifact_bytes(self):
+        """Value check, not shape check: a claimed digest that disagrees with
+        the artifact bytes is unpinned advice even when the fact echoes the
+        claim consistently (a lying pin cannot enforce)."""
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            subj = tdp / "world"
+            wst.build_world_bundle(subj)
+            art = self._write_real_artifacts(subj)
+            assertions = wst.room_assertions(
+                include_vision=True,
+                vision_pinned=True,
+                vision_params=art,
+                vision_artifact_root=subj)
+            lie = dict(art)
+            lie["rubric_digest"] = "sha256:" + "1" * 64
+            for a in assertions:
+                if a["id"] == "world.room.vision-review":
+                    a["parameters"]["rubric_digest"] = lie["rubric_digest"]
+            fact = self._echo_fact(lie, subj)
+            req, out, _ = _build_world_request(
+                tdp / "run", subj, assertions=assertions, stage=3,
+                captured_facts=fact)
+            code, res = _run_cli(req, out)
+            self.assertEqual(code, result.EXIT_ADVISORY)
+            self.assertEqual(res["findings"][0]["violation_class"],
+                             "unpinned-model-advice")
+            self.assertEqual(res["findings"][0]["enforcement"], "ADVISORY")
+
+    def test_fabricated_evaluator_digest_cannot_pin(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            subj = tdp / "world"
+            wst.build_world_bundle(subj)
+            art = self._write_real_artifacts(subj)
+            assertions = wst.room_assertions(
+                include_vision=True,
+                vision_pinned=True,
+                vision_params=art,
+                vision_artifact_root=subj)
+            for a in assertions:
+                if a["id"] == "world.room.vision-review":
+                    a["evaluator"]["digest"] = "sha256:" + "a" * 64
+            fact = self._echo_fact(art, subj)
+            req, out, _ = _build_world_request(
+                tdp / "run", subj, assertions=assertions, stage=3,
+                captured_facts=fact)
+            code, res = _run_cli(req, out)
+            self.assertEqual(code, result.EXIT_ADVISORY)
+            self.assertEqual(res["findings"][0]["enforcement"], "ADVISORY")
+
+    def test_pinned_vision_without_artifacts_fails_loudly(self):
+        with self.assertRaises(ValueError) as ctx:
+            wst.room_assertions(include_vision=True, vision_pinned=True,
+                                vision_params={"seed": 11})
+        self.assertIn("rubric_path", str(ctx.exception))
+        self.assertIn("model_path", str(ctx.exception))
+        with self.assertRaises(ValueError) as ctx:
+            wst.room_assertions(
+                include_vision=True, vision_pinned=True,
+                vision_params={"rubric_path": "eval/absent.md",
+                               "model_path": "eval/model.bin", "seed": 11},
+                vision_artifact_root=Path(tempfile.gettempdir()))
+        self.assertIn("artifact absent", str(ctx.exception))
 
 
 if __name__ == "__main__":

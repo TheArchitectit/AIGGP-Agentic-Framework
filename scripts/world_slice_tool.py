@@ -25,9 +25,17 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from hub.coherence import canon, manifest  # noqa: E402
+from hub.coherence import canon, evaluators, manifest  # noqa: E402
 
-EVALUATOR_DIGEST = "sha256:" + "a" * 64
+
+def evaluator_digest() -> str:
+    """Real digest of the built-in evaluator artifact (evaluators.py bytes).
+
+    A declaration of which evaluator ran is only honest when bound to the
+    code that runs; a fabricated constant verifies nothing. Absence of the
+    artifact is loud — there is no placeholder digest (audit finding 4).
+    """
+    return evaluators.builtin_evaluator_digest()
 
 
 def _build_minimal_glb(room_id: str, doorway_clear_width_mm: int) -> bytes:
@@ -208,12 +216,63 @@ def apply_bounded_repair(
     )
 
 
+def _vision_params(vision_pinned: bool, vision_params: dict | None,
+                   artifact_root: Path | None) -> dict:
+    """Vision-observation parameters (coh-assert-05).
+
+    Unpinned observations are advisory and need only an expected verdict. A
+    PINNED observation must name the real rubric and model artifacts plus an
+    integer seed: their digests are computed from the artifact bytes here,
+    never fabricated — a missing artifact raises instead of emitting a
+    placeholder (audit finding 4).
+    """
+    if not vision_pinned:
+        return dict(vision_params or {"expected_verdict": "clear"})
+    params_in = vision_params or {}
+    missing = [key for key in ("rubric_path", "model_path", "seed")
+               if params_in.get(key) is None or params_in.get(key) == ""]
+    if missing:
+        raise ValueError(
+            "pinned vision requires real artifacts and a seed — missing "
+            + ", ".join(missing) + "; refusing to fabricate pin digests")
+    if artifact_root is None:
+        raise ValueError(
+            "pinned vision requires vision_artifact_root so the named "
+            "artifacts can be verified")
+    root = Path(artifact_root).resolve()
+    params = {"expected_verdict": params_in.get("expected_verdict", "clear")}
+    for name in ("rubric", "model"):
+        rel = params_in[f"{name}_path"]
+        fp = (root / rel).resolve()
+        if root not in fp.parents and fp != root:
+            raise ValueError(
+                f"pinned vision {name}_path escapes the artifact root: {rel}")
+        if not fp.is_file():
+            raise ValueError(
+                f"pinned vision {name} artifact absent: {fp} — refusing to "
+                f"emit a placeholder digest")
+        digest = manifest._digest_file(fp)
+        claimed = params_in.get(f"{name}_digest")
+        if claimed is not None and claimed != digest:
+            raise ValueError(
+                f"pinned vision {name}_digest disagrees with the artifact "
+                f"bytes at {fp}")
+        params[f"{name}_path"] = rel
+        params[f"{name}_digest"] = digest
+    seed = params_in["seed"]
+    if not isinstance(seed, int) or isinstance(seed, bool):
+        raise ValueError("pinned vision requires an integer seed")
+    params["seed"] = seed
+    return params
+
+
 def room_assertions(include_vision: bool = False,
                     vision_pinned: bool = False,
-                    vision_params: dict | None = None) -> list:
+                    vision_params: dict | None = None,
+                    vision_artifact_root: Path | None = None) -> list:
     """First room's normative requirements mapped to operational assertions."""
     ev = {"id": "devgate.builtin.world-room-coherence",
-          "digest": EVALUATOR_DIGEST}
+          "digest": evaluator_digest()}
     fk = ["assertion_id", "subject_location", "violation_class"]
     out = [
         {
@@ -287,13 +346,8 @@ def room_assertions(include_vision: bool = False,
         },
     ]
     if include_vision:
-        params = dict(vision_params or {"expected_verdict": "clear"})
-        if vision_pinned and "rubric_digest" not in params:
-            params.update({
-                "rubric_digest": "sha256:" + "1" * 64,
-                "model_digest": "sha256:" + "2" * 64,
-                "seed": 7,
-            })
+        params = _vision_params(vision_pinned, vision_params,
+                                vision_artifact_root)
         out.append({
             "id": "world.room.vision-review",
             "version": 1,
@@ -305,7 +359,7 @@ def room_assertions(include_vision: bool = False,
             ],
             "evaluator": {
                 "id": "devgate.builtin.vision-observation",
-                "digest": EVALUATOR_DIGEST,
+                "digest": evaluator_digest(),
             },
             "parameters": params,
             "severity": "medium",

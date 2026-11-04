@@ -154,6 +154,14 @@ def captured_fact_consistency(assertion: dict, package: dict, subject_root: str,
 _DIGEST_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 
 
+def builtin_evaluator_digest() -> str:
+    """Real digest of this evaluator artifact (this file's bytes).
+
+    A claim about which evaluator ran is only meaningful bound to the code
+    that runs; absence is loud, never a placeholder digest."""
+    return manifest._digest_file(Path(__file__))
+
+
 def _read_contained_bytes(subject_root: str, rel: str) -> bytes:
     if not rel or not isinstance(rel, str):
         raise Unresolved("selector-empty:?")
@@ -302,9 +310,27 @@ def world_room_coherence(assertion: dict, package: dict, subject_root: str,
     raise Unresolved(f"unknown-world-room-check:{check!r}")
 
 
-def is_pinned_reproducible_model(assertion: dict, facts: dict = None) -> bool:
-    """True iff a model/vision observation has pinned rubric, model digest,
-    input digest, and integer seed verified in the captured fact (coh-assert-05)."""
+def _artifact_matches(subject_root: str, rel: str, claimed: str) -> bool:
+    """Value check: artifact bytes under `rel` hash to `claimed`; unreadable
+    or missing artifacts fail verification (unverified is never pinned)."""
+    if not isinstance(rel, str) or not rel:
+        return False
+    try:
+        return manifest._digest_file(
+            Path(subject_root).resolve() / rel) == claimed
+    except (OSError, ValueError):
+        return False
+
+
+def is_pinned_reproducible_model(assertion: dict, facts: dict = None,
+                                 subject_root: str = None) -> bool:
+    """True iff a model/vision observation is pinned AND verified (coh-assert-05).
+
+    Shape alone never pins: claimed rubric/model digests must match the real
+    artifacts they name under `subject_root`, the claimed evaluator digest
+    must match this evaluator artifact, and the captured fact must echo every
+    pin plus an integer seed. Any gap is unpinned — advisory, never enforced.
+    """
     facts = facts or {}
     params = assertion.get("parameters") or {}
     rubric = params.get("rubric_digest")
@@ -313,6 +339,18 @@ def is_pinned_reproducible_model(assertion: dict, facts: dict = None) -> bool:
     if (not isinstance(rubric, str) or not _DIGEST_RE.fullmatch(rubric)
             or not isinstance(model, str) or not _DIGEST_RE.fullmatch(model)
             or not isinstance(seed, int) or isinstance(seed, bool)):
+        return False
+    if not subject_root:
+        return False
+    try:
+        if ((assertion.get("evaluator") or {}).get("digest")
+                != builtin_evaluator_digest()):
+            return False
+    except OSError:
+        return False
+    if not _artifact_matches(subject_root, params.get("rubric_path"), rubric):
+        return False
+    if not _artifact_matches(subject_root, params.get("model_path"), model):
         return False
     sels = [s for s in (assertion.get("subjects") or [])
             if isinstance(s, dict) and s.get("kind") == "captured-fact"]
@@ -330,6 +368,9 @@ def is_pinned_reproducible_model(assertion: dict, facts: dict = None) -> bool:
                 or not isinstance(inp, str)
                 or not _DIGEST_RE.fullmatch(inp)):
             return False
+        if fact.get("input_path") is not None and not _artifact_matches(
+                subject_root, fact.get("input_path"), inp):
+            return False
     return True
 
 
@@ -342,7 +383,7 @@ def vision_observation(assertion: dict, package: dict, subject_root: str,
     facts = facts or {}
     params = assertion.get("parameters") or {}
     expected_verdict = params.get("expected_verdict", "clear")
-    pinned = is_pinned_reproducible_model(assertion, facts)
+    pinned = is_pinned_reproducible_model(assertion, facts, subject_root)
     findings = []
     for sel in assertion.get("subjects") or []:
         if sel.get("kind") != "captured-fact":
