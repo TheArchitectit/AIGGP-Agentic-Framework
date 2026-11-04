@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# // spec: session-01, session-02, session-03, session-04, session-05, session-06, game-matrix-01
+# // spec: session-01, session-02, session-03, session-04, session-05, session-06
 """Fixture tests for game_session_start.py - the gameSessionStart brain.
 
 Each test pins a rule the design's spec names (session-01..session-06), not an

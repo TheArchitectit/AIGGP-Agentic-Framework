@@ -1,6 +1,6 @@
 # Game-class regression scanning
 
-Status: CLOSED (EXERCISED 3)
+Status: CLOSED (EXERCISED 6)
 
 ## Purpose
 
@@ -23,7 +23,7 @@ unchecked `FileAccess.open` in `ad_manager.gd`, a real defect, now fixed.
 ## Requirements
 
 ### Requirement: failure registry is append-only
-
+<!-- id: game-reg-04 -->
 Game failures SHALL be recorded by appending one JSON object per failure to
 `.guardrails/failure-registry.jsonl`; existing entries SHALL never be edited or
 removed, because the registry is the audit trail of what this project already
@@ -35,7 +35,7 @@ knew how to break.
 - **THEN** the file holds two entries and the scanner treats them as one pattern
 
 ### Requirement: registered patterns block staged changes
-
+<!-- id: game-reg-05 -->
 The regression scanner SHALL evaluate staged and unstaged changes against every
 game-class pattern in the registry, and SHALL exit nonzero when a change matches
 a blocking pattern.
@@ -46,7 +46,7 @@ a blocking pattern.
 - **THEN** the scanner exits nonzero with the registry entry cited
 
 ### Requirement: determinism evidence for gameplay crashes
-
+<!-- id: game-reg-06 -->
 A gameplay-crash registry entry SHALL record the seed and input trace of the run
 that produced it, and the gate SHALL require a seed-logged replay before treating
 any further divergence as a regression.
@@ -129,3 +129,6 @@ SHALL remain 0 so non-game consumers are not blocked.
 | `game-reg-01` (Game-class pattern scan) | **EXERCISED** | `scripts/game_regression.py` | `tests/test_game_regression.py` |
 | `game-reg-02` (Registry patterns honor scoping and annotations) | **EXERCISED** | `scripts/game_regression.py` | `tests/test_game_regression.py` |
 | `game-reg-03` (Empty scope is not a pass) | **EXERCISED** | `scripts/game_regression.py` | `tests/test_game_regression.py` |
+| `game-reg-04` (failure registry is append-only) | **EXERCISED** | `scripts/log_failure.py` | `tests/test_log_failure.py` |
+| `game-reg-05` (registered patterns block staged changes) | **EXERCISED** | `scripts/game_regression.py` | `tests/test_game_regression.py` |
+| `game-reg-06` (determinism evidence for gameplay crashes) | **EXERCISED** | `scripts/log_failure.py` | `tests/test_log_failure.py` |

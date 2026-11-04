@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# spec: session-01, session-02, session-03, session-04, session-05, session-06, game-matrix-01
+# spec: session-01, session-02, session-03, session-04, session-05, session-06
 """game_session_start.py - gameSessionStart brain: one manifest, two sides.
 
 A work-session (an agent opening a game repo to edit) and a play-session (the
