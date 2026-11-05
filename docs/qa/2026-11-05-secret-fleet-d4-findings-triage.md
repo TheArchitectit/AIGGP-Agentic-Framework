@@ -161,8 +161,8 @@ That probe cannot distinguish a *quoted* header from a *real* one, and it
 reported "no placeholder marker" because the elision sits on a different line.
 Every escalation must be confirmed against surrounding context and, where the
 claim is consequential, by decoding structure — as E1 was, and as E2 now has
-been. The 143 that classed out were each read with their surrounding lines; only
-this one was taken on the probe alone, and it is the one that turned out wrong.
+been. Every other location was read with its surrounding lines; this one alone
+was taken on the probe, and it is the one that turned out wrong.
 
 ### Classed false positive / fixture — 144 locations
 

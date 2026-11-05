@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The D4 record's method caveat still cited the pre-retraction count.** It
+  said "the 143 that classed out" while the section heading correctly says 144.
+  In a record whose whole point is careful counting, a stale number is a defect,
+  so the clause is rewritten to name the thing it was actually about — that
+  every other location was read with its surrounding lines and this one alone
+  was not. No count changes, no disposition changes, no coverage change.
+
 ## [1.3.6] - 2026-11-05
 
 ### Fixed
