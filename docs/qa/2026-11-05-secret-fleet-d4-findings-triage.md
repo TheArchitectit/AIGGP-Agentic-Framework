@@ -110,20 +110,23 @@ A 208-character, three-segment, JWT-shaped value with full charset variety and
 **no placeholder marker**, in a **tracked `.env`**. The file is gone from HEAD
 but the blob is in history and is recoverable by anyone who can clone.
 
-**It is not a dead credential.** Decoded to *timestamps only* — no claim, no
-header field beyond `alg`, and no part of the token is reproduced here or
-anywhere in this repository:
+**It is unexpired.** Decoded to *timestamps only* — no claim, no header field
+beyond `alg`, and no part of the token is reproduced here or anywhere in this
+repository:
 
 | | |
 |---|---|
 | `alg` | `HS256` |
 | `iat` | 2025-12-20T23:39:01Z |
 | `exp` | 2035-12-21T11:39:01Z |
-| verdict | **STILL VALID — 3,332 days remaining** |
+| verdict | **UNEXPIRED — 3,332 days remaining** |
 
-A **ten-year** HMAC-signed bearer token, live now, sitting in the history of a
-repository anyone with clone access can read. Whether that repository is public
-or private is not established here and does not change the action.
+A **ten-year** HMAC-signed bearer token, not expired, sitting in the history of
+a repository anyone with clone access can read. What is *not* established is
+whether the issuer still accepts it — the signing secret may have rotated or
+the token may be revoked server-side — and that does not change the action
+either. Treat it as live until the issuer says otherwise. Whether that
+repository is public or private is likewise not established here.
 
 This is not an allowlist candidate. It needs the credential **revoked or rotated
 now**, and then a decision about history. A disposition entry would only tell
@@ -261,10 +264,10 @@ locations, **502,513 are one upstream fork** and roughly **1,326** are ours to
 look at; of those, the overwhelming majority class out on inspection.
 
 **One does not class out.** `photography-website` `.env` at `b7309b181f8c`
-holds a **live HS256 bearer token that does not expire until 2035-12-21** —
-issued 2025-12-20, still valid, recoverable from history. It is the reason this
-pass stopped at triage and the reason the next action is **revocation, not a
-disposition entry**.
+holds an **HS256 bearer token that does not expire until 2035-12-21** — issued
+2025-12-20, unexpired, recoverable from history. Treat it as live until the
+issuer says otherwise. It is the reason this pass stopped at triage and the
+reason the next action is **revocation, not a disposition entry**.
 
 A second item (`missioncontrol` `docs/GITHUB_APP_CONFIG_IN_D1.md` at
 `ee51590c`) was escalated in an earlier draft and has been **retracted**: it is

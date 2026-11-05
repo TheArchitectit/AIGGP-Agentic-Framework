@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The D4 record overstated E1.** It called the `photography-website` `.env`
+  JWT "not a dead credential" and a "live" token. What was actually measured is
+  that the token is **unexpired** (`exp` 2035-12-21). Whether the issuer still
+  accepts it — signing secret rotated, or revoked server-side — was never
+  established, and on a security claim that distinction matters. Now stated
+  precisely, with the instruction to treat it as live until the issuer says
+  otherwise. The action is unchanged: revoke or rotate now.
+
 ## [1.3.7] - 2026-11-05
 
 ### Fixed
