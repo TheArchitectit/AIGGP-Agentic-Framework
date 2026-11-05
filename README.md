@@ -111,6 +111,27 @@ pull-request-style range.
 | `findings_to_spec.py` | Converts registry entries and live findings into OpenSpec requirement skeletons. |
 | `hub/` | Shipped runner-fleet monitoring and spec-coherence services. |
 | `tools/oap_produce.py` | Observe-only OAP evidence v2 producer CLI — NDJSON envelopes over stdout for a co-located receiver; no socket, no effect. |
+| `game_session_start.py` | Validates `aiggp.session/v1`, enforces the determinism seed rule, emits kind-filtered, honest-empty advisory blocks, and appends accepted sessions to `.guardrails/sessions.jsonl`. |
+| `engines/godot/game_session_hooks.gd` | Godot adapter for play sessions; wired in the MergeKingdom testbed. A shipped target still needs a consumer-approved Python/runtime path. |
+| `templates/hooks/` | Thin session-start adapters for Claude Code, pi-extension, Codex, OpenCode, and MiMo. The phase-gate matrix (`game-matrix-01..03`) remains planned, not enforced. |
+| `hub/sessions.py` | Defensive session-log ingestion and registry joins. A tested library, not an HTTP route; `hub/server.py` does not expose it. |
+| `fleet-manager/` | Tested value, contract, planning, and reconciliation boundary. It has no live Podman/Docker adapter or executor and is not a shipped fleet manager service. |
+
+### Releases and documentation
+
+Product changes on `main` must be released, not accumulated behind a green
+version-file check. `scripts/deploy.sh <version>` folds the `Unreleased`
+notes into a dated `CHANGELOG.md` section, updates `VERSION`, commits and
+annotates the release, runs the gates, and pushes the commit and tag. The
+tag-triggered **Release Published** workflow creates and verifies the GitHub
+Release; **Release Coverage** rejects an untagged `main` HEAD. Generated
+fleet/spec trend-report-only pushes are explicitly skipped, not counted as
+product releases. `gh release create` failure in the deploy pipeline is fatal,
+not a warning followed by a false `PUBLISHED` line.
+
+Keep `README.md` aligned with the shipped behavior in the same slice: a tested
+library, a wired integration, and a deferred runtime are different states and
+must not be described as the same thing.
 
 ### Rules and test evidence
 

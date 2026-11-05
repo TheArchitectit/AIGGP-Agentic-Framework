@@ -165,7 +165,21 @@ jobs:
             echo "nothing new to commit"
           else
             git commit -m "spec sweep ${DATE} (automated)"
-            git push origin "HEAD:refs/heads/${GITHUB_REF_NAME}"
+            # Secret and spec sweeps write different reports but share main.
+            # A rejected non-FF push is a publish race, not a scan failure:
+            # fetch and rebase the report commit, then retry. Conflicts abort
+            # loudly; no automated force-push or winner-takes-all overwrite.
+            pushed=0
+            for attempt in 1 2 3; do
+              if git push origin "HEAD:refs/heads/${GITHUB_REF_NAME}"; then
+                pushed=1
+                break
+              fi
+              [ "$attempt" -lt 3 ] || break
+              git fetch --no-tags origin "${GITHUB_REF_NAME}"
+              git rebase FETCH_HEAD
+            done
+            [ "$pushed" = 1 ]
           fi
 
       # SGA-21 / SGR-11: template-drift findings are routed to their own

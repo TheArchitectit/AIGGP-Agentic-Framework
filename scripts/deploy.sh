@@ -467,20 +467,25 @@ echo "[deploy] published v$NEW_VERSION."
 
 # --- 7. GitHub release --------------------------------------------------------
 cd "$PROJECT_ROOT"
-if command -v gh >/dev/null 2>&1; then
-	echo "[deploy] creating GitHub release $TAG"
-	PREV_TAG=$(git describe --tags --abbrev=0 "$TAG^" 2>/dev/null || true)
-	if [ -n "$PREV_TAG" ]; then
-		RELEASE_NOTES=$(git log --pretty=format:"- %s" "$PREV_TAG..$TAG" 2>/dev/null | grep -vE "^- chore\(release\)" | sed -n '1,15p' || true)
-	else
-		RELEASE_NOTES=$(git log --pretty=format:"- %s" "$TAG" 2>/dev/null | sed -n '1,15p' || true)
-	fi
-	RELEASE_NOTES="${RELEASE_NOTES:-(no commit notes extracted)}"
-	gh release create "$TAG" --title "v$NEW_VERSION" --notes "$(printf '## What changed\n\n%s' "$RELEASE_NOTES")" \
-		|| echo "[deploy] WARN: gh release create failed — skipping"
-else
-	echo "[deploy] WARN: gh CLI not installed — skipping GitHub release."
+if ! command -v gh >/dev/null 2>&1; then
+	echo "[deploy] ERROR: gh CLI not installed — refusing to claim a GitHub release." >&2
+	exit 1
 fi
+echo "[deploy] creating GitHub release $TAG"
+PREV_TAG=$(git describe --tags --abbrev=0 "$TAG^" 2>/dev/null || true)
+RANGE="$TAG"
+if [ -n "$PREV_TAG" ]; then RANGE="$PREV_TAG..$TAG"; fi
+RELEASE_NOTES=$(git log --pretty=format:"- %s" "$RANGE" 2>/dev/null | grep -vE "^- chore\(release\)" | sed -n '1,15p' || true)
+RELEASE_NOTES="${RELEASE_NOTES:-(no commit notes extracted)}"
+# The tag workflow and this command can race to create the same release.
+# The view below, not create's exit alone, is the authoritative proof.
+if ! gh release view "$TAG" --json url --jq .url >/dev/null 2>&1; then
+	gh release create "$TAG" --title "v$NEW_VERSION" --notes "$(printf '## What changed\n\n%s' "$RELEASE_NOTES")" || true
+fi
+gh release view "$TAG" --json url --jq .url || {
+	echo "[deploy] ERROR: GitHub Release $TAG could not be created or verified" >&2
+	exit 1
+}
 
 echo
 echo "============================================================"

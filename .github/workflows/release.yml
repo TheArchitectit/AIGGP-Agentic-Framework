@@ -1,0 +1,80 @@
+# Create the GitHub Release from an annotated version tag. This workflow is
+# idempotent: scripts/deploy.sh may already have created the release. An
+# existing release is evidence; a create failure with no release is fatal.
+name: Release Published
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Publish the tagged release
+    runs-on: devgate
+    steps:
+      - name: Checkout the tag
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Publish and verify the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::$TAG is not a semantic version tag"
+            exit 1
+          fi
+          if [ "$(git cat-file -t "$TAG")" != "tag" ]; then
+            echo "::error::$TAG is not annotated"
+            exit 1
+          fi
+          if [ "$(git rev-parse HEAD)" != "$(git rev-parse "$TAG^{commit}")" ]; then
+            echo "::error::checkout HEAD and $TAG resolve to different commits"
+            exit 1
+          fi
+          if [ -f VERSION ] && [ "$(tr -d '[:space:]' < VERSION)" != "${TAG#v}" ]; then
+            echo "::error::VERSION disagrees with $TAG"
+            exit 1
+          fi
+
+          python3 - "$TAG" "$RUNNER_TEMP/release-notes.md" <<'PY'
+          import pathlib, sys
+          tag, output = sys.argv[1:]
+          version = tag[1:]
+          heading = f"## [{version}]"
+          lines = pathlib.Path("CHANGELOG.md").read_text(encoding="utf-8").splitlines()
+          notes, found = [], False
+          for line in lines:
+              if line.strip() == heading:
+                  if found:
+                      raise SystemExit(f"duplicate release heading: {heading}")
+                  found = True
+                  continue
+              if found and line.startswith("## ["):
+                  break
+              if found:
+                  notes.append(line)
+          body = "\n".join(notes).strip()
+          if not found:
+              raise SystemExit(f"CHANGELOG.md has no {heading} section")
+          if not body:
+              raise SystemExit(f"{heading} has no release notes; an empty release is not evidence")
+          pathlib.Path(output).write_text(body + "\n", encoding="utf-8")
+          print(f"release notes: {len(body.splitlines())} line(s) from {heading}")
+          PY
+
+          if gh release view "$TAG" --json url --jq .url; then
+            echo "$TAG already has a GitHub Release; leaving its notes editable by maintainers"
+          else
+            gh release create "$TAG" --title "$TAG" \
+              --notes-file "$RUNNER_TEMP/release-notes.md" --verify-tag \
+              || gh release view "$TAG" --json url --jq .url
+          fi
+          gh release view "$TAG" --json url --jq .url

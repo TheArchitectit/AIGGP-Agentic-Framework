@@ -127,12 +127,22 @@ and let a test compare rows with `==`. Immutability is the failure registry's
 ethic applied to sessions: a reopened session is a new row, duplicates
 included.
 
-## What this change does not do
+## Earlier step-1 boundary and the current rollout state
 
-Rollout steps 2-5 of the design, each its own reviewed delivery:
+When this change covered only step 1, rollout steps 2-5 were explicitly out of
+scope. Sec. 5 in `tasks.md` subsequently delivered those packages, so retaining
+them under a present-tense "does not do" list would contradict the module tree:
 
-- the Godot engine hook and the play-side screen-inventory block;
-- the Claude Code, pi-extension, Codex, OpenCode and Xiaomi MiMo adapters;
-- `docs/REDEYE-SESSION-CONTRACT.md` and the red-eye registry join;
-- `hub/sessions.py` ingestion of the log;
-- a producer for the gap report at its default path.
+- the Godot hook and play-side inventory reports exist and MergeKingdom wires
+  the hook as an autoload; a shipped Android target still needs a consumer-
+  approved Python/runtime path;
+- all five carrier templates exist; Claude Code, Codex, MiMo and OpenCode have
+  brain-level accept/refuse tests, and the real TypeScript pi-extension adapter
+  has its own accept/inject and critical-refusal test;
+- the red-eye contract and registry join exist;
+- `hub/sessions.py` ingestion is a tested library. It is not an exposed hub HTTP
+  route, and `project_sessions_view` is not presented as a running service;
+- `spec_gap_scan.py --write-report` produces the brain's default input.
+
+Still outside this change: the deferred phase matrix (`game-matrix-01..03`),
+which the brain honestly reports as planned rather than pretending to enforce.

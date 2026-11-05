@@ -25,6 +25,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The scheduled drift scan no longer runs 2026-09-15 scanners.** Its pinning
+  workflow now uses `8c2d0a9`, carrying the later prose and scanner contract
+  fixes. `FAIL-47bc725d`'s `if path in allow:` adhesion was also retired: that
+  one-line regex matched the corruption fix's unrelated bulk-rewrite allowlist
+  and made `--all` red on pre-fix history. The executable corruption tests keep
+  both legs: a whole-file rewrite is not a flip, while the same edited pair
+  outside a rewrite still fails.
+- **Scheduled trend reports survive a competing report push.** The spec and
+  secret sweep workflows now retry a non-fast-forward push with a bounded
+  fetch/rebase sequence, preserving both reports instead of losing one trend
+  line or force-pushing over the other.
+- **Unreleased `main` work now fails loudly.** `Release Coverage` requires HEAD
+  to be an annotated `VERSION`-matching tag with changelog notes; the
+  tag-triggered `Release Published` workflow creates and verifies the GitHub
+  Release. Generated fleet/spec report-only pushes have a named skip. Deploy
+  can no longer print `PUBLISHED` after a failed GitHub Release creation.
+- **The pi-extension carrier now has executable accept and refusal evidence.**
+  A pinned `tsx@4.23.15` runtime exercises the real TypeScript adapter; a missing
+  runtime fails the test instead of silently skipping the only untested carrier.
+- **The session-start design no longer contradicts its completed rollout.**
+  Its old step-1-only exclusion list now records delivered integrations and
+  remaining boundaries: the Android runtime path and hub HTTP route are not
+  supplied, while `game-matrix-01..03` remains deferred.
+- **README status distinguishes delivered libraries from runtime products.**
+  Game-session adapters and ingestion are documented with their integration
+  boundaries; fleet-manager's tested contracts/planning are not presented as a
+  live executor; the phase matrix remains explicitly planned.
+
 - **A runtime-capability check skips loudly instead of measuring the runtime.**
   `test_schema_health_config.mjs`'s cold-install path needs `node:sqlite`
   (Node 22.5+); the fleet's minimum runtime is Node 20 (ci.yml), where the

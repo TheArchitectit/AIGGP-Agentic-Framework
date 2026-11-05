@@ -1,0 +1,70 @@
+# A version-truth check alone permits years of unreleased main history. This
+# gate requires HEAD itself to be the annotated release named by VERSION, with
+# changelog notes. The tag-triggered Release Published workflow then publishes
+# and verifies the GitHub Release; there is no recursive release commit.
+name: Release Coverage
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  coverage:
+    name: Main is a tagged, documented release
+    runs-on: devgate
+    steps:
+      - name: Checkout main and tags
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Verify release coverage
+        run: |
+          set -euo pipefail
+
+          # The two scheduled sweep jobs append generated trend data to main.
+          # A push that touches ONLY these generated reports is not a product
+          # release. Any other path in the same push loses this exemption.
+          mapfile -t changed < <(git diff-tree --no-commit-id --name-only -r HEAD)
+          if [ "${#changed[@]}" -gt 0 ]; then
+            reports_only=1
+            for path in "${changed[@]}"; do
+              case "$path" in
+                docs/qa/fleet-sweeps/*|docs/qa/spec-sweeps/*) ;;
+                *) reports_only=0; break ;;
+              esac
+            done
+            if [ "$reports_only" = 1 ]; then
+              echo "SKIPPED (not a product release): only generated fleet/spec sweep reports changed"
+              exit 0
+            fi
+          fi
+
+          if [ ! -f VERSION ]; then
+            echo "::error::VERSION is missing; unreleased main is not green"
+            exit 1
+          fi
+          version="$(tr -d '[:space:]' < VERSION)"
+          tag="v${version}"
+          if ! git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            echo "::error::main has no tagged release $tag; run scripts/deploy.sh $version after updating the changelog"
+            exit 1
+          fi
+          if [ "$(git cat-file -t "$tag")" != "tag" ]; then
+            echo "::error::$tag must be annotated so git push --follow-tags publishes it"
+            exit 1
+          fi
+          head="$(git rev-parse HEAD)"
+          released="$(git rev-list -n 1 "$tag")"
+          if [ "$head" != "$released" ]; then
+            echo "::error::HEAD $head is not release $tag ($released)"
+            exit 1
+          fi
+          if ! grep -Fq "## [$version]" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no release heading for $version"
+            exit 1
+          fi
+          echo "release coverage: HEAD is annotated $tag with changelog notes"
