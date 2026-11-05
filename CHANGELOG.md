@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The D4 triage record is corrected: one escalation is retracted and one is
+  upgraded.** `1.3.5` said "two findings are escalated." One of those two was
+  wrong. `missioncontrol` `docs/GITHUB_APP_CONFIG_IN_D1.md:25` is documentation
+  prose quoting what a PEM header looks like — an SQL comment, zero base64 body
+  lines, and an explicit `…full_private_key…` elision in the adjacent JSON
+  example. It is a doc example, not a leak, and it is now classified with the
+  other false positives. The other escalation is worse than recorded: the
+  `photography-website` `.env` JWT is **HS256, issued 2025-12-20, expires
+  2035-12-21, still valid** — a live ten-year bearer token in git history that
+  needs revocation now, not a disposition entry. Counts move from
+  "2 escalated / 143 classed out" to **"1 escalated / 144 classed out."** A
+  method caveat is recorded with the retraction: a one-line shape probe cannot
+  distinguish a quoted PEM header from a real one, and every escalation must be
+  confirmed against surrounding context and, where consequential, by decoding
+  structure. No allowlist entry, no exclusion, no coverage change.
+
 ## [1.3.5] - 2026-11-05
 
 ### Added

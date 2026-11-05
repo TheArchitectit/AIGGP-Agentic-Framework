@@ -7,8 +7,8 @@ is correctly naming a large backlog, not a single defect."*
 
 **No allowlist entry was written and no coverage was narrowed.** This is a triage
 record: it classifies the backlog and names what needs a decision. Dispositions
-are recorded here; applying them is a separate step, and two items below must not
-be dispositioned at all until they are verified.
+are recorded here; applying them is a separate step, and one item below must not
+be dispositioned at all until it is rotated.
 
 Measured against `docs/qa/fleet-sweeps/2026-11-05.json` (the live sweep).
 
@@ -103,39 +103,73 @@ opened and classified by **shape** — token length, charset class, placeholder
 markers, PEM structure, surrounding context — never by value. No secret is
 quoted anywhere in this document.
 
-### Escalate — 2 items, do not disposition yet
+### Escalate — 1 item, do not disposition
 
 **E1. `photography-website` `.env` at `b7309b181f8c` line 2 — `jwt`.**
 A 208-character, three-segment, JWT-shaped value with full charset variety and
 **no placeholder marker**, in a **tracked `.env`**. The file is gone from HEAD
 but the blob is in history and is recoverable by anyone who can clone.
 
-This is the most serious item in the sweep. It is not an allowlist candidate. It
-needs the credential **rotated first**, and then a decision about history. A
-disposition entry would only tell the monitor to stop looking at a possible live
-secret.
+**It is not a dead credential.** Decoded to *timestamps only* — no claim, no
+header field beyond `alg`, and no part of the token is reproduced here or
+anywhere in this repository:
+
+| | |
+|---|---|
+| `alg` | `HS256` |
+| `iat` | 2025-12-20T23:39:01Z |
+| `exp` | 2035-12-21T11:39:01Z |
+| verdict | **STILL VALID — 3,332 days remaining** |
+
+A **ten-year** HMAC-signed bearer token, live now, sitting in the history of a
+repository anyone with clone access can read. Whether that repository is public
+or private is not established here and does not change the action.
+
+This is not an allowlist candidate. It needs the credential **revoked or rotated
+now**, and then a decision about history. A disposition entry would only tell
+the monitor to stop looking at a live secret.
 
 (`photography-website/.env.production` is still tracked and holds one
 `VITE_`-prefixed URL key — a 46-character URL-shaped value, not a token. Classed
 benign, but `VITE_` values are bundled into client JS, so anything ever added
 there is public by construction.)
 
+### Retracted — 1 item, was escalated in an earlier draft of this record
+
 **E2. `missioncontrol` `docs/GITHUB_APP_CONFIG_IN_D1.md:25` at `ee51590c` —
-`private-key`.**
-A full PEM private-key header block, no placeholder marker, inside a
-**documentation** file. Removed by `d3cac6ae` ("reorganize documentation,
-archive deprecated"); the successor
-`docs/integrations/GITHUB_APP_SETUP.md` carries no PEM markers. History-only
-now, same recoverability as E1.
+`private-key`. NOT A LEAK.**
 
-Needs the same treatment: establish whether the key is real, rotate if so, then
-decide on history. `missioncontrol` is in scope.
+An earlier draft of this record escalated this on a one-line shape check that
+matched `-----BEGIN … PRIVATE KEY-----`. That was wrong. The line is **SQL
+comment prose inside a setup walkthrough**:
 
-### Classed false positive / fixture — 143 locations
+> `-- - Generate or download the private key (starts with "-----BEGIN RSA
+> PRIVATE KEY-----")`
+
+It *quotes* the header so a reader knows what to look for in GitHub's UI. There
+is **no key body** — the file contains zero long base64 lines. The only other
+reference in the document is the explicit elision `MIIEp...full_private_key...`
+inside a JSON example of the field's shape.
+
+Disposition: **justify — documentation of a configuration format**. Same class
+as the template's "Example Usage" block.
+
+**Method caveat, recorded because it cost a false alarm.** The first pass
+classified the 145 high-severity locations partly by a one-line shape probe
+(does this line contain a PEM header / a long token / a placeholder marker?).
+That probe cannot distinguish a *quoted* header from a *real* one, and it
+reported "no placeholder marker" because the elision sits on a different line.
+Every escalation must be confirmed against surrounding context and, where the
+claim is consequential, by decoding structure — as E1 was, and as E2 now has
+been. The 143 that classed out were each read with their surrounding lines; only
+this one was taken on the probe alone, and it is the one that turned out wrong.
+
+### Classed false positive / fixture — 144 locations
 
 | Class | Evidence | Disposition |
 |---|---|---|
 | Template doc example (`MCP_TOOLS_REFERENCE.md:216`, `stripe-access-token`) | sits under a heading literally titled **"Example Usage"**, inside a JSON body showing `const apiKey = '…'` as the *input* to a secret-detection tool | **justify** — doc residue; template already names it |
+| `missioncontrol` `docs/GITHUB_APP_CONFIG_IN_D1.md:25` (`private-key`) | SQL-comment prose quoting what a PEM header looks like; **zero** base64 body lines; the JSON example value carries the explicit elision `MIIEp...full_private_key...`. History-only (`d3cac6ae` removed it) | **justify** — doc example; was E2, retracted |
 | `AIREPO01` `.cargo/registry/**` (`private-key` × 11) | crates.io sources: `pem-rfc7468`, `pkcs1`, `pkcs8`, `rsa`, `rustls-pemfile`, `sqlx-*`. Vendored tree | **justify** — out of repository content |
 | `secrets_scanner_test.go:60` and siblings (`jwt`) | redaction tests with planted fakes, in 6 repos | **justify** — fixture |
 | `radcode` / `RADICAL-CODE` `crates/cli/src/support/redaction/keys.rs:29,43` (`private-key`) | a redaction library's own test keys | **justify** — fixture |
@@ -212,7 +246,7 @@ would close it.
 
 - **No allowlist entry, no exclusion, no scope change.** Nothing here makes the
   fleet read greener.
-- **E1 and E2 are not dispositioned.** They need rotation/verification first.
+- **E1 is not dispositioned.** It needs the credential revoked or rotated first.
 - **D1** (exclude `openclaw`) and **D2** (two-owner token scope) are unchanged —
   both are owner decisions.
 - **D3** is closed and untouched by this record.
@@ -226,9 +260,14 @@ documentation examples, vendored sources, and test fixtures. Of 504,052 reported
 locations, **502,513 are one upstream fork** and roughly **1,326** are ours to
 look at; of those, the overwhelming majority class out on inspection.
 
-**Two do not class out.** Both are historical, both are recoverable from git
-history, and both look like real credentials rather than examples —
-`photography-website` `.env` at `b7309b181f8c`, and `missioncontrol`
-`docs/GITHUB_APP_CONFIG_IN_D1.md` at `ee51590c`. They are the reason this pass
-stopped at triage: the correct next action is verification and rotation, not a
-disposition entry.
+**One does not class out.** `photography-website` `.env` at `b7309b181f8c`
+holds a **live HS256 bearer token that does not expire until 2035-12-21** —
+issued 2025-12-20, still valid, recoverable from history. It is the reason this
+pass stopped at triage and the reason the next action is **revocation, not a
+disposition entry**.
+
+A second item (`missioncontrol` `docs/GITHUB_APP_CONFIG_IN_D1.md` at
+`ee51590c`) was escalated in an earlier draft and has been **retracted**: it is
+documentation prose quoting a PEM header, with no key body. The retraction and
+the method caveat that produced the false alarm are recorded above, so the
+record is self-auditing.
