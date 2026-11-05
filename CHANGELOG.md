@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The Secret Fleet D4 findings triage is recorded, and two findings are
+  escalated instead of dispositioned.** The backlog is not one number:
+  `findings` counts allowlisted locations too, `uncovered` is what exits
+  non-zero, and `states.findings` (55) is the actionable population. Of 504,052
+  reported locations, 502,513 are one upstream fork and roughly 1,326 are ours.
+  The 145 high-severity locations were each opened and classified by shape —
+  never by value — and 143 class out as documentation examples, vendored
+  sources, or test fixtures. Two do not: a tracked `.env` and a PEM block in
+  docs, both historical and both recoverable from git history. They need
+  rotation and verification before any disposition entry, so this pass wrote
+  none. No allowlist entry, no exclusion, no coverage change.
+
 ## [1.3.4] - 2026-11-05
 
 ### Added
