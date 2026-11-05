@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.8] - 2026-11-05
+
 ### Fixed
 
 - **The D4 record overstated E1.** It called the `photography-website` `.env`
