@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.4] - 2026-11-05
+
 ### Added
 
 - **The SGR-16 D3 disposition is recorded, and no `continue-on-error` key was
