@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The SGR-16 D3 record is corrected: its verdict-aggregator test is necessary
+  but not sufficient, and two of 26 keys were justified on evidence the test
+  never established.** The test correctly separates *aggregation* from
+  *exemption* — MergeKingdom, rad-gateway, OpenRawFlow and NemoClaw classify as
+  they did and those stand. It does not ask whether the check being softened
+  **works**. Re-measured from the workflow text and by running the commands:
+  `radredeye` `guardrails.yml:61` was "documented signal job", but its
+  `cargo build -p radredeye-webxr` cannot resolve a workspace-excluded crate
+  (`Cargo.toml:3` `exclude = ["crates/radredeye-webxr"]`) and the job has never
+  compiled anything — the key exempts a failure, not a signal. `pi-ithacus`
+  `secret-validation.yml:27` was "layered, enforced fallback", but the
+  Trufflehog step has no `id:`, nothing in the file reads any step outcome, and
+  the "fallback" is a different, weaker scanner — a verified secret found by
+  trufflehog does not fail the job. Counts move from "25 justify / 1 baseline"
+  to **"23 justify / 1 baseline / 2 owner."** A third row is annotated rather
+  than moved: `pi-ithacus` `regression-guard.yml:35`'s key is sound aggregation,
+  but the gate it reports on passes `--soft-as-hard` flags `regression_check.py`
+  does not define and exits 2 on argument parsing — the job is unconditionally
+  red and has evaluated no regression rule. "Justify" now means the key's shape
+  is right **and** the thing it softens works; it is not a claim that the gate is
+  effective. No workflow, gate script, or allowlist was touched — D3-a/b/c are
+  named for owner call. Standing caveat recorded with the method: GitHub reports
+  a `continue-on-error` step **or job** as `success` on non-zero exit, so a
+  green Actions UI is not evidence a check passed.
+
 ## [1.3.8] - 2026-11-05
 
 ### Fixed

@@ -49,6 +49,37 @@ step's `outcome` and exits non-zero on `failure` / `cancelled` / `NOT RUN`?**
 - **No, and the key silences a real gate** → evaluate **convert** (only if proven
   safe) or **baseline** (measured known debt + named promotion condition).
 
+### The test is necessary, not sufficient (added 2026-11-05)
+
+Three independent cross-checks of this record converged on the same gap. Every
+claim they challenged has since been re-measured here, from the workflow text
+and by running the commands. Two rows moved.
+
+The verdict-aggregator test separates *aggregation* from *exemption* correctly —
+that is why MergeKingdom, rad-gateway, OpenRawFlow and NemoClaw classified as
+they did, and those classifications stand. What the test does **not** answer is
+whether the thing being softened is a working check at all. Three questions were
+skipped:
+
+1. **Does the exempted job actually run?** A key on a job whose command cannot
+   succeed is not exempting a *signal*. It is exempting a *failure*. An in-file
+   comment describing intent is not evidence the check works — the comment and
+   the command have to be read together.
+2. **Is the soft layer's outcome read by anything?** A soft step with no `id:`
+   and no aggregator is not "layered detection"; its result is discarded. A
+   strict fallback that is a *different, weaker* scanner does not restore it.
+3. **A justified key is not a working gate.** The key can be shaped correctly —
+   soft so a report step can run, then a fail-closed exit — while the gate it
+   aggregates is permanently red and evaluates nothing. "Justify" describes the
+   key. It is not a claim that the check is effective, and the two must not be
+   read as one.
+
+A standing caveat on top of all three: GitHub records a `continue-on-error`
+**step or job** as `success` even when the command exited non-zero. Neither the
+Actions UI nor `gh run view` can distinguish "passed" from "failed and
+swallowed", at either level. Everything below was taken from the workflow text
+and from running the gate command, never from a green tick.
+
 ## Disposition table — 26 keys / 9 repos
 
 | # | Repo | Key | Shape | Disposition |
@@ -57,17 +88,20 @@ step's `outcome` and exits non-zero on `failure` / `cancelled` / `NOT RUN`?**
 | 11–15 | rad-gateway | `devgate-gates.yml` 50, 146, 159, 196, 246 | 5 gate steps under `Gate verdict` → `exit $verdict`; `skipped` also reddens | **justify** (aggregation, stricter) |
 | 16 | rad-gateway | `security-scan.yml:206` | `Upload Trivy scan results` (SARIF upload, `if: always()`); the Trivy **scan** is strict | **justify** (report upload) |
 | 17 | radcode | `ci.yml:339` | `Record CI health artifact` — re-runs gates to write a report artifact; enforced gates run earlier in the job | **justify** (reporting) |
-| 18 | radredeye | `guardrails.yml:61` | job `webxr-wasm32` "WebXR wasm32 build (non-gating)"; Clippy (`-D warnings`) is the strict gate | **justify** (documented signal job) |
+| 18 | radredeye | `guardrails.yml:61` | job `webxr-wasm32` "WebXR wasm32 build (non-gating)" — its command cannot resolve the crate; Clippy (`-D warnings`) is the strict gate | **owner** (exempts a job that has never compiled) |
 | 19 | radredeye | `secret-validation.yml:94` | job `gitleaks-scan` "informational"; enforcing `.env` job beside it | **justify** + promotion debt |
 | 20 | radredeye-vision-review | `guardrails.yml:63` | job `cargo-audit`, `TODO(promote-to-blocking)`; Clippy strict | **justify** + promotion debt |
 | 21 | radredeye-vision-review | `secret-validation.yml:87` | job `gitleaks-scan` "informational" | **justify** + promotion debt |
-| 22 | pi-ithacus-agent-framework | `regression-guard.yml:35` | gate step soft so the PR comment runs; `Fail job if regression failed` → `exit 1` | **justify** (report, then fail) |
-| 23 | pi-ithacus-agent-framework | `secret-validation.yml:27` | Trufflehog soft + strict grep fallback + strict `.env` check | **justify** (layered, enforced fallback) |
+| 22 | pi-ithacus-agent-framework | `regression-guard.yml:35` | gate step soft so the PR comment runs; `Fail job if regression failed` → `exit 1` | **justify** (key only — the gate it reports on is dead, see D3-a) |
+| 23 | pi-ithacus-agent-framework | `secret-validation.yml:27` | Trufflehog soft, **no `id:`**, outcome never read; the "fallback" is a different scanner | **owner** (exemption, not aggregation) |
 | 24 | OpenRawFlow | `devgate-gates.yml:80` | `rustcheck` soft so compile debt cannot hide the 4 scan gates; `RESULTS[rust]` seeded, `exit $FAILED` | **justify** (aggregation) |
 | 25 | NemoClaw | `e2e-branch-validation.yaml:251` | `Collect Brev debug bundle on failure`, `if: failure()` | **justify** (failure-path diagnostics) |
 | 26 | LobsterWars | `devgate-gates.yml:20` | real gate kept advisory; 13 measured violations | **baseline** |
 
-**Totals: 25 justify, 1 baseline, 0 convert.**
+**Totals (corrected 2026-11-05): 23 justify, 1 baseline, 2 owner, 0 convert.**
+Was 25/1/0. Rows 18 and 23 moved from justify to owner; see the method note and
+D3-a/D3-b below. Row 22's disposition of the *key* is unchanged and its gate
+defect is recorded separately.
 
 ## Per-repo evidence
 
@@ -118,20 +152,42 @@ and none of them has a key.
 > scanned a 346-line `ci.yml` where it is line 339. Classified against the
 > fetched revision, not the stale tree.
 
-### radredeye — 2 keys, justify
+### radredeye — 2 keys, one of them not justified
 
-- `guardrails.yml:61` — job `webxr-wasm32`, named *"WebXR wasm32 build
-  (non-gating)"*. The in-file comment is explicit: the webxr crate is excluded
-  from the default workspace build because it targets wasm32, so this job compiles
-  it on its own target and **reports only**. The gating job is `clippy`
-  (`cargo clippy --workspace -- -D warnings`), strict.
-- `secret-validation.yml:94` — job `gitleaks-scan`, named *"Gitleaks scan
-  (informational)"*. The file header gives two reasons and a promotion path:
-  high false-positive rate from guardrails-template doc residue ("tune
-  `.gitleaks.toml` before promoting it to blocking"), and the marketplace
-  `gitleaks-action` expects hosted plumbing a self-hosted runner lacks ("promote
-  it by baking the gitleaks binary into the runner image"). Enforced path is
-  present: `check-env-files` exits 1 on a tracked `.env`.
+- `guardrails.yml:61` — **owner. Corrected 2026-11-05; was "justify (documented
+  signal job)".** The job is named *"WebXR wasm32 build (non-gating)"* and its
+  comment describes intent: the webxr crate is excluded from the default
+  workspace build because it targets wasm32, so this job is meant to compile it
+  on its own target and report only. **The command cannot do that.**
+
+  `Cargo.toml:3` reads `exclude = ["crates/radredeye-webxr"]`. The crate is on
+  disk at `crates/radredeye-webxr/Cargo.toml` but is workspace-excluded, so
+  from the repo root — as CI runs it —
+
+  ```
+  cargo build -p radredeye-webxr --target wasm32-unknown-unknown
+  error: package ID specification 'radredeye-webxr' did not match any packages
+  ```
+
+  The job has **never compiled anything**. `guardrails.yml` is five independent
+  jobs and contains **no aggregator** — no `verdict`, no `steps.*.outcome`, no
+  `exit $` anywhere in the file. This key is a plain exemption.
+
+  So it is not exempting a documented signal; it is exempting a failure, and
+  `continue-on-error: true` is the only reason the job reads green. The fix is
+  `--manifest-path crates/radredeye-webxr/Cargo.toml` or re-including the crate
+  in the workspace — either would surface the crate's real compile state and
+  could redden the job, so it is an owner call. Re-disposition the key once the
+  command works; only then does "documented non-gating smoke" apply.
+
+- `secret-validation.yml:94` — **justify + promotion debt. Unchanged.** Job
+  `gitleaks-scan`, named *"Gitleaks scan (informational)"*, job-level
+  `continue-on-error: true`, no aggregator. Re-read 2026-11-05 and it still
+  holds: the file header gives two reasons and a promotion path (tune
+  `.gitleaks.toml`; bake the gitleaks binary into the runner image), and an
+  enforced path sits beside it — `check-env-files` exits 1 on a tracked `.env`.
+  This is a working check deliberately held soft with the condition written
+  down, which is the shape the corrected method still justifies.
 
 ### radredeye-vision-review — 2 keys, justify + promotion debt
 
@@ -142,18 +198,43 @@ and none of them has a key.
   does not block — the gate is wired and running, not yet hard.` This is a real
   gate, deliberately not yet blocking, with the promotion condition written down.
 
-### pi-ithacus-agent-framework — 2 keys, justify
+### pi-ithacus-agent-framework — 2 keys, one of them not layered
 
-- `regression-guard.yml:35` — the gate step (`id: reg`) is soft so the
-  `Comment on PR on failure` step can run, and the job then ends with
-  `Fail job if regression failed` → `run: exit 1` (line 66) plus
-  `core.setFailed(...)` in the comment script. Report-then-fail, not an
-  exemption. (The job header claims the PR "is blocked" — that is true only
-  because of this later step, not the key.)
-- `secret-validation.yml:27` — layered by design: Trufflehog
-  (`--only-verified --fail`) is the soft signal layer; the zero-dependency
-  `Grep fallback (high-signal patterns)` and `No .env files tracked` steps are
-  strict and do `exit 1`.
+- `regression-guard.yml:35` — **justify, for the key only. The gate it
+  aggregates is dead — see D3-a.** The key's shape is correct and unchanged: the
+  gate step (`id: reg`) is soft so `Comment on PR on failure` can run, and the
+  job then ends with `Fail job if regression failed` → `run: exit 1` (line 66)
+  plus `core.setFailed(...)` in the comment script. Report-then-fail, not an
+  exemption. (The job header claims the PR "is blocked" — true only because of
+  that later step, not the key.)
+
+  **Do not read "justify" as "the gate works."** The step invokes
+  `python3 scripts/regression_check.py --all --pre-commit --soft-as-hard
+  --soft-as-hard-base origin/${{ github.base_ref }}`, and `regression_check.py`
+  defines neither flag: its argparse accepts only `--registry`, `--rules`,
+  `--staged`/`--unstaged`/`--all`, `--pre-commit`, `--json`, `--verbose`,
+  `--quiet`, `--validate-agent-bundles`. A direct run exits 2 with
+  `error: unrecognized arguments: --soft-as-hard --soft-as-hard-base origin/main`.
+  The job is therefore **unconditionally red and evaluates nothing** — the
+  aggregator faithfully reports a failure that is a usage error, not a
+  regression.
+
+- `secret-validation.yml:27` — **owner. Corrected 2026-11-05; was "justify
+  (layered, enforced fallback)".** It is not layered in the sense the method
+  requires. The Trufflehog step has `continue-on-error: true`, `uses:
+  trufflesecurity/trufflehog@main` (**unpinned**), and **no `id:`** — and a
+  grep for `steps.*.outcome` or `id:` across the file returns **nothing**. No
+  step reads any other step's outcome.
+
+  So a **verified** secret found by trufflehog does not fail the job unless the
+  `Grep fallback (high-signal patterns)` step *also* matches it — and that
+  fallback is a different, weaker scanner, not an enforcement of the first.
+  The strict `No .env files tracked` step is real but is a third thing. This is
+  exemption of a security check, not aggregation.
+
+  Owner call: give the step an `id:` and fail closed on its outcome, or state
+  plainly that trufflehog is pure signal and name what the enforced layer
+  actually is. Pin the action to a commit either way.
 
 ### OpenRawFlow — 1 key, justify (cleanest aggregation in the fleet)
 
@@ -199,6 +280,40 @@ violations, so conversion is **not proven safe**. Disposition is baseline: keep
 advisory at a measured 13, and the promotion condition is the one the file
 already names — clean the pre-existing violations.
 
+One labelling nuance, recorded so it is not lost. A cross-check would call this
+**owner** rather than **baseline**, because the key is job-level on a file with
+no aggregator at all and the job is red on main. The action is identical either
+way — keep advisory, do not convert, clean the 13 then promote — so the label
+does not change what anyone does next. Kept as baseline because the count is
+accurate, the scan works, and the promotion condition is written in the file.
+
+## Defects named by the correction (owner call, not applied)
+
+Two of these are the rows that moved. Each would change CI behaviour if fixed,
+so neither is applied here.
+
+**D3-a. `pi-ithacus` `regression-guard.yml` aggregates a gate that evaluates
+nothing.** The step passes `--soft-as-hard` and `--soft-as-hard-base` to
+`scripts/regression_check.py`, which defines neither. The step exits 2 at
+argument parsing and the fail-closed step then faithfully exits 1, so the job is
+unconditionally red and **no regression rule has been evaluated by this
+workflow** for as long those flags have been absent. Fix is either to implement
+the flags (they are a real design: treat soft rules as hard against a base ref)
+or to drop them from the invocation. Either changes CI behaviour. Until then the
+job's red is a usage error, not a regression signal — and its green-when-fixed
+would be the first time the gate has actually run.
+
+**D3-b. `radredeye` `guardrails.yml` webxr job cannot compile its crate.**
+Row 18 above. `cargo build -p radredeye-webxr` cannot resolve a
+workspace-excluded crate, so the job has never produced a build result. Fix
+with `--manifest-path crates/radredeye-webxr/Cargo.toml` or by re-including the
+crate in the workspace, then re-disposition the key against a job that runs.
+
+**D3-c. `pi-ithacus` `secret-validation.yml` discards trufflehog's result.**
+Row 23 above. No `id:`, nothing reads the outcome, action unpinned at `@main`.
+Decide deliberately whether trufflehog is enforced or is pure signal, and pin it
+either way.
+
 ## Secondary findings (named, not applied)
 
 These are gaps in the aggregation designs themselves. Each would change CI
@@ -240,16 +355,34 @@ behaviour if fixed, so each is recorded for owner call rather than applied.
 - **D1** (exclude `openclaw`) and **D2** (two-owner token scope) are unchanged —
   both are owner decisions, and D1 narrows coverage.
 - **D4** (per-repo findings triage, 55 repos in the live sweep) is untouched.
+- The 2026-11-05 correction amended **this record only**. D3-a/b/c are named,
+  not fixed; no workflow, gate script, or allowlist was touched.
 - No allowlist entry, exclusion, or workflow edit.
 - Nothing in `RADICAL-CODE`.
 
 ## Bottom line
 
-Of 26 actionable SGR-16 keys across 9 repos, **25 are legitimate design, not
-exemption**: fail-closed aggregation, layered detection with an enforced
-fallback, documented non-gating signal jobs, report/upload steps, and
-failure-path diagnostics. **1 is a real advisory gate** (LobsterWars Pattern
-Scan) held at a baseline that is still exactly 13 violations.
+Of 26 actionable SGR-16 keys across 9 repos, **23 are legitimate design, not
+exemption**: fail-closed aggregation, documented non-gating signal jobs whose
+commands actually run, report/upload steps, and failure-path diagnostics.
+**1 is a real advisory gate** (LobsterWars Pattern Scan) held at a baseline that
+is still exactly 13 violations.
 
-**Zero keys convert.** The `continue-on-error` keys in our repos are, with one
-measured exception, doing the job they were written to do.
+**2 are not justified and are corrected here.** `radredeye` `guardrails.yml:61`
+exempts a job that has never compiled anything — its command cannot resolve a
+workspace-excluded crate. `pi-ithacus` `secret-validation.yml:27` discards a
+security scanner's result entirely; the "strict fallback" beside it is a
+different, weaker scanner, not an enforcement of the first. Both are owner
+calls.
+
+**Zero keys convert.** But the claim is now narrower than the first draft made
+it. The verdict-aggregator test separates aggregation from exemption and does
+that job well; it does not establish that the check being softened works. Two
+rows passed on the strength of an in-file comment describing intent rather than
+behaviour, and a third row's key is sound while the gate it reports on has never
+evaluated a rule. "Justify" here means the key's shape is right **and** the
+thing it softens is a working check — nothing more.
+
+One finding stands outside the key counts: GitHub reports a `continue-on-error`
+step **or job** as `success` on non-zero exit, so a green Actions UI is not
+evidence that a check passed.
