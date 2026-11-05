@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The SGR-16 D3 disposition is recorded, and no `continue-on-error` key was
+  converted.** Every one of the 26 actionable advisory keys across 9 repos is
+  now justified or baselined against measured evidence, not a green run. The
+  method is a verdict-aggregator test: a key sitting under a fail-closed
+  aggregator is an *aggregation* mechanism, and converting it would destroy the
+  matrix while adding no coverage. Result — 25 justify, 1 baseline (LobsterWars
+  Pattern Scan, re-measured at exactly 13 violations), 0 convert. Three
+  secondary gaps are named and left for owner call rather than silently fixed.
+
 ## [1.3.3] - 2026-11-05
 
 ### Fixed
