@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-11-05
+
+### Fixed
+
+- **Tag publication explicitly fetches the annotated tag object.** Run
+  `41958060877` rejected v1.3.0 with "v1.3.0 is not annotated" because
+  `actions/checkout` had resolved its local ref straight to a commit. The
+  publisher now refuses a flattened ref, then fetches the actual tag so the
+  annotation check remains real rather than removed.
+
 ## [1.3.0] - 2026-11-05
 
 > **Version rule (doc-version-01):** `VERSION` always equals the newest `v*`
