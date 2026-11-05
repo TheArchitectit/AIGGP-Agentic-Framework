@@ -56,7 +56,7 @@ jobs:
           lines = pathlib.Path("CHANGELOG.md").read_text(encoding="utf-8").splitlines()
           notes, found = [], False
           for line in lines:
-              if line.strip() == heading:
+              if line.strip() == heading or line.strip().startswith(heading + " - "):
                   if found:
                       raise SystemExit(f"duplicate release heading: {heading}")
                   found = True

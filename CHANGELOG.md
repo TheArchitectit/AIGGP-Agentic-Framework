@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.2] - 2026-11-05
+
+### Fixed
+
+- **The GitHub Release publisher accepts dated changelog headings.** The v1.3.1
+  tag workflow showed its note parser requiring `## [version]` while the release
+  pipeline correctly writes `## [version] - YYYY-MM-DD`. It now accepts either,
+  and an exact-workflow simulation covers annotation, note boundaries,
+  create/verify, idempotence, and refusal of empty notes.
+
 ## [1.3.1] - 2026-11-05
 
 ### Fixed
