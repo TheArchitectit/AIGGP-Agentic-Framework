@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.3] - 2026-11-05
+
+### Fixed
+
+- **The pi carrier test no longer loses its TypeScript runtime between runner
+  invocations.** CI supplies the pinned `tsx` binary from an isolated tool
+  directory rather than the repository's unsaved `node_modules`, which the
+  semantic-scanner fixture's root install mutates. Two consecutive complete
+  runner invocations are the validation target, not only a single pytest pass.
+
 ## [1.3.2] - 2026-11-05
 
 ### Fixed

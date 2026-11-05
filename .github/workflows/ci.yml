@@ -59,10 +59,13 @@ jobs:
       - name: Install test dependencies
         run: python3 -m pip install --quiet pytest cryptography==45.0.7
       - name: Install the pinned TypeScript carrier runtime
-        # Pi's adapter is TypeScript. Follow the real accept+refuse paths via
-        # tsx in tests/test_pi_extension_adapter.py; never treat a missing
-        # runtime as a skipped (and therefore meaningless) carrier test.
-        run: npm install --no-save --no-package-lock --no-audit --no-fund tsx@4.23.15
+        # Pi's adapter is TypeScript. Use an isolated tool root: the semantic
+        # scanner fixture installs typescript at the repo root, and that
+        # unsaved root install must not delete another test's carrier runtime.
+        run: |
+          npm --prefix "${RUNNER_TEMP}/pi-tools" install --no-save \
+            --no-package-lock --no-audit --no-fund tsx@4.23.15
+          echo "PI_SESSION_TSX=${RUNNER_TEMP}/pi-tools/node_modules/.bin/tsx" >> "$GITHUB_ENV"
       - name: pytest suite (collection is deterministic — tests/__init__.py)
         run: python3 -m pytest tests/ -v
       # REPO-004 (devgate-product-tiers-fleet-manager box 1.2). The boundary
