@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.9] - 2026-11-05
+
 ### Fixed
 
 - **The SGR-16 D3 record is corrected: its verdict-aggregator test is necessary
