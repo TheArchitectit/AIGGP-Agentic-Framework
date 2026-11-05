@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-05
+
 > **Version rule (doc-version-01):** `VERSION` always equals the newest `v*`
 > git tag, `CHANGELOG.md` documents exactly those tags, and the release
 > pipeline (`scripts/deploy.sh`) writes `VERSION` and folds this `[Unreleased]`
