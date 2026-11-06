@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.3.11] - 2026-11-06
 
+### Changed
+- The tracker's four "DONE - awaiting routing" packages left
+  `devgate-open-changes`. Two carried residue and are now change packages
+  here: `aiggp-08-stitcher-proof-parity`, reopened un-checked after measuring
+  that none of its claimed files exist in this repo's history, and
+  `spec-audit-rollout`, carried over with its scripts, tests and docs.
+  Strict validation 47 passed, 0 failed; traceability 184/187 unchanged.
+
 ## [1.3.10] - 2026-11-06
 
 ### Changed
