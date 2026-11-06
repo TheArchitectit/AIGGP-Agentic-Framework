@@ -1,1 +1,0 @@
-# Spec audit live evidence — 2026-10-22

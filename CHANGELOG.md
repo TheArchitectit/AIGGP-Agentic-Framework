@@ -11,11 +11,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - The tracker's four "DONE - awaiting routing" packages left
-  `devgate-open-changes`. Two carried residue and are now change packages
+  `devgate-open-changes`. One carried residue and is now a change package
   here: `aiggp-08-stitcher-proof-parity`, reopened un-checked after measuring
-  that none of its claimed files exist in this repo's history, and
-  `spec-audit-rollout`, carried over with its scripts, tests and docs.
-  Strict validation 47 passed, 0 failed; traceability 184/187 unchanged.
+  that none of its claimed files exist in this repo's history.
+  Strict validation 46 passed, 0 failed; traceability 184/187 unchanged.
+
+### Removed
+- `openspec/changes/spec-audit-rollout/`, added and withdrawn the same day.
+  It was an older snapshot of trees this repo already carries — measured at
+  408 vs 497 lines for `scripts/spec-fleet-classify.py`, 121 vs 163 for
+  `spec-fleet-walk.sh`, 199 vs 301 and 54 vs 143 for the two test files, with
+  no copy of `.github/workflows/spec-fleet.yml` (307 lines here) — and it
+  carried a hardcoded `/mnt/data/git/...` fallback the live copy does not.
+  The tracker's own record had already ruled it should be retired rather than
+  landed; it now sits back in `devgate-open-changes/` as staging, untracked.
 
 ## [1.3.10] - 2026-11-06
 
