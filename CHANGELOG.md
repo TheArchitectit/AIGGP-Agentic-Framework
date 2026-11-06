@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- OpenSpec: archived the 13 complete change packages (11 fleet-manager
+  packages, game-session-start, runner-toolchain-requests). Their deltas are
+  now published as 13 new specs (44 total), each with a written Purpose and
+  a `Status: CLOSED` line. `add-gitlab-forge-support` remains an open change.
+  Strict validation: 45 passed, 0 failed; traceability 184/187 unchanged.
+
 ## [1.3.9] - 2026-11-05
 
 ### Fixed

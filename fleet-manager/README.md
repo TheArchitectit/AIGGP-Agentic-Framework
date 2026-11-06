@@ -5,7 +5,7 @@ Manager). It exists so the boundary is a **declaration** — a reviewed list of
 paths with a gate behind it — rather than a directory that grew.
 
 Program package: `devgate-product-tiers-fleet-manager` (Sprint 1 box 1.1).
-Design decision record: `openspec/changes/add-fleet-manager-boundary/design.md`.
+Design decision record: `openspec/changes/archive/2026-11-06-add-fleet-manager-boundary/design.md`.
 
 ## License
 

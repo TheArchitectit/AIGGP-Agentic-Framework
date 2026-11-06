@@ -10,7 +10,7 @@ the append-only log. Carriers are thin adapters that call it and speak their
 host's idiom; business logic in an adapter is a defect.
 
 Design: docs/superpowers/specs/2026-09-29-game-session-start-design.md
-Spec:   openspec/changes/add-game-session-start/specs/game-session-start/spec.md
+Spec:   openspec/changes/archive/2026-11-06-add-game-session-start/specs/game-session-start/spec.md
 
 Exit codes - deliberately NOT the secret-scan family's (session-06):
     0  accepted: valid manifest, advisory printed, session appended to

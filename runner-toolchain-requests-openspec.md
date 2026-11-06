@@ -1,7 +1,7 @@
 # runner-toolchain-requests - OpenSpec change package (rev 2)
 
 > Repo: `TheArchitectit/AIGGP-Agentic-Framework`  ·  Branch: `feature/runner-toolchain-requests`
-> Change path: `openspec/changes/add-runner-toolchain-requests/`
+> Change path: `openspec/changes/archive/2026-11-06-add-runner-toolchain-requests/`
 > Revised after external architecture review (v2) + Mission Control fit review, 2026-10-03 CDT
 > Validation: `openspec validate --all --strict` = 32 passed, 0 failed
 > Capability: `runner-toolchain-requests` (new)  ·  Requirement IDs: `mon-tc-01` .. `mon-tc-06`
@@ -11,7 +11,7 @@
 
 ## 1. Proposal
 
-*source: `openspec/changes/add-runner-toolchain-requests/proposal.md`*
+*source: `openspec/changes/archive/2026-11-06-add-runner-toolchain-requests/proposal.md`*
 
 ### Proposal: runner-toolchain-requests
 
@@ -112,7 +112,7 @@ the audit trail, not on the runner.
 
 ## 2. Design
 
-*source: `openspec/changes/add-runner-toolchain-requests/design.md`*
+*source: `openspec/changes/archive/2026-11-06-add-runner-toolchain-requests/design.md`*
 
 ### runner-toolchain-requests — Design
 
@@ -377,7 +377,7 @@ Per-runner, separate from the above and **not** touching the evaluator fields:
 
 ## 3. Spec Delta (ADDED Requirements)
 
-*source: `openspec/changes/add-runner-toolchain-requests/specs/runner-toolchain-requests/spec.md`*
+*source: `openspec/changes/archive/2026-11-06-add-runner-toolchain-requests/specs/runner-toolchain-requests/spec.md`*
 
 ### Spec: Runner toolchain requests
 
@@ -651,7 +651,7 @@ values defined by this capability, not left to an operator's judgement.
 
 ## 4. Tasks
 
-*source: `openspec/changes/add-runner-toolchain-requests/tasks.md`*
+*source: `openspec/changes/archive/2026-11-06-add-runner-toolchain-requests/tasks.md`*
 
 ### Tasks: runner-toolchain-requests
 

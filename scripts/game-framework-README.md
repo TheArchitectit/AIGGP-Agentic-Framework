@@ -84,7 +84,7 @@ Every session - an agent opening the repo to edit, or the runtime booting a
 run - is described by one `aiggp.session/v1` manifest and judged by
 `scripts/game_session_start.py` (schema:
 `.guardrails/prevention-rules/session-manifest.schema.json`, spec:
-`openspec/changes/add-game-session-start/`). The advisory block it prints
+`openspec/changes/archive/2026-11-06-add-game-session-start/`). The advisory block it prints
 states `unknown` explicitly for any block it could not evaluate. A `work`
 session's block carries a `worst-tracked gaps: N` line read from the gap
 scanner's own JSON report - produced with
