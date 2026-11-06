@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- `scripts/deploy.sh` folded `[Unreleased]` into a new dated heading without
+  moving the body, so the notes stayed above it and the release published
+  empty. The fold now carries the body down and refuses an empty
+  `[Unreleased]`. Both the bug and the guard responded to v1.3.11 and v1.3.12.
+
 ## [1.3.12] - 2026-11-06
 
 ## [1.3.11] - 2026-11-06
