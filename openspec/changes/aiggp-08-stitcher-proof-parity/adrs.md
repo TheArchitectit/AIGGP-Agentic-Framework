@@ -1,0 +1,4 @@
+- ADR-001: Incremental promotion over wholesale adoption. Rationale: twelve unproven features are worth less than nine proven ones. Consequence: the absorbed package remains the backlog; stages gate each other.
+- ADR-002: LLM advice excluded from promotion. Rationale: no deterministic contract, no blocking truth (plan rule). Consequence: advice may annotate findings, clearly labeled advisory.
+- ADR-003: Negative control per feature. Rationale: the DevGate audits prove untested gates go vacuous. Consequence: no fixture, no merge.
+- ADR-004: External results keep identity. Rationale: laundering third-party results destroys auditability. Consequence: aggregation treats ingested evidence per bundle policy.

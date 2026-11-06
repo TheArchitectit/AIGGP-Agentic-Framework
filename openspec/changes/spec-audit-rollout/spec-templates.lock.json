@@ -1,0 +1,40 @@
+{
+  "templates": {
+    "openspec-design": {
+      "adopted_by": "docs/qa/2026-10-22-template-provenance.md",
+      "note": "SGA-20: source URL + sha256 verified locally against the pinned @fission-ai/openspec@1.14.3 npm package (the same pin the specs.yml template uses). Bumped from 1.13.0 on 2026-10-25 after the requirement-text corpus change landed, because 1.14.x promotes the >500-char requirement-text advisory to a --strict failure; the template diff itself is editorial (an H1 per template and one expanded proposal comment), and the tag bytes match the npm package bytes. No vendored copy exists in this staging repo or in DevGate yet (SGA-20 scenario: a template present in tree without a lock entry is a finding); the entry records the canonical upstream hash so a future vendored copy can be checked against it. Detection only, adoption by reviewed commit (SGA-21).",
+      "pinned_sha256": "6ccc87f5017fb190e69e8759dd4e20d5ac3320cc4dabf152708bf8f2aa5205f8",
+      "source": "https://github.com/Fission-AI/OpenSpec/blob/main/schemas/spec-driven/templates/design.md",
+      "upstream_version": "1.14.3",
+      "vendored_at": "2026-10-25",
+      "vendored_path": null
+    },
+    "openspec-proposal": {
+      "adopted_by": "docs/qa/2026-10-22-template-provenance.md",
+      "note": "SGA-20: source URL + sha256 verified locally against the pinned @fission-ai/openspec@1.14.3 npm package (the same pin the specs.yml template uses). Bumped from 1.13.0 on 2026-10-25 after the requirement-text corpus change landed, because 1.14.x promotes the >500-char requirement-text advisory to a --strict failure; the template diff itself is editorial (an H1 per template and one expanded proposal comment), and the tag bytes match the npm package bytes. No vendored copy exists in this staging repo or in DevGate yet (SGA-20 scenario: a template present in tree without a lock entry is a finding); the entry records the canonical upstream hash so a future vendored copy can be checked against it. Detection only, adoption by reviewed commit (SGA-21).",
+      "pinned_sha256": "0dd70e35db5c696ba8ac3cc3a53e2d6561865c1e4e7d49db5a1eaa3e4a6ad86e",
+      "source": "https://github.com/Fission-AI/OpenSpec/blob/main/schemas/spec-driven/templates/proposal.md",
+      "upstream_version": "1.14.3",
+      "vendored_at": "2026-10-25",
+      "vendored_path": null
+    },
+    "openspec-spec": {
+      "adopted_by": "docs/qa/2026-10-22-template-provenance.md",
+      "note": "SGA-20: source URL + sha256 verified locally against the pinned @fission-ai/openspec@1.14.3 npm package (the same pin the specs.yml template uses). Bumped from 1.13.0 on 2026-10-25 after the requirement-text corpus change landed, because 1.14.x promotes the >500-char requirement-text advisory to a --strict failure; the template diff itself is editorial (an H1 per template and one expanded proposal comment), and the tag bytes match the npm package bytes. No vendored copy exists in this staging repo or in DevGate yet (SGA-20 scenario: a template present in tree without a lock entry is a finding); the entry records the canonical upstream hash so a future vendored copy can be checked against it. Detection only, adoption by reviewed commit (SGA-21).",
+      "pinned_sha256": "1cccfb573f031c6352bed2a879b7035ff710bc909112fc23d10bdcfcdd8d4318",
+      "source": "https://github.com/Fission-AI/OpenSpec/blob/main/schemas/spec-driven/templates/spec.md",
+      "upstream_version": "1.14.3",
+      "vendored_at": "2026-10-25",
+      "vendored_path": null
+    },
+    "openspec-tasks": {
+      "adopted_by": "docs/qa/2026-10-22-template-provenance.md",
+      "note": "SGA-20: source URL + sha256 verified locally against the pinned @fission-ai/openspec@1.14.3 npm package (the same pin the specs.yml template uses). Bumped from 1.13.0 on 2026-10-25 after the requirement-text corpus change landed, because 1.14.x promotes the >500-char requirement-text advisory to a --strict failure; the template diff itself is editorial (an H1 per template and one expanded proposal comment), and the tag bytes match the npm package bytes. No vendored copy exists in this staging repo or in DevGate yet (SGA-20 scenario: a template present in tree without a lock entry is a finding); the entry records the canonical upstream hash so a future vendored copy can be checked against it. Detection only, adoption by reviewed commit (SGA-21).",
+      "pinned_sha256": "fa67d99fb4a93b12d702f89ea83e1838219d1cad1c90a4192c402278001cd30e",
+      "source": "https://github.com/Fission-AI/OpenSpec/blob/main/schemas/spec-driven/templates/tasks.md",
+      "upstream_version": "1.14.3",
+      "vendored_at": "2026-10-25",
+      "vendored_path": null
+    }
+  }
+}
