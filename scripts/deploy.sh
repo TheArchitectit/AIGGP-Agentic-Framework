@@ -208,8 +208,8 @@ if [ -f "CHANGELOG.md" ]; then
 		exit 1
 	fi
 	RELEASE_DATE="$(date -u +%Y-%m-%d)"
-	# The notes live in the [Unreleased] body: the fold moves that body under
-	# the new dated heading. An empty body would publish an empty release.
+	# The fold moves the [Unreleased] body under the new dated heading; an
+	# empty body would publish an empty release, so END refuses it.
 	awk -v ver="$NEW_VERSION" -v date="$RELEASE_DATE" '
 		/^## \[Unreleased\]/ { print; print ""; print "## [" ver "] - " date; insec = 1; next }
 		insec && /^## \[/ { insec = 0 }
@@ -217,9 +217,7 @@ if [ -f "CHANGELOG.md" ]; then
 		{ print }
 		END { exit !found }
 	' CHANGELOG.md > CHANGELOG.md.fold.tmp && mv CHANGELOG.md.fold.tmp CHANGELOG.md || {
-		echo "[deploy] FAIL: CHANGELOG.md [Unreleased] has no body — folding it would publish v$NEW_VERSION with empty notes" >&2
-		exit 1
-	}
+		echo "[deploy] FAIL: [Unreleased] is empty — refusing to publish v$NEW_VERSION" >&2; exit 1; }
 	echo "[deploy] folded CHANGELOG.md [Unreleased] into v$NEW_VERSION ($RELEASE_DATE)"
 fi
 
