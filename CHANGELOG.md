@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.13] - 2026-11-06
+
 ### Fixed
 - `scripts/deploy.sh` folded `[Unreleased]` into a new dated heading without
   moving the body, so the notes stayed above it and the release published
