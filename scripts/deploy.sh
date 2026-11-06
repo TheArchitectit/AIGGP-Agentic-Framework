@@ -208,9 +208,21 @@ if [ -f "CHANGELOG.md" ]; then
 		exit 1
 	fi
 	RELEASE_DATE="$(date -u +%Y-%m-%d)"
+	# The notes live in the [Unreleased] body. A fold that only inserts a
+	# heading leaves them under the previous version's heading, and the new
+	# release publishes empty. Refuse rather than claim a release with no body.
+	UNRELEASED_BODY="$(awk '
+		/^## \[Unreleased\]/ { insec = 1; next }
+		insec && /^## \[/ { insec = 0 }
+		insec && NF { print }
+	' CHANGELOG.md)"
+	if [ -z "$UNRELEASED_BODY" ]; then
+		echo "[deploy] FAIL: CHANGELOG.md [Unreleased] has no body — folding it would publish v$NEW_VERSION with empty notes" >&2
+		exit 1
+	fi
 	awk -v ver="$NEW_VERSION" -v date="$RELEASE_DATE" '
+		/^## \[Unreleased\]/ && !done { print; print ""; print "## [" ver "] - " date; done = 1; next }
 		{ print }
-		/^## \[Unreleased\]/ && !done { print ""; print "## [" ver "] - " date; done = 1 }
 	' CHANGELOG.md > CHANGELOG.md.fold.tmp && mv CHANGELOG.md.fold.tmp CHANGELOG.md
 	echo "[deploy] folded CHANGELOG.md [Unreleased] into v$NEW_VERSION ($RELEASE_DATE)"
 fi
