@@ -1,7 +1,14 @@
 # Game-type phase matrix
 
-Status: DEFERRED — NOT IMPLEMENTED (3 planned requirements; no gate in this
-tree enforces any of them).
+> **Status: DEFERRED** — NOT IMPLEMENTED, and the deferral is the owner's
+> answer, not an open question (2026-11-06). Base-specs-01 (owner decision,
+> Roger, 2026-09-13: one DevGate, not two) and this spec's own Purpose put
+> the manifest-driven phase gate in the consuming game repo. Measured here:
+> no `game-version` flag, no phase-manifest reader, no gate naming
+> `game-matrix-01`; `game_session_start.py:324` reports it as "not
+> implemented in this tree". One commit already moved this line the wrong
+> way — `9c46180` wrote `CLOSED (EXERCISED 1)` with nothing enforcing it,
+> corrected in `5bafa54`. It stays DEFERRED until the game repo implements it.
 
 ## Purpose
 
