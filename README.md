@@ -48,6 +48,11 @@ git submodule add https://github.com/TheArchitectit/AIGGP-Agentic-Framework.git 
 git clone https://github.com/TheArchitectit/AIGGP-Agentic-Framework.git .devgate
 ```
 
+For the operational contract — initializing a registered-but-uninitialized
+submodule, naming every vendored tree in `skip_dirs` before the first gate run,
+and the parent-repo commands that must run from the project root — see
+[docs/SUBMODULE_WIRING.md](docs/SUBMODULE_WIRING.md).
+
 ### What you get
 
 ```

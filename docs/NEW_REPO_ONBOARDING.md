@@ -25,6 +25,11 @@ git submodule add <devgate-url> .devgate
 git submodule add <devgate-url> devgate
 ```
 
+> **Operational checklist:** for the add-or-initialize steps (including the
+> registered-but-never-initialized case), the pre-first-run scope and secrets
+> ordering, and the parent-repo git commands, see
+> [docs/SUBMODULE_WIRING.md](docs/SUBMODULE_WIRING.md).
+
 ---
 
 ## Layout
