@@ -61,6 +61,7 @@
           "description": "The runner's routable (tailnet) address, published by the spoke at enroll and refreshed on every heartbeat. Service discovery resolves a service's host_alias against this; null until the spoke publishes one (mon-svcdisco-01).",
           "type": ["string", "null"]
         },
+        "platform": { "type": "string", "enum": ["linux", "windows"], "description": "Host OS of this spoke. Linux spokes run the shell heartbeat and report podman health; Windows spokes run the PowerShell heartbeat and have no podman, which is a platform fact, not a degraded state. Absent in older registrations means linux." },
         "enrolled_at": { "type": "string", "format": "date-time" },
         "heartbeat_token_hash": {
           "description": "Salted sha256 of the heartbeat token — the plaintext token is never stored (mon-sec-02). Null after revocation.",

@@ -492,3 +492,92 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+
+
+def test_enroll_records_platform_and_defaults_to_linux(tmp_path):
+    """A Windows spoke must be distinguishable from a Linux host with broken podman.
+
+    Linux spokes report `podman_ok` on every heartbeat. A Windows spoke has no
+    podman at all, so its `podman_ok` is null forever — and null there reads as
+    a degraded Linux host unless the platform was recorded at enrollment. This
+    locks both halves: an explicit platform is stored, and a spoke written
+    before the field existed keeps meaning linux.
+    """
+    hub = HubFixture(tmp_path)
+    try:
+        hub.state.registry.add_enrollment_token("win-token-PLACEHOLDER")
+        code, body = hub.post("/enroll", {
+            "runner_name": "win1", "repo": "OWNER/REPO", "labels": ["windows"],
+            "host_alias": "ucs03", "platform": "windows",
+            "enrollment_token": "win-token-PLACEHOLDER"})
+        assert code == 200, body
+
+        # legacy shape: no platform key at all
+        code, body = hub.post("/enroll", {
+            "runner_name": "lin1", "repo": "OWNER/REPO", "labels": ["devgate"],
+            "host_alias": "ucs03", "enrollment_token": "test-enroll-token-PLACEHOLDER"})
+        assert code == 200, body
+
+        win = hub.state.registry.find_runner("win1")
+        lin = hub.state.registry.find_runner("lin1")
+        assert win["platform"] == "windows"
+        assert lin["platform"] == "linux"
+    finally:
+        hub.close()
+
+
+def test_enroll_rejects_unknown_platform(tmp_path):
+    """An unknown platform is refused, not stored.
+
+    Storing it would create a third value the fleet views do not handle, and the
+    failure would surface much later as a host that renders as neither platform.
+    The enrollment token must also survive the rejection: a bad platform is a
+    caller error, not a consumed credential.
+    """
+    hub = HubFixture(tmp_path)
+    try:
+        code, body = hub.post("/enroll", {
+            "runner_name": "bad1", "repo": "OWNER/REPO", "platform": "plan9",
+            "enrollment_token": "test-enroll-token-PLACEHOLDER"})
+        assert code == 400, body
+        assert body["error"] == "bad_request"
+        assert hub.state.registry.find_runner("bad1") is None
+
+        # token was not consumed by the rejected attempt
+        code, body = hub.post("/enroll", {
+            "runner_name": "ok1", "repo": "OWNER/REPO",
+            "enrollment_token": "test-enroll-token-PLACEHOLDER"})
+        assert code == 200, body
+    finally:
+        hub.close()
+
+
+def test_windows_heartbeat_keeps_podman_null(tmp_path):
+    """A Windows spoke heartbeats with disk_ok and no podman reading.
+
+    The hub must accept the body and leave podman_ok null rather than inventing
+    a value — that null is the platform fact, and the platform field is what
+    stops it being read as breakage.
+    """
+    hub = HubFixture(tmp_path)
+    try:
+        hub.state.registry.add_enrollment_token("win-token-PLACEHOLDER")
+        code, body = hub.post("/enroll", {
+            "runner_name": "win1", "repo": "OWNER/REPO", "labels": ["windows"],
+            "host_alias": "ucs03", "platform": "windows",
+            "enrollment_token": "win-token-PLACEHOLDER"})
+        assert code == 200, body
+        hb = body["heartbeat_token"]
+
+        code, body = hub.post("/heartbeat", {
+            "runner_name": "win1", "heartbeat_token": hb,
+            "disk_ok": True, "podman_ok": None, "last_job_seen": "job-42"})
+        assert code == 200, body
+
+        runner = hub.state.registry.find_runner("win1")
+        assert runner["disk_ok"] is True
+        assert runner["podman_ok"] is None
+        assert runner["platform"] == "windows"
+        assert runner["last_heartbeat"] is not None
+    finally:
+        hub.close()

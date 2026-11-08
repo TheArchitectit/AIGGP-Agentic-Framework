@@ -35,7 +35,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from . import tokens
 from . import toolchain_api
 from .config import Config
-from .registry import UNREPORTED, Registry
+from .registry import UNREPORTED, Registry, PLATFORMS
 from .services import Services
 
 # A strict owner/name: the repo string flows into API paths
@@ -314,6 +314,15 @@ class HubHandler(BaseHTTPRequestHandler):
         if forge not in ("github", "gitlab"):
             self._send(400, {"ok": False, "error": "bad_request", "detail": "forge must be github or gitlab"})
             return
+        # Absent means linux: every spoke written before Windows support omits
+        # this key, and defaulting keeps their registrations meaning what they
+        # meant. An unknown value is rejected rather than stored, so a typo
+        # cannot silently become a third platform the views do not handle.
+        platform = data.get("platform") or "linux"
+        if platform not in PLATFORMS:
+            self._send(400, {"ok": False, "error": "bad_request",
+                             "detail": f"platform must be one of {', '.join(PLATFORMS)}"})
+            return
         if not isinstance(runner_name, str) or not runner_name \
                 or not REPO_RE.match(repo or ""):
             self._send(400, {"ok": False, "error": "bad_request",
@@ -346,7 +355,9 @@ class HubHandler(BaseHTTPRequestHandler):
                 return ALREADY_ENROLLED
             if not reg.consume_enrollment_token(presented or ""):
                 return False
-            runner, heartbeat_token = reg.enroll(runner_name, repo, labels, host_alias, address, forge=forge)
+            runner, heartbeat_token = reg.enroll(
+                runner_name, repo, labels, host_alias, address, forge=forge,
+                platform=platform)
             return {"ok": True, "runner_name": runner_name,
                     "heartbeat_token": heartbeat_token}
 

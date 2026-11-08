@@ -35,6 +35,11 @@ SCHEMA_VERSION = 1
 # these entries are never logged or echoed: a nonce is single-use evidence, and
 # publishing it would let a reader replay it against a row that has since moved.
 
+# Runner host OSes the hub can enroll. Linux spokes report podman health;
+# a Windows spoke has no podman at all, which is a platform fact and not a
+# degraded reading, so the platform is recorded at enrollment rather than
+# inferred from an absent field on every heartbeat.
+PLATFORMS = ("linux", "windows")
 
 # UNREPORTED marks a heartbeat field the body did not mention at all.
 #
@@ -271,7 +276,8 @@ class Registry(ToolchainRegistryMixin):
         return None
 
     def enroll(self, runner_name: str, repo: str, labels: list[str],
-               host_alias: str, address: str | None = None, forge: str = "github") -> tuple[dict, str]:
+               host_alias: str, address: str | None = None, forge: str = "github",
+               platform: str = "linux") -> tuple[dict, str]:
         """Record identity and mint the per-runner heartbeat token.
 
         Returns (runner_record, plaintext_token): the plaintext leaves the hub
@@ -282,7 +288,15 @@ class Registry(ToolchainRegistryMixin):
         the spoke at enroll time and refreshed on every heartbeat. It is what
         service discovery resolves a service's ``host_alias`` against, so a
         service can move hosts without any repo or workflow change.
+
+        ``platform`` defaults to "linux" so every pre-existing caller and every
+        registration made before this field existed keeps its meaning. It is
+        stored, not inferred per heartbeat: a Windows spoke reports no podman
+        because there is none, and the fleet view must be able to tell that
+        apart from a Linux host whose podman is broken.
         """
+        if platform not in PLATFORMS:
+            raise ValueError(f"unsupported platform: {platform!r}")
         heartbeat_token = tokens.mint_token()
         runner = {
             "name": runner_name,
@@ -291,6 +305,7 @@ class Registry(ToolchainRegistryMixin):
             "labels": labels,
             "host_alias": host_alias,
             "address": address,
+            "platform": platform,
             "enrolled_at": _now_iso(),
             "heartbeat_token_hash": self._hash_token(heartbeat_token),
             "last_heartbeat": None,
