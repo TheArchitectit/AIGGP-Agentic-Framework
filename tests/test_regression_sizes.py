@@ -17,13 +17,13 @@ this file also works standalone with plain asserts):
 
 from __future__ import annotations
 
+import json
 import sys
 import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
-from regression_check import PROJECT_ROOT, SOURCE_DIRS  # noqa: E402
 from regression_sizes import (  # noqa: E402
     SRC_HARD,
     TEST_HARD,
@@ -72,6 +72,24 @@ def _write_html_fixture(root: Path, rel_path: str, line_count: int) -> Path:
     body = "\n".join(f"  <p>line {i}</p>" for i in range(line_count - 3))
     path.write_text(f"<!DOCTYPE html>\n<html>\n{body}\n</html>\n", encoding="utf-8")
     return path
+
+
+def _write_scope(root: Path, scope: dict) -> Path:
+    """<root>/.devgate/.guardrails/scope.json -- a submodule layout, built.
+
+    The scope-list checks below used to assert against SOURCE_DIRS resolved
+    from the LIVE checkout. That measures the checkout, not the contract: run
+    vendored as <host>/.devgate with a consumer's `source_dirs: ["."]` overlay,
+    SOURCE_DIRS is correctly `["."]` and every one of those checks is red --
+    in exactly the layout every consumer runs. This helper builds the tree the
+    test means to describe, so the candidate list and the walk are pinned
+    whatever the surrounding checkout looks like. Same shape as
+    tests/test_gate_common.py:_scope_layout.
+    """
+    dg = root / ".devgate"
+    (dg / ".guardrails").mkdir(parents=True, exist_ok=True)
+    (dg / ".guardrails" / "scope.json").write_text(json.dumps(scope), encoding="utf-8")
+    return dg
 
 
 def test_oversize_test_file_is_flagged_at_test_hard():
@@ -262,12 +280,29 @@ def test_a_small_html_file_is_not_flagged():
 
 
 def test_source_dirs_include_test_directories():
-    """FAIL-f6228dda scope defect: tests/ must be a candidate, not just hub/scripts."""
+    """FAIL-f6228dda scope defect: tests/ must be a candidate, not just hub/scripts.
+
+    Two halves, both layout-independent: the name is on the candidate list,
+    and a project that HAS the directory gets it walked. The second half runs
+    against a built tree -- a consumer that replaces `source_dirs` with
+    `["."]` is using the documented explicit override, not tripping this.
+    """
+    from gate_common import DEFAULT_SOURCE_DIR_CANDIDATES, load_source_dirs
     for candidate in ("tests", "test"):
-        if (PROJECT_ROOT / candidate).is_dir():
-            assert candidate in SOURCE_DIRS, (
-                f"{candidate}/ exists under the project root but SOURCE_DIRS "
-                f"skips it — the size gate never walks test files ({SOURCE_DIRS})"
+        assert candidate in DEFAULT_SOURCE_DIR_CANDIDATES, (
+            f"{candidate}/ must be a size-gate candidate "
+            f"({DEFAULT_SOURCE_DIR_CANDIDATES})"
+        )
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        dg = _write_scope(root, {"skip_dirs": []})
+        (root / "tests").mkdir()
+        (root / "test").mkdir()
+        dirs = load_source_dirs(dg)
+        for candidate in ("tests", "test"):
+            assert candidate in dirs, (
+                f"{candidate}/ exists under the project root but the walk "
+                f"skips it -- the size gate never walks test files ({dirs})"
             )
 
 
@@ -278,13 +313,25 @@ def test_source_dirs_include_the_directory_the_shell_scripts_live_in():
     dropping "scripts" from the candidate list was uncaught while every shell
     script in this repository — the language this file's scope extension was
     written for — silently stopped being sized. FAIL-f6228dda was a scope list
-    drifting from its intent; the scope list needs its own MUST-flag test."""
-    assert (PROJECT_ROOT / "scripts").is_dir(), (
-        "fixture assumption broken: this repository has no scripts/ directory")
-    assert "scripts" in SOURCE_DIRS, (
-        f"scripts/ exists under the project root but SOURCE_DIRS skips it — no "
-        f"shell script in this repository is sized ({SOURCE_DIRS})"
+    drifting from its intent; the scope list needs its own MUST-flag test.
+
+    The tree is built, not demanded of the checkout: "this repository has a
+    scripts/ directory" is a fact about whichever repo the framework happens
+    to be vendored into, and a consumer without one was reading it as a
+    fixture-assumption failure rather than as the contract holding."""
+    from gate_common import DEFAULT_SOURCE_DIR_CANDIDATES, load_source_dirs
+    assert "scripts" in DEFAULT_SOURCE_DIR_CANDIDATES, (
+        f"scripts/ must be a size-gate candidate ({DEFAULT_SOURCE_DIR_CANDIDATES})"
     )
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        dg = _write_scope(root, {"skip_dirs": []})
+        (root / "scripts").mkdir()
+        dirs = load_source_dirs(dg)
+        assert "scripts" in dirs, (
+            f"scripts/ exists under the project root but the walk skips it -- "
+            f"no shell script in a tree like this is sized ({dirs})"
+        )
 
 
 def test_source_dirs_include_web_and_infra():
@@ -292,14 +339,27 @@ def test_source_dirs_include_web_and_infra():
     web/render3d.js (1470) and web/index.html (685) sat past SRC_HARD while the
     walk never entered web/ — the FAIL-f6228dda shape, one directory short.
     Frontend and infra roots must be candidates even when this repository
-    happens not to have them, or the next consumer's game host is invisible."""
-    from gate_common import DEFAULT_SOURCE_DIR_CANDIDATES
+    happens not to have them, or the next consumer's game host is invisible.
+
+    The candidate half is unconditional (that is the 2026-10-11 fix). The walk
+    half runs against a built tree that has both directories, so it is pinned
+    in a standalone clone and in a vendored `.devgate` alike."""
+    from gate_common import DEFAULT_SOURCE_DIR_CANDIDATES, load_source_dirs
     for candidate in ("web", "infra"):
         assert candidate in DEFAULT_SOURCE_DIR_CANDIDATES, (
-            f"{candidate}/ must be a size-gate candidate ({DEFAULT_SOURCE_DIR_CANDIDATES})")
-        if (PROJECT_ROOT / candidate).is_dir():
-            assert candidate in SOURCE_DIRS, (
-                f"{candidate}/ exists but SOURCE_DIRS skips it ({SOURCE_DIRS})")
+            f"{candidate}/ must be a size-gate candidate "
+            f"({DEFAULT_SOURCE_DIR_CANDIDATES})"
+        )
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        dg = _write_scope(root, {"skip_dirs": []})
+        (root / "web").mkdir()
+        (root / "infra").mkdir()
+        dirs = load_source_dirs(dg)
+        for candidate in ("web", "infra"):
+            assert candidate in dirs, (
+                f"{candidate}/ exists but the walk skips it ({dirs})"
+            )
 
 
 def test_scope_coverage_flags_uncovered_source_dir():

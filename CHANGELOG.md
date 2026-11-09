@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The three scope-list checks build the layout they claim to verify.**
+  `test_source_dirs_include_{test_directories,the_directory_the_shell_scripts_live_in,web_and_infra}`
+  asserted against `SOURCE_DIRS` resolved from the *live* checkout — green only
+  when the framework is checked out standalone (CI), red whenever it is vendored
+  as `<host>/.devgate` with a consumer's documented `source_dirs: ["."]` overlay,
+  which is exactly the layout every consumer runs. Each now pins both halves of
+  its contract against a built submodule-layout tree: the name is on
+  `DEFAULT_SOURCE_DIR_CANDIDATES`, and a project that has the directory gets it
+  walked. Same fixture shape as `tests/test_gate_common.py:_scope_layout`. The
+  `scripts/` case additionally stops demanding that the surrounding repository
+  *have* a `scripts/` directory — a fact about the host, not the contract.
+  Full pytest in both layouts: 1943 passed, 7 skipped, 0 failed.
+
+- **`scripts/art_check_outcome.py`, `scripts/art_checks.py`, and
+  `scripts/test_art_creation_scan.py` carry the exec bit.** All three are
+  shebang'd and were committed `100644`, so `check_exec_bits` (fw-prov-01) and
+  `test_fw_guards.py::TestExecBitCheck::test_real_tree_passes` were red at HEAD
+  in every layout. Index modes set to `100755`; the gate now reports
+  `138 shebang'd file(s), all 100755 in the index`.
+
 ## [1.3.13] - 2026-11-06
 
 ### Fixed
