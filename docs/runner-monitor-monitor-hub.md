@@ -156,6 +156,26 @@ test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" \
 podman build -t devgate-hub:local -f templates/runner-monitor/Containerfile .
 ```
 
+**Build from an exported tree, not a working directory, when the hub is
+production.** `git archive` guarantees the build context carries no untracked or
+locally modified file that the repo does not have:
+
+```bash
+git archive --format=tar HEAD hub templates/runner-monitor/Containerfile \
+  | tar -x -C /tmp/hub-build
+test -f /tmp/hub-build/hub/services.py || { echo "archive is incomplete" >&2; exit 1; }
+cd /tmp/hub-build && podman build -t devgate-hub:canary -f templates/runner-monitor/Containerfile .
+```
+
+**Canary before promoting.** Build once, run the new image on an alternate
+loopback port against a **copy** of the volume (`podman volume create …` then
+`podman volume cp devgate-hub-data …` — not the live volume), verify `/health`,
+`/services` and every service CI depends on, then promote by tag swap with the
+old image kept as a rollback tag. A `podman run` with no `-e` and no volume is
+not the deployed hub: it needs the quadlet's env (`HUB_MONITOR_ONLY`, the
+enrollment and GitHub tokens) and the `/data` volume, or it exercises a
+different configuration.
+
 The `Containerfile` uses `FROM python:3.12-slim`. House standard is to **pin a
 digest once you have validated a tag** — replace the tag with
 `python:3.12-slim@sha256:<digest>` after you have built and run it once. There
@@ -266,7 +286,18 @@ tree without `hub/services.py` serves a perfectly healthy `/health` and returns
 **404** for `/services`. CI resolves Postgres/NATS/Redis endpoints through
 `/services` and fails closed, so a missing route is an outage that no liveness
 check will show. Check both endpoints after every image rebuild, and again
-after a host migration.
+after a host migration. Also resolve the services CI depends on, not just the
+map:
+
+```bash
+curl -fsS http://127.0.0.1:8443/services/<service>   # must show "resolved": true
+```
+
+A rising `uptime_sec` is the other thing to read: it proves the process that
+answers `/health` is the one that started, not a stale container. Note that the
+unit is `Restart=always`, so `systemctl --user restart` can produce two
+stop/start pairs within the same minute — judge a restart by
+`ActiveEnterTimestamp` and the container's `StartedAt`, not by "Up N seconds".
 
 **Known gap (2026-11-09): neither automated probe checks `/services`.** Both
 `scripts/hub-watchdog.sh` (the spoke-side dead-man switch) and
