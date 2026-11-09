@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.16] - 2026-11-09
+
 ### Changed
 
 - **The hub runbook now carries the build-and-verify procedure the 2026-11-08
