@@ -82,10 +82,10 @@ on the next title unless they are made checkable.
 ## Impact
 
 - **New capability** `art-creation-contract` (spec deltas in this change).
-- **New scanner** `scripts/art_creation_scan.py`, which reads a game's art
-  brief, pipeline document and provenance ledger and fails on the conditions
-  above. Enforcement is mechanical; the fidelity verdict stays human by
-  design.
+- **New scanner** `scripts/art_creation_scan.py`, which reads a game's declared
+  art brief and provenance ledger, plus the pipeline stages declared inline in
+  the manifest, and fails on the conditions above. Enforcement is mechanical;
+  the fidelity verdict stays human by design.
 - **No change to existing capabilities.** `publish-safety` and
   `doc-truth` already cover the publish-time and document-truth halves that
   this contract's rights and count requirements lean on. Where those apply,
@@ -94,5 +94,7 @@ on the next title unless they are made checkable.
   rules are content and live in the title's own repository. Only the *schema*
   of the brief, the stage contract, the ledger format and the checks are
   general.
-- **First fixture is a live title** that currently exhibits every failure class
-  above, which makes the scanner's test suite real rather than synthetic.
+- **First fixture is planned to be a live title** that currently exhibits every
+  failure class above. That is follow-on task 3.1 and is **NOT_RUN**: today's
+  suite runs synthetic `tempfile` trees, and this proposal does not claim
+  otherwise.

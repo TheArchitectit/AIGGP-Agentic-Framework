@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-# spec: art-done-01, art-draw-01
 """art_creation_scan.py - entry point for the art creation contract scan.
 
-Reads a title's declared art brief, pipeline document and provenance ledger,
-and fails on the conditions `openspec/changes/add-art-creation-contract` states.
+Reads a title's declared art brief and provenance ledger, plus the pipeline
+stages declared inline in the manifest, and fails on the conditions
+`openspec/changes/add-art-creation-contract` states. There is no separate
+pipeline-document path: the stage contract is the manifest's `stages` list.
 
 The checks themselves are split at the source soft limit:
   art_checks.py        declaration and inventory (brief, stages, ledger, rights)
@@ -76,6 +77,13 @@ def run_checks(cfg: dict, root: Path) -> list:
 
 
 def report(findings: list, declared: bool, counted: int) -> int:
+    # The zero-input rule lives here: a title that declares no pipeline is
+    # NOT_APPLICABLE, never green. This is the exit-code contract, not the
+    # target-draws requirement: `report` never inspects targets, captures,
+    # renderer or geometry, so it cannot be that requirement's enforcement
+    # site. `check_draw` in art_check_outcome.py is, and its marker lives
+    # there. A marker here would keep traceability green after the real check
+    # was deleted - the lie the gate cannot catch.
     if not declared:
         print("art-scan: NOT_APPLICABLE - this title declares no art pipeline")
         print("art-scan: a zero-input run is not a green run")
@@ -128,10 +136,16 @@ def main(argv: list) -> int:
     if isinstance(cfg, Exception):
         print(f"art-scan: manifest unreadable: {cfg}", file=sys.stderr)
         return 2
+    # Valid JSON is not a valid manifest. A list (or a string, number, null)
+    # parsed cleanly and then died on `cfg.get(...)` inside the checks - a
+    # traceback instead of the exit-2 usage error the docstring promises.
+    if not isinstance(cfg, dict):
+        print(f"art-scan: manifest is not a JSON object: {manifest}", file=sys.stderr)
+        return 2
     findings = run_checks(cfg, root)
     counted = 0
     rel = cfg.get("ledger")
-    if rel:
+    if isinstance(rel, str) and rel:
         data = load_json(root / rel)
         if not isinstance(data, Exception):
             rows = data.get("assets") if isinstance(data, dict) else data

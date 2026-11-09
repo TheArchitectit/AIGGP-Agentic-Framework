@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# spec: art-brief-01, art-brief-02, art-stage-01, art-ledger-01, art-rights-01
 """art_checks.py - declaration and inventory checks.
 
 The title must declare its brief, its pipeline and its inventory before any
@@ -26,6 +25,7 @@ LEDGER_MIN_FIELDS = (
     "digests", "prep_stages", "fidelity", "measurement", "rights",
 )
 DIGEST_STAGES = ("concept", "raw", "prepared", "albedo", "packed")
+STAGE_FIELDS = ("input", "output", "determinism")
 VERDICT_ACCEPT = "accept"
 VERDICT_REJECT = "reject"
 
@@ -50,17 +50,24 @@ def load_json(path: Path):
         return exc
 
 
+# spec: art-brief-01, art-brief-02
 def check_brief(cfg: dict, root: Path, rows: list, out: list) -> None:
     """art-brief-01, art-brief-02: a versioned brief, referenced, with a rule per class."""
     rel = cfg.get("brief")
-    if not rel:
+    if not isinstance(rel, str) or not rel:
         out.append(Finding("art-brief-01", "no brief declared in the manifest"))
         return
     path = root / rel
     if not path.is_file():
         out.append(Finding("art-brief-01", f"brief not found: {rel}"))
         return
-    if not cfg.get("brief_version"):
+    raw_ver = cfg.get("brief_version")
+    ver = "" if raw_ver is None else str(raw_ver)
+    # A version must be non-blank: whitespace is not a version.
+    # `if not cfg.get("brief_version")` let "   " through, and a whitespace
+    # brief_ref compared equal to it - two blanks agreeing on nothing, with
+    # art-brief-01 green.
+    if not ver.strip():
         out.append(Finding("art-brief-01", "brief is unversioned (manifest needs brief_version)"))
     text = path.read_text(encoding="utf-8", errors="replace").lower()
     required = ("readability", "pillar", "palette", "shape language",
@@ -68,13 +75,27 @@ def check_brief(cfg: dict, root: Path, rows: list, out: list) -> None:
     for field in required:
         if field not in text:
             out.append(Finding("art-brief-01", f"brief is missing a required section: {field}"))
-    rules = cfg.get("shape_rules") or {}
-    classes = {str(r.get("class", "")) for r in rows}
+    raw_rules = cfg.get("shape_rules")
+    rules = raw_rules if isinstance(raw_rules, dict) else {}
+    # A rule is a non-blank string. `cls not in rules` below is key-presence
+    # only, so `{"furniture": ""}` and `{"furniture": null}` declared a key
+    # with no rule in it and art-brief-02 went green. Same falsy-short-circuit
+    # class as the empty measurement: the declared value never entered a test
+    # that could fail. Every declared value is checked, not just used classes.
+    for cls, rule in sorted(rules.items()):
+        if not isinstance(rule, str) or not rule.strip():
+            out.append(Finding("art-brief-02",
+                               f"class '{cls}' has no geometric rule "
+                               f"(declared {rule!r})",
+                               "a rule is a non-blank string"))
+    # Strip before the set is built: a whitespace-only class is blank (the
+    # ledger check names it) and must not demand a shape rule under the name
+    # '  ' as a side effect.
+    classes = {str(r.get("class", "")).strip() for r in rows}
     for cls in sorted(c for c in classes if c):
         if cls not in rules:
             out.append(Finding("art-brief-02",
                                f"no geometric rule declared for class '{cls}'"))
-    ver = str(cfg.get("brief_version") or "")
     for r in rows:
         ref = str(r.get("brief_ref", ""))
         if not ref:
@@ -89,34 +110,58 @@ def check_brief(cfg: dict, root: Path, rows: list, out: list) -> None:
                                    f"does not name version {ver}"))
 
 
+# spec: art-stage-01
 def check_stages(cfg: dict, root: Path, out: list) -> list:
-    """art-stage-01: every stage names a consumer that exists. Returns the stage enum."""
-    stages = cfg.get("stages") or []
-    if not stages:
+    """art-stage-01: every stage states input, output, its reader, determinism.
+
+    A stage is four declarations, not a name. `spec.md` requires the input, the
+    output, the code that reads that output, and the determinism requirement;
+    a stage missing any of them is not a declared stage and must not enter the
+    stage enum.
+    """
+    stages = cfg.get("stages")
+    if not isinstance(stages, list) or not stages:
         out.append(Finding("art-stage-01", "no pipeline stages declared"))
         return []
     enum = []
     for st in stages:
+        if not isinstance(st, dict):
+            out.append(Finding("art-stage-01",
+                               f"stage entry is not an object "
+                               f"(type {type(st).__name__})"))
+            continue
         name = st.get("name", "?")
+        missing = [k for k in STAGE_FIELDS
+                   if not isinstance(st.get(k), str) or not st.get(k).strip()]
+        if missing:
+            out.append(Finding("art-stage-01",
+                               f"stage '{name}' does not state: {', '.join(missing)}",
+                               "a stage is input, output, reader and determinism"))
+            continue
         consumer = st.get("consumer")
-        if not consumer or consumer in ("none", "null"):
+        if (not isinstance(consumer, str) or not consumer.strip()
+                or consumer in ("none", "null")):
             out.append(Finding("art-stage-01",
                                f"stage '{name}' names no consumer",
                                "a stage with no reader is not a stage"))
             continue
         cpath = root / consumer
-        if not cpath.exists():
+        # The consumer is "the code that reads that output" (spec.md). A
+        # directory exists on disk and reads nothing; `exists()` accepted it.
+        if not cpath.is_file():
             out.append(Finding("art-stage-01",
-                               f"stage '{name}' consumer path missing: {consumer}"))
+                               f"stage '{name}' consumer is not a file: {consumer}",
+                               "the consumer is the code that reads the output"))
             continue
         enum.append(name)
     return enum
 
 
+# spec: art-ledger-01
 def check_ledger(cfg: dict, root: Path, out: list) -> list:
     """art-ledger-01: rows complete, artifacts covered, counts derived."""
     rel = cfg.get("ledger")
-    if not rel:
+    if not isinstance(rel, str) or not rel:
         out.append(Finding("art-ledger-01", "no ledger declared in the manifest"))
         return []
     data = load_json(root / rel)
@@ -127,8 +172,19 @@ def check_ledger(cfg: dict, root: Path, out: list) -> list:
     if not isinstance(rows, list) or not rows:
         out.append(Finding("art-ledger-01", "ledger has no asset rows"))
         return []
+    records = []
     seen = set()
-    for r in rows:
+    for idx, r in enumerate(rows):
+        # A row is an object. A string (or list, number) is valid JSON and
+        # nothing else, and used to reach `r.get(...)` below as a traceback
+        # with no requirement named. Name the row and keep scanning.
+        if not isinstance(r, dict):
+            out.append(Finding("art-ledger-01",
+                               f"ledger row {idx} is not a JSON object "
+                               f"(type {type(r).__name__})",
+                               "a row is an object; anything else is a shape error"))
+            continue
+        records.append(r)
         rid = str(r.get("id", "?"))
         if rid in seen:
             out.append(Finding("art-ledger-01", f"duplicate ledger row: {rid}"))
@@ -144,6 +200,26 @@ def check_ledger(cfg: dict, root: Path, out: list) -> list:
         if "stage" in r and not str(r.get("stage") or "").strip():
             out.append(Finding("art-ledger-01", f"{rid}: stage is blank",
                                "done is a stage claim; a blank one is not a claim"))
+        # Completeness is not presence. `"prompt": ""` and `"seed": null`
+        # satisfied the `field not in r` loop above while carrying nothing: a
+        # blank prompt names no generation and a null seed seeds no run.
+        if "prompt" in r and (not isinstance(r.get("prompt"), str)
+                              or not r["prompt"].strip()):
+            out.append(Finding("art-ledger-01", f"{rid}: prompt is blank",
+                               "the ledger records what was asked for"))
+        if "seed" in r:
+            seed = r["seed"]
+            if isinstance(seed, bool) or not isinstance(seed, int):
+                out.append(Finding("art-ledger-01",
+                                   f"{rid}: seed is not an integer "
+                                   f"(type {type(seed).__name__})",
+                                   "a seed seeds a reproducible run; null seeds nothing"))
+        # An asset with no class never requires a shape rule (art-brief-02) and
+        # acceptance is never checked against a class (art-accept-01), so a
+        # blank class was a quiet bypass of both.
+        if "class" in r and not str(r.get("class") or "").strip():
+            out.append(Finding("art-ledger-01", f"{rid}: class is blank",
+                               "no class means no shape rule to be accepted against"))
         dig = r.get("digests") if isinstance(r.get("digests"), dict) else {}
         for stage in DIGEST_STAGES:
             if not dig.get(stage):
@@ -166,7 +242,7 @@ def check_ledger(cfg: dict, root: Path, out: list) -> list:
     # Only labels with a declared derivation may be published at all: an
     # unknown label is a number with no way to check it, which is the failure
     # this rule exists to prevent.
-    derivations = {"library": len(rows)}
+    derivations = {"library": len(records)}
     published = cfg.get("published_counts") or {}
     for label, value in published.items():
         if label not in derivations:
@@ -187,15 +263,18 @@ def check_ledger(cfg: dict, root: Path, out: list) -> list:
                                f"published {label}={value} but the ledger derives "
                                f"{derivations[label]}",
                                "counts are derived, never typed"))
-    return rows
+    return records
 
 
+# spec: art-rights-01
 def check_rights(rows: list, out: list) -> None:
     """art-rights-01: rights is an explicit value; a blank is invalid."""
     for r in rows:
         rid = str(r.get("id", "?"))
         if "rights" not in r:
             out.append(Finding("art-rights-01", f"{rid}: rights field absent"))
-        elif r.get("rights") in (None, ""):
+        # Blank after strip, not equality with "". `"   "` is not a rights
+        # classification and used to pass as one.
+        elif not str(r.get("rights") or "").strip():
             out.append(Finding("art-rights-01",
                                f"{rid}: rights is blank - 'unknown' must be written explicitly"))

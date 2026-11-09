@@ -49,9 +49,13 @@ forbids deriving pass/fail from a measure that declares no threshold.
 ### Q3 — The brief is schema, not content
 
 A title's pillars, palette and shape rules are content and live in the title's
-repository. What is general is the *fields the brief must contain*, the rule
-that generation without one is refused, and the rule that a concept is checked
-against a named class rule.
+repository. What is general is the *fields the brief must contain*, the process
+rule that a generation run without one is refused, and the check the scanner
+can actually make after the fact: the brief exists, is versioned, and every
+ledger row references that version. The scanner is post-hoc — it does not
+intercept generation — so the "refused" half is a process obligation stated
+here, while `art-brief-01`/`art-brief-02` enforce what is observable at scan
+time.
 
 Decision: `art-brief-01` fixes the required fields. It does not fix any value.
 
@@ -64,9 +68,11 @@ The observed drift was a published count and an on-disk reality diverging
 quietly. A count typed by hand cannot be checked against anything.
 
 Decision: the ledger is the inventory (`art-ledger-01`), counts are derived
-from it, and a published count that cannot be derived is a `doc-truth` failure
-rather than a new rule here. The ledger row schema is fixed at the fields listed
-in the requirement; titles may add fields, not remove them.
+from it, and a published count that cannot be derived fails the ledger count
+check under `art-ledger-01` — the same document-truth instinct `doc-truth`
+owns, applied to the ledger that is the source of the number. The ledger row
+schema is fixed at the fields listed in the requirement; titles may add
+fields, not remove them.
 
 ### Q5 — "Every target draws" is checked against the title's own renderer
 
@@ -97,15 +103,19 @@ written in hindsight.
 
 ### Inputs
 
-Three files in the title's repository:
+Two declared paths in the title's repository, plus the manifest itself:
 
-| file | role |
+| input | role |
 |---|---|
 | art brief (any path, declared) | C1 fields, versioned |
-| pipeline document (any path, declared) | stages with named consumers |
 | provenance ledger (any path, declared) | one row per asset |
+| pipeline stages (declared inline under `stages`) | input, output, consumer, determinism per stage |
 
-The scanner is told the three paths. It does not guess them.
+The scanner is told the two paths and reads the stage list from the manifest.
+It does not guess them, and it does not open a separate pipeline document:
+there is no third declared path in the code (`art_checks.py` `check_stages`).
+A title that keeps its pipeline document elsewhere copies the stage contract
+into `stages`; that copy is what is checked.
 
 ### Checks and their requirement
 
@@ -113,7 +123,7 @@ The scanner is told the three paths. It does not guess them.
 |---|---|---|
 | brief present and referenced | `art-brief-01` | ledger `brief_ref` |
 | shape rule named per class | `art-brief-02` | brief contents |
-| stage has a consumer | `art-stage-01` | pipeline document + tree |
+| stage declares input, output, consumer and determinism | `art-stage-01` | manifest `stages` |
 | consumer path exists | `art-stage-01` | title tree |
 | no artifact outside the ledger | `art-ledger-01` | directory walk |
 | counts derivable | `art-ledger-01` | ledger vs published |
@@ -122,7 +132,7 @@ The scanner is told the three paths. It does not guess them.
 | measurement labelled, not gated | `art-accept-02` | ledger row |
 | per-target frame capture | `art-draw-01` | capture manifest |
 | rights explicitly recorded | `art-rights-01` | ledger row |
-| quantity gate suppressed while fidelity red | `art-qty-01` | derived |
+| quantity shortfall and fidelity failure, enforced separately | `art-qty-01` | ledger-derived |
 
 ### Out of scope
 
@@ -139,16 +149,22 @@ The scanner is told the three paths. It does not guess them.
 - **The fidelity gate is not automatable and is not meant to be.** The scanner
   can check that a verdict exists and names a class rule. It cannot check the
   verdict is *correct*. That residual is stated, not hidden.
-- **"Contains game geometry" is a weak assertion.** The practical check is
-  non-uniformity of the captured frame plus a declared expected region, not
-  scene understanding. A target that draws a flat clear colour fails; a target
-  that draws the wrong geometry may pass. Strengthening this is expected to be
-  iterative.
+- **"Contains game geometry" is a weak assertion, and the scanner does not
+  currently test it at all.** `art_check_outcome.py` trusts the manifest's
+  declared `contains_game_geometry` boolean and the presence of a
+  `frame_sha256`; it never opens the frame. So a target that draws a flat
+  clear colour passes as long as it *declares* true, and the claim holds only
+  against an honest manifest. Non-uniformity analysis of the captured frame is
+  the obvious strengthening and is **not implemented** - it is a follow-on,
+  not a current property. Stating it as done would be the same
+  design-outpacing-scanner defect this contract exists to prevent.
 - **No fleet-wide adoption is implied by landing this contract.** Titles opt in
-  by declaring their three paths. Until a title declares them, the scanner
-  reports `NOT_APPLICABLE`, never green.
-- **The originating title is a fixture, not a model.** It is useful because it
-  is currently failing every class. It is not an exemplar of how to pass.
+  by declaring their brief and ledger paths, plus their stage list. Until they
+  do, the scanner reports `NOT_APPLICABLE`, never green.
+- **The originating title is the intended live fixture, not a model.** Wiring
+  it in is follow-on task 3.1 and is **NOT_RUN**; today's suite builds
+  synthetic `tempfile` trees. The title is useful because it is currently
+  failing every class, not because it shows how to pass.
 
 ## Data shape
 
@@ -170,31 +186,80 @@ The scanner is told the three paths. It does not guess them.
     "packed": "sha256:…"
   },
   "prep_stages": { "normal_repair": true, "voxel_remesh": true, "texture_bake": true },
-  "fidelity": { "verdict": "accept", "rule": "furniture:orthogonal", "reviewer": "human" },
+  "fidelity": { "verdict": "accept", "rule": "orthogonal", "reviewer": "human" },
   "measurement": { "name": "silhouette_retained", "value": 0.97, "threshold": null },
   "rights": "unknown",
+  "library_floor": 100,
   "placement": null
 }
 ```
 
-`stage` is an enum drawn from the pipeline document's declared stages.
-`measurement.threshold` is null exactly when the measure declares no pass
-point, and a null threshold means the value cannot gate.
+`stage` is an enum drawn from the manifest's declared `stages`. `rule` must
+equal the `shape_rules` value declared for the row's `class` — the scanner
+compares exact strings, so the class-prefixed form `furniture:orthogonal` is
+not a valid value; the class is already the key.
 
-### Capture manifest
+A `measurement` is recorded only when it carries meaning: `name` (a non-blank
+string) and `value` (present and non-null) at minimum. A missing, empty or
+`null` measurement, or one with a threshold but no name or value, fails
+`art-accept-02` — the same falsy-short-circuit class as a blank stage. The
+`threshold` field itself is required, and is either `null` (the measure
+declares no pass point and cannot gate) or a stated pass point.
+
+`prompt` must be a non-blank string and `seed` a real integer (not a bool, not
+null); a present-but-empty field is not a record of what was asked for or of
+the run that produced the asset. `class` must also be non-blank: an asset with
+no class never requires a shape rule and is never checked against one.
+
+`library_floor` is optional and title-level; the first row that carries it
+wins. It must be a real, non-negative integer (not a bool, not a float, not a
+string — `True == 1` in Python is the same false count the published-count
+guard closes; a negative floor is satisfied by any count and is rejected).
+`art-qty-01` then reports `floor`, `counted` and `shortfall` separately from
+`fidelity-fail`; neither failure hides the other, and both messages print the
+floor.
+
+### Pipeline stages (manifest)
 
 ```json
 {
-  "target": "web",
-  "frame_sha256": "sha256:…",
-  "renderer": "title-own",
-  "contains_game_geometry": true,
-  "captured_at": "2026-11-08T00:00:00Z"
+  "stages": [
+    {
+      "name": "packed",
+      "input": "prepared mesh + baked albedo",
+      "output": "packed game mesh",
+      "consumer": "src/loader.zig",
+      "determinism": "seeded-rng"
+    }
+  ]
+}
+```
+
+All four declarations are required (`art-stage-01`); a stage missing any of
+them is reported and kept out of the stage enum. The consumer must be an
+existing file in the title's tree — the code that reads the output, not
+merely a path that exists (a directory is rejected).
+
+### Capture manifest
+
+Captures are keyed by the target names declared in `targets`; `check_draw`
+reads `cfg["captures"][target]`:
+
+```json
+{
+  "captures": {
+    "web": {
+      "frame_sha256": "sha256:…",
+      "renderer": "title-own",
+      "contains_game_geometry": true,
+      "captured_at": "2026-11-08T00:00:00Z"
+    }
+  }
 }
 ```
 
 `renderer: "dcc-preview"` is rejected by `art-draw-01` and the scanner refuses
-the row.
+the row. There is no `target` key inside a capture; the target is the map key.
 
 ## Risks
 

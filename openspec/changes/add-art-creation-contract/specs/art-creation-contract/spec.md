@@ -234,6 +234,13 @@ SHALL NOT be collapsed into a single number.
 - **WHEN** one or more assets are failing the fidelity gate
 - **THEN** the quantity gate is not green and both conditions are printed.
 
+#### Scenario: floor not met, every verdict green
+
+- **GIVEN** a declared library floor of five and one accepted asset
+- **WHEN** the quantity gate runs
+- **THEN** it fails on the shortfall alone, printing floor, counted and
+  shortfall, even though no fidelity verdict is failing.
+
 ### Requirement: the contract grows from the failure registry
 
 <!-- id: art-evolve-01 -->
