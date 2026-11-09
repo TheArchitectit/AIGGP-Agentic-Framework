@@ -12,6 +12,24 @@ covers the implemented detection and recovery path only.
   filed from spokes).
 - `python3 scripts/fleet_drill.py` step `watchdog-dead-hub-exit-1`
   demonstrates this exact path.
+- **A hub can also be up and still be partly dead.** `/health` green does not
+  cover every route: an image built from a tree without `hub/services.py`
+  answers `/health` 200 and `/services` 404, and CI that resolves endpoints
+  through `/services` fails closed while nothing here looks wrong. That is what
+  happened on 2026-11-08 — the hub was rebuilt from a checkout 268 commits
+  behind `origin/main`, discovery and heartbeat ingestion both died, and the
+  watchdog stayed green for a day. If a CI job reports
+  `service '…' unknown or hub unreachable`, check the routes before the
+  containers:
+
+```bash
+curl -fsS http://127.0.0.1:8443/health      # liveness
+curl -fsS http://127.0.0.1:8443/services    # discovery route present
+```
+
+  Both must answer. Recovery for this failure is a rebuild from a checkout
+  equal to `origin/main` (see `docs/runner-monitor-monitor-hub.md` §1), not
+  a restart of the existing image.
 
 ## Diagnosis
 

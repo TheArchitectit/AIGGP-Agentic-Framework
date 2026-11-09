@@ -7,6 +7,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **`hub/server.py` and `hub/registry.py` are back under the 500-line hard
+  limit.** `28db04b` (Windows-spoke enrollment, 2026-11-08) took them to 508 and
+  512, which makes `scripts/deploy.sh`'s release gate — `regression_check.py
+  --all --pre-commit`, the mode its own docstring reserves for release gates —
+  refuse to ship anything on this repo, and left main unreleasable. Two pure
+  moves, no behaviour change: the boundary's exception types and per-field caps
+  went to `hub/request_limits.py`, and the four gap-report / lane-profile /
+  coverage writes went to `hub/registry_observations.py` as
+  `ObservationsMixin`, which `Registry` inherits first. Both modules re-export
+  every moved name (`hub.server.FIELD_CAPS`, `hub.registry.scan_state_unknown`,
+  …), the methods resolve at the same MRO position, and `_now_iso` moved with
+  the methods that stamp it. Measured: 482 / 439 lines, `regression_check.py
+  --all --pre-commit` now reports **0 over hard limit** (was 2), 1887 passed +
+  566 subtests plus the pinned-`tsx` adapter test, and both mutation batteries
+  that target these files still kill every mutant
+  (`mutation_battery_scan_report` 18/18, `mutation_battery_image_state` 42/42).
+
+- **The hub runbook no longer lets a stale checkout be deployed silently, and
+  it verifies `/services` as well as `/health`.** `Containerfile` does
+  `COPY hub/ ./hub/`, so the build context *is* the hub that ships — nothing at
+  run time compares the image to the repo. On 2026-11-08 a `devgate-hub:local`
+  image was built on ucs03 from a checkout 268 commits behind, which predated
+  `hub/services.py`; the deployed hub answered `/health` **200** and
+  `/services` **404**, heartbeat ingestion stopped, and CI jobs that resolve
+  endpoints from the fleet failed the next day while every liveness check stayed
+  green. `docs/runner-monitor-monitor-hub.md` §1 now requires the build to run
+  from a checkout equal to `origin/main` and refuses otherwise (the stale
+  `AIGGP-Agentic-Framework` path in that step was also corrected), and §7
+  verifies both endpoints with the reason a missing route hides behind a green
+  `/health`. `templates/runner-monitor/Containerfile` carries the same warning
+  at its build command. The automated probes still check `/health` only; that
+  gap and the `--require-services` proposal are recorded in §7 rather than
+  changed here, because every spoke runs the watchdog against one hub URL and
+  the kept-as-rollback dell-u2 hub predates the route.
+
 ### Fixed
 
 - **`tests/test_semantic_scan.mjs` provisions its parser where it says it does.**

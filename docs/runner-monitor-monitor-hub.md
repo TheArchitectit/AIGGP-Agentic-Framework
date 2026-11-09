@@ -137,8 +137,22 @@ is why the hub is monitor-only (see Q3 below).
 
 ### 1. Build the image and pin the base digest
 
+**Build from a checkout that is current with `origin/main`.** The
+`Containerfile` copies the whole `hub/` package into the image
+(`COPY hub/ ./hub/`), so whatever tree you build from *is* the hub you deploy —
+there is no version pin inside the image and nothing at run time compares the
+image to the repo. A stale clone therefore ships an old hub silently. This is
+not hypothetical: on 2026-11-08 a hub image was built from a checkout 268
+commits behind, which predated `hub/services.py`, and the deployed hub lost
+`GET /services` while `/health` stayed green; every CI job that resolves a
+service from the fleet failed the next day (recorded in `infra-info`
+`ci-fleet/service-discovery.md`).
+
 ```bash
-cd /path/to/AIGGP-Agentic-Framework
+cd /path/to/DevGate-Agentic-Framework
+git fetch origin && git checkout main && git merge --ff-only origin/main
+test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" \
+  || { echo "refusing to build the hub from a stale checkout" >&2; exit 1; }
 podman build -t devgate-hub:local -f templates/runner-monitor/Containerfile .
 ```
 
@@ -220,13 +234,14 @@ podman logs devgate-hub
 `LogDriver=k8s-file` is deliberate: rootless user journald is often absent on
 hub hosts, which would leave service failures invisible.
 
-### 7. Verify `/health`
+### 7. Verify `/health` **and** `/services`
 
 ```bash
 curl -s http://127.0.0.1:8443/health
+curl -s http://127.0.0.1:8443/services
 ```
 
-Expect:
+Expect from `/health`:
 
 ```json
 {"ok": true, "last_poll_at": "…", "last_alert_at": null,
@@ -238,6 +253,30 @@ Expect:
 `null` until the first alert — that is healthy, not broken. `polling_enabled`
 is what tells a watchdog whether a `null` `last_poll_at` is by design; poll
 once, then re-check that `last_poll_at` has moved before you trust the hub.
+
+Expect from `/services` (`mon-svcdisco-01`):
+
+```json
+{"ok": true, "count": N, "services": {…}}
+```
+
+Both, not just one. `/health` answers from the heartbeat/poll loop; `/services`
+reads the service map through a *separate* module, so an image built from a
+tree without `hub/services.py` serves a perfectly healthy `/health` and returns
+**404** for `/services`. CI resolves Postgres/NATS/Redis endpoints through
+`/services` and fails closed, so a missing route is an outage that no liveness
+check will show. Check both endpoints after every image rebuild, and again
+after a host migration.
+
+**Known gap (2026-11-09): neither automated probe checks `/services`.** Both
+`scripts/hub-watchdog.sh` (the spoke-side dead-man switch) and
+`.github/workflows/hub-health-probe.yml` verify `/health` only, and that is why
+the 2026-11-08 rebuild went unnoticed for a day — the watchdog stayed green
+while discovery was dead. Widening them is a deliberate change, not a drive-by:
+every enrolled spoke runs the watchdog against one hub URL, so requiring
+`/services` there would also red the kept-as-rollback dell-u2 hub, which predates
+the route. The proposal is a `--require-services` flag that the fleet's spokes
+opt into once every hub they point at serves it; until then the check is manual.
 
 ### 8. Enable the dead-man switch
 

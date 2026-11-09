@@ -8,6 +8,12 @@
 # Build:
 #   podman build -t devgate-hub:local -f templates/runner-monitor/Containerfile .
 #
+# Build from a checkout that is current with origin/main. This file copies the
+# whole hub/ package, so the build context *is* the deployed hub: a stale clone
+# ships an old hub with no warning (2026-11-08: an image built 268 commits
+# behind lost GET /services while /health stayed green). After the build, check
+# both `curl -s <hub>/health` and `curl -s <hub>/services`.
+#
 # Run (see devgate-hub.container quadlet for the production unit):
 #   podman run --rm -v hub-data:/data \
 #     -e HUB_BIND_HOST=0.0.0.0 -e HUB_BIND_PORT=8443 \
