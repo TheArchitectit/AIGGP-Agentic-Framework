@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.15] - 2026-11-09
+
 ### Fixed
 
 - **CI's test lane was collecting `scripts/test_art_creation_scan.py` as a
