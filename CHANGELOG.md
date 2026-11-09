@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **The hub runbook now carries the build-and-verify procedure the 2026-11-08
+  incident needed, not only the warning.** `docs/runner-monitor-monitor-hub.md`
+  Sec. 1 gives the `git archive` build (with a `hub/services.py` presence check
+  that fails the build if the tree is incomplete) and the canary-before-promote
+  sequence: new image on an alternate loopback port, a *copied* volume, the
+  full `/health` + `/services` + per-service resolution check, then promotion
+  by tag swap with the previous image kept as a rollback tag. It also states
+  why a bare `podman run` is not the deployed hub — the quadlet's env
+  (`HUB_MONITOR_ONLY`, enrollment and GitHub tokens) and the `/data` volume are
+  what make a canary a canary. Sec. 7 adds resolving the services CI depends on
+  (`resolved: true`), reading `uptime_sec` to prove the answering process is
+  the one that started, and judging a restart by `ActiveEnterTimestamp` /
+  container `StartedAt` because the unit is `Restart=always` and a manual
+  restart can produce two stop/start pairs in one minute.
+
 ## [1.3.15] - 2026-11-09
 
 ### Fixed
