@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`tests/test_semantic_scan.mjs` provisions its parser where it says it does.**
+  `ensureTypescript()` ran `npm install` with only `cwd` set, which resolves
+  against an *ancestor* `node_modules` and reports "up to date" **without**
+  creating `repoRoot/node_modules`. On a consumer checkout that already installs
+  `typescript` at its repo root — a gates job does exactly that —
+  `linkParser` then symlinked a path that never existed, the scanner failed
+  closed on a tooling error, and every assertion in the file was measuring that
+  error instead of the overlay merge. The install now uses `--prefix repoRoot`
+  and the helper verifies `lib/typescript.js` (not merely `package.json`) is
+  present before returning, throwing rather than handing a dangling path to the
+  fixtures. Measured both layouts after the fix: `ALL TESTS PASSED`, exit 0,
+  parser landed under the framework root even with `typescript` already
+  installed at the ancestor.
+
 - **The three scope-list checks build the layout they claim to verify.**
   `test_source_dirs_include_{test_directories,the_directory_the_shell_scripts_live_in,web_and_infra}`
   asserted against `SOURCE_DIRS` resolved from the *live* checkout — green only

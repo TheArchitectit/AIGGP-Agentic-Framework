@@ -71,12 +71,34 @@ function check(name, cond, detail = "") {
 // <fixture>/node_modules. A fixture whose parser is missing would make the
 // scanner fail-closed on a tooling error and every assertion below would be
 // measuring that, not the overlay merge.
+//
+// Two things this must not do, both measured on a consumer checkout:
+//   * trust npm's "up to date". `npm install` with only `cwd` set resolves
+//     against an ANCESTOR node_modules and reports up to date WITHOUT creating
+//     repoRoot/node_modules. A consumer lane that installs typescript at its
+//     repo root (a gates job does exactly that) then gets a dangling
+//     linkParser symlink, the scanner fails closed on a tooling error, and
+//     every assertion in this file measures that instead of the overlay merge
+//     -- green-ish output for the wrong reason. `--prefix` forces the install
+//     under repoRoot regardless of what an ancestor already holds.
+//   * return a path it did not verify. `package.json` is not proof of a
+//     loadable compiler; lib/typescript.js is (typescript@7 dropped the root
+//     compiler API, which is why the pin is @5).
 function ensureTypescript() {
 	const tsDir = join(repoRoot, "node_modules", "typescript");
-	if (existsSync(join(tsDir, "package.json"))) return tsDir;
+	const entry = join(tsDir, "lib", "typescript.js");
+	if (existsSync(entry)) return tsDir;
 	console.log("installing typescript@5 at repo root (semantic-scan parser pin)...");
-	execFileSync("npm", ["install", "--no-save", "--no-audit", "--no-fund", "typescript@5"],
+	execFileSync("npm",
+		["install", "--prefix", repoRoot, "--no-save", "--no-audit", "--no-fund", "typescript@5"],
 		{ cwd: repoRoot, stdio: "pipe" });
+	if (!existsSync(entry)) {
+		throw new Error(
+			`typescript did not land at ${tsDir}: npm reported success but ` +
+			`lib/typescript.js is missing. Refusing to run the semantic fixtures ` +
+			`without a parser -- a suite that silently measures a tooling error ` +
+			`is not evidence.`);
+	}
 	return tsDir;
 }
 
