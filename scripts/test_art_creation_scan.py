@@ -377,5 +377,19 @@ def selftest() -> int:
     return 1 if failed else 0
 
 
+def test_fixture_suite() -> None:
+    """pytest entry point for the suite above.
+
+    `scripts/run-tests.mjs` executes every discovered file through pytest. This
+    file is a script (`selftest()`), so without a `test_*` function pytest
+    collects zero tests and exits 5, which the runner reports as a crashed
+    file. That kept CI's test lane red from 2026-11-07 (43a9bdb) while every
+    case in the suite passed — the failure was in how the file was collected,
+    not in what it checked. Keeping both entries means the suite still runs
+    standalone (`python3 scripts/test_art_creation_scan.py`) and under pytest.
+    """
+    assert selftest() == 0
+
+
 if __name__ == "__main__":
     raise SystemExit(selftest())

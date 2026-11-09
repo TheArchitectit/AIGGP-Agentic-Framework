@@ -28,7 +28,7 @@ curl -fsS http://127.0.0.1:8443/services    # discovery route present
 ```
 
   Both must answer. Recovery for this failure is a rebuild from a checkout
-  equal to `origin/main` (see `docs/runner-monitor-monitor-hub.md` §1), not
+  equal to `origin/main` (see `docs/runner-monitor-monitor-hub.md` Sec. 1), not
   a restart of the existing image.
 
 ## Diagnosis

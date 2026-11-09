@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **CI's test lane was collecting `scripts/test_art_creation_scan.py` as a
+  crash, not running it.** The file is a fixture suite with a `selftest()`
+  entry point and no `test_*` function, so `pytest` collected zero tests and
+  exited 5, which `scripts/run-tests.mjs` reports as `crashed, code 5`. CI's
+  `Test suite (Python + Node)` job has been red on every push since `43a9bdb`
+  (2026-11-07) while all 60 cases in the suite passed. A `test_fixture_suite()`
+  wrapper now calls the same `selftest()`, so the file runs standalone and
+  under pytest; measured with the repo's own runner and the pinned `tsx`
+  present: `2389 passed, 0 failed across 153 files` (without `tsx` the suite
+  fails one local-only adapter case, which CI installs).
+- **The hub documentation added on 2026-11-09 tripped the charset gate.**
+  Section signs written into `CHANGELOG.md` and `docs/runbooks/hub-outage.md`
+  are non-ASCII; they now read `Sec. 1` / `Sec. 7`. `check_charset.py --repo .`
+  is back to `OK - 954 text file(s) within baseline`.
+
 ## [1.3.14] - 2026-11-09
 
 ### Changed
@@ -36,13 +53,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `hub/services.py`; the deployed hub answered `/health` **200** and
   `/services` **404**, heartbeat ingestion stopped, and CI jobs that resolve
   endpoints from the fleet failed the next day while every liveness check stayed
-  green. `docs/runner-monitor-monitor-hub.md` §1 now requires the build to run
+  green. `docs/runner-monitor-monitor-hub.md` Sec. 1 now requires the build to run
   from a checkout equal to `origin/main` and refuses otherwise (the stale
-  `AIGGP-Agentic-Framework` path in that step was also corrected), and §7
+  `AIGGP-Agentic-Framework` path in that step was also corrected), and Sec. 7
   verifies both endpoints with the reason a missing route hides behind a green
   `/health`. `templates/runner-monitor/Containerfile` carries the same warning
   at its build command. The automated probes still check `/health` only; that
-  gap and the `--require-services` proposal are recorded in §7 rather than
+  gap and the `--require-services` proposal are recorded in Sec. 7 rather than
   changed here, because every spoke runs the watchdog against one hub URL and
   the kept-as-rollback dell-u2 hub predates the route.
 
