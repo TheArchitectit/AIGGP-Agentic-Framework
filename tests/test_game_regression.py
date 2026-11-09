@@ -324,11 +324,23 @@ if __name__ == "__main__":
 def test_zero_files_is_nothing_scanned_not_pass(tmp_path, capsys):
     """No vacuous green: an empty scope prints NOTHING SCANNED and exits 0 by
     default (non-game consumers), 2 with --fail-if-empty (CI)."""
-    import subprocess, sys
+    import os, subprocess, sys
     script = Path(__file__).resolve().parent.parent / "scripts" / "game_regression.py"
+    # Minimal env so ambient DevGate configuration cannot leak into the run --
+    # that isolation is the point. But the interpreter still has to START. A
+    # venv or toolcache CPython can be linked against a shared libpython that
+    # the loader finds only via LD_LIBRARY_PATH, and stripping it turns this
+    # assertion into "python failed to launch" (exit 127) instead of the gate
+    # verdict it is about. Loader vars are the interpreter's own runtime, not
+    # ambient influence on the gate.
+    env = {"DEVGATE_PROJECT_ROOT": str(tmp_path), "PATH": "/usr/bin:/bin"}
+    for loader_var in ("LD_LIBRARY_PATH", "DYLD_LIBRARY_PATH",
+                       "DYLD_FALLBACK_LIBRARY_PATH"):
+        if os.environ.get(loader_var):
+            env[loader_var] = os.environ[loader_var]
     r = subprocess.run(
         [sys.executable, str(script), "--all", "--pre-commit", "--fail-if-empty"],
         capture_output=True, text=True,
-        env={"DEVGATE_PROJECT_ROOT": str(tmp_path), "PATH": "/usr/bin:/bin"})
+        env=env)
     assert r.returncode == 2, (r.stdout, r.stderr)
     assert "NOTHING SCANNED" in r.stdout
