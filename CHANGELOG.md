@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.14] - 2026-11-09
+
 ### Changed
 
 - **`hub/server.py` and `hub/registry.py` are back under the 500-line hard
