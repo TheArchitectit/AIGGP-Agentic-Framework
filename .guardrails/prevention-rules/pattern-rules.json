@@ -559,6 +559,19 @@
         "*.zig"
       ],
       "suggestion": "Remove it, or suppress inline if the message is a genuine diagnostic."
+    },
+    {
+      "rule_id": "PREVENT-SUB-001",
+      "name": "Tooling submodule accidentally committed to consumer repo",
+      "enabled": true,
+      "pattern": "DevGate-Agentic-Framework|agent-guardrails-template",
+      "forbidden_context": null,
+      "message": "DevGate/agent-guardrails submodules are local tooling only \u2014 never commit them to a consumer repo. Use the gates locally; push only code fixes.",
+      "severity": "critical",
+      "file_glob": [
+        ".gitmodules"
+      ],
+      "suggestion": "Remove .gitmodules and the submodule directories. Run gates locally from your tooling checkout instead."
     }
   ]
 }
