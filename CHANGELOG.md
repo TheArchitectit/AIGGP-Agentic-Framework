@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`Release Coverage` can see merge commits.** Its reports-only exemption
+  listed changed files with `git diff-tree --no-commit-id --name-only -r HEAD`,
+  which returns nothing for a merge without `-m`, so a merge that brought only
+  `docs/qa/fleet-sweeps/*` and `docs/qa/spec-sweeps/*` never reached the
+  exemption and fell through to `::error::HEAD is not release <tag>`. Observed
+  2026-11-12 on `af0f102`, when `deploy.sh`'s push was rejected by concurrent
+  automated sweep writers and the release had to land as a merge. The
+  exemption now diffs against `HEAD^1` (where `main` was), which is the right
+  question on a merge and identical on an ordinary commit. Verified against
+  the real history, not asserted: `af0f102` classifies as `SKIPPED (not a
+  product release)`, the release commit `6a9d7d0` still falls through to the
+  HEAD-must-be-the-tag check, and the sweep-only commits are unchanged.
+
 ## [1.3.17] - 2026-11-12
 
 ### Added

@@ -28,7 +28,13 @@ jobs:
           # The two scheduled sweep jobs append generated trend data to main.
           # A push that touches ONLY these generated reports is not a product
           # release. Any other path in the same push loses this exemption.
-          mapfile -t changed < <(git diff-tree --no-commit-id --name-only -r HEAD)
+          # Compare against HEAD^1 (where main was), not `git diff-tree -r HEAD`:
+          # on a merge commit diff-tree lists nothing without -m, so a merge
+          # that brought only sweep reports never reached this exemption and
+          # fell through to HEAD-must-be-the-tag. Observed 2026-11-12 on
+          # af0f102 after deploy.sh's push was rejected by concurrent sweep
+          # writers. HEAD^1 assumes main is not a root commit.
+          mapfile -t changed < <(git diff --name-only HEAD^1 HEAD)
           if [ "${#changed[@]}" -gt 0 ]; then
             reports_only=1
             for path in "${changed[@]}"; do

@@ -136,7 +136,9 @@ annotates the release, runs the gates, and pushes the commit and tag. The
 tag-triggered **Release Published** workflow creates and verifies the GitHub
 Release; **Release Coverage** rejects an untagged `main` HEAD. Generated
 fleet/spec trend-report-only pushes are explicitly skipped, not counted as
-product releases. `gh release create` failure in the deploy pipeline is fatal,
+product releases; the skip compares against where `main` was (`HEAD^1`), so a
+merge that brought only those reports is skipped too. `gh release create`
+failure in the deploy pipeline is fatal,
 not a warning followed by a false `PUBLISHED` line.
 
 Keep `README.md` aligned with the shipped behavior in the same slice: a tested
