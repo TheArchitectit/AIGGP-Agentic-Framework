@@ -1,48 +1,47 @@
-# Submodule wiring — the consumer contract
+# Tooling wiring — the consumer contract
 
-`DevGate` is wired into a consumer repository as a Git submodule at the fixed
-path `.devgate/` (layout contract `root-anchor-01`): every gate resolves the
-project root as the parent directory of `.devgate/`, never by walking up for a
-marker file. The name is the contract — a submodule checked out at `devgate/`
-or `vendor/devgate/` makes every gate scan the wrong tree, and no config fixes
-a wrong path. This file is the operational contract for adding the submodule
-and living with it; for the full onboarding narrative (overlay shapes, OpenSpec
-package identity, CI ordering) see `docs/NEW_REPO_ONBOARDING.md`.
+`DevGate` is wired into a consumer repository as a **local, untracked** tooling
+checkout at the fixed path `.devgate/` (layout contract `root-anchor-01`):
+every gate resolves the project root as the parent directory of `.devgate/`,
+never by walking up for a marker file. The name is the contract — a checkout at
+`devgate/` or `vendor/devgate/` makes every gate scan the wrong tree, and no
+config fixes a wrong path.
 
-## Add or initialize
+> **`PREVENT-SUB-001` — do not commit the checkout.** A change to `.gitmodules`
+> naming `DevGate-Agentic-Framework` or `agent-guardrails-template` is a
+> `critical` violation. The tooling is local-only: keep `.devgate/` out of the
+> consumer repo and push only the consumer's own code fixes. Earlier revisions
+> of this document instructed `git submodule add … .devgate` and committing the
+> registration; that path is now blocked, and the committed-pin workflow below
+> is historical, not supported.
 
-Fresh clone — fetch the submodule with the clone:
+This file is the operational contract for wiring the checkout and living with
+it; for the full onboarding narrative (overlay shapes, OpenSpec package
+identity, CI ordering) see `docs/NEW_REPO_ONBOARDING.md`.
+
+## Add the checkout
+
+From the consumer repository root:
 
 ```bash
-git clone --recurse-submodules <project-url> <dir>
+git clone https://github.com/TheArchitectit/AIGGP-Agentic-Framework.git .devgate
 ```
 
-Existing clone — register the submodule and initialize it:
+Keep it out of the consumer's history — add `.devgate/` to the project's
+`.gitignore` before the first gate run, and never `git add` it. To advance the
+tooling, re-pull the checkout (`git -C .devgate pull`); there is no committed
+pin to roll back, so record the checkout SHA in your own notes if you need
+reproducibility.
+
+Verify the checkout is present and complete before running any gate:
 
 ```bash
-git submodule add https://github.com/TheArchitectit/AIGGP-Agentic-Framework.git .devgate
-git submodule update --init --recursive
-```
-
-The case that actually bit a consumer: the `.gitmodules` entry was registered
-but never initialized (for example, the entry was committed without
-`git submodule update --init` ever running, or a later clone omitted
-`--recurse-submodules`). Symptom: `.devgate/` exists but is empty, and every
-gate fails or scans nothing. Fix — run the initializer from the project root:
-
-```bash
-git submodule update --init --recursive
-```
-
-Verify the submodule is initialized before running any gate:
-
-```bash
-git submodule status          # a NOT-yet-initialized entry prints "-<sha> .devgate"
-                              # (leading minus); a checked-out pin prints "<sha> .devgate"
-                              # with no marker, and "+<sha>" means the checkout differs
-                              # from the recorded pin
 ls .devgate/scripts           # the gates must be present, not an empty directory
+test -f .devgate/scripts/guardrails-scan.mjs && echo ok
 ```
+
+An empty `.devgate/` (a failed or partial clone) makes every gate fail or scan
+nothing — the same symptom the old uninitialized-submodule case produced.
 
 ## Scope: name every vendored/generated directory
 
@@ -105,25 +104,25 @@ real secret files fire. CI secrets themselves (deploy tokens, registry
 credentials) live in the hosting platform's secret store, never in tracked
 files.
 
-## Living with the submodule
+## Living with the local checkout
 
-- **Never edit inside `.devgate/`.** The submodule is upstream-owned. Your
+- **Never edit inside `.devgate/`.** The checkout is upstream-owned. Your
   delta lives in the project-root `.guardrails/` overlay; `gate_overlay.py`
   merges it over the bundled baseline by `rule_id` / `failure_id` and the
-  overlay wins on collision. Editing the submodule forks the baseline and
+  overlay wins on collision. Editing the checkout forks the baseline and
   breaks the next upstream pull.
-- **Never commit or push from inside `.devgate/`.** `git add .devgate` run
-  from inside the submodule fails with `pathspec .devgate did not match any
-  files` — run every parent-repo git command from the project root.
-- **Pins track upstream `main`.** To advance, run `git submodule update
-  --remote .devgate` (or checkout a specific ref) from the project root and
-  commit the new pin. Advancing the pin is a reviewable commit in the consumer
-  repo, which is how you can roll back.
-- **Submodule URLs stay upstream-HTTPS.** CI checks out submodules anonymously
-  over the URL recorded in `.gitmodules`; a local-path or fork URL that works
-  on your machine fails the anonymous checkout. Never rewrite the recorded URL
-  to a local path or a fork.
-- **Don't repoint the path.** The submodule must stay at `.devgate/`; that is
+- **Never commit or push the checkout.** Keep `.devgate/` gitignored and run
+  every consumer-repo git command from the project root so a stray
+  `git add -A` cannot sweep the tooling into a commit. `PREVENT-SUB-001`
+  blocks a `.gitmodules` entry naming this repository; the directory itself
+  must not be tracked either.
+- **Advance by pulling, not by pinning.** `git -C .devgate pull` (or check out
+  a specific ref) updates the tooling without a consumer-repo commit. If you
+  need a rollback point, record the checkout SHA outside the repo.
+- **CI must provision the checkout itself.** There is no `.gitmodules` entry
+  for CI to follow. Clone the tooling into `.devgate/` as a workflow step
+  before any gate runs, pinned to a SHA if you want reproducible gate results.
+- **Don't repoint the path.** The checkout must stay at `.devgate/`; that is
   `root-anchor-01` (see `docs/NEW_REPO_ONBOARDING.md`).
 
 ## Gate sanity after wiring

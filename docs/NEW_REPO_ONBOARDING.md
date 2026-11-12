@@ -9,20 +9,29 @@
 
 ## The one rule that breaks onboarding
 
-**The submodule MUST live at `.devgate/`.**
+**The tooling checkout MUST live at `.devgate/`, and MUST NOT be committed.**
 
 Every gate resolves the project root as *the parent directory of `.devgate/`*.
-A submodule checked out at `devgate/`, `vendor/devgate/`, or any other name makes
-every gate scan the wrong tree (or walk upward into a sibling project). Several
-scripts fail closed on this; the semantic scanner silently resolves to the parent
-repo — see `known-gate-defects.md`. There is no config that fixes a wrong path.
+A checkout at `devgate/`, `vendor/devgate/`, or any other name makes every gate
+scan the wrong tree (or walk upward into a sibling project). Several scripts
+fail closed on this; the semantic scanner silently resolves to the parent repo
+— see `known-gate-defects.md`. There is no config that fixes a wrong path.
+
+`PREVENT-SUB-001` additionally requires the checkout to stay **local**: a
+`.gitmodules` change naming `DevGate-Agentic-Framework` is a `critical`
+violation, so clone the tooling and gitignore it rather than registering a
+submodule.
 
 ```bash
-# correct
-git submodule add <devgate-url> .devgate
+# correct — local, untracked tooling at the fixed path
+git clone <devgate-url> .devgate
+echo '.devgate/' >> .gitignore
 
 # wrong — gates will not find your project
-git submodule add <devgate-url> devgate
+git clone <devgate-url> devgate
+
+# wrong — PREVENT-SUB-001 blocks this
+git submodule add <devgate-url> .devgate
 ```
 
 > **Operational checklist:** for the add-or-initialize steps (including the
@@ -38,7 +47,7 @@ git submodule add <devgate-url> devgate
 <project>/
 ├── <your source>              ← any language, any structure
 ├── package.json|Cargo.toml|pyproject.toml|go.mod|project.godot
-├── .devgate/                  ← the submodule (fixed name)
+├── .devgate/                  ← local tooling checkout (fixed name, untracked)
 └── .guardrails/               ← THIS project's overlay (never inside .devgate/)
     ├── failure-registry.jsonl
     ├── scope.json                 ← scan scope: skip_dirs for vendored/generated trees
@@ -75,10 +84,11 @@ requirement.
 
 ---
 
-## Step 1 — Add the submodule and the overlay
+## Step 1 — Add the tooling checkout and the overlay
 
 ```bash
-git submodule add <devgate-url> .devgate
+git clone <devgate-url> .devgate
+echo '.devgate/' >> .gitignore
 mkdir -p .guardrails/prevention-rules
 mkdir -p .guardrails/openspec/changes
 touch .guardrails/failure-registry.jsonl

@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`PREVENT-SUB-001` blocks tooling submodules from being committed into a
+  consumer repo.** A change to `.gitmodules` that names
+  `DevGate-Agentic-Framework` or `agent-guardrails-template` is a `critical`
+  pattern violation. The tooling checkout is local-only: run the gates from
+  `.devgate/` on disk and push only the consumer's own code fixes. Measured
+  non-vacuous through the real `regression_check.py` path — a planted
+  `.gitmodules` entry fires `CRITICAL`, and an unrelated submodule name does
+  not.
+
+### Changed
+
+- **The wiring docs describe the contract the rule enforces, not the one it
+  forbids.** `README.md`'s quick start, `docs/SUBMODULE_WIRING.md`,
+  `docs/NEW_REPO_ONBOARDING.md`, and `templates/runner/add-a-runner.md` told
+  consumers to run `git submodule add … .devgate` and commit the registration,
+  which is exactly what `PREVENT-SUB-001` now rejects. They now describe an
+  untracked local checkout at `.devgate/` (the `root-anchor-01` path is
+  unchanged — the gates still resolve the project root as the parent of
+  `.devgate/`), state that `.gitmodules` must not name this repository, and
+  tell CI/runner workflows to clone the tooling themselves instead of
+  following a submodule URL. The `skip_dirs`, secrets-before-first-run, and
+  gate-sanity sections are unchanged and still apply.
+
 ## [1.3.16] - 2026-11-09
 
 ### Changed

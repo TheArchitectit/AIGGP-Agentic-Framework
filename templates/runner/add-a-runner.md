@@ -61,8 +61,12 @@ restart.
 
 ## 3. Submodule transport
 
-If the repo uses a `.devgate` submodule (or any other submodule), the URL in
-`.gitmodules` must be reachable from inside the runner container:
+`.devgate` itself is a **local, untracked** tooling checkout
+(`PREVENT-SUB-001` blocks committing it), so the runner must clone it into
+`.devgate/` as a workflow/entrypoint step before any gate runs — there is no
+`.gitmodules` entry to follow. The notes below apply to *other* submodules a
+consumer repo legitimately tracks. For those, the URL in `.gitmodules` must be
+reachable from inside the runner container:
 
 - **Public submodule** → use HTTPS. Zero credential needed, no key mount.
   Example: `url = https://github.com/OWNER/REPO.git`

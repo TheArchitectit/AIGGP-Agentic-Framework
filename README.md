@@ -41,12 +41,17 @@ cross-product platform.
 ## Quick start
 
 ```bash
-# As a submodule (recommended — stays in sync with upstream)
-git submodule add https://github.com/TheArchitectit/AIGGP-Agentic-Framework.git .devgate
-
-# Or clone directly
+# Local tooling checkout (recommended). The path is part of the layout
+# contract: gates resolve the project root as the parent of `.devgate/`.
 git clone https://github.com/TheArchitectit/AIGGP-Agentic-Framework.git .devgate
 ```
+
+`PREVENT-SUB-001` makes this a **local** checkout on purpose. Do **not** run
+`git submodule add` and commit the registration: a `.gitmodules` change naming
+`DevGate-Agentic-Framework` (or `agent-guardrails-template`) is a `critical`
+violation. Keep `.devgate/` out of the consumer repo (gitignore it) and push
+only your own code fixes — the gates stay in sync by re-pulling the checkout,
+not by committing it.
 
 For the operational contract — initializing a registered-but-uninitialized
 submodule, naming every vendored tree in `skip_dirs` before the first gate run,
