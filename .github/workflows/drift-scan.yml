@@ -72,8 +72,25 @@ jobs:
           }
 
           # python-gated: regression_check.py requires >=3.9 (py3.8 crashes on list[str])
+          # The window must not be empty by construction. `--all` resolves to
+          # `last-tag..HEAD`, and on the first nightly run after a release HEAD
+          # *is* that tag, so the window holds zero files and --pre-commit exits
+          # 2 — a red that says nothing about the tree (2026-11-13 run on
+          # v1.3.28, reproduced locally: exit 2, "NOTHING SCANNED"). Anchor on
+          # the last tag reachable from HEAD^ instead: identical to `--all`
+          # whenever HEAD is untagged (the tag is then still the ancestor's),
+          # and widened to the release's own commits when HEAD is the tag.
+          # --pre-commit stays, so a window that is empty for any other reason
+          # still fails instead of passing vacuously.
           if [ "$PY_OK" = "1" ]; then
-            run_gate regression python3 .devgate/scripts/regression_check.py --all --pre-commit
+            DRIFT_BASE=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || true)
+            if [ -n "$DRIFT_BASE" ]; then
+              DRIFT_WINDOW="${DRIFT_BASE}..HEAD"
+              run_gate regression python3 .devgate/scripts/regression_check.py --range "$DRIFT_WINDOW" --pre-commit
+            else
+              DRIFT_WINDOW="all (no tag reachable from HEAD^)"
+              run_gate regression python3 .devgate/scripts/regression_check.py --all --pre-commit
+            fi
           else RES[regression]="SKIPPED (python < 3.9 on this runner)"; fi
 
           run_gate guardrails node .devgate/scripts/guardrails-scan.mjs
@@ -101,6 +118,8 @@ jobs:
             echo "| guardrails | ${RES[guardrails]:-NOT_RUN} |"
             echo "| silent-success | ${RES[silent-success]:-NOT_RUN} |"
             echo "| semantic | ${RES[semantic]:-NOT_RUN} |"
+            echo ""
+            echo "Regression window: \`${DRIFT_WINDOW:-not computed (python < 3.9)}\`"
             echo ""
             echo "Scanners: AIGGP-Agentic-Framework@8c2d0a9 (in-tree clone, pinned)"
           } >> "$GITHUB_STEP_SUMMARY"

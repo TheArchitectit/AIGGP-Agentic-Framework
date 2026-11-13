@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The nightly Drift Scan no longer reds on the morning after a release.**
+  `regression_check.py --all` resolves its window as `last-tag..HEAD`, so on the
+  first nightly run after a tag HEAD *is* that tag and the window holds zero
+  files; `--pre-commit` then exits 2 with "NOTHING SCANNED". The 2026-11-13 run
+  on `v1.3.28` failed exactly this way — a red that says nothing about the tree.
+  The job now anchors on the last tag reachable from `HEAD^`: identical to
+  `--all` whenever HEAD is untagged (that tag is still an ancestor), and widened
+  to the release's own commits when HEAD is the tag. `--pre-commit` is retained,
+  so a window that is empty for any other reason still fails instead of passing
+  vacuously, and the job summary now records the window it scanned.
+
 ## [1.3.28] - 2026-11-13
 
 ### Added
