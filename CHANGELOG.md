@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.30] - 2026-11-13
+
 ### Fixed
 
 - **Two gate scope lists in this repo's own tooling no longer narrow the tree
