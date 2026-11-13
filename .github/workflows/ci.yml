@@ -1,20 +1,23 @@
 name: CI
 
 # The framework runs its own medicine (fw-ci-01..03): the full test suite,
-# the shipped gates against its own tree, and spec validation — on every PR
-# and every push to main. Before this workflow existed, nothing executed
-# tests/ in CI (QA M9) and a foreign `tests` package could silently drop five
-# conformance files from collection without anyone noticing.
+# the shipped gates against its own tree, and spec validation — on every
+# same-repository PR and every push to main. Before this workflow existed,
+# nothing executed tests/ in CI (QA M9) and a foreign `tests` package could
+# silently drop five conformance files from collection without anyone noticing.
 #
-# Runner targeting: hosted ubuntu-latest (mirrors drift-scan.yml's choice to
-# keep the framework's own CI runnable on any fork/PR without fleet access;
-# the fleet-labeled runner stays dedicated to consumer drift scans). The
-# container-image job never passes silently when podman is missing: the build
-# and schema steps say SKIPPED in the log, and the identity gate — the one
-# that decides whether consumers can fetch the pinned evaluator — fails
-# closed, because "we could not evaluate the pin" is not a pass. That branch
-# is future-proofing only: hosted ubuntu-latest ships podman, and the logged
-# runs since 2026-09-22 execute the build on every push.
+# Runner targeting: the UCS03 fleet lane (`devgate`, runner ucs03-devgate).
+# All of this repository's CI work runs on our own hardware; there is no
+# GitHub-hosted fallback. Same-repository pull requests run here too, behind a
+# job-level fork guard (`github.event_name != 'pull_request' ||
+# github.event.pull_request.head.repo.full_name == github.repository`) that
+# GitHub evaluates before any runner is assigned — so a fork PR's jobs are
+# skipped rather than dispatched to the private pool. Every job carries it;
+# `pull_request_target` is not used. The container-image job never passes
+# silently when podman is missing: the build and schema steps say SKIPPED in
+# the log, and the identity gate — the one that decides whether consumers can
+# fetch the pinned evaluator — fails closed, because "we could not evaluate the
+# pin" is not a pass.
 
 on:
   pull_request:
@@ -40,8 +43,9 @@ concurrency:
 
 jobs:
   tests:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     name: Test suite (Python + Node)
-    runs-on: ubuntu-latest
+    runs-on: devgate
     steps:
       # fetch-depth 0: the template's DEVGATE_PIN is checked here against the
       # registry IN THAT COMMIT's tree (test_the_pinned_commit_carries_the_
@@ -120,8 +124,9 @@ jobs:
           echo "runner discovered $n test file(s)"
 
   self-gates:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     name: DevGate gates on DevGate
-    runs-on: ubuntu-latest
+    runs-on: devgate
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -257,8 +262,9 @@ jobs:
   # no licence question, and the same mechanism works on a self-hosted runner
   # that already carries the pinned version (the fleet path — design D5/D6).
   secrets:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     name: Secret scan (pinned gitleaks over the pushed range)
-    runs-on: ubuntu-latest
+    runs-on: devgate
     permissions:
       contents: read
     steps:
@@ -346,8 +352,9 @@ jobs:
           fi
 
   specs:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     name: Specs (openspec strict + traceability)
-    runs-on: ubuntu-latest
+    runs-on: devgate
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -410,8 +417,9 @@ jobs:
           fi
 
   container-image:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     name: Evaluator image builds with its contracts (coh-rt-08)
-    runs-on: ubuntu-latest
+    runs-on: devgate
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       # The full real-container smoke (valid-request PASS) requires the image
@@ -492,8 +500,9 @@ jobs:
   # stays green, if the evaluator accepts forged input, or if identical
   # inputs produce different decisions.
   evaluator-integrity:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     name: The evaluator itself is attacked (fw-*)
-    runs-on: ubuntu-latest
+    runs-on: devgate
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -536,6 +545,7 @@ jobs:
                    tests/mutation_battery_runbook_claims.py \
                    tests/mutation_battery_zig_comment.py \
                    tests/mutation_battery_compat.py \
+                   tests/mutation_battery_fork_guard.py \
                    tests/mutation_battery_oap_acceptance.py; do
             echo "::group::$b"
             python3 "$b" || exit 1
@@ -602,7 +612,7 @@ jobs:
   # is a failing test rather than a sentence nobody re-reads.
   container-publish:
     name: Publish evaluator image to GHCR (S4)
-    runs-on: ubuntu-latest
+    runs-on: devgate
     permissions:
       contents: read
       packages: write
@@ -610,7 +620,7 @@ jobs:
       # the same path the fleet's monitor raises (img-cycle-05 says SHALL NOT
       # be reported only as a CI log notice). The notifier is hub/alerts.py.
       issues: write
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.publish)
+    if: (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.publish))
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - name: Build pinned image

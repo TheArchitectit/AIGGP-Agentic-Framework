@@ -17,6 +17,7 @@
   "test_evidence_integrity": 18,
   "test_failure_registry_check": 11,
   "test_findings_to_spec": 4,
+  "test_fork_guard": 7,
   "test_fw_guards": 6,
   "test_game_regression": 18,
   "test_game_session_start": 37,
