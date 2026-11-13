@@ -135,4 +135,4 @@ npm test        # vitest run — full suite in parallel
 - No changes are committed until you ask; the standard loop is `npm run build && npm test` before a commit.
 
 ## Roadmap
-See [`docs/ROADMAP.md`](docs/ROADMAP.md) — competitive landscape (2026) + phased feature plan: inline PR comments, incremental review, config flexibility, drift-scan mode, evidence trace, LLM tier, multi-VCS, distribution.
+See [upstream `docs/ROADMAP.md`](https://github.com/drwhofan2k18-pixel/stitcher-codereview/blob/main/docs/ROADMAP.md) — competitive landscape (2026) + phased feature plan: inline PR comments, incremental review, config flexibility, drift-scan mode, evidence trace, LLM tier, multi-VCS, distribution. (The roadmap is not vendored — this directory carries only the files the composite action needs — so the link points at upstream rather than at a path that does not exist here.)

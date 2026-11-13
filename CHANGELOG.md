@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Two internal documentation links that resolved to nothing now resolve.**
+  Found by running the guardrails-template's `scripts/check-doc-links.sh` over
+  this tree (AIGGP has no link gate of its own). `docs/NEW_REPO_ONBOARDING.md`
+  linked `docs/SUBMODULE_WIRING.md` from inside `docs/`, so it pointed at
+  `docs/docs/SUBMODULE_WIRING.md` — a broken anchor on GitHub and locally; it is
+  now `./SUBMODULE_WIRING.md`. The vendored `actions/stitcher-codereview/README.md`
+  inherited upstream's `docs/ROADMAP.md`, which is not vendored here, so it now
+  links to upstream's file and says why; `NOTICE.md` records the edit alongside
+  the existing local modifications. Re-run after the fix: **153 internal links
+  across 514 Markdown files resolve**.
+
 ## [1.3.21] - 2026-11-13
 
 ### Fixed

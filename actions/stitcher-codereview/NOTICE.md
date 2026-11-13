@@ -29,4 +29,9 @@ satisfy DevGate's own tree scan, each with a justification:
 - `src/llm/provider.ts` (SEMANTIC-001) — the flagged Promise executor captures
   only `resolve`, so the chain cannot reject; a `.catch()` would be dead code.
 
-Upstream source is otherwise byte-identical to commit 28e0bfe925fb.
+One documentation edit: `README.md`'s Roadmap link pointed at upstream's
+`docs/ROADMAP.md`, which is not in the vendored subset (only the files the
+composite action needs are), so the link resolved to nothing. It now points at
+upstream's file on GitHub and says the roadmap is not vendored here. No other
+file differs from upstream commit 28e0bfe925fb by more than the three
+`guardrails-allow` comments.
