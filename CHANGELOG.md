@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The two automated 2026-11-13 fleet and spec sweep records now sit beneath
+  the v1.3.27 release on `main`** (`docs/qa/fleet-sweeps/2026-11-13.json`,
+  `docs/qa/spec-sweeps/2026-11-13.json`). Record-only: findings, advisory notes
+  and per-repo counts; no gate logic changed.
+
 ## [1.3.27] - 2026-11-13
 
 ### Fixed
