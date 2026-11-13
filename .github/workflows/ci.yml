@@ -419,7 +419,14 @@ jobs:
   container-image:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     name: Evaluator image builds with its contracts (coh-rt-08)
-    runs-on: devgate
+    # Needs a real container engine, which the containerized lane runners do
+    # not have: nested rootless podman cannot create a sub-userns inside the
+    # runner's own userns (setuid newuidmap is neutered there), so this job
+    # died with "podman unavailable" when it moved off ubuntu-latest in
+    # c40aabb. `devgate-podman` is ucs03-devgate-podman: a host-level,
+    # unprivileged runner on a dedicated `cipodman` user with its own rootless
+    # podman — still on UCS03, still fork-guarded.
+    runs-on: devgate-podman
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       # The full real-container smoke (valid-request PASS) requires the image
@@ -612,7 +619,10 @@ jobs:
   # is a failing test rather than a sentence nobody re-reads.
   container-publish:
     name: Publish evaluator image to GHCR (S4)
-    runs-on: devgate
+    # Same engine requirement as container-image above: `podman build` and the
+    # digest-pinned pull need a real podman, so this runs on the dedicated
+    # unprivileged host-level runner rather than the containerized lane.
+    runs-on: devgate-podman
     permissions:
       contents: read
       packages: write
