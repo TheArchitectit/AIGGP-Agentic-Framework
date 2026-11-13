@@ -193,6 +193,42 @@ def test_hash_marker_covers_python_requirement(tmp_path):
     assert "router-req-01: covered" in result.stdout
 
 
+def test_uppercase_ids_are_discovered_and_covered(tmp_path):
+    """`add-gitlab-forge-support` writes `<!-- id: GLF-01 -->` and covers it
+    with `// spec: GLF-01`. The ID classes were lowercase-only, so all seven
+    of that change package's requirements were discovered as NOTHING: the
+    repo's gate reported 187 requirements where the tree holds 194, and the
+    seven covered ones were invisible to the ratchet — coverage that the code
+    asserts but the gate can never count. Same defect class as the zig/tsx/
+    .sh markers above: a marker the discovery cannot read is uncovered
+    forever (or, worse here, not required at all)."""
+    write(tmp_path / "openspec/changes/add-gitlab-forge-support/specs/forge-parity/spec.md",
+          SPEC.replace("router-req-01", "GLF-01"))
+    write(tmp_path / "hub/forge/__init__.py",
+          "# // spec: GLF-01, GLF-02\n")
+    write(tmp_path / "openspec/changes/add-gitlab-forge-support/specs/forge-parity/spec2.md",
+          SPEC.replace("router-req-01", "GLF-02"))
+    result = run(tmp_path, "--report")
+    assert result.returncode == 0
+    assert "GLF-01: covered" in result.stdout, result.stdout
+    assert "GLF-02: covered" in result.stdout, result.stdout
+    assert "2/2 requirements covered" in result.stdout, result.stdout
+
+
+def test_case_sensitive_ids_stay_distinct(tmp_path):
+    """Accepting both cases must not silently merge two IDs that differ only
+    by case: comparison is exact, so a marker must spell the ID its spec
+    does. Otherwise one marker would cover two requirements and the count
+    would overstate coverage."""
+    write(tmp_path / "openspec/specs/a/spec.md", SPEC.replace("router-req-01", "req-01"))
+    write(tmp_path / "openspec/specs/b/spec.md", SPEC.replace("router-req-01", "REQ-01"))
+    write(tmp_path / "src/a.rs", "// spec: req-01\n")
+    result = run(tmp_path, "--report")
+    assert "req-01: covered" in result.stdout, result.stdout
+    assert "REQ-01: UNCOVERED" in result.stdout, result.stdout
+    assert "1/2 requirements covered" in result.stdout, result.stdout
+
+
 def test_module_constants_are_defined_exactly_once():
     """F2 disposition (2026-09-26): 8c7556d shipped spec_traceability.py with
     SCAN_EXTS/SCAN_SKIP/ID defined twice (the second block silently shadowing

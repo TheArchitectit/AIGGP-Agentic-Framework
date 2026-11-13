@@ -18,7 +18,10 @@ traceability gate parses:
     #### Scenario: ...
     - **WHEN** ... - **THEN** ...
 
-Ids are kebab-case [a-z0-9-]+ to match REQ_ID in spec_traceability.py.
+Ids this tool *generates* are kebab-case [a-z0-9-]+. The reader below accepts
+any case so an existing requirement (`GLF-01`) is never duplicated by a
+newly appended one; the ID class is the same one scripts/lib/spec_discovery.py
+uses for the traceability gate.
 Re-running is idempotent: existing spec.md files are NEVER overwritten —
 only findings that have no requirement yet are appended (matched by their
 provenance line), so hand edits survive and the tool is safe to run in a loop.
@@ -159,7 +162,7 @@ def existing_state(spec_path: Path) -> tuple[set[str], set[tuple[str, str]]]:
     if not spec_path.exists():
         return set(), set()
     text = spec_path.read_text(encoding="utf-8")
-    ids = set(re.findall(r"<!--\s*id:\s*([a-z0-9-]+)\s*-->", text))
+    ids = set(re.findall(r"<!--\s*id:\s*([A-Za-z0-9-]+)\s*-->", text))
     covered = {(m[0], m[1]) for m in ORIGIN_LINE.findall(text)}
     return ids, covered
 

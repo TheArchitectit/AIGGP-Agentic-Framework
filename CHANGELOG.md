@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **A requirement ID written with capitals was invisible to the traceability
+  gate — seven requirements and their coverage did not exist as far as the gate
+  was concerned.** `openspec/changes/add-gitlab-forge-support/` writes
+  `<!-- id: GLF-01 -->` … `GLF-13` and covers them with `// spec: GLF-…` markers
+  in `hub/forge/__init__.py`, `hub/forge/instance.py` and
+  `tests/test_gitlab_forge_support.py`. The shared discovery
+  (`scripts/lib/spec_discovery.py`, used by both `spec_traceability.py` and
+  `spec_gap_scan.py`) matched IDs with a lowercase-only class, so the gate read
+  199 requirements where the tree holds 206 and 195 covered where 202 are
+  covered and marked — the ratchet was guarding a number that excluded a whole
+  change package. All three ID regexes now accept `[A-Za-z0-9-]`; comparison
+  stays exact (case-sensitive), so `REQ-01` and `req-01` remain two
+  requirements, and a marker must spell the ID its spec does. `findings_to_spec.py`
+  reads existing IDs with the same widened class so it can no longer append a
+  duplicate of an existing capitalised requirement (the IDs it *generates*
+  remain lowercase kebab-case). After the fix the gate reports **202/206
+  covered**, and its ratchet floor moves 184 → 202 — the old floor had also
+  drifted 11 below the then-current 195, which the advisory note had been
+  printing without failing. Two regression tests pin both halves: a
+  capitalised ID is discovered and covered, and IDs differing only by case stay
+  distinct.
+
 ## [1.3.22] - 2026-11-13
 
 ### Fixed
