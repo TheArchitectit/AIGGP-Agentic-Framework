@@ -415,6 +415,16 @@ path, line, and commit—never by value. See
 [.github/workflows/ci.yml](.github/workflows/ci.yml) for the reference CI and
 its full test, scanner, traceability, and container-image jobs.
 
+A job that needs a container engine (`podman build`, a digest-pinned
+`podman pull`/`run`) needs a runner that *is not itself a container*: a nested
+rootless podman cannot create a sub-userns inside a containerized runner's own
+userns, so `newuidmap` fails regardless of subuid ranges, added capabilities or
+userns mode. Route those jobs to a dedicated label — this repository uses
+`runs-on: devgate-podman`, a host-level unprivileged runner on the same
+self-hosted machine, with its own rootless podman storage, no sudo and no
+podman socket. Keep every other job on the ordinary fleet label: a single
+engine-capable runner is deliberate, not a pool.
+
 Five skills ship in `templates/skills/`: four-laws, scope-validator,
 halt-conditions, production-first, and commit-validator. Agent directions are
 in [AGENTS.md](AGENTS.md); template usage is in

@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **`ci.yml` runs on the self-hosted fleet for every event, including PRs.**
+  The owner's routing decision is that all CI work executes on our own
+  hardware, so the workflows no longer rely on GitHub-hosted capacity. Every
+  job in the one workflow that declares `pull_request` carries the job-level
+  fork guard
+  (`github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository`),
+  which GitHub evaluates *before* a runner is assigned, so a fork PR's jobs are
+  skipped rather than dispatched onto the private pool. `container-publish`
+  keeps its publish policy as the second conjunct. `hub-health-probe.yml`, the
+  last silently hosted job, moved to `devgate`. The guard is pinned, not
+  asserted: `tests/test_fork_guard.py` requires it as the leading clause of
+  every job and evaluates it against push, dispatch, same-repo-PR and fork-PR
+  payloads, and `tests/mutation_battery_fork_guard.py` mutates the file four
+  ways (guard deleted, operator inverted, guard demoted behind the job's own
+  condition, `pull_request_target` substituted) with each mutation killed.
+
+### Fixed
+
+- **The two container-engine jobs run on UCS03 again, on a runner that has an
+  engine.** Routing every job to `devgate` broke `container-image` ("podman:
+  command not found", exit 127) and `container-publish` ("podman unavailable —
+  the identity registry could not be evaluated", exit 1): the lane runners are
+  themselves rootless containers, and a nested rootless podman cannot create a
+  sub-userns inside the runner's own userns — `newuidmap` refuses to write
+  `uid_map` no matter how the subuid ranges, capabilities or userns mode are
+  set. Both jobs now carry `runs-on: devgate-podman`, a host-level,
+  unprivileged runner on ucs03 under a dedicated user with its own rootless
+  podman storage — no sudo, no podman socket, unable to reach the fleet's
+  runner containers or the hub. Still self-hosted, still on UCS03, fork guard
+  and publish policy unchanged. Verified green on run `43337938388`.
+
+### Added
+
+- **README documents the `devgate-podman` label**, so a consumer that needs
+  `podman build` or a digest-pinned pull does not repeat the investigation or
+  move the job back to a hosted runner.
+
 ## [1.3.18] - 2026-11-12
 
 ### Fixed
