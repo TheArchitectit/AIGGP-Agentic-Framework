@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The daily external-audit digest records now live on `main`.**
+  `docs/qa/audit-digest/` carries the one-record-per-digest-day notes that had
+  accumulated on the `chore/external-audit` branch. Documentation only; no gate
+  or runtime behaviour changed.
+
 ## [1.3.25] - 2026-11-13
 
 ### Added
