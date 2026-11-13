@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# // spec: srch-01, srch-02, srch-03, srch-04
 """surface_reach_check.py — a fix that reached one surface did not reach them all.
 
 WHY THIS EXISTS (measured, not theoretical)

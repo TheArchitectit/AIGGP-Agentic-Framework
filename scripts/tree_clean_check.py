@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# // spec: tc-01, tc-02, tc-03, tc-04
 """tree_clean_check.py — unclassified working-tree dirt is a gate failure.
 
 WHY THIS EXISTS (measured, not theoretical)

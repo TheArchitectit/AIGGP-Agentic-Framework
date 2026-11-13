@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# // spec: bd-01, bd-02, bd-03, bd-04
 """branch_drift_check.py — no commit may exist only on local disk.
 
 WHY THIS EXISTS (measured, not theoretical)

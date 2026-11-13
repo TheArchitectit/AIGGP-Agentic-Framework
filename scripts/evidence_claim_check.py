@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# // spec: evc-01, evc-02, evc-03, evc-04, evc-05, evc-06
 """evidence_claim_check.py — mock, stub, or deferral without evidence is not a decision.
 
 WHY THIS EXISTS (measured, not theoretical)

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# // spec: oia-01, oia-02, oia-03, oia-04
 """open-item-aging-check.py — no open item may live forever untriaged.
 
 WHY THIS EXISTS (measured, not theoretical)

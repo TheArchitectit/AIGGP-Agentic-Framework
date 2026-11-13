@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# // spec: sr-01, sr-02, sr-03, sr-04
 """secret_rotation_check.py — a scrubbed secret is not a revoked secret.
 
 WHY THIS EXISTS (measured, not theoretical)
