@@ -166,7 +166,9 @@ def main() -> int:
               f"Commit the real work; add generated paths to .gitignore or --generated.",
               file=sys.stderr)
         return EXIT_DIRT
-    print("OK: no unclassified working-tree dirt")
+    # --json emits a parsable document and nothing else.
+    if not args.json:
+        print("OK: no unclassified working-tree dirt")
     return EXIT_OK
 
 

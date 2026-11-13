@@ -135,9 +135,12 @@ pull-request-style range.
 
 The six open-item gates are implemented and specified but **not wired into
 CI**: where each runs is an owner decision, and a push-time job detects a
-violation that already landed. See
-`openspec/changes/add-open-item-gates/` for the specs and the open placement
-task.
+violation that already landed. Their behavior is pinned by
+`tests/test_open_item_gates.py` (29 fixture tests: each gate must fail on its
+failing fixture naming the offending input, pass on its clean fixture, and
+report `3` on empty input), so the evidence is re-runnable even though
+placement is open. See `openspec/changes/add-open-item-gates/` for the specs
+and the open placement task.
 
 ### Releases and documentation
 

@@ -189,7 +189,11 @@ def main() -> int:
               "Use DEFERRED(owner=,reason=,review=), MOCK(src=,why=), or STUB(issue=,why=).",
               file=sys.stderr)
         return EXIT_VIOLATION
-    print("OK: every mock/stub/deferred marker carries evidence")
+    # --json must emit a parsable document and nothing else: a trailing human
+    # line makes `json.loads(stdout)` fail on the clean path only, which is the
+    # worst place for machine output to break.
+    if not args.json:
+        print("OK: every mock/stub/deferred marker carries evidence")
     return EXIT_OK
 
 

@@ -192,7 +192,9 @@ def main() -> int:
               f"tag {ARCHIVE_PREFIX}<name>-<date> to declare them deliberately parked.",
               file=sys.stderr)
         return EXIT_DRIFT
-    print("OK: every local ref is present on its remote or explicitly archived")
+    # --json emits a parsable document and nothing else (see evidence_claim_check).
+    if not args.json:
+        print("OK: every local ref is present on its remote or explicitly archived")
     return EXIT_OK
 
 

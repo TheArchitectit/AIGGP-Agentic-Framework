@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The six open-item gates now have re-runnable fixtures (`add-open-item-gates`
+  2.9 / 4.3).** The package shipped `branch_drift`, `evidence_claim`,
+  `open_item_aging`, `secret_rotation`, `surface_reach` and `tree_clean`, and
+  recorded their evidence as a demonstration performed during authoring —
+  nothing in the tree could repeat it, so the claim was unverifiable by anyone
+  after the fact. `tests/test_open_item_gates.py` drives all six through their
+  real CLIs against synthetic fixtures (29 tests): the failing fixture must
+  exit `1` **and name the offending input**, the clean fixture must exit `0`,
+  and the empty input must exit `3`. Non-vacuity is measured per gate: forcing
+  each script's verdict return to `EXIT_OK` turns that gate's tests red, and
+  restoring them returns 29/29.
+
+### Fixed
+
+- **`--json` is now machine-readable on the clean path.** `branch_drift_check`,
+  `evidence_claim_check` and `tree_clean_check` printed their human `OK:` line
+  after the JSON document, so `json.loads(stdout)` failed only when the gate
+  found nothing — the worst place for machine output to break. `--json` now
+  emits the document and nothing else on every path.
+
 ## [1.3.30] - 2026-11-13
 
 ### Fixed

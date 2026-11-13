@@ -42,6 +42,25 @@ owner decision (see the closing section).
   file is executable in the index (shebang implies `100755`).
 - [x] 2.9 Each gate was demonstrated failing on a fixture before the commit, and
   passing on a clean fixture.
+  - **Re-runnable since 2026-11-13.** The tick described an authoring session,
+    not anything in the tree: no fixture, test or invocation existed, so the
+    claim could not be checked by anyone after the fact — the same class this
+    package exists to gate. `tests/test_open_item_gates.py` now drives all six
+    gates as subprocesses against synthetic fixtures (29 tests): each gate's
+    failing fixture must exit `1` **and name the offending input** (so a gate
+    that fails for the wrong reason cannot pass as detection), its clean
+    fixture must exit `0` (so it is not always-red), and its empty input must
+    exit `3` (the shared nothing-scanned contract). Non-vacuity measured per
+    gate by mutation: forcing each script's verdict return to `EXIT_OK` turns
+    that gate's tests red (`branch_drift` 1 failed, `evidence_claim` 3,
+    `open_item_aging` 3, `secret_rotation` 3, `surface_reach` 2,
+    `tree_clean` 1), and restoring them returns 29/29.
+  - The fixtures found one real contract defect: `--json` on `branch_drift`,
+    `evidence_claim` and `tree_clean` printed the human `OK:` line after the
+    JSON document, so `json.loads(stdout)` failed on the **clean** path only —
+    the worst place for machine output to break. `--json` now emits the
+    document and nothing else on every path (`open_item_aging` has no `--json`
+    mode, so it is unchanged).
 
 ## 3. Traceability
 
@@ -59,6 +78,16 @@ owner decision (see the closing section).
 - [ ] 4.2 Adopt a triage ledger and a rotation ledger with content. The gates
   read these files; creating them is a process decision, and an empty ledger is
   a pass, not evidence.
-- [ ] 4.3 Unit tests under `tests/` for each gate. Today the evidence is the
+- [x] 4.3 Unit tests under `tests/` for each gate. Today the evidence is the
   authoring-time demonstration named in the commit; a suite that pins the
   passing and failing fixtures would make that evidence re-runnable.
+  - Done 2026-11-13: `tests/test_open_item_gates.py`, 29 tests across the six
+    gates (failing fixture, clean fixture, empty input per gate). The suite
+    pins behavior through the real CLI, not by importing internals, so an exit
+    code or message change is visible. `tests/expected-counts.json` was
+    regenerated with `gen_floors.py --update` (new floor `test_open_item_gates:
+    26`, `total_floor` 1752 → 1798); the other floors that rose in the same
+    regeneration (`check_charset` 14→16, `hub_coherence_traceability` 7→9,
+    `hub_enroll_heartbeat` 13→16, `regression_sizes` 14→18,
+    `spec_traceability` 18→19) are tests already on `main` that the stale file
+    had not yet counted — no floor was lowered.
