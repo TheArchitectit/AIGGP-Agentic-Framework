@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Six open-item gates, one per recurring deficiency family** — `scripts/
+  open_item_aging_check.py`, `branch_drift_check.py`, `tree_clean_check.py`,
+  `secret_rotation_check.py`, `surface_reach_check.py`, and
+  `evidence_claim_check.py`, each with its own capability spec
+  (`openspec/changes/add-open-item-gates/specs/`, 26 requirement IDs) and
+  `// spec:` markers. Every gate reuses DevGate's nothing-scanned contract
+  (exit 3, never a bare green) and the frozen exit codes 0/1/2/3. **Not wired
+  into CI**: enforcement placement is an owner decision, recorded as the open
+  task in the change's `tasks.md`.
+- **A specification-only proposal binding spec state transitions to commits and
+  evidence** — `openspec/changes/add-spec-state-ledger/` (proposal, design,
+  9-requirement delta, tasks). It proposes an append-only
+  `openspec/state-ledger.jsonl`, a diff-driven gate, and a generated index. No
+  gate, hook, or ledger is implemented by the package, and no existing spec is
+  reclassified.
+
+### Changed
+
+- **Traceability ratchet floor raised from 202 to 228** after the six gates
+  covered their 26 requirement IDs; the nine ledger IDs remain advisory because
+  that package is specification-only. Removing a marker now fails the gate.
+
 ## [1.3.24] - 2026-11-13
 
 ### Fixed

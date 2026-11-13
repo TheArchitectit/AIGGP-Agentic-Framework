@@ -126,6 +126,18 @@ pull-request-style range.
 | `templates/hooks/` | Thin session-start adapters for Claude Code, pi-extension, Codex, OpenCode, and MiMo. The phase-gate matrix (`game-matrix-01..03`) remains planned, not enforced. |
 | `hub/sessions.py` | Defensive session-log ingestion and registry joins. A tested library, not an HTTP route; `hub/server.py` does not expose it. |
 | `fleet-manager/` | Tested value, contract, planning, and reconciliation boundary. It has no live Podman/Docker adapter or executor and is not a shipped fleet manager service. |
+| `open_item_aging_check.py` | Aged open item needs a live triage disposition; an expired deferral fails. Reads an explicit backlog and triage ledger. |
+| `branch_drift_check.py` | A local ref reachable from no advertised remote ref is drift; an archived commit is a recorded decision. |
+| `tree_clean_check.py` | Classifies working-tree entries (committed change, declared generated churn, mode-only churn, real dirt); only real dirt fails by default. |
+| `secret_rotation_check.py` | Scrubbing from `HEAD` is not revocation; an unrevoked detection past its window fails the rotation ledger. |
+| `surface_reach_check.py` | Every declared surface of one artifact must exist and hold identical content. |
+| `evidence_claim_check.py` | `DEFERRED` needs owner, reason, and a future review date; mocks and stubs must point at the real thing or a tracked issue. |
+
+The six open-item gates are implemented and specified but **not wired into
+CI**: where each runs is an owner decision, and a push-time job detects a
+violation that already landed. See
+`openspec/changes/add-open-item-gates/` for the specs and the open placement
+task.
 
 ### Releases and documentation
 
