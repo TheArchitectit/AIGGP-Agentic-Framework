@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.34] - 2026-11-13
+
+### Fixed
+
+- **`tests/test_open_item_gates.py` lost its exec bit in 1.3.33, and CI went
+  red on it.** The module carries a `#!` line, so the index mode must be
+  `100755`; editing it in 1.3.33 and staging it with a plain `git add` recorded
+  `100644`, because this host has `core.fileMode=false` and git did not carry
+  the working-tree bit into the index. Two independent checks caught it —
+  `tests/test_fw_guards.py::TestExecBitCheck::test_real_tree_passes` and the
+  `Exec-bit integrity` step — and both failed for the same reason. The local
+  `check_exec_bits.py` run before that commit passed only because it ran before
+  the file was staged. Fixed with `chmod +x` on the worktree **and**
+  `git update-index --chmod=+x`: the index fix alone is undone by the next
+  `git add` of a still-644 file, which is exactly how v1.3.33 dropped it.
+
+### Added
+
+- **`scripts/deploy.sh` now runs a release-artifact preflight before it tags.**
+  `scripts/release_preflight.sh` regenerates and stages `CHECKSUMS.sha256`,
+  then checks the index — immediately after `git add -A` — for shebang'd files
+  that lost `100755`, so both failures land before the tag exists instead of
+  on CI after the push. Verified by planting each violation: `git
+  update-index --chmod=-x` on a shebang'd test exits 1 naming the file, and a
+  corrupted digest makes the manifest verify fail; restoring both returns 0.
+
+- **`CHECKSUMS.sha256` is generated on the tag path and verified in CI.**
+  The manifest was documented as "generated at tag time", but nothing on the
+  tag path generated it: it shipped stale from 2026-11-01 to 2026-11-13, and a
+  consumer following its own `verify` line found 38 digests that disagreed
+  with the tree and 18 shipped scripts the manifest did not list at all.
+  `deploy.sh` now regenerates and verifies it before the release commit, and
+  the `DevGate gates on DevGate` job runs `gen-checksums.py verify`, so a
+  drifted manifest fails here rather than at the consumer. This release's
+  manifest is regenerated: 146 scripts, all matching.
+
 ## [1.3.33] - 2026-11-13
 
 ### Fixed

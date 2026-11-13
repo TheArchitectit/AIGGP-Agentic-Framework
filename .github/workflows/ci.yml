@@ -141,6 +141,21 @@ jobs:
         run: python3 -m pip install --quiet pytest
       - name: Pattern scan (own tree must be warning-clean)
         run: node scripts/guardrails-scan.mjs
+      - name: Release checksums (the shipped manifest must match the shipped scripts)
+        # R12. The manifest is generated at tag time, but nothing verified it
+        # afterwards, so it shipped stale from 2026-11-01 to 2026-11-13 — a
+        # consumer following its "verify before use" line got 38 mismatched
+        # digests and 18 entries missing entirely. Verify mode recomputes each
+        # digest from the tree, so a drifted manifest reds here instead of at
+        # the consumer.
+        run: |
+          out="$(python3 scripts/gen-checksums.py verify 2>&1)"; rc=$?
+          printf '%s\n' "$out"
+          if [ "$rc" -ne 0 ]; then
+            echo "FAIL: CHECKSUMS.sha256 disagrees with the tracked scripts."
+            echo "Regenerate it in the release commit: python3 scripts/gen-checksums.py generate"
+            exit 1
+          fi
       - name: Semantic scan (installs the pinned parser)
         run: |
           npm install --no-save --no-audit --no-fund typescript@5

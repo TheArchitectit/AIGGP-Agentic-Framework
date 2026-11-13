@@ -3,9 +3,8 @@
 #
 # scripts/deploy.sh — Generic gated publish pipeline (language-agnostic).
 #
-# Auto-detects the project's package manager (npm, cargo, pip) and runs
-# the appropriate build/test/publish commands. Does NOT assume any specific
-# language or framework.
+# Auto-detects npm/cargo/pip and runs the matching build/test/publish commands;
+# assumes no specific language or framework.
 #
 # Steps:
 #   1. Clean git tree
@@ -21,8 +20,7 @@
 #   7. Publish (auto-detected: npm / cargo / pip / custom)
 #   8. GitHub release
 #
-# Usage:
-#   ./scripts/deploy.sh <new-version>
+# Usage: ./scripts/deploy.sh <new-version>
 #
 # Optional: create .guardrails/release-artifact-contract.json (see
 # release-artifact-contract.example.json) to assert the packed artifact really
@@ -226,6 +224,7 @@ cd "$PROJECT_ROOT"
 if ! git diff --quiet; then
 	echo "[deploy] committing version bump"
 	git add -A
+	bash scripts/release_preflight.sh
 	git commit -m "chore(release): v$NEW_VERSION"
 fi
 

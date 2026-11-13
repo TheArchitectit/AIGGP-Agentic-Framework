@@ -150,7 +150,11 @@ and the open placement task.
 Product changes on `main` must be released, not accumulated behind a green
 version-file check. `scripts/deploy.sh <version>` folds the `Unreleased`
 notes into a dated `CHANGELOG.md` section, updates `VERSION`, commits and
-annotates the release, runs the gates, and pushes the commit and tag. The
+annotates the release, runs the gates, and pushes the commit and tag. Before
+tagging it regenerates and verifies `CHECKSUMS.sha256` (the shipped artifact
+digests) and checks the staged index for shebang'd files that lost `100755`,
+so neither a stale manifest nor a mode drop can be tagged; CI verifies both
+again on the pushed commit. The
 tag-triggered **Release Published** workflow creates and verifies the GitHub
 Release; **Release Coverage** rejects an untagged `main` HEAD. Generated
 fleet/spec trend-report-only pushes are explicitly skipped, not counted as
