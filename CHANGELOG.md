@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **The runner standard no longer presents "podman inside the runner
+  container" as a working default.** Shape (a) of *the evaluator image on a
+  runner host* said to give the runner image podman and back its store with a
+  named volume. That does not work for a stock rootless runner: the runner is
+  uid 1001 inside its own userns, and starting a container inside it needs a
+  second subordinate mapping, which the setuid helpers refuse —
+  `newuidmap: write to uid_map failed: Operation not permitted` — whatever the
+  subuid range, added capabilities, `--userns` mode or storage driver. Measured
+  across eight configurations on 2026-11-13. The shape now carries that
+  limitation and a one-command probe (`podman run --rm alpine:3 true` inside
+  the runner container, exit 0 required) instead of asserting it works, and a
+  new shape (c) covers the honest alternative: a host-level runner under its
+  own unprivileged user, with a dedicated label, carrying only the jobs that
+  need an engine.
+
+### Fixed
+
+- **`add-a-runner.md` warns that the restored credential snapshot is reused,
+  not validated.** GitHub expires the registration of a runner that has not
+  connected recently, and a scaler-stopped spare never connects — but the
+  entrypoint restores `.runner`/`.credentials`/`.credentials_rsaparams`
+  whenever they exist, so an expired registration comes back on every start and
+  the unit restart-loops forever while still reading as `offline` rather than
+  `gone` at the API. Measured: 36 spare units across 18 lanes, one restart
+  counter past 33,000, and no alert anywhere. The section now carries the
+  re-register procedure, including the two traps that cost time — the drop-in
+  needs the `RUNNER_TOKEN=` key, not a bare token, and registration must use
+  the repo's canonical name — plus the credential-snapshot deletion that has to
+  happen before the restart.
+
 ## [1.3.19] - 2026-11-13
 
 ### Changed

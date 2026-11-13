@@ -105,6 +105,30 @@ exist, `config.sh` is skipped and the existing registration is reused. The
 token env file is still needed at unit-parse time (see above) but its value
 is not re-read after the first registration.
 
+**Reused, not validated — an expired registration restores forever.** GitHub
+expires the registration of a runner that has not connected recently, and a
+spare that a scaler stops never connects. Because the entrypoint restores the
+snapshot whenever the files exist, the dead registration comes back on every
+start and the unit restart-loops (10 s, indefinitely) while still showing up as
+`offline` — not `gone` — at `gh api .../actions/runners`. Measured 2026-11-13:
+36 spare units across 18 lanes, one restart counter past 33,000. Re-register a
+runner that keeps doing this:
+
+```bash
+gh api -X POST repos/OWNER/REPO/actions/runners/registration-token --jq .token \
+  | awk '{print "RUNNER_TOKEN=" $0}' > <quadlet>.d/10-token.conf   # chmod 600
+# write the KEY too: a bare token binds nothing and the unit dies on
+# "RUNNER_TOKEN: unbound variable"
+podman run --rm -v <work-volume>:/v docker.io/library/alpine:3 \
+  sh -c 'rm -f /v/runner-config/.runner /v/runner-config/.credentials /v/runner-config/.credentials_rsaparams'
+systemctl --user start devgate-runner-<project>
+gh api repos/OWNER/REPO/actions/runners --jq '.runners[] | select(.name=="<name>") | .status'
+```
+
+Use the repo's **canonical** name (a renamed repo's old name redirects in the
+API but 404s at registration), and check the token file after writing it: the
+key present and the value length 29. Registration tokens are one-use.
+
 Test with a graceful restart:
 
 ```bash
