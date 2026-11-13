@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The `add-gitlab-forge-support` task ledger no longer claims completions
+  the tree does not evidence.** Commit `9c46180` ticked all six sprints in the
+  same commit that landed the code. A 2026-11-13 audit re-marked Sprint 0 (no
+  self-hosted GitLab instance documented or reachable — still blocked on the
+  operator), Sprint 3 (fleet declaration walk not extended; no
+  undeclared-instance guard), Sprint 4 (the parity drill decides pass/fail
+  from fixture flags, so it cannot detect a real divergence) and Sprint 5 (no
+  monitoring, docs, or external-instance guide) as open, stating the evidence
+  for each. Sprint 1's runner standard and Sprint 2's mirror check stand as
+  complete. Documentation only; no gate or runtime behaviour changed.
+
 ## [1.3.26] - 2026-11-13
 
 ### Added
