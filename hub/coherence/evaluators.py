@@ -72,20 +72,12 @@ def traceability_completeness(assertion: dict, package: dict, subject_root: str,
     return findings
 
 
-# Marker grammar mirrors scripts/lib/spec_discovery.py (kept in lockstep):
-# one marker line may carry several comma-separated ids, the comma anchor
-# keeps a trailing comment (`// spec: a-01 -- why`) out of the captured ids,
-# ids may be written in either case (`GLF-01` is a real requirement ID in this
-# repo's GitLab-forge change package), and the `//`, `#` and `--` comment
-# prefixes all count (H6: `//`-only locked Python subjects out of marker
-# coverage; `--` is SQL/Lua). A drift here reads coverage the gate can see as
-# UNMARKED — `tests/test_hub_coherence_traceability.py` pins the two grammars
-# to each other so this cannot happen silently again.
+# Marker grammar mirrors scripts/lib/spec_discovery.py: comma-anchored ids in
+# either case, `//`, `#` and `--` prefixes, and the gate's extension set. A
+# drift reads coverage the gate sees as UNMARKED; the lockstep test in
+# tests/test_hub_coherence_traceability.py pins the two together.
 MARKER_RE = re.compile(r"(?://|#|--)\s*spec:[ \t]*([A-Za-z0-9-]+(?:[ \t]*,[ \t]*[A-Za-z0-9-]+)*)")
 MARKER_ID_RE = re.compile(r"[A-Za-z0-9-]+")
-# Same surface as spec_discovery.SCAN_EXTS: an extension the gate scans but
-# the evaluator does not is a marker that covers a requirement for the gate
-# and is invisible here.
 MARKER_EXTS = {".rs", ".py", ".mjs", ".js", ".ts", ".tsx", ".sh", ".zig",
                ".gd", ".sql", ".lua"}
 MARKER_SKIP = {"target", "node_modules", ".git", "openspec", ".devgate"}
