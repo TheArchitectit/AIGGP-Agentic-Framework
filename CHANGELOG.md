@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.24] - 2026-11-13
+
 ### Fixed
 
 - **The coherence evaluator's marker grammar had drifted from the gate's in
