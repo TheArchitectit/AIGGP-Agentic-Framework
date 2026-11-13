@@ -425,6 +425,12 @@ self-hosted machine, with its own rootless podman storage, no sudo and no
 podman socket. Keep every other job on the ordinary fleet label: a single
 engine-capable runner is deliberate, not a pool.
 
+A required CI step must not assume the `gh` CLI exists on a self-hosted runner.
+The lane images ship the actions/runner toolchain and nothing else, so `gh` is
+present only where someone installed it into a running container by hand —
+which is why the release publisher talks to the REST API with `curl` instead,
+and why `secret-fleet.yml` guards its `gh` calls behind `command -v gh`.
+
 Five skills ship in `templates/skills/`: four-laws, scope-validator,
 halt-conditions, production-first, and commit-validator. Agent directions are
 in [AGENTS.md](AGENTS.md); template usage is in

@@ -74,11 +74,60 @@ jobs:
           print(f"release notes: {len(body.splitlines())} line(s) from {heading}")
           PY
 
-          if gh release view "$TAG" --json url --jq .url; then
-            echo "$TAG already has a GitHub Release; leaving its notes editable by maintainers"
-          else
-            gh release create "$TAG" --title "$TAG" \
-              --notes-file "$RUNNER_TEMP/release-notes.md" --verify-tag \
-              || gh release view "$TAG" --json url --jq .url
-          fi
-          gh release view "$TAG" --json url --jq .url
+          # Talk to the REST API with curl, not the `gh` CLI. `gh` is NOT
+          # guaranteed on a self-hosted runner: the lane images ship the
+          # actions/runner toolchain and nothing else, so `gh` exists only where
+          # someone installed it into a running container by hand. v1.3.20's
+          # release job died here with `gh: command not found` (exit 127) on a
+          # spare of the same lane that had passed for v1.3.19 on the base
+          # runner, which had a hand-installed copy. A required publish step
+          # must not depend on that.
+          api="https://api.github.com/repos/${GITHUB_REPOSITORY}"
+          auth=(-H "Authorization: Bearer ${GH_TOKEN}"
+                -H "Accept: application/vnd.github+json"
+                -H "X-GitHub-Api-Version: 2022-11-28")
+          status=$(curl -sS -o /dev/null -w '%{http_code}' "${auth[@]}" \
+            "$api/releases/tags/$TAG")
+          case "$status" in
+            200)
+              echo "$TAG already has a GitHub Release; leaving its notes editable by maintainers"
+              ;;
+            404)
+              curl -sS -X POST "${auth[@]}" \
+                -H "Content-Type: application/json" "$api/releases" \
+                --data-binary "$(python3 - "$TAG" "$RUNNER_TEMP/release-notes.md" <<'PY'
+          import json, pathlib, sys
+          tag, notes = sys.argv[1:]
+          print(json.dumps({
+              "tag_name": tag,
+              "name": tag,
+              "body": pathlib.Path(notes).read_text(encoding="utf-8"),
+              "draft": False,
+              "prerelease": False,
+          }))
+          PY
+          )" >/dev/null || true
+              ;;
+            *)
+              echo "::error::could not read releases for $TAG (HTTP $status)"
+              exit 1
+              ;;
+          esac
+
+          # Verify by reading it back: the release exists, is published (not a
+          # draft) and carries the changelog body. An empty release is not
+          # evidence.
+          curl -sS "${auth[@]}" "$api/releases/tags/$TAG" -o "$RUNNER_TEMP/release.json"
+          python3 - "$RUNNER_TEMP/release.json" "$TAG" <<'PY'
+          import json, pathlib, sys
+          path, tag = sys.argv[1:]
+          release = json.loads(pathlib.Path(path).read_text(encoding="utf-8"))
+          if release.get("tag_name") != tag:
+              raise SystemExit(f"release tag mismatch: {release.get('tag_name')} != {tag}")
+          if release.get("draft"):
+              raise SystemExit(f"{tag} exists but is still a draft")
+          body = (release.get("body") or "").strip()
+          if not body:
+              raise SystemExit(f"{tag} has an empty release body")
+          print(f"GitHub Release {tag} verified: {release['html_url']} ({len(body.splitlines())} line(s))")
+          PY

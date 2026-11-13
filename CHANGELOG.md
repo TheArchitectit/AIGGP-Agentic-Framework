@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The release publisher no longer needs the `gh` CLI.** `Release Published`
+  failed on `v1.3.20` with `gh: command not found` (exit 127): the lane images
+  ship the actions/runner toolchain and nothing else, so `gh` exists only where
+  someone installed it into a running container by hand — the base `devgate`
+  runner had it, the spares of the same lane did not, which is why the identical
+  job passed for `v1.3.19` and failed for `v1.3.20`. The step now talks to the
+  REST API with `curl` (`GET`/`POST /repos/{repo}/releases`), creates the
+  release only on a 404, treats an existing release as evidence, and verifies by
+  reading it back — tag matches, not a draft, non-empty changelog body. Exercised
+  locally against the real `v1.3.20` release end to end before pushing. The
+  README gains the rule this is an instance of: a required CI step must not
+  assume `gh` on a self-hosted runner (or must gate on `command -v gh`).
+
 ## [1.3.20] - 2026-11-13
 
 ### Changed
