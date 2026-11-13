@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The coherence evaluator's marker grammar had drifted from the gate's in
+  three more ways than the ID case — and each reads covered work as UNMARKED.**
+  `hub/coherence/evaluators.py` duplicates the marker grammar deliberately (the
+  hub ships without `scripts/`), and its comment claims the two are "kept in
+  lockstep"; they were not: the ID class was lowercase-only (so `// spec:
+  GLF-01` covered nothing here), the `--` prefix was missing (SQL/Lua markers),
+  and the extension list stopped at `.zig` while the gate also scans `.tsx`,
+  `.gd`, `.sql` and `.lua`. All three now match `scripts/lib/spec_discovery.py`,
+  and a new test pins the two grammars to each other structurally (same IDs on
+  six sample markers, same extension and skip sets) so a fourth drift fails in
+  the suite instead of producing false `unmarked-requirement` findings. Two
+  behavior tests cover the capitalised ID and the `.sql`/`.tsx` surfaces. This
+  does not change any result on this repository or the benchmark corpus (no
+  `-- spec:` markers exist in the tree), only on subjects that use them.
+
 ## [1.3.23] - 2026-11-13
 
 ### Fixed

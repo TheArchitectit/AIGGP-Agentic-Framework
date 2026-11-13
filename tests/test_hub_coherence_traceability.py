@@ -88,6 +88,69 @@ class TestTraceabilityMarkerScan(unittest.TestCase):
                 self._assertion(), dict(self.PKG), str(subj))
             self.assertEqual(fs, [])
 
+    def test_uppercase_id_is_covered(self):
+        # `add-gitlab-forge-support` writes requirement IDs as GLF-01..GLF-13
+        # and marks them `// spec: GLF-..`. The evaluator's ID class was
+        # lowercase-only, so the same drift the gate had (fixed in
+        # scripts/lib/spec_discovery.py, v1.3.23) made covered requirements
+        # read UNMARKED here — seven false findings for one change package.
+        with tempfile.TemporaryDirectory() as td:
+            subj = Path(td) / "subject"
+            (subj / "src").mkdir(parents=True)
+            (subj / "src" / "app.py").write_text("// spec: GLF-01, GLF-02\n", encoding="utf-8")
+            pkg = {"normative_requirements": {
+                "GLF-01": {"testable": True, "assertion_ids": ["trace.coverage"]},
+                "GLF-02": {"testable": True, "assertion_ids": ["trace.coverage"]},
+            }}
+            fs = evaluators.traceability_completeness(
+                self._assertion(), pkg, str(subj))
+            self.assertEqual(fs, [])
+
+    def test_sql_and_tsx_markers_cover(self):
+        # The gate scans .sql/.lua/.gd/.tsx; the evaluator's extension list
+        # stopped at .zig, so the same marker shape read UNMARKED on those
+        # surfaces (same class as the .sh/.zig drift above).
+        with tempfile.TemporaryDirectory() as td:
+            subj = Path(td) / "subject"
+            (subj / "db").mkdir(parents=True)
+            (subj / "web").mkdir(parents=True)
+            (subj / "db" / "schema.sql").write_text("-- spec: r1\n", encoding="utf-8")
+            (subj / "web" / "Router.tsx").write_text("// spec: r2\n", encoding="utf-8")
+            fs = evaluators.traceability_completeness(
+                self._assertion(), dict(self.PKG), str(subj))
+            self.assertEqual(fs, [])
+
+    def test_marker_grammar_is_in_lockstep_with_the_gate(self):
+        """The evaluator duplicates the gate's marker grammar on purpose (the
+        hub ships without scripts/), and the comment claiming they are "kept
+        in lockstep" was wrong three times: prefix, extension list, and ID
+        case. Pin the two to each other structurally so a fourth drift fails
+        here instead of reading green."""
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts" / "lib"))
+        import spec_discovery  # noqa: E402
+
+        samples = [
+            "// spec: r1, r2 -- why",
+            "# spec: GLF-01",
+            "-- spec: sql-01",
+            "// spec: r1_not",
+            "// spec: r1 -- why r2",
+            "# // spec: a-01, B-02",
+        ]
+
+        def ids(pattern, id_re, text):
+            return {m for group in pattern.findall(text)
+                    for m in id_re.findall(group)}
+
+        for text in samples:
+            self.assertEqual(
+                ids(spec_discovery.MARKER, spec_discovery.ID, text),
+                ids(evaluators.MARKER_RE, evaluators.MARKER_ID_RE, text),
+                f"marker grammars disagree on {text!r}",
+            )
+        self.assertEqual(evaluators.MARKER_EXTS, spec_discovery.SCAN_EXTS)
+        self.assertEqual(evaluators.MARKER_SKIP, spec_discovery.SCAN_SKIP)
+
     def test_trailing_prose_cannot_fake_coverage(self):
         # The id grammar is comma-anchored: `-- why r2` after the marker
         # must not be read as covering r2.
