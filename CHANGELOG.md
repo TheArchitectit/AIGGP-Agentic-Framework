@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.19] - 2026-11-13
+
 ### Changed
 
 - **`ci.yml` runs on the self-hosted fleet for every event, including PRs.**
