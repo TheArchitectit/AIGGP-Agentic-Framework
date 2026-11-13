@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.29] - 2026-11-13
+
 ### Fixed
 
 - **The nightly Drift Scan no longer reds on the morning after a release.**
