@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.31] - 2026-11-13
+
 ### Added
 
 - **The six open-item gates now have re-runnable fixtures (`add-open-item-gates`
