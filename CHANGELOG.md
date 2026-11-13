@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.28] - 2026-11-13
+
 ### Added
 
 - **The two automated 2026-11-13 fleet and spec sweep records now sit beneath
