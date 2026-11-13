@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.33] - 2026-11-13
+
+### Fixed
+
+- **`surface_reach_check.py` no longer names a different "odd one out" from
+  run to run.** It picked the majority hash with
+  `max(counts, key=counts.get)` over `set(hashes.values())`, so when two
+  surfaces disagreed 1-1 there was no majority and the answer followed hash
+  randomisation: the same pair named `ui-a.tsx` in one process and `ui-b.tsx`
+  in the next. Found by the fixture suite from 1.3.31, but only when the whole
+  suite ran — in isolation the ordering happened to be stable, which is why the
+  first pass missed it. The most common hash now wins with ties broken by the
+  hash value, and the reported paths are sorted, so identical input produces
+  identical output. `tests/test_open_item_gates.py` grew to 30 tests: the
+  divergence case now uses a two-agreeing-one-drifts group where the majority
+  is unambiguous, and a separate case runs a 1-1 tie twice and requires
+  byte-identical output.
+
 ## [1.3.32] - 2026-11-13
 
 ### Fixed

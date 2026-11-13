@@ -309,13 +309,36 @@ class SurfaceReach(unittest.TestCase):
         return p
 
     def test_divergent_surfaces_fail_and_the_odd_one_is_named(self) -> None:
+        # Two agreeing surfaces and one that drifts: the majority is the
+        # intended content, so the odd-one-out is not ambiguous and the gate
+        # must name it. A 1-1 pair has no majority; that case is pinned by
+        # test_a_tie_still_names_a_surface_and_is_deterministic below.
         a = self._surface("ui-a.tsx", "fixed\n")
-        b = self._surface("ui-b.tsx", "unfixed\n")
-        self._manifest([{"name": "shared-sheet", "paths": [str(a), str(b)]}])
+        b = self._surface("ui-b.tsx", "fixed\n")
+        c = self._surface("ui-c.tsx", "unfixed\n")
+        self._manifest([{"name": "shared-sheet", "paths": [str(a), str(b), str(c)]}])
         r = run("surface_reach_check.py", self.manifest)
         self.assertEqual(r.returncode, EXIT_VIOLATION, r.stdout + r.stderr)
         self.assertIn("not reached", r.stderr)
-        self.assertIn("ui-b.tsx", r.stderr)
+        self.assertIn("ui-c.tsx", r.stderr)
+
+    def test_a_tie_still_names_a_surface_and_is_deterministic(self) -> None:
+        # No majority to prefer, so which surface is called "not reached" is a
+        # policy choice — but it must be the SAME choice every run. The first
+        # version picked max() over a set of hashes, so the answer followed
+        # hash randomisation and this fixture named ui-a on one run and ui-b
+        # on the next (observed in the full suite, not standalone). Identical
+        # input now has to produce byte-identical output.
+        a = self._surface("ui-a.tsx", "fixed\n")
+        b = self._surface("ui-b.tsx", "unfixed\n")
+        self._manifest([{"name": "shared-sheet", "paths": [str(a), str(b)]}])
+        first = run("surface_reach_check.py", self.manifest)
+        second = run("surface_reach_check.py", self.manifest)
+        self.assertEqual(first.returncode, EXIT_VIOLATION, first.stdout + first.stderr)
+        self.assertEqual(first.stdout, second.stdout, "tie-break is not deterministic")
+        self.assertEqual(first.stderr, second.stderr, "tie-break is not deterministic")
+        self.assertTrue("ui-a.tsx" in first.stderr or "ui-b.tsx" in first.stderr,
+                        f"no surface named: {first.stderr}")
 
     def test_identical_surfaces_pass(self) -> None:
         a = self._surface("ui-a.tsx", "fixed\n")

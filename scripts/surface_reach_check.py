@@ -122,10 +122,17 @@ def main() -> int:
         checked += len(hashes)
         distinct = set(hashes.values())
         if len(distinct) > 1:
-            # name the odd-one-out so the fix is obvious
+            # name the odd-one-out so the fix is obvious. Deterministic on a
+            # tie: `set` iteration order follows hash randomisation, so picking
+            # max(counts, key=counts.get) over it named a different surface from
+            # run to run when two contents each appeared once — found by the
+            # fixture suite (add-open-item-gates 4.3), which saw ui-a.tsx on one
+            # run and ui-b.tsx on another for the same pair. Most common hash
+            # wins, ties broken by the hash value, and the reported paths are
+            # sorted so identical inputs produce identical output.
             counts = {h: list(hashes.values()).count(h) for h in distinct}
-            majority = max(counts, key=counts.get)
-            odd = [k for k, v in hashes.items() if v != majority]
+            majority = min(counts, key=lambda h: (-counts[h], h))
+            odd = [k for k, v in sorted(hashes.items()) if v != majority]
             violations.append(
                 f"{name}: {len(distinct)} distinct contents across {len(paths)} surfaces "
                 f"— not reached: {odd[:3]}")

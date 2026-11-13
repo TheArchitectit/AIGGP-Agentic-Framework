@@ -91,3 +91,16 @@ owner decision (see the closing section).
     `hub_enroll_heartbeat` 13→16, `regression_sizes` 14→18,
     `spec_traceability` 18→19) are tests already on `main` that the stale file
     had not yet counted — no floor was lowered.
+  - **Revised 2026-11-13 (v1.3.33): 30 tests, and the suite found a second
+    defect.** Running the suite in full-suite order (not standalone) failed
+    `test_divergent_surfaces_fail_and_the_odd_one_is_named` intermittently:
+    `surface_reach_check.py` chose its "odd one out" with
+    `max(counts, key=counts.get)` over `set(hashes.values())`, so on a 1-1 tie
+    the answer followed hash randomisation and named `ui-a.tsx` on one run and
+    `ui-b.tsx` on the next. The reference is now the most common hash with
+    ties broken by the hash value, and reported paths are sorted, so identical
+    input produces identical output. The fixtures split the two cases: a
+    two-agreeing-one-drifts group (unambiguous majority) and a 1-1 tie that
+    asserts byte-identical output across two runs. Per-gate mutation counts
+    re-measured: `branch_drift` 1, `evidence_claim` 3, `open_item_aging` 3,
+    `secret_rotation` 3, `surface_reach` 3, `tree_clean` 1.

@@ -101,7 +101,7 @@
   "test_oap_replay_guard": 18,
   "test_oap_trust_store": 16,
   "test_oap_v2_conformance": 7,
-  "test_open_item_gates": 26,
+  "test_open_item_gates": 27,
   "test_pi_extension_adapter": 1,
   "test_publish_trigger": 8,
   "test_python_root_anchor": 6,
@@ -139,5 +139,5 @@
   "test_template_supply_chain": 9,
   "test_workflow_read": 15
  },
- "total_floor": 1798
+ "total_floor": 1799
 }
