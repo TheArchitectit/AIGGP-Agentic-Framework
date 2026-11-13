@@ -424,6 +424,15 @@ Overlay rules merge by rule ID. Agent-behavior rules belong in skills, including
 the Git safety, secrets, scope, and halt-condition rules listed in
 `templates/skills/`.
 
+This repository vendors the scanners at `scripts/` rather than under `.devgate/`,
+so its own `.guardrails/scope.json` is the winning contract, not a delta over
+one. It carries the full pinned `skip_dirs` list plus `extra_source_dirs` naming
+the four roots the default candidate list does not cover — `actions`,
+`fleet-manager`, `templates`, `engines`. Without those entries the size gate
+reports them as `NOT IN SIZE-GATE SCOPE` and sizes none of their 68 source
+files; with them (v1.3.35) it reports 0 scope gaps. When a new top-level source
+directory is added here, add it to that list in the same commit.
+
 ## CI, runner templates, and agent skills
 
 Seven workflow templates ship in `templates/github-workflows/`: guardrails

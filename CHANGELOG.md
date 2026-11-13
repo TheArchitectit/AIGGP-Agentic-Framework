@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.35] - 2026-11-13
+
+### Fixed
+
+- **The size gate walked four of this repository's own source roots out of
+  scope.** `.guardrails/scope.json` declared no `extra_source_dirs`, so
+  `scripts/regression_check.py` walked only the default candidate list and
+  reported `actions/` (31 source files), `fleet-manager/` (26), `templates/`
+  (6) and `engines/` (5) as `NOT IN SIZE-GATE SCOPE` — 68 source files never
+  sized. Eleven are over their hard limit today and were invisible: seven
+  source (`fleet_manager/channel.py` 754, `reconcile.py` 732, `model.py` 663,
+  `lifecycle.py` 643, `adapters.py` 626, `operations.py` 538,
+  `actions/stitcher-codereview/src/serve.ts` 558) and four tests
+  (`test_adapters_v1.py` 766, `test_lifecycle_v1.py` 761,
+  `test_operations_v1.py` 714, `test_channel_v1.py` 635). The overlay now
+  declares the four roots; the gate reports **0 scope gaps, 0 over hard limit
+  (nothing touched yet), 11 pre-existing oversize (warning)**. The debt is
+  visible from now on and blocks the next edit of each file, which is the
+  point — it was not a budget before, it was a blind spot. Same shape as the
+  2026-10-11 `web/` gap (FAIL-8f9249ca): a scope declaration drifting from its
+  intent, green because it never looked.
+
 ## [1.3.34] - 2026-11-13
 
 ### Fixed
