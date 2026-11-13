@@ -10,6 +10,8 @@ Locks the contract that matters:
   * a policy that both allows and denies a codepoint refuses to run (exit 2);
   * a missing allowlist refuses to run (exit 2) - never a silent ban-nothing;
   * a zero-file scan FAILS (no vacuous green);
+  * an untracked-but-not-ignored file is scanned before it is committed, and
+    the success line reports the tracked/untracked split (FAIL-charset-untracked);
   * non-UTF-8 bytes FAIL with a named reason;
   * the deny list beats the allow list;
   * a reasoned `ignore` row exempts a content fixture (post content of
@@ -163,12 +165,47 @@ class CharsetGate(unittest.TestCase):
     def test_zero_text_files_fails(self):
         with tempfile.TemporaryDirectory() as d:
             t = Path(d)
-            # Only a binary file is TRACKED: nothing text to scan -> no
-            # vacuous green. Policy files exist on disk but are untracked.
+            # Only a binary file is in scope -> nothing text to scan -> no
+            # vacuous green. make_repo always writes the gate's own policy
+            # files, and those ARE text; exclude them with .git/info/exclude
+            # (which is not itself a worktree file) so the fixture really
+            # contains no scannable content.
             make_repo(t, {"blob.bin": b"\x00\x01\x02"}, track=["blob.bin"])
+            (t / ".git" / "info" / "exclude").write_text(".guardrails/\n",
+                                                         encoding="utf-8")
             r = run(t)
             self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
             self.assertIn("zero text files", r.stderr)
+            self.assertIn("scope was", r.stderr)
+
+    def test_untracked_file_is_scanned(self):
+        """FAIL-charset-untracked: `git ls-files` alone reads only committed
+        paths, so a brand-new file carrying non-ASCII passed the local gate and
+        only tripped after someone committed it -- green because the file was
+        never read. The scan now includes untracked-but-not-ignored files."""
+        with tempfile.TemporaryDirectory() as d:
+            t = Path(d)
+            # Tracked content is clean; the violation is in a file nobody has
+            # `git add`ed yet.
+            make_repo(t, {"a.md": b"plain ascii\n",
+                          "new.md": "fresh \u00a7 drift\n".encode()},
+                      track=["a.md"])
+            r = run(t)
+            self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+            self.assertIn("new.md", r.stdout)
+            self.assertIn("U+00A7", r.stdout)
+
+    def test_success_line_reports_tracked_and_untracked_scope(self):
+        """The gate must say what it read. A success line that reports only a
+        total cannot tell an empty scope from a full one."""
+        with tempfile.TemporaryDirectory() as d:
+            t = Path(d)
+            make_repo(t, {"a.md": b"plain ascii\n"})
+            (t / "b.md").write_text("also ascii\n", encoding="utf-8")
+            r = run(t)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertRegex(r.stdout, r"\d+ text file\(s\) scanned")
+            self.assertRegex(r.stdout, r"\(\d+ tracked \+ 1 untracked\)")
 
     def test_non_utf8_fails_with_reason(self):
         with tempfile.TemporaryDirectory() as d:

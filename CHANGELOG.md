@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Two gate scope lists in this repo's own tooling no longer narrow the tree
+  silently.** Landed from `docs/qa/2026-11-10-size-and-charset-scope-blind-spots.md`,
+  which had been stranded in a stale clone since 2026-11-10; all four findings
+  reproduced on `main` before any edit.
+
+  - **`regression_sizes.py` now sizes `.mjs`, `.cjs` and `.css`.** They were
+    absent from `SOURCE_EXTENSIONS`, so the framework's own gate entry points
+    and seven of their tests had never been sized while the gate printed
+    "All source files within soft/hard line limits". `.mjs` and
+    `.test.mjs`/`.spec.mjs` land together, as the QA record requires: three
+    `tests/*.mjs` files are over 500 lines and would have been judged at
+    `SRC_HARD` instead of `TEST_HARD` the moment `.mjs` joined the scope.
+  - **`check_charset.py` now reads untracked files.** Its file list came from
+    `git ls-files`, so a newly written file was invisible until staged: a
+    downstream `openspec/project.md` with U+2248 and U+00B1 passed two local
+    gate runs and went red on commit. The scan now takes `git ls-files
+    --cached --others --exclude-standard`, the success line reports
+    "N tracked + M untracked", and the zero-file failure names the scope it
+    examined. Baseline generation stays tracked-only, so `--write-baseline`
+    cannot grandfather debt in an uncommitted file.
+- **`HANDOFF-AIGGP-Agentic-Framework.md`'s spec census was 13 specs stale.** It
+  said 31 capability specs / 25 archived / 2 open behind a "Current census
+  (2026-10-20)" lead-in while `openspec/specs/` held 44 and the index said 43
+  CLOSED + 1 DEFERRED. Now dated 2026-11-13 with live numbers, and the
+  spec/archive name overlap is re-measured at zero (it claimed exactly one).
+
 ## [1.3.29] - 2026-11-13
 
 ### Fixed

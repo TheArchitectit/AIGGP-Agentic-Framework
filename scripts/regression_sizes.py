@@ -41,13 +41,23 @@ SRC_HARD = 500
 TEST_HARD = 600
 
 # Source file extensions to check (language-agnostic)
+#
+# The gate-vacuous-01 shape, twice: `.sh` (FAIL-8f9249ca) and `.html` were each
+# absent while the gate reported "0 over hard limit". `.mjs`, `.cjs` and `.css`
+# were the same gap one generation later: at 2026-11-10 that was 18 tracked
+# files here, including every `.mjs` gate entry point and seven of their tests,
+# so the framework's own scanners had never been sized.
+#
+# `.mjs` and `.test.mjs`/`.spec.mjs` MUST land together. Adding `.mjs` alone
+# would judge `tests/test_*.mjs` at SRC_HARD while its `.py` sibling gets
+# TEST_HARD -- the FAIL-8f9249ca inconsistency, re-introduced.
 SOURCE_EXTENSIONS = (".ts", ".tsx", ".py", ".rs", ".go", ".gd", ".java", ".kt",
                      ".rb", ".php", ".js", ".jsx", ".swift", ".c", ".cpp", ".h", ".cs",
-                     ".sh", ".zig", ".html")
+                     ".sh", ".zig", ".html", ".mjs", ".cjs", ".css")
 
 # Test-file extensions for the PREFIX convention ("test_*.py" / "test_*.sh").
 # A tuple because the convention is about naming, not about Python.
-TEST_PREFIX_EXTENSIONS = (".py", ".sh", ".zig")
+TEST_PREFIX_EXTENSIONS = (".py", ".sh", ".zig", ".mjs")
 
 
 def format_severity(severity: str) -> str:
@@ -83,7 +93,12 @@ def _classify_file(rel_path: str,
                                  # tuple. Without it a Zig test file is judged at
                                  # SRC_HARD -- the FAIL-8f9249ca inconsistency,
                                  # one language later.
-                                 "_test.zig"))
+                                 "_test.zig",
+                                 # ES-module tests. Same class again: the moment
+                                 # `.mjs` joined SOURCE_EXTENSIONS, every
+                                 # `tests/test_*.mjs` would have been judged at
+                                 # SRC_HARD without these two suffixes.
+                                 ".test.mjs", ".spec.mjs"))
     # The test naming convention is a PREFIX ("test_*.py", "test_*.sh") —
     # endswith() can never express it, and a glob passed to endswith() is a
     # dead literal that silently classified every pytest file as source

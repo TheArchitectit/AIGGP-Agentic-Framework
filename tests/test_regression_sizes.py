@@ -74,6 +74,27 @@ def _write_html_fixture(root: Path, rel_path: str, line_count: int) -> Path:
     return path
 
 
+def _write_mjs_fixture(root: Path, rel_path: str, line_count: int) -> Path:
+    """An ES-module fixture. The gate counts lines and never parses the
+    language, but a fixture claiming to be `.mjs` should be one -- a reader
+    checking "does this really exercise .mjs?" should get a yes."""
+    path = root / rel_path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    body = "\n".join(f"const value{i} = {i};" for i in range(line_count - 2))
+    path.write_text(f"import fs from 'node:fs';\n{body}\nexport default {{}};\n",
+                    encoding="utf-8")
+    return path
+
+
+def _write_css_fixture(root: Path, rel_path: str, line_count: int) -> Path:
+    """A stylesheet fixture -- same reasoning as the HTML one."""
+    path = root / rel_path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    body = "\n".join(f".rule-{i} {{ color: #000; }}" for i in range(line_count))
+    path.write_text(body + "\n", encoding="utf-8")
+    return path
+
+
 def _write_scope(root: Path, scope: dict) -> Path:
     """<root>/.devgate/.guardrails/scope.json -- a submodule layout, built.
 
@@ -277,6 +298,75 @@ def test_a_small_html_file_is_not_flagged():
         _write_html_fixture(root, "src/page.html", 200)
         issues = check_file_sizes(root, ["src"])
         assert issues == [], f"under-limit html flagged: {issues}"
+
+
+def test_oversize_es_module_is_flagged_at_src_hard():
+    """MUST-flag. `.mjs` was absent from SOURCE_EXTENSIONS, so every `.mjs` gate
+    entry point in this repository -- and seven of their tests -- went unsized
+    while the gate printed "0 over hard limit". Same shape as the `.sh`, `.zig`
+    and `.html` gaps: the scope list omitted the extension the tooling is
+    actually written in, so a clean report measured nothing.
+
+    Measured 2026-11-10: 18 tracked `.mjs`/`.cjs`/`.css` files, including
+    `scripts/semantic-scan.mjs` (454 lines, under the limit) and
+    `scripts/guardrails-scan.mjs` (359)."""
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        _write_mjs_fixture(root, "scripts/giant.mjs", SRC_HARD + 1)
+        issues = check_file_sizes(root, ["scripts"])
+        hard = [i for i in issues if i["kind"] == "hard"]
+        assert len(hard) == 1, f"oversize ES module not flagged: {issues}"
+        v = hard[0]
+        assert v["file"] == "scripts/giant.mjs", v
+        assert v["lines"] == SRC_HARD + 1, v
+        assert v["hard"] == SRC_HARD, (
+            f"evaluated at hard={v['hard']}, not SRC_HARD: {v}")
+        assert v["severity"] == "error", v
+
+
+def test_oversize_stylesheet_is_flagged_at_src_hard():
+    """MUST-flag. `.css` was absent from SOURCE_EXTENSIONS with `.mjs`/`.cjs`.
+    A stylesheet is source the project ships; the gate counts lines and does not
+    read the language."""
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        _write_css_fixture(root, "src/giant.css", SRC_HARD + 1)
+        issues = check_file_sizes(root, ["src"])
+        hard = [i for i in issues if i["kind"] == "hard"]
+        assert len(hard) == 1, f"oversize stylesheet not flagged: {issues}"
+        assert hard[0]["hard"] == SRC_HARD, hard[0]
+
+
+def test_an_es_module_test_file_is_judged_at_the_test_limit():
+    """The half that must land with the extension: `.mjs` in scope without
+    `.mjs` in TEST_PREFIX_EXTENSIONS judges `tests/test_x.mjs` at SRC_HARD while
+    `tests/test_x.py` at the same size gets TEST_HARD -- exactly the
+    FAIL-8f9249ca inconsistency, one language later. This repository has three
+    such files over SRC_HARD (577, 517 and 463 lines), so the misclassification
+    would have fired on the first run."""
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        _write_mjs_fixture(root, "tests/test_big.mjs", 550)
+        issues = check_file_sizes(root, ["tests"])
+        assert issues == [], (
+            f"550-line ES-module test flagged at {issues} -- misclassified against SRC_HARD"
+        )
+        _write_mjs_fixture(root, "tests/test_giant.mjs", TEST_HARD + 1)
+        issues = check_file_sizes(root, ["tests"])
+        assert [i["file"] for i in issues] == ["tests/test_giant.mjs"], (
+            f"the ES-module-test fixtures produced other findings: {issues}")
+        assert issues[0]["hard"] == TEST_HARD, issues[0]
+
+
+def test_a_dot_test_es_module_is_judged_at_the_test_limit():
+    """The suffix arm: `*.test.mjs` / `*.spec.mjs` are tests by the same
+    convention as `*.test.ts`, and endswith() is where that is expressed."""
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        _write_mjs_fixture(root, "src/thing.spec.mjs", TEST_HARD + 1)
+        issues = check_file_sizes(root, ["src"])
+        assert len(issues) == 1, issues
+        assert issues[0]["hard"] == TEST_HARD, issues[0]
 
 
 def test_source_dirs_include_test_directories():

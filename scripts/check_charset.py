@@ -26,6 +26,9 @@ parser, not by reviewer vigilance.
 
 Fail-closed, non-vacuous:
   * a scan that reads zero files FAILS (no vacuous green);
+  * the scan covers tracked files AND untracked-but-not-ignored files, so a
+    file is read before it is committed rather than after; the success line
+    reports the tracked/untracked split so the scope is visible;
   * a malformed/absent allowlist FAILS rather than silently banning nothing;
   * the deny list always beats the allow list.
 
@@ -234,9 +237,21 @@ def load_baseline(root: Path) -> dict[str, int]:
     return out
 
 
-def tracked_files(root: Path) -> list[str]:
-    r = subprocess.run(["git", "-C", str(root), "ls-files", "-z"],
-                       capture_output=True, text=True, encoding="utf-8",
+def tracked_files(root: Path, include_untracked: bool = False) -> list[str]:
+    """Repo-relative paths in scope.
+
+    ``include_untracked`` adds files git has not added yet (``--others
+    --exclude-standard``, so .gitignore still applies). The SCAN needs them:
+    with `git ls-files` alone a new file could carry non-ASCII through the
+    local gate and only trip after commit — green because it was never read
+    (FAIL-charset-untracked). Baseline GENERATION stays tracked-only, so an
+    uncommitted file can never be grandfathered by ``--write-baseline``.
+    """
+    cmd = ["git", "-C", str(root), "ls-files"]
+    if include_untracked:
+        cmd += ["--cached", "--others", "--exclude-standard"]
+    cmd.append("-z")
+    r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
                        errors="replace")
     if r.returncode != 0:
         print(f"check-charset: FAIL - git ls-files failed: {r.stderr}",
@@ -276,7 +291,10 @@ def scan(root: Path, allowed: set[int], denied: set[int], max_report: int,
         return EXIT_USAGE
 
     baseline = baseline or {}
-    files = [f for f in tracked_files(root) if is_text(f)]
+    tracked_set = set(tracked_files(root))
+    # Union of tracked + untracked-but-not-ignored, so the gate reads a file
+    # the author is about to commit instead of blessing it unseen.
+    files = [f for f in tracked_files(root, include_untracked=True) if is_text(f)]
     files = [f for f in files
              if not any(part in skip_dirs for part in Path(f).parts)]
 
@@ -286,6 +304,7 @@ def scan(root: Path, allowed: set[int], denied: set[int], max_report: int,
     artifacts = []
     strict_hits: list[tuple[str, int, int, int, str]] = []
     scanned = 0
+    scanned_untracked = 0
     ignored_files = 0
     per_file: dict[str, int] = {}
     for rel in files:
@@ -297,6 +316,8 @@ def scan(root: Path, allowed: set[int], denied: set[int], max_report: int,
         except OSError:
             continue
         scanned += 1
+        if rel not in tracked_set:
+            scanned_untracked += 1
         try:
             text = data.decode("utf-8")
         except UnicodeDecodeError as exc:
@@ -321,8 +342,10 @@ def scan(root: Path, allowed: set[int], denied: set[int], max_report: int,
                         strict_hits.append(violation)
 
     if scanned == 0:
-        print("check-charset: FAIL - zero text files scanned (no vacuous green)",
-              file=sys.stderr)
+        print("check-charset: FAIL - zero text files scanned (no vacuous green); "
+              f"scope was {len(tracked_set)} tracked path(s) plus untracked "
+              f"files, {len(files)} in the text extension set, "
+              f"{ignored_files} ignored", file=sys.stderr)
         return EXIT_VIOLATIONS
 
     # Ratchet: a file may not exceed its grandfathered baseline.
@@ -397,7 +420,9 @@ def scan(root: Path, allowed: set[int], denied: set[int], max_report: int,
               + ", ".join(sorted(improved)[:8]))
 
     grandfathered = sum(baseline.get(rel, 0) for rel in per_file)
-    print(f"check-charset: OK - {scanned} text file(s) within baseline "
+    print(f"check-charset: OK - {scanned} text file(s) scanned "
+          f"({scanned - scanned_untracked} tracked + {scanned_untracked} "
+          f"untracked) within baseline "
           f"({len(allowed)} allowed / {len(denied)} denied codepoints; "
           f"{grandfathered} grandfathered occurrence(s); "
           f"{ignored_files} ignored content fixture(s))")
