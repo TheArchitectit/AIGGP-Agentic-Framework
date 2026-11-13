@@ -4,13 +4,12 @@
 
 ### Requirement: State transitions are recorded in an append-only ledger
 <!-- id: spec-state-01 -->
-Every change to a requirement's lifecycle state MUST be accompanied, in the same
-commit, by exactly one row in `openspec/state-ledger.jsonl` naming the spec, the
-requirement, the `from` and `to` states, the opening commit, the landing commit,
-the tests exercised, and a sealed evidence reference. The `to` value MUST be one
-of `EXERCISED`, `WIRED`, `ABSENT`, `NOT_RUN`, or `DIFFERS`; no additional state
-vocabulary is introduced. Rows MUST be append-only: removing or rewriting a row
-requires a new row that records the correction.
+Every lifecycle-state change MUST carry, in the same commit, exactly one row in
+`openspec/state-ledger.jsonl` naming the spec, requirement, `from`/`to` states,
+opening and landing commits, tests exercised, and a sealed evidence reference.
+The `to` value MUST be one of `EXERCISED`, `WIRED`, `ABSENT`, `NOT_RUN`, or
+`DIFFERS`; no new vocabulary. Rows are append-only: a correction is a new row,
+never a rewrite.
 
 #### Scenario: closure cell edited without a ledger row
 - **WHEN** a closure cell changes from `WIRED` to `EXERCISED` between a base and `HEAD` and no ledger row is added in that range
@@ -104,11 +103,11 @@ as generated is a defect.
 ### Requirement: Migration proves what is provable and marks the rest
 <!-- id: spec-state-08 -->
 Backfilled rows MUST be accepted only where the cited implementation path exists
-at `HEAD`, a matching requirement marker appears in a file that changed within a
-resolvable commit window, and both commits resolve in reachable history. Rows
-that cannot meet that standard MUST be recorded as explicitly unproven, remain
-visible in the index, and MUST NOT be promotable to proof by editing the spec. A
-spec that acquires a ledger row MUST NOT revert to free-text status authority.
+at `HEAD`, a requirement marker appears in a file changed within a resolvable
+commit window, and both commits resolve. Rows that cannot meet that standard
+MUST be recorded as unproven, stay visible in the index, and MUST NOT be
+promoted by editing the spec. A ledgered spec MUST NOT revert to free-text
+status.
 
 #### Scenario: history merged from another repository
 - **WHEN** a spec cites a commit that belonged to a fork merged into this repository and does not resolve here
