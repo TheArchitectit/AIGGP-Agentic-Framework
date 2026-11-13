@@ -52,13 +52,15 @@ CHECK = "scripts/regression_check.py"
 COMMON = "scripts/gate_common.py"
 T_SIZES = "tests/test_regression_sizes.py"
 
-EXTENSIONS_WITH_SH = '''                     ".rb", ".php", ".js", ".jsx", ".swift", ".c", ".cpp", ".h", ".cs",
-                     ".sh", ".zig", ".html")'''
-EXTENSIONS_WITHOUT_SH = '''                     ".rb", ".php", ".js", ".jsx", ".swift", ".c", ".cpp", ".h", ".cs",
-                     ".zig", ".html")'''
+# Re-pointed 2026-11-13: the tail of the tuple grew `.mjs`, `.cjs`, `.css`
+# (the MJS-500 rule), so the old anchor ended at `".html")` and appeared zero
+# times. The battery reported ANCHOR rather than a kill — the harness caught
+# it, but only CI ran the batteries, so main carried a red for a day.
+EXTENSIONS_WITH_SH = '''                     ".sh", ".zig", ".html", ".mjs", ".cjs", ".css")'''
+EXTENSIONS_WITHOUT_SH = '''                     ".zig", ".html", ".mjs", ".cjs", ".css")'''
 
-TEST_PREFIX_WITH_SH = 'TEST_PREFIX_EXTENSIONS = (".py", ".sh", ".zig")'
-TEST_PREFIX_WITHOUT_SH = 'TEST_PREFIX_EXTENSIONS = (".py", ".zig")'
+TEST_PREFIX_WITH_SH = 'TEST_PREFIX_EXTENSIONS = (".py", ".sh", ".zig", ".mjs")'
+TEST_PREFIX_WITHOUT_SH = 'TEST_PREFIX_EXTENSIONS = (".py", ".zig", ".mjs")'
 
 # The candidate list moved to gate_common.load_source_dirs (2026-10-11) so the
 # overlay can extend it without forking. Anchors track that literal.
@@ -100,7 +102,7 @@ MUTATIONS = [
 # not a fixture property.
 NEGATIVE_CONTROLS = [
     ("N1: an extension nothing in the tree uses — must change no outcome",
-     [(SIZES, EXTENSIONS_WITH_SH, EXTENSIONS_WITH_SH.replace('".sh", ".zig", ".html")', '".sh", ".zig", ".html", ".bak")'))],
+     [(SIZES, EXTENSIONS_WITH_SH, EXTENSIONS_WITH_SH.replace('".css")', '".css", ".bak")'))],
      [T_SIZES], {}),
 ]
 

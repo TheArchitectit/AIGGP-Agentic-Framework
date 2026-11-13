@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.32] - 2026-11-13
+
+### Fixed
+
+- **The size-scope mutation battery's anchors were stale, and main was red.**
+  `tests/mutation_battery_size_scope.py` pointed S1, S2 and N1 at text that
+  `scripts/regression_sizes.py` no longer contains: the extension tuple grew
+  `.mjs`, `.cjs` and `.css` (the MJS-500 rule) and `TEST_PREFIX_EXTENSIONS`
+  grew `.mjs`, so three anchors matched zero times. The harness did the right
+  thing — it reported `ANCHOR`/stale rather than counting a phantom kill — but
+  only CI runs the batteries, so `main` carried a failing
+  `The evaluator itself is attacked (fw-*)` job from `73f93043` onward.
+  Re-pointed all three; the battery now reports 4/4 mutations killed, with each
+  kill attributed to a named test, and 1/1 negative control surviving.
+  Re-pointing does not weaken the checks: the same three tests that killed the
+  mutations before still do (`test_oversize_shell_script_is_flagged_at_src_hard`,
+  `test_a_shell_test_file_is_judged_at_the_test_limit`, and the negative control
+  that must change no outcome).
+
 ## [1.3.31] - 2026-11-13
 
 ### Added
