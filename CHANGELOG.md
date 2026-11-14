@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.37] - 2026-11-14
+
 ### Changed
 
 - **`aiggp-08` re-measured at `690488a`, and its nine "Shipped in `9c46180`"
