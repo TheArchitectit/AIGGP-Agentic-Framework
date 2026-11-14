@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`add-art-creation-contract` re-audited (5.3): APPROVE, and the one real
+  gap the audit found is now covered.** The independent audit ran
+  read-only over the tree with all mutations in `/tmp` copies; its six nits
+  were all documentation accuracy except one. The zero-input rule — "a
+  zero-input run is not a green run" — was pinned only through `report()`, so
+  a regression in `main()`'s `find_manifest` -> `report` wiring would have
+  read green. `scripts/test_art_creation_scan.py` now drives the CLI twice
+  more: an empty root must exit 3 with both zero-input lines, and a named but
+  absent `--config` must exit 2 rather than 3. Both were proven able to fail
+  on a `/tmp` copy (`return 3` -> `return 0` reds `not-applicable`; removing
+  the `if args.config` branch reds `manifest-missing-explicit`). The suite
+  reports `60 cases, 4 exit-contract checks`.
+- **tasks.md's evidence corrected against the tree**: the fixture suite's
+  line count (381 -> 426), the traceability figures rebound to the commits
+  they were read at (`195/199` at `43a9bdb`, `235/241` at `cb2644c`, ratchet
+  floors 184 and 228), the published-count pair (the exit code catches the
+  boolean and float cases because they compare equal to the derived count;
+  the message assertion is what catches the string), the "seven cite
+  `43a9bdb`" count (six, plus the done check's `616f26f` and the doc
+  commit), and the `brief_ref` rule narrowed to what `check_brief` enforces
+  — a presence check, with a whitespace ref failing closed as a version
+  mismatch.
+
 ## [1.3.38] - 2026-11-14
 
 ### Added

@@ -335,10 +335,11 @@ def selftest() -> int:
                 print(f"selftest ok {name}  [{', '.join(sorted(got_reqs)) or '-'}]")
 
         # --- exit contracts for malformed input ---------------------------
-        # Both cases drive real main() and assert the exit code. run_checks
-        # alone can show the finding but not that the process exits 1, so the
-        # earlier ledger-row check never pinned the exit contract it claimed.
-        # A non-object manifest is exit 2; a non-object ledger row is exit 1.
+        # Every case here drives real main() and asserts the exit code.
+        # run_checks alone can show the finding but not that the process
+        # exits 1, so the earlier ledger-row check never pinned the exit
+        # contract it claimed. A non-object manifest is exit 2; a non-object
+        # ledger row is exit 1.
         (root / "bad-manifest.json").write_text("[1, 2]", encoding="utf-8")
         err_buf = io.StringIO()
         with contextlib.redirect_stdout(io.StringIO()), \
@@ -367,13 +368,43 @@ def selftest() -> int:
                   f"stdout {printed!r}")
         else:
             print("selftest ok ledger-row-not-object  [exit 1]")
-    # NOT_APPLICABLE must be exit 3, never 0.
+        # The zero-input rule is a process contract, not a return value: a
+        # title that declares no pipeline must exit 3 through main(), never 0.
+        # Asserting report() alone left the find_manifest -> report wiring free
+        # to regress into a green skip without any case noticing.
+        with tempfile.TemporaryDirectory() as bare:
+            out_buf = io.StringIO()
+            with contextlib.redirect_stdout(out_buf), \
+                    contextlib.redirect_stderr(io.StringIO()):
+                code = main(["--root", bare])
+        printed = out_buf.getvalue()
+        if (code != 3 or "NOT_APPLICABLE" not in printed
+                or "a zero-input run is not a green run" not in printed):
+            failed += 1
+            print(f"selftest FAIL not-applicable: exit {code}, "
+                  f"stdout {printed!r}")
+        else:
+            print("selftest ok not-applicable  [exit 3]")
+        # An explicitly named manifest that is absent is a usage error (2),
+        # not NOT_APPLICABLE (3): a typo'd --config must not read as a clean
+        # skip.
+        err_buf = io.StringIO()
+        with contextlib.redirect_stdout(io.StringIO()), \
+                contextlib.redirect_stderr(err_buf):
+            code = main(["--root", str(root), "--config", "absent.json"])
+        if code != 2 or "manifest not found" not in err_buf.getvalue():
+            failed += 1
+            print(f"selftest FAIL manifest-missing-explicit: exit {code}, "
+                  f"stderr {err_buf.getvalue()!r}")
+        else:
+            print("selftest ok manifest-missing-explicit  [exit 2]")
+    # The return value itself is still pinned: NOT_APPLICABLE is never 0.
     if report([], declared=False, counted=0) != 3:
         failed += 1
         print("selftest FAIL not-applicable exit code")
 
     print(f"selftest {'ok' if failed == 0 else 'FAIL'}: {len(CASES)} cases, "
-          "2 exit-contract checks")
+          "4 exit-contract checks")
     return 1 if failed else 0
 
 

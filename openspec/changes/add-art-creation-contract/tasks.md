@@ -3,17 +3,24 @@
 Nothing here is marked complete from spec authoring. A checked box means the
 work ran and its evidence is named below, not that the line was written.
 
-**Traceability read at 2026-11-08, not assumed — and re-read after the rebase
-onto `f5da682`, because the remote ratcheted underneath this change:** at this
-head `195/199 requirements covered`, advisory 4 uncovered. Baseline without
-this change (`f5da682`) is `184/187 covered`, advisory 3. Delta: +12
-requirement IDs (187 -> 199), +11 covered (184 -> 195). 11 of the 12 carry
-source markers at their enforcement sites across two files
-(`scripts/art_checks.py`, `scripts/art_check_outcome.py`); the entry point
-(`scripts/art_creation_scan.py`) carries no marker (see 2.1). The one without
-a marker is `art-evolve-01`, which is a process obligation on a human, not a
-code enforcement site — recorded as deliberately uncovered rather than papered
-over. It is the +1 in the advisory count (3 -> 4).
+**Traceability measured, not assumed — and measured twice, because a figure
+carried forward is the same class of claim as any other.** The change's own
+delta was read on 2026-11-08 at `43a9bdb`: `195/199 requirements covered`,
+advisory 4. Baseline without this change (`f5da682`) is `184/187 covered`,
+advisory 3 — delta +12 requirement IDs (187 -> 199), +11 covered (184 -> 195).
+Those figures reproduce against those two commits and their own
+`spec_traceability.py`; they are not the tree's totals today. At `cb2644c` the
+corpus reads `235/241 covered`, advisory 6 — the corpus grew by 42 ids over
+those figures (199 -> 241), 40 of them covered, and the additional *uncovered*
+ids are `game-matrix-01..03` (already uncovered in the `f5da682` baseline),
+`spec-state-08` and `spec-state-09`. The art outcome is unchanged: 11 of the
+12 ids carry source markers at
+their enforcement sites across `scripts/art_checks.py` and
+`scripts/art_check_outcome.py`; the entry point
+(`scripts/art_creation_scan.py`) carries no marker (see 2.1); and
+`art-evolve-01` — a process obligation on a human, not a code enforcement site
+— is recorded as deliberately uncovered rather than papered over. Ratchet floor
+at that head: 228. Re-measure and rebind the number before archive.
 
 ## S0 — Contract
 
@@ -33,8 +40,12 @@ over. It is the +1 in the advisory count (3 -> 4).
 ## S1 — Scanner
 
 - [x] 1.1 The scanner reads a declared manifest. `NOT_APPLICABLE` is exit 3
-      and prints "a zero-input run is not a green run". Fixture path exercised
-      in the selftest. The three scanner files are at or under the source soft
+      and prints "a zero-input run is not a green run". The rule is pinned
+      through `main()`, not only through `report()`: the `not-applicable`
+      exit-contract check runs the CLI against an empty root and asserts exit
+      3 plus both lines, and `manifest-missing-explicit` asserts that a named
+      but absent `--config` is exit 2 rather than a clean skip. The three
+      scanner files are at or under the source soft
       limit (300); the fixture suite sits between the soft (300) and hard (600)
       test limits:
       - `scripts/art_creation_scan.py` (157) — entry point: manifest lookup,
@@ -43,15 +54,19 @@ over. It is the +1 in the advisory count (3 -> 4).
         stages, ledger, rights.
       - `scripts/art_check_outcome.py` (219) — outcome: bytes, acceptance,
         draw, quantity.
-      - `scripts/test_art_creation_scan.py` (381) — the fixture suite.
+      - `scripts/test_art_creation_scan.py` (426) — the fixture suite.
       The entry point still exposes `DIGEST_STAGES` / `run_checks` / `report`
       so the fixture import is unchanged.
 - [x] 1.2 `art-brief-01` / `art-brief-02` — brief exists and is versioned, rows
       carry `brief_ref` naming that version, and a geometric rule is declared
       for every class present in the ledger. A declared rule must be a
       non-blank string: `{"furniture": ""}` and `{"furniture": null}` are
-      findings, not declarations. `brief_version` and `brief_ref` must also be
-      non-blank; two whitespace values must not compare as a version. Fixtures
+      findings, not declarations. `brief_version` is stripped and must be
+      non-blank, so two whitespace values cannot agree on nothing. `brief_ref`
+      has a presence check (`if not ref`), not a strip: a whitespace ref is
+      caught as a version mismatch instead — it fails closed either way, but
+      the requirement text promises a non-blank ref and the code enforces a
+      present one. Fixtures
       `no-shape-rule`, `shape-rule-blank`, `shape-rule-null`,
       `brief-version-whitespace`.
 - [x] 1.3 `art-stage-01` — every stage declares input, output, consumer and
@@ -128,13 +143,16 @@ over. It is the +1 in the advisory count (3 -> 4).
       `art-draw-01: UNCOVERED`; on the real tree it stays covered by
       `check_draw` alone.
       Union of the marker sites is exactly the 11.
-- [x] 2.2 Traceability **read** at this head: `195/199 covered`, advisory 4
-      uncovered (baseline at `f5da682`, without this change: `184/187`,
-      advisory 3). Delta: +12 requirement IDs, +11 covered. `art-evolve-01`
-      deliberately uncovered — see the note above. The absolute numbers are
-      re-read after the rebase, not carried forward: the remote ratcheted
-      traceability underneath this change and a stale figure here would have
-      been the same class of claim as the 411-line one.
+- [x] 2.2 Traceability **read**, twice. At `43a9bdb` (this change's own
+      measurement, 2026-11-08): `195/199 covered`, advisory 4 uncovered
+      (baseline `f5da682`, without this change: `184/187`, advisory 3) —
+      delta +12 requirement IDs, +11 covered. Re-read at `cb2644c`:
+      `235/241 covered`, advisory 6; the uncovered ids there are
+      `game-matrix-01..03`, `art-evolve-01`, `spec-state-08` and
+      `spec-state-09`, and only `art-evolve-01` belongs to this change.
+      Each figure is bound to the commit it was read at, not carried forward:
+      the remote ratchets traceability underneath this change, and a stale
+      figure here would be the same class of claim as the 411-line one.
 
 ## S3 — Fixture
 
@@ -146,11 +164,17 @@ over. It is the +1 in the advisory count (3 -> 4).
       `run_checks` against a temp tree with a real brief, a real consumer file
       and a real ledger, and must report zero findings.
 - [x] 3.3 Negative controls: 55 negatives among 60 cases (5 pass + 55 fail),
-      plus 2 exit-contract checks outside `CASES` (a valid-JSON non-object
+      plus 4 exit-contract checks outside `CASES`: a valid-JSON non-object
       manifest exits 2; a non-object ledger row exits 1 with a named
-      `art-ledger-01` finding, never a traceback). Both exit-contract checks
-      drive the real `main()` and assert its return code: `run_checks` alone
-      shows the finding but cannot pin the process exit.
+      `art-ledger-01` finding, never a traceback; a root with no manifest
+      exits 3 through `main()` with both zero-input lines; an explicitly
+      named but absent `--config` exits 2, not 3. All four drive the real
+      `main()` and assert its return code: `run_checks` alone shows the
+      finding but cannot pin the process exit. The last two were added after
+      the independent audit found the zero-input rule was pinned only through
+      `report()`; each was proven able to fail on a `/tmp` copy (`return 3`
+      -> `return 0` reds `not-applicable`; removing the `if args.config`
+      branch reds `manifest-missing-explicit` with exit 3).
       Each case asserts the EXACT set of requirement IDs it trips - which may
       contain more than one id, and is supposed to. `stage-empty` trips both
       `art-ledger-01` (blank stage) and `art-done-01` (never reaching terminal
@@ -161,7 +185,7 @@ over. It is the +1 in the advisory count (3 -> 4).
       same requirement, the ID set cannot see one branch removed, so the
       `art-qty-01` and `art-stage-01` negatives also pin the exact finding
       count and message substrings (`shortfall=`, `fidelity-fail=`,
-      `does not state:`). Selftest output: `60 cases, 2 exit-contract checks`,
+      `does not state:`). Selftest output: `60 cases, 4 exit-contract checks`,
       all ok.
 
       Three of the negatives pin the published-count type rule
@@ -170,8 +194,12 @@ over. It is the +1 in the advisory count (3 -> 4).
       `int` subclass and `True == 1`, and `1.0 == 1` has the same shape, so a
       bare `true` or `1.0` in `published_counts` used to report a derived
       count that was never derived. With the message assertion, deleting the
-      type guard fails all three rather than only the two whose value would
-      also disagree with the derived count. The auditor's exact adversarial
+      type guard fails all three fixtures; without it, `count-string` would
+      pass (its value still mismatches, so exit 1 and the id set match),
+      while `count-bool` and `count-float` would still fail on the exit code
+      because the scanner exits 0 where the fixture expects 1. The pair was
+      named backwards here once; the audit caught it. The auditor's exact
+      adversarial
       case (`{"published_counts": {"library": true}}` against a 1-row ledger)
       is re-run through the real CLI as well as the fixture suite: it returns
       exit 1 with `art-ledger-01: published count 'library' is not an integer`.
@@ -190,10 +218,10 @@ over. It is the +1 in the advisory count (3 -> 4).
       `art-draw-01`), `FAIL-3830b455` (quantity for quality → `art-qty-01`),
       `FAIL-bb25c017` (score on the wrong question → `art-accept-01,
       art-accept-02`) and `FAIL-d91fd88e` (method written after the mess →
-      `art-evolve-01`). Seven cite `43a9bdb` (except the done check, `616f26f`)
-      as the commit that made the class checkable; the eighth cites `0779267`,
-      the commit that documents the path. `failure_registry_check.py` exits 0
-      over 58 entries.
+      `art-evolve-01`). Six cite `43a9bdb` as the commit that made the class
+      checkable, the done check cites `616f26f`, and the eighth — the process
+      obligation — cites `0779267`, the commit that documents the path it
+      names. `failure_registry_check.py` exits 0 over 58 entries.
 - [x] 4.2 Document the extension path. Landed as
       `docs/ART-CONTRACT-EXTENSION.md`: log with `scripts/log_failure.py`,
       decide coverage by the requirement ids, extend the delta when nothing
@@ -216,9 +244,33 @@ over. It is the +1 in the advisory count (3 -> 4).
       which is an ancestor of `f5da682`, so the 13-failure era was over
       before the stated base. Absolute counts are re-measured per head from
       here on rather than carried forward.
-- [x] 5.2 Traceability read and recorded above.
-- [ ] 5.3 Independent audit by an agent that did not write this change.
-      **NOT_RUN** — not complete: the independent audit returned
-      REQUEST-CHANGES, this response has not been re-audited, and the item is
-      not reported as passed.
+- [x] 5.2 Traceability read and recorded above: `195/199` at `43a9bdb`,
+      `235/241` at `cb2644c`; ratchet floor 184 at `43a9bdb` and 228 at
+      `cb2644c`, `--ratchet` exit 0 at both.
+- [x] 5.3 Independent audit by an agent that did not write this change. The
+      earlier audit returned REQUEST-CHANGES; this is the re-audit. Run
+      2026-11-14 by a fresh agent that was given the change and no
+      authorship, read-only over the tree (every mutation it tried was made in
+      a `/tmp` copy). Verdict: **APPROVE**, with six nits — the fixture
+      suite's line count, the traceability figures, the published-count pair
+      (named backwards), the "seven cite `43a9bdb`" wording, the `brief_ref`
+      over-claim, and the zero-input rule, which it found pinned only through
+      `report()`. All six are fixed above; the sixth by adding two real
+      `main()` exit-contract checks and proving both able to fail. Verdict on
+      that delta, re-checked: **APPROVE**, with three wording nits, also
+      fixed. What it verified itself, not from this file: exactly 8 `# spec:`
+      marker lines carrying 11 ids, each immediately above the `def` that
+      enforces it and none above a docstring; `scripts/art_creation_scan.py`
+      carries no marker; deleting the `check_draw` marker on a copy turns
+      `art-draw-01` UNCOVERED (234/241); all eight registry ids exist with
+      status `resolved`, prevention rules that resolve to delta ids, and
+      `fix_commit`s that `git cat-file -t` reports as commits and
+      `git merge-base --is-ancestor` confirms are ancestors of HEAD; the
+      adversarial CLI case returns exit 1 with "is not an integer" for a
+      boolean published count and exit 0 for the honest `1`; and each named
+      tree's own traceability tool reproduces its figure (`43a9bdb`
+      195/199, `f5da682` 184/187, `616f26f`, `0779267` and `3fcb661`
+      235/241). It did not run the size gate, the regression gate or CI;
+      those were run here, from `ci.yml`'s own commands, by exit code.
+      Out of its reach, and still open: 3.1's live title.
 - [ ] 5.4 CHANGELOG entry at archive time, not before.
