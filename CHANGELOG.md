@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Traceability ratchet raised from 228 to 235 covered requirements** — the
+  floor now equals what the tree actually covers (`235/241` at `6296b2c`; the
+  six uncovered ids are `game-matrix-01..03`, `art-evolve-01`,
+  `spec-state-08` and `spec-state-09`, all advisory). The gate has been printing
+  "coverage grew above the floor — raise it with `--update-ratchet`" since the
+  `add-art-creation-contract` registry wiring landed, and the raise was held
+  back only so it did not ride in a release whose subject was the art
+  contract. With that release shipped, the headroom it preserved has no
+  change in flight to protect: the remaining AIGGP work is owner-blocked
+  (gate placement, stitcher wiring, forge support, open-item gates). The
+  ratchet is what turns "we happened to cover it" into "a regression that
+  uncovers it reds the gate", so it is set at the measured value rather than
+  left where it was when the corpus was 199 requirements.
+
 ## [1.3.39] - 2026-11-14
 
 ### Fixed
