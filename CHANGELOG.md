@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.36] - 2026-11-13
+
+### Added
+
+- **`scripts/spec_state_gate.py` — a spec-state transition now needs a ledger
+  row, two resolved commits, work at the declared location, and sealed
+  evidence.** `openspec/INDEX.md` said "Generated, not typed" and nothing
+  generated it, so `Status: CLOSED` and every closure cell were assertions a
+  person typed. The gate diffs the spec tree between a base and `HEAD`,
+  reconciles the changed requirements against rows added to
+  `openspec/state-ledger.jsonl` in the same range, and fails both ways — a
+  changed cell with no row ("a transition without authority") and a row with
+  no state edit ("a row with no state edit"). A terminal row must name two
+  distinct commits in strict ancestry order with `landed_commit` an ancestor
+  of `HEAD`, the `opened..landed` diff must touch a file that carries
+  `spec: <req-id>` and still exists at `HEAD`, and the row must pin a sealed
+  `evidence-manifest` digest that `scripts/evidence-validate.py` accepts with a
+  `passed` record for every test it names. Exit codes are frozen: `0` pass,
+  `1` violation, `2` usage/config, `3` nothing scanned — a zero-spec scan is a
+  failure, never a green pass.
+- **`scripts/spec-state-validate-negative-control.sh` — the gate is proven
+  able to fail.** Ten cases staged in a throwaway repository: cell without row,
+  row without cell, identical bounding commits, non-ancestor landing commit,
+  empty marker window, digest mismatch, test recorded as skipped,
+  `Status: CLOSED` with a `WIRED` requirement, zero-spec scan, unresolvable
+  revision, and an unknown row field. Every case asserts the gate's own words,
+  because a nonzero exit alone would also be satisfied by a crash or a
+  mis-staged probe.
+- **`scripts/spec_index.py` — `openspec/INDEX.md` is now actually generated,**
+  with `--check` wired into CI. It reproduces the committed rollup exactly
+  (`44 specs — CLOSED 43 · DEFERRED 1 · PARTIAL 0 · OPEN 0 · UNKNOWN 0`); the
+  file's one data change is the DEFERRED row's evidence cell, which was prose
+  the generator cannot derive. `fleet-manager-plan` and
+  `fleet-manager-extraction` had curated titles in the index that their specs
+  did not, so their spec headings were corrected rather than the index losing
+  them.
+
+### Fixed
+
+- **The `v1` ledger schema gained `evidence_digest` before it was frozen.**
+  `scripts/evidence-validate.py` requires `--expected`, and a manifest cannot
+  vouch for itself — computing the expected value from the bundle and handing
+  it back would make the manifest-tamper check vacuous, the self-certified
+  claim the tree already refuses. The row is the only non-circular anchor, so
+  the schema, its rejection rule, and the design section that explains it were
+  amended together.
+
 ## [1.3.35] - 2026-11-13
 
 ### Fixed

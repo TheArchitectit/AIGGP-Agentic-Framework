@@ -1,4 +1,4 @@
-# fleet-manager-plan Specification
+# Fleet manager plan and apply
 
 Status: CLOSED (EXERCISED 4)
 

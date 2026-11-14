@@ -1,4 +1,4 @@
-# DevGate release checksums — generated 2026-11-13T18:30:04Z
+# DevGate release checksums — generated 2026-11-14T03:07:23Z
 # Verify before use: python3 scripts/gen-checksums.py verify
 3ba50bc8b31743b05c2d11a2fe8156c44477548600ac9c2e1b4fa8f78e09c378  hub/__init__.py
 ee9d420de2f1a6dd228e9166b508e106f753dace985884ec6355581cabdbeb91  hub/alerts.py
@@ -139,7 +139,10 @@ cb1a55c9512be90fbd3cc4ff1e2785cbc6d20cea92352098a7bf809f31dc4798  scripts/secret
 9e4c797334d8e4ddcebf554fac221bca217a7a10d558b1c39eb99a6b7559e59b  scripts/silent-success-scan.sh
 a2179fe169783ea8b75b6d70d02f5f5c00b3a6571e6d6a33fc192307fac14c87  scripts/spec-fleet-classify.py
 492032a4fda6ef009c7376ed566c626957baae8920ddf8187b7bd89054599536  scripts/spec-fleet-walk.sh
+ff3030939e99bfd62fe1a8a8f93d14408ef11ab109245377d695674ab0ecc8ab  scripts/spec-state-validate-negative-control.sh
 7d3dcd5c5fbe07466726764d11c6ef2a51a5c2a33c5f3905a16743ff2a84420d  scripts/spec_gap_scan.py
+a1e477a8a5275ebcc0e568922c3c5501e648267d36f85a87393324cee6530de8  scripts/spec_index.py
+ed104830ef337bd589639866ad4078ec446ef1ff2d5486f7ecd723bf04f52d50  scripts/spec_state_gate.py
 97450fc4e28b8028af497a2c188007e866feeab62bd6486a79bb4692b5b6dd7a  scripts/spec_traceability.py
 747c574822afb4d7d1c64b89c035f54901bc0213c4d4bbce2d6db3899990251c  scripts/specs-validate-negative-control.sh
 ce7f7ac89adc9fc6d069c19a12ac387a935f8d90e31fbd6dbed24b0c45725d24  scripts/surface_reach_check.py

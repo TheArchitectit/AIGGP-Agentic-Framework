@@ -1,0 +1,3 @@
+# devgate.spec-state-ledger/v1 — one JSON row per requirement transition.
+# Schema frozen in openspec/changes/add-spec-state-ledger/design.md section 1.1.
+# Comment lines (#) and blank lines are ignored; every other line is one row.

@@ -84,6 +84,17 @@ and the parent-repo commands that must run from the project root — see
 holds the gates listed under [Components](#components), and `hub/` holds the
 runner-monitor and coherence services.
 
+`openspec/INDEX.md` is rendered by `scripts/spec_index.py` from the closure
+cells and `Status:` lines it describes; `--check` runs in CI, so a hand edit is
+a red build rather than a second source of truth. A state transition is not
+established by editing a cell: `scripts/spec_state_gate.py` reconciles the
+edited requirements against rows added to `openspec/state-ledger.jsonl` and
+requires two resolved commits, a marked source change in that window, and a
+sealed evidence bundle for any terminal closure. Its enforcement placement is
+still an open owner decision (Gate 3 of
+`openspec/changes/add-spec-state-ledger/`), so it is a check you run, not yet a
+hook that blocks.
+
 ### Run the gates
 
 Scripts auto-detect the project root (the parent of `.devgate/`) and scan source
@@ -476,6 +487,8 @@ they are not claims that every proposed integration is deployed.
 |---|---|---|
 | Specs validate under the strict delta grammar | `specs` job → `openspec validate --all --strict` | **GREEN** |
 | Strict validation refuses malformed material | `specs` job → `scripts/specs-validate-negative-control.sh` | **GREEN** |
+| `openspec/INDEX.md` is generated, not typed | `specs` job → `python3 scripts/spec_index.py --check` | **GREEN** |
+| A spec-state transition cannot be declared without a ledger row, resolved commits, marked work, and sealed evidence | `scripts/spec_state_gate.py` plus `scripts/spec-state-validate-negative-control.sh` (ten cases) | **GATE BUILT — placement is an open owner decision** (`openspec/changes/add-spec-state-ledger/` Gate 3) |
 | The per-file runner discovers this repository's tests | `tests` job → discovered count ≥ 1 | **GREEN** |
 | Scanners resolve the project root without escaping to an ancestor | `tests` job → `tests/test_scanner_root_anchor.mjs` | **GREEN** |
 | A pushed commit cannot carry a credential into `main` | `secrets` job → `scripts/secret-scan.sh` | **GREEN** — [run 36048653103](https://github.com/TheArchitectit/AIGGP-Agentic-Framework/actions/runs/36048653103) |

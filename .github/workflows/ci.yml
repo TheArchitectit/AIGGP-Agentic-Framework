@@ -416,6 +416,13 @@ jobs:
           # covered requirement IDs drop below .guardrails/traceability-ratchet.json.
           # Without this the floor was decorative — a regression still read green.
           python3 scripts/spec_traceability.py --root . --ratchet
+      # spec-state-07. INDEX.md says "Generated, not typed"; before the
+      # generator existed nothing produced it, so the claim was false and every
+      # status in it was typed by hand. --check regenerates to a temp path and
+      # reds on any divergence, which makes the claim true and a hand edit a
+      # build failure rather than a silent second source of truth.
+      - name: Index is generated (spec-state-07)
+        run: python3 scripts/spec_index.py --repo . --check
       # REPO-002 (devgate-product-tiers-fleet-manager box 1.1). The boundary is
       # a declaration, and this is the gate that keeps it one: a file under
       # fleet-manager/ that nobody declared, or open-core code importing it,

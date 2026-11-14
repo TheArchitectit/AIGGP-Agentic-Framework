@@ -1,4 +1,4 @@
-# fleet-manager-extraction Specification
+# Fleet manager extraction rehearsal
 
 Status: CLOSED (EXERCISED 3)
 

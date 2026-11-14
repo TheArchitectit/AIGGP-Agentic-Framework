@@ -41,7 +41,7 @@
 | [`framework-ci/spec.md`](specs/framework-ci/spec.md) | Framework CI | **CLOSED** | Status: CLOSED (EXERCISED 3) |
 | [`game-regression/spec.md`](specs/game-regression/spec.md) | Game-class regression scanning | **CLOSED** | Status: CLOSED (EXERCISED 6) |
 | [`game-session-start/spec.md`](specs/game-session-start/spec.md) | Game session start | **CLOSED** | Status: CLOSED (EXERCISED 6) |
-| [`game-type-phase-matrix/spec.md`](specs/game-type-phase-matrix/spec.md) | Game-type phase matrix | **DEFERRED** | owner answer: consuming game repo owns it; no gate here (DEFERRED, not open) |
+| [`game-type-phase-matrix/spec.md`](specs/game-type-phase-matrix/spec.md) | Game-type phase matrix | **DEFERRED** | Status: DEFERRED |
 | [`gate-configuration-contract/spec.md`](specs/gate-configuration-contract/spec.md) | Gate configuration contract | **CLOSED** | Status: CLOSED (EXERCISED 2) |
 | [`gate-execution-contract/spec.md`](specs/gate-execution-contract/spec.md) | Gate execution contract | **CLOSED** | Status: CLOSED (EXERCISED 3) |
 | [`hub-architecture/spec.md`](specs/hub-architecture/spec.md) | Hub-and-spoke monitor architecture | **CLOSED** | Status: CLOSED (EXERCISED 5) |

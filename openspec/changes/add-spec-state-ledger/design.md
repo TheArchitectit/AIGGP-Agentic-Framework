@@ -30,7 +30,8 @@ requirement transition, committed in the same commit that edits the spec:
  "from":"OPEN","to":"EXERCISED",
  "opened_commit":"<sha>","landed_commit":"<sha>",
  "tests":["tests/test_template_supply_chain.py::test_n_plus_1_runner"],
- "evidence":"<bundle-dir-relative-path>","at":"2026-11-03T00:00:00Z"}
+ "evidence":"<bundle-dir-relative-path>",
+ "evidence_digest":"sha256:<64 hex>","at":"2026-11-03T00:00:00Z"}
 ```
 
 Rationale for a sibling JSONL over a fenced block inside `spec.md`: the ledger
@@ -44,6 +45,49 @@ markdown formatting and makes conflict resolution on concurrent edits worse.
 `at` is informational only and MUST NOT be trusted as ordering — commit
 ancestry is the ordering source of truth. A clock that can be edited is not
 evidence.
+
+### 1.1 Frozen schema `v1` (Gate 0)
+
+The row schema is frozen here; the gate rejects any row that departs from it
+(unknown field, missing required field, wrong type, or a `to` outside the five).
+
+| field | type | required | meaning |
+|---|---|---|---|
+| `schema` | string, exactly `"v1"` | yes | schema tag; a new shape is `v2`, never an edit of `v1` rows |
+| `spec` | string, capability dir name | yes | `openspec/specs/<spec>/spec.md` |
+| `req` | string matching `[A-Za-z0-9-]+` | yes | the `<!-- id: ... -->` marker value, exact case |
+| `from` | `"OPEN"` or one of the five states | yes | prior state; `OPEN` = no prior cell |
+| `to` | one of `EXERCISED`, `WIRED`, `ABSENT`, `NOT_RUN`, `DIFFERS` | yes | new state |
+| `opened_commit` | 40-hex or abbreviated resolvable rev | yes | strict ancestor of `landed_commit` |
+| `landed_commit` | 40-hex or abbreviated resolvable rev | yes | ancestor of `HEAD`; must differ from `opened_commit` |
+| `tests` | list of non-empty strings | yes (may be empty only for non-terminal `to`) | test node IDs that exercise the requirement |
+| `evidence` | non-empty string, repo-relative directory | yes for `to: EXERCISED`; optional otherwise | sealed bundle the validator accepts |
+| `evidence_digest` | string, `sha256:` + 64 lowercase hex | yes when `evidence` is present | the bundle's `evidence-manifest` digest, pinned by the row |
+| `at` | ISO-8601 string | yes | **informational only**; never used for ordering |
+
+**Why the row pins the digest.** `scripts/evidence-validate.py` requires
+`--expected` (`scripts/evidence-validate.py:80-82`), and the manifest cannot
+vouch for itself: computing the expected value from the bundle and then handing
+it back to the validator would make the manifest-tamper half of the check
+vacuous, which is the self-certified-claim failure the tree already rejects
+(`verification.py` refuses `VERIFIED` without independent verification). So the
+row carries the anchor. A tampered bundle fails against it; a tampered row is a
+new ledger line, never an edit, because the ledger is append-only.
+
+**Unknown fields are rejected, not ignored.** A gate that ignores a field it does
+not understand lets a producer believe it recorded something the gate never
+checks. Adding a field is a `v2` schema change with its own gate update.
+
+**The `to` vocabulary is closed.** `EXERCISED | WIRED | ABSENT | NOT_RUN |
+DIFFERS` are the five values already used by the 112 existing `**EXERCISED**`
+cells; this change adds no sixth state word. `OPEN` appears only in `from`.
+
+**`at` never orders anything.** The gate reads it for display and schema
+validity only. Ordering comes from `git merge-base --is-ancestor` between the
+two bounding commits and `HEAD`: a row whose `at` says "later" but whose commits
+are not in ancestry order is rejected, and a row whose `at` says "earlier" than
+its ancestor's is still legal, because the clock is not evidence either way.
+
 
 ## 2. Transitions are derived from the diff, never from prose
 
@@ -62,6 +106,14 @@ means the two records have diverged and neither can be trusted alone.
 
 This is why a free-text edit is no longer sufficient: editing the cell and not
 the ledger fails, and appending to the ledger without editing the cell fails.
+
+A third divergence is checked when a closure cell exists on both sides of the
+range: the row's `from` must equal the cell's prior value (`OPEN` when there was
+none) and its `to` must equal the cell's new value. A row that names a different
+transition than the one the spec records is a ledger entry about some other
+edit — accepted, it would let a real transition ride on a fabricated label.
+Specs whose state rides on a `Status:` line and carry no cell have nothing to
+compare against, so this check is skipped there rather than guessed at.
 
 ## 3. Bounding commits must resolve, be ordered, and be distinct
 
@@ -114,6 +166,26 @@ plus passing records for every test named in the row.
 Reusing this validator rather than defining a new trust story is deliberate:
 it is the only sealed-evidence machinery in the tree that has been reviewed,
 and a spec-state gate must not become a weaker parallel authority.
+
+### 5.1 Where the per-test records live (Gate 0/1, recorded 2026-11-13)
+
+The sealed bundle is built from findings, not test results, so "a passing record
+for every test named in the row" needs a defined shape or the gate would have to
+invent one at check time. The shape is frozen with the schema:
+
+- A terminal row names its tests in `tests` and points `evidence` at a bundle
+  directory (repo-relative).
+- That directory carries `tests.json`: `{"tests": {"<node id>": "<status>"}}`,
+  status one of `passed`, `failed`, `skipped`, `error`.
+- `tests.json` MUST itself be a sealed manifest object (listed in
+  `evidence-manifest.json` with a digest that recomputes from its bytes); an
+  unsealed record is a claim about a bundle, not part of one.
+- For every id in `tests`, the gate requires a record whose status is exactly
+  `passed`. Missing, unknown, skipped, or failed is a violation — a skipped
+  test proves nothing about the requirement.
+
+`evidence-validate.py` still runs first and must exit `0`; this check is
+additional to it, never a replacement.
 
 ## 6. Closure applies to the whole spec
 
