@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **`aiggp-08` re-measured at `690488a`, and its nine "Shipped in `9c46180`"
+  claims replaced with what the tree shows.** `9c46180` is the
+  GitLab-forge commit and touches none of `actions/stitcher-codereview`; every
+  named file either arrived in the `c9d1194` vendoring of upstream v0.4.1 or
+  has never existed here (`.pre-commit-hooks.yaml`,
+  `scripts/stitcher-local.mjs`, `src/verdict.ts`,
+  `tests/test_stitcher_proof_parity.mjs` — `git log --all` is empty for all
+  four). Measured per stage: 7 present (5 fully, 2 partial), 2 absent, 0
+  wired, 0 tested in-tree, 0 of Fixtures A–H. New
+  `measurement-2026-11-13.md` carries the commands; the nine boxes stay open
+  because wiring, fixtures and the evidence adapter are owner decisions, not
+  missing code. Also recorded: `ef0a8ca` closed the size-gate blind spot, so
+  the 558-line `serve.ts` is now a visible pre-existing oversize warning, and
+  the upstream fork carries the 26-file test suite this repo never vendored.
+
 ## [1.3.36] - 2026-11-13
 
 ### Added
