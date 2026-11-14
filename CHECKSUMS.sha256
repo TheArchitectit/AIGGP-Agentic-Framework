@@ -1,4 +1,4 @@
-# DevGate release checksums — generated 2026-11-14T03:44:15Z
+# DevGate release checksums — generated 2026-11-14T04:02:27Z
 # Verify before use: python3 scripts/gen-checksums.py verify
 3ba50bc8b31743b05c2d11a2fe8156c44477548600ac9c2e1b4fa8f78e09c378  hub/__init__.py
 ee9d420de2f1a6dd228e9166b508e106f753dace985884ec6355581cabdbeb91  hub/alerts.py
@@ -146,6 +146,6 @@ ed104830ef337bd589639866ad4078ec446ef1ff2d5486f7ecd723bf04f52d50  scripts/spec_s
 97450fc4e28b8028af497a2c188007e866feeab62bd6486a79bb4692b5b6dd7a  scripts/spec_traceability.py
 747c574822afb4d7d1c64b89c035f54901bc0213c4d4bbce2d6db3899990251c  scripts/specs-validate-negative-control.sh
 ce7f7ac89adc9fc6d069c19a12ac387a935f8d90e31fbd6dbed24b0c45725d24  scripts/surface_reach_check.py
-fe6d058688b474daa7ae89a0abd7c7ab448ae0e8469f565ddb1144fe701da48e  scripts/test_art_creation_scan.py
+0f78218b6fa5d429fc539b06e5d705c12760991b017fe44323b370a47c88fd33  scripts/test_art_creation_scan.py
 711268e11cf90ff0f0875881aff360fc780c7f1c24224de20c77c087aeb51b79  scripts/tree_clean_check.py
 fe00c56e544760d7eb0ed4b31ad610681a8d3210fd64e4ba11dc2b98230833d9  scripts/world_slice_tool.py
