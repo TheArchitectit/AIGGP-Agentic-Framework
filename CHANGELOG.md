@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **`add-art-creation-contract` 4.1 / 4.2 — the art contract now has a
+  registry-backed extension path.** Eight observed art failure classes are
+  appended to `.guardrails/failure-registry.jsonl` through
+  `scripts/log_failure.py` (never by hand), one entry per class, and every
+  `prevention_rule` names the `art-*` requirement that would have prevented it:
+
+  | Class | Prevention rule | Entry |
+  | --- | --- | --- |
+  | no shared language | `art-brief-01, art-brief-02` | `FAIL-0e705936` |
+  | unversioned bytes | `art-bytes-01` | `FAIL-920d00bd` |
+  | a stage with no reader | `art-stage-01` | `FAIL-64935b0d` |
+  | done meant "file written" | `art-done-01` | `FAIL-2ba50210` |
+  | the target draws nothing | `art-draw-01` | `FAIL-49fe7808` |
+  | quantity for quality | `art-qty-01` | `FAIL-3830b455` |
+  | a score on the wrong question | `art-accept-01, art-accept-02` | `FAIL-bb25c017` |
+  | method written after the mess | `art-evolve-01` | `FAIL-d91fd88e` |
+
+  Seven cite `43a9bdb` (the done check cites `616f26f`) as the commit that
+  made the class checkable; the eighth cites the commit that documents the
+  path. `scripts/failure_registry_check.py` exits 0 over all 58 entries.
+- **`docs/ART-CONTRACT-EXTENSION.md`** — the path from a class to a covering
+  requirement, end to end: log with `log_failure.py` (append-only, class not
+  title — this repo is public, the registry rules, empty
+  `regression_pattern`), decide coverage by grepping the `art-` requirement
+  ids, extend the spec delta when nothing covers it, put the `# spec:` marker
+  on the enforcing function (never above a module docstring), add the negative
+  control first, then run the five verification commands. Process obligations
+  on a human are recorded as deliberately uncovered rather than papered over
+  with a marker, as `art-evolve-01` itself is.
+
+  The package's own CHANGELOG entry still belongs at archive time (5.4); this
+  one covers the registry wiring and the extension path only. Boxes 3.1 (live
+  title outside this repo), 5.3 (independent re-audit) and 5.4 stay open.
+
 ## [1.3.37] - 2026-11-14
 
 ### Changed

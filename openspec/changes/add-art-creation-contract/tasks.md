@@ -179,10 +179,29 @@ over. It is the +1 in the advisory count (3 -> 4).
 
 ## S4 — Registry wiring
 
-- [ ] 4.1 Append the eight observed failure classes to the failure registry
+- [x] 4.1 Append the eight observed failure classes to the failure registry
       with prevention rules citing the requirement that would have prevented
-      each (`art-evolve-01`). **NOT_RUN.**
-- [ ] 4.2 Document the extension path. **NOT_RUN** — lands with 4.1.
+      each (`art-evolve-01`). Logged through `scripts/log_failure.py`, one
+      entry per class, each `prevention_rule` naming its covering requirement:
+      `FAIL-0e705936` (no shared language → `art-brief-01, art-brief-02`),
+      `FAIL-920d00bd` (unversioned bytes → `art-bytes-01`), `FAIL-64935b0d`
+      (stage with no reader → `art-stage-01`), `FAIL-2ba50210` (done meant
+      "file written" → `art-done-01`), `FAIL-49fe7808` (target draws nothing →
+      `art-draw-01`), `FAIL-3830b455` (quantity for quality → `art-qty-01`),
+      `FAIL-bb25c017` (score on the wrong question → `art-accept-01,
+      art-accept-02`) and `FAIL-d91fd88e` (method written after the mess →
+      `art-evolve-01`). Seven cite `43a9bdb` (except the done check, `616f26f`)
+      as the commit that made the class checkable; the eighth cites `0779267`,
+      the commit that documents the path. `failure_registry_check.py` exits 0
+      over 58 entries.
+- [x] 4.2 Document the extension path. Landed as
+      `docs/ART-CONTRACT-EXTENSION.md`: log with `scripts/log_failure.py`,
+      decide coverage by the requirement ids, extend the delta when nothing
+      covers the class, put the marker on the enforcing function (never above
+      a module docstring), add the negative control first, then run
+      `test_art_creation_scan.py`, `failure_registry_check.py`,
+      `spec_traceability.py --ratchet`, `openspec validate --all --strict` and
+      the size/regression gate.
 
 ## S5 — End gate
 
