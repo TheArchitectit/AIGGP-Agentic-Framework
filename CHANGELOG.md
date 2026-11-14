@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.38] - 2026-11-14
+
 ### Added
 
 - **`add-art-creation-contract` 4.1 / 4.2 — the art contract now has a
