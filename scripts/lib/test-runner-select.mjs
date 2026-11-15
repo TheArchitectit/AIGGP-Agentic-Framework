@@ -28,7 +28,7 @@
 // vitest's collection would not pick it up (a delegated prefix file would hit
 // the 1..0 trap and fail closed, which is honest but wrong).
 
-import { basename, join, relative } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 
 /** True when the consumer's package.json declares vitest as a direct dep. */
@@ -39,6 +39,26 @@ export function declaresVitest(projectRoot) {
 	} catch {
 		return false; // no package.json, or unreadable: node --test stays the engine
 	}
+}
+
+/**
+ * Nearest package.json that declares vitest, walking up from the test file and
+ * stopping at the project root. A vendored/nested package (this repo's
+ * actions/stitcher-codereview) carries its own toolchain and node_modules; a
+ * root-only check left every one of its vitest suites on node --test, which
+ * cannot load them. Returns null when no nested manifest declares vitest.
+ */
+export function nearestVitestRoot(file, projectRoot) {
+	const root = resolve(projectRoot);
+	let dir = dirname(resolve(file));
+	for (let i = 0; i < 64; i++) {
+		if (declaresVitest(dir)) return dir;
+		if (dir === root) break;
+		const parent = dirname(dir);
+		if (parent === dir || !parent.startsWith(root)) break;
+		dir = parent;
+	}
+	return null;
 }
 
 /** Suffix-style test names (*.test.* / *.spec.*) — vitest's default include. */
@@ -55,16 +75,19 @@ export function isSuffixTestFile(filename) {
  * run would hit the 1..0 trap.
  */
 export function selectJsRunner(file, { projectRoot, vitestDeclared, timeoutMs = 120_000, execPath = process.execPath }) {
-	if (vitestDeclared && isSuffixTestFile(file)) {
-		const localBin = join(projectRoot, "node_modules", ".bin", "vitest");
+	const vitestRoot = isSuffixTestFile(file)
+		? (vitestDeclared ? resolve(projectRoot) : nearestVitestRoot(file, projectRoot))
+		: null;
+	if (vitestRoot) {
+		const localBin = join(vitestRoot, "node_modules", ".bin", "vitest");
 		// Missing local binary fails loud at spawn (ENOENT → crashed marker);
 		// declaring vitest in package.json without installing it is a broken
 		// consumer, not a reason to silently fall back to an engine that
 		// cannot run the file.
 		return {
 			cmd: existsSync(localBin) ? localBin : "vitest",
-			args: ["run", "--reporter=tap", "--root", projectRoot,
-				relative(projectRoot, file)],
+			args: ["run", "--reporter=tap", "--root", vitestRoot,
+				relative(vitestRoot, file)],
 		};
 	}
 	return {

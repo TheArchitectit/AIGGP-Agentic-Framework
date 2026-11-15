@@ -2,6 +2,8 @@ import type { Diff, Finding, OpenSpecChange, Requirement, ReviewResult, Severity
 import { checkSpecCompliance, coverageForRequirement, findingsForCoverage } from './checks/specCompliance.js';
 import { checkDrift } from './checks/drift.js';
 import { checkTasks } from './checks/tasks.js';
+import { collectCommitTrace } from './checks/commitMap.js';
+import { attachCoverageRefs, attachEvidenceRefs } from './evidenceRef.js';
 import { checkCorrectness } from './checks/correctness.js';
 import { checkSecurity } from './checks/security.js';
 import { checkTests } from './checks/tests.js';
@@ -162,8 +164,8 @@ function finalize(
     verdict,
     summary,
     template: templateInfo(opts),
-    requirementCoverage: coverage,
-    findings: sorted,
+    requirementCoverage: attachCoverageRefs(change.name, coverage),
+    findings: attachEvidenceRefs(change.name, sorted),
     stats: {
       filesChanged: diff.files.length,
       linesAdded,
@@ -243,6 +245,9 @@ export async function runReview(change: OpenSpecChange, diff: Diff, conventions:
   const dur = new Durations(Boolean(opts.timing));
 
   const want = (c: string) => opts.categories.has('all') || opts.categories.has(c);
+  const trace = want('tasks') && opts.root && change.tasks.length > 0
+    ? await collectCommitTrace(opts.root, opts.base ?? 'main')
+    : null;
 
   if (diff.files.length === 0 && want('spec-compliance')) {
     findings.push({
@@ -266,7 +271,7 @@ export async function runReview(change: OpenSpecChange, diff: Diff, conventions:
     coverage = r.coverage;
     findings.push(...dur.runSync('drift', () => safeCheck('spec-compliance', () => checkDrift(change, diff))));
   }
-  if (want('tasks')) findings.push(...dur.runSync('tasks', () => safeCheck('tasks', () => checkTasks(change, diff))));
+  if (want('tasks')) findings.push(...dur.runSync('tasks', () => safeCheck('tasks', () => checkTasks(change, diff, trace))));
   if (want('correctness')) findings.push(...dur.runSync('correctness', () => safeCheck('correctness', () => checkCorrectness(diff))));
   if (want('security')) findings.push(...dur.runSync('security', () => safeCheck('security', () => checkSecurity(diff))));
   if (want('tests')) findings.push(...dur.runSync('tests', () => safeCheck('tests', () => checkTests(change, diff, {
@@ -302,6 +307,9 @@ export async function runReviewAsync(
   const lens = opts.template?.template.lens || undefined;
 
   const want = (c: string) => opts.categories.has('all') || opts.categories.has(c);
+  const trace = want('tasks') && opts.root && change.tasks.length > 0
+    ? await collectCommitTrace(opts.root, opts.base ?? 'main')
+    : null;
 
   if (diff.files.length === 0 && want('spec-compliance')) {
     findings.push({
@@ -443,7 +451,7 @@ export async function runReviewAsync(
           });
         }
       }
-      coverage = blended;
+      coverage = attachCoverageRefs(change.name, blended);
       findings.push(...findingsForCoverage(change, coverage));
       findings.push(...checkDrift(change, diff));
       if (unavailable > 0 && llm.mode === 'require') {
@@ -464,7 +472,7 @@ export async function runReviewAsync(
       }
       });
     }
-  if (want('tasks')) findings.push(...dur.runSync('tasks', () => safeCheck('tasks', () => checkTasks(change, diff))));
+  if (want('tasks')) findings.push(...dur.runSync('tasks', () => safeCheck('tasks', () => checkTasks(change, diff, trace))));
   if (want('correctness')) findings.push(...dur.runSync('correctness', () => safeCheck('correctness', () => checkCorrectness(diff))));
   if (want('security')) findings.push(...dur.runSync('security', () => safeCheck('security', () => checkSecurity(diff))));
   if (want('tests')) findings.push(...dur.runSync('tests', () => safeCheck('tests', () => checkTests(change, diff, {

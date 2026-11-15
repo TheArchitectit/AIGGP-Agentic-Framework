@@ -33,7 +33,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 
-import { childTestEnv, declaresVitest, isEmptyRun, isSuffixTestFile, selectJsRunner }
+import { childTestEnv, declaresVitest, isEmptyRun, isSuffixTestFile, nearestVitestRoot, selectJsRunner }
 	from "../scripts/lib/test-runner-select.mjs";
 
 const SCRIPTS = join(import.meta.dirname, "..", "scripts");
@@ -90,6 +90,46 @@ test("declaresVitest: reads the consumer's package.json, fails closed to false",
 		assert.equal(declaresVitest(dir), false);
 	} finally {
 		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+test("nearestVitestRoot: a nested package's vitest wins over the project root", () => {
+	const root = mkdtempSync(join(tmpdir(), "dg-vitest-nested-"));
+	try {
+		const pkg = join(root, "actions", "tool");
+		mkdirSync(join(pkg, "test"), { recursive: true });
+		writeFileSync(join(pkg, "package.json"),
+			JSON.stringify({ name: "tool", devDependencies: { vitest: "^2.1.0" } }));
+		const file = join(pkg, "test", "thing.test.ts");
+		writeFileSync(file, "// vitest suite\n");
+		// The project root declares no vitest, so only the nested manifest can
+		// select the engine.
+		assert.equal(declaresVitest(root), false);
+		assert.equal(nearestVitestRoot(file, root), pkg);
+		// Outside the project root the walk never looks (no ancestor escape).
+		assert.equal(nearestVitestRoot(join(tmpdir(), "elsewhere.test.ts"), root), null);
+	} finally {
+		rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("selectJsRunner: nested vitest package delegates with its own root and relative filter", () => {
+	const root = mkdtempSync(join(tmpdir(), "dg-vitest-nested-sel-"));
+	try {
+		const pkg = join(root, "actions", "tool");
+		mkdirSync(join(pkg, "test"), { recursive: true });
+		writeFileSync(join(pkg, "package.json"),
+			JSON.stringify({ name: "tool", devDependencies: { vitest: "^2.1.0" } }));
+		const file = join(pkg, "test", "thing.test.ts");
+		writeFileSync(file, "// vitest suite\n");
+		const picked = selectJsRunner(file, { projectRoot: root, vitestDeclared: false, timeoutMs: 5000 });
+		assert.equal(picked.args[0], "run");
+		assert.ok(picked.args.includes("--reporter=tap"), picked.args.join(" "));
+		assert.equal(picked.args[picked.args.indexOf("--root") + 1], pkg);
+		// Filter must be relative to the nested root, not the project root.
+		assert.equal(picked.args.at(-1), join("test", "thing.test.ts"));
+	} finally {
+		rmSync(root, { recursive: true, force: true });
 	}
 });
 

@@ -55,6 +55,37 @@ jobs:
           git clone https://github.com/TheArchitectit/AIGGP-Agentic-Framework.git .devgate
           git -C .devgate checkout 8c2d0a9c680309bd90e6be7d5d43dd21e948fc20
 
+      # aiggp-08 stages 7 and 3: the vendored reviewer's whole-repo mode and
+      # reverse-drift mode, on the schedule that owns full-tree sweeps.
+      - name: Build the vendored stitcher (whole-repo + drift modes)
+        run: |
+          set -euo pipefail
+          npm --prefix actions/stitcher-codereview ci --no-audit --no-fund
+          npm --prefix actions/stitcher-codereview run build
+
+      - name: Whole-repo mode (aiggp-08 stage 7)
+        run: |
+          set -euo pipefail
+          node actions/stitcher-codereview/dist/cli.js --root . --scan repository \
+            --format json --fail-on high --no-user-config > "$RUNNER_TEMP/stitcher-scan.json"
+          # Non-vacuity: the mode must have produced a repository-scan record.
+          grep -q '"repository-scan"' "$RUNNER_TEMP/stitcher-scan.json" || {
+            echo "FAIL: --scan repository produced no repository-scan record"; exit 1;
+          }
+          python3 -c "import json;d=json.load(open('$RUNNER_TEMP/stitcher-scan.json'));print('stitcher scan findings:',len(d['findings']))"
+
+      # Advisory on the schedule: this repository's own tree is not drift-clean
+      # yet, so the blocking use of the gate is pre-commit (scripts/stitcher-local.mjs)
+      # where the diff is the author's change. The report is still produced and
+      # counted here, so drift volume is visible without reddening main.
+      - name: Reverse-drift report (aiggp-08 stage 3, advisory)
+        run: |
+          set -euo pipefail
+          BASE=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || git rev-parse HEAD^)
+          node scripts/stitcher-drift.mjs --base "$BASE" --format json --fail-on never \
+            > "$RUNNER_TEMP/stitcher-drift.json"
+          python3 -c "import json;d=json.load(open('$RUNNER_TEMP/stitcher-drift.json'));print('reverse-drift findings:',len(d['findings']))"
+
       - name: Drift gate suite (full tree)
         run: |
           set -uo pipefail

@@ -58,6 +58,25 @@ export interface Diff {
   evidenceText: string;
 }
 
+/**
+ * Provenance of an externally-produced finding. An adapter records the source
+ * tool's identity, its version (or content digest), the digest of the input it
+ * scanned and the digest of the raw output it returned, so the finding is never
+ * re-issued as an AIGGP-originated check (ADR-004).
+ */
+export interface ToolProvenance {
+  /** Tool name as the source reports it, e.g. `guardrails-scan.mjs`. */
+  name: string;
+  /** Version string, or `sha256:<12 hex>` of the scanner file. */
+  version: string;
+  /** Path/URL of the scanner, when known. */
+  vendor?: string;
+  /** sha256 of the input the tool scanned (tree digest or report digest). */
+  inputDigest?: string;
+  /** sha256 of the raw output the adapter parsed. */
+  rawOutputDigest: string;
+}
+
 export interface Finding {
   severity: Severity;
   category: Category;
@@ -68,6 +87,14 @@ export interface Finding {
   line?: number;
   message: string;
   suggestion?: string;
+  /**
+   * Evidence reference (`coh-ev-<digest>`) the finding is anchored to. Review
+   * comments are refused without one (reviewer-surfaces spec: "A comment
+   * without an evidence link SHALL NOT be posted").
+   */
+  evidenceRef?: string;
+  /** Present only for adapter-ingested external findings. */
+  tool?: ToolProvenance;
 }
 
 export interface ReviewResult {
@@ -84,6 +111,8 @@ export interface ReviewResult {
     evidence: string[];
     /** File:line ranges that provided evidence for this requirement. */
     locations: { file: string; startLine: number; endLine: number }[];
+    /** Coherence evidence reference (`coh-ev-<digest>`) for this verdict. */
+    evidenceRef?: string;
     /** Blended-review diagnostics (present when --llm auto|require rescored). */
     heuristicScore?: number;
     llmScore?: number | null;

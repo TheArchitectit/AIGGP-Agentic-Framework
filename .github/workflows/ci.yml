@@ -70,6 +70,17 @@ jobs:
           npm --prefix "${RUNNER_TEMP}/pi-tools" install --no-save \
             --no-package-lock --no-audit --no-fund tsx@4.23.15
           echo "PI_SESSION_TSX=${RUNNER_TEMP}/pi-tools/node_modules/.bin/tsx" >> "$GITHUB_ENV"
+      # aiggp-08 (Stage 4 harness, Fixtures A-H). The vendored stitcher package
+      # carries its own vitest suite under actions/stitcher-codereview/test/.
+      # scripts/run-tests.mjs selects the engine from the NEAREST package.json
+      # that declares vitest, so the nested package's deps (and its compiled
+      # dist, used by the gate/parity fixtures) must exist before the runner
+      # executes. Without this step the runner would fall back to node --test,
+      # which cannot load a vitest suite at all.
+      - name: stitcher-codereview harness deps + build (nested vitest package)
+        run: |
+          npm --prefix actions/stitcher-codereview ci --no-audit --no-fund
+          npm --prefix actions/stitcher-codereview run build
       - name: pytest suite (collection is deterministic — tests/__init__.py)
         run: python3 -m pytest tests/ -v
       # REPO-004 (devgate-product-tiers-fleet-manager box 1.2). The boundary

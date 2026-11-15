@@ -103,8 +103,7 @@ function commonPrefix(a: string, b: string): number {
  * uncategorized. With no baseline at all, one info finding replaces per-file
  * noise and points at openspec/specs/.
  */
-export function checkDrift(change: OpenSpecChange, diff: Diff): Finding[] {
-  if (change.requirements.length === 0 || diff.files.length === 0) return [];
+export function checkDrift(change: OpenSpecChange, diff: Diff): Finding[] {  if (change.requirements.length === 0 || diff.files.length === 0) return [];
   const deltaCaps = [...new Set(change.requirements.map((r) => r.capability))];
   const baseline = change.baseline ?? [];
 
@@ -149,4 +148,83 @@ export function checkDrift(change: OpenSpecChange, diff: Diff): Finding[] {
     }
   }
   return findings.slice(0, 30);
+}
+
+/**
+ * Capabilities whose spec was updated in this diff. A changed file is
+ * "covered" for reverse drift when its capability gained a spec update in the
+ * same range; both OpenSpec layouts count (published specs and change deltas).
+ */
+export function specTouchedCapabilities(diff: Diff): Set<string> {
+  const caps = new Set<string>();
+  for (const f of diff.files) {
+    if (f.isDeleted) continue;
+    const published = /^openspec\/specs\/([^/]+)\//.exec(f.path);
+    const delta = /^openspec\/changes\/[^/]+\/specs\/([^/]+)\//.exec(f.path);
+    const cap = published?.[1] ?? delta?.[1];
+    if (cap) caps.add(cap);
+  }
+  return caps;
+}
+
+export interface ReverseDriftOptions {
+  /** Severity for an uncovered behavior change. The bundle declares it; default medium. */
+  severity?: 'blocker' | 'high' | 'medium' | 'low';
+  maxFindings?: number;
+}
+
+/**
+ * Reverse drift over a diff with no change package (Stage 3, gate mode):
+ * every behavior file whose capability gained no spec update in the same
+ * range is a finding. Files that map to no capability are reported separately
+ * at low severity, so an unmapped tree is visible instead of silent.
+ */
+export function checkReverseDrift(
+  baseline: BaselineSpec[],
+  diff: Diff,
+  opts: ReverseDriftOptions = {}
+): Finding[] {
+  const relevant = diff.files.filter((f) => !f.isDeleted && isDriftRelevant(f.path));
+  if (relevant.length === 0) return [];
+  if (baseline.length === 0) {
+    return [
+      {
+        severity: 'info',
+        category: 'spec-compliance',
+        checkId: 'drift-no-baseline',
+        message: 'No baseline specs (openspec/specs/) — reverse-drift mapping unavailable.',
+        suggestion: 'Add baseline specs for stable capabilities so uncovered behavior changes can be detected.'
+      }
+    ];
+  }
+  const severity = opts.severity ?? 'medium';
+  const touched = specTouchedCapabilities(diff);
+  const index = buildIndex(baseline, []);
+  const findings: Finding[] = [];
+  for (const f of relevant) {
+    const match = mapFileToCapability(f.path, index);
+    if (!match) {
+      findings.push({
+        severity: 'low',
+        category: 'spec-compliance',
+        checkId: 'drift-uncategorized',
+        file: f.path,
+        message: `\`${f.path}\` touches no known capability (baseline).`,
+        suggestion: 'Add it to a baseline spec, or open a change with a delta spec if it is new behavior.'
+      });
+      continue;
+    }
+    if (touched.has(match.capability)) continue;
+    findings.push({
+      severity,
+      category: 'spec-compliance',
+      checkId: 'drift-uncovered',
+      file: f.path,
+      message:
+        `\`${f.path}\` changes behavior in capability \`${match.capability}\` ` +
+        `(matched: ${match.via.join(', ')}) with no spec update in this range.`,
+      suggestion: `Update openspec/specs/${match.capability}/spec.md (or a change delta) so the behavior is specified.`
+    });
+  }
+  return findings.slice(0, opts.maxFindings ?? 30);
 }
