@@ -13,6 +13,37 @@
 > in `measurement-2026-11-13.md`. Nothing is ticked: the package's own rule is
 > that "feature completeness without evidence is not delivery", and no stage
 > has a fixture, a wiring point or an evidence record.
+>
+> **Owner decision 2026-11-14 (decision 5 of the 2026-11-14 owner decision
+> handoff; recorded from the handoff, which carries the owner's approval — this
+> record does not assert the implementer verified it): own the vendored action,
+> wire the seven present stages, build the two absent ones; evidence rides the
+> GitHub adapter first, GitLab second. The `measurement-2026-11-13` record
+> stands, and every "Shipped in 9c46180" claim is retired.**
+>
+> So the package is now authorized work, not imported reference material: the
+> nine stages below are build order, not aspiration. Two consequences to keep
+> straight. First, "own the vendored action" means the code under
+> `actions/stitcher-codereview/` is this repo's to change — it is no longer an
+> upstream snapshot whose defects are someone else's; the vendoring commit
+> stays the provenance record, not a boundary. Second, the retirement of the
+> `9c46180` claims is already executed (2026-11-13) and is verified, not
+> assumed: the only surviving occurrences of that hash in this repo are the
+> corrections themselves (`grep -rn '9c46180'` → `CHANGELOG.md` entries that
+> describe the replacement, this package's measurement and this note, plus two
+> unrelated uses in the game-type phase matrix). No stage box may be ticked
+> from the old claim; each needs its fixture, its wiring point and its evidence
+> record as written below.
+>
+> **Entry-move finding 2026-11-14.** `acceptance.md` Q12.1's hybrid starts with a
+> reconcile of the parity branch `07aadb05` against current main. That branch is
+> **not in this clone** — `git cat-file -t 07aadb05` reports no such object, and
+> `git branch -a` lists nothing matching parity or stitcher. There is therefore
+> nothing to cherry-pick and nothing to reconcile: by absence, every stage is
+> re-implemented from current main (Q12.1's option B), and the entry step is
+> recorded as unperformable rather than quietly skipped. If the bundle is
+> restored later, the reconcile becomes a real step again and the stages built
+> before it must be re-checked against it.
 
 - [ ] Stage 1: task traceability engine plus negative controls. *(Partial, unwired. `actions/stitcher-codereview/src/checks/tasks.ts` has been in-tree since `c9d1194` and contains no commit mapping at all — `grep -n commit` is empty — so the bidirectional requirement ("every commit SHALL map to covering spec tasks or be reported as uncovered") is unimplemented; `tests/test_stitcher_proof_parity.mjs` has never existed, and Fixture A has no witness.)*
 - [ ] Stage 2: spec-to-diff review. *(Present, unwired. `src/checks/specCompliance.ts` has been in-tree since `c9d1194`; its `evidence: string[]` holds keyword-overlap strings, and there is no coherence evidence reference (`grep -n 'evidence\|coherence\|coh-ev'` finds only the keyword array). No gate runs it.)*
