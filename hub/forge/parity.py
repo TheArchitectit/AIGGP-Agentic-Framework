@@ -78,7 +78,15 @@ class ParityDrillResult:
 def seeded_corpus() -> tuple[GateSeed, ...]:
     """Return the pinned 5-case corpus (four failures, one clean control)."""
     py = "{python}"
-    scripts = str(SCRIPTS)
+    # MUST stay a placeholder. This used to be `str(SCRIPTS)` — an absolute
+    # path — and corpus_digest() hashes `commands`, so the digest silently
+    # carried the checkout directory while the docstring claimed it was
+    # "independent of interpreter and host". The pin then only matched on the
+    # machine that generated it: this tree computed sha256:18f43e9e… and CI,
+    # checking out the same commit at a different path, computed
+    # sha256:58711f18… and failed GLF-01/03. `{scripts}` is expanded at
+    # run time in `_run_commands`, exactly like `{python}` and `{root}`.
+    scripts = "{scripts}"
     # The bare marker is assembled at run time so this gate's own source does
     # not carry a marker the silent-success scan would read as shipped debt.
     marker = "TO" + "DO"
@@ -283,7 +291,9 @@ def _run_commands(seed: GateSeed, root: Path) -> list[tuple[tuple[str, ...], int
     results = []
     for command in seed.commands:
         argv = [
-            sys.executable if part == "{python}" else part.replace("{root}", str(root))
+            sys.executable
+            if part == "{python}"
+            else part.replace("{root}", str(root)).replace("{scripts}", str(SCRIPTS))
             for part in command
         ]
         proc = subprocess.run(

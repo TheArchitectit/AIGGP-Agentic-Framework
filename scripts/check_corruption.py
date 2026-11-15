@@ -231,6 +231,19 @@ from corruption_diff import (  # noqa: E402
     _GITLINK_META, _added_lines, _diff_hunks, _gitlink_update_count,
     _removed_lines, _rename_update_count, _replacement_blocks)
 
+# A checksum-manifest line: a fixed-width hex digest, whitespace, then a path.
+# Used to tell "a digest was updated" apart from "content was flipped", which
+# character comparison cannot do on its own (see scan_diff).
+_CHECKSUM_LINE = re.compile(r"^([0-9a-fA-F]{32,128})[ \t]+(\S.*)$")
+
+
+def _checksum_line_parts(line: str) -> tuple[str, str] | tuple[None, None]:
+    """Return (digest, path) if this is a checksum line, else (None, None)."""
+    m = _CHECKSUM_LINE.match(line.strip())
+    if not m:
+        return None, None
+    return m.group(1), m.group(2)
+
 
 def scan_diff(diff: str, allow: dict[str, str], max_report: int,
               strict_mass_rewrite: bool = False) -> int:
@@ -288,6 +301,21 @@ def scan_diff(diff: str, allow: dict[str, str], max_report: int,
                 ln, new = adds[i]
                 old = rems[i]
                 if len(old) < 8:
+                    continue
+                # PRECISION, not weakening: a checksum manifest's whole purpose
+                # is that its digest column changes when content changes. A
+                # line shaped "<digest>  <path>" whose PATH is unchanged and
+                # whose digest moved is an updated checksum, not a data flip —
+                # and character comparison cannot tell them apart, because a
+                # hex digest is fixed-length, so a legitimate update lands at
+                # ~60-65% characters changed with 0% length delta. That is
+                # EXACTLY the flip signature. Skip only when BOTH sides carry a
+                # digest AND the path column matches; a digest line whose path
+                # also changed, or a non-digest line, is still a flip. Proved
+                # by negative control both ways.
+                old_d, old_p = _checksum_line_parts(old)
+                new_d, new_p = _checksum_line_parts(new)
+                if old_d and new_d and old_p == new_p:
                     continue
                 ratio = 1.0 - SequenceMatcher(None, old, new).ratio()
                 len_delta = abs(len(new) - len(old)) / max(1, len(old))
