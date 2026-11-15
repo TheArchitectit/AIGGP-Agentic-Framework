@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.42] - 2026-11-14
+
+### Changed
+
+- **`aiggp-08` is authorized work, not imported reference material** (decision 5
+  of the 2026-11-14 owner decision handoff). Own the vendored
+  `actions/stitcher-codereview/`, wire the seven present stages, build
+  the two absent ones, with evidence riding the GitHub adapter first and GitLab
+  second. The `measurement-2026-11-13` record stands; every "Shipped in
+  `9c46180`" claim is retired, and the only surviving occurrences of that hash
+  in the tree are the corrections themselves.
+- The package's Q12.1 entry step is recorded as **unperformable in this clone**:
+  the parity branch `07aadb05` is not present (`git cat-file -t` finds no such
+  object), so nothing is reconciled and each stage is re-implemented from
+  current main. If the bundle is restored, the reconcile becomes real again and
+  stages built before it must be re-checked against it.
+
 ## [1.3.41] - 2026-11-14
 
 ### Added
