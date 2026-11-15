@@ -106,13 +106,11 @@ gate cannot distinguish regression from reformat.
 
 ## Gate 3 — Enforcement placement (blocking, owner decision)
 
-**Status 2026-11-13: BLOCKED on the owner.** Gates 0-2 exited; the gate, its
-control, and the generator exist and are green on the real tree. Placement is
-the one question the implementation cannot answer for the owner, and this
-package's global stop rule freezes Gate 4 behind it. The three placements and
-their honest claims are in `design.md` section 8; the recommendation there is
-pre-commit as the block plus push-time CI as the audit trail, with CI described
-as detection, never prevention.
+**Status 2026-11-14: UNBLOCKED — the owner chose Both.** Gates 0-2 exited; the
+gate, its control, and the generator exist and are green on the real tree.
+Placement was the one question the implementation could not answer for the
+owner; the answer, and the split it fixes between what each layer may claim, is
+recorded in `design.md` section 8.1. Gate 4 is no longer frozen behind it.
 
 **Sprint:** S-L3 | **Effort:** M | **Priority:** P0
 **Entry criteria:** Gate 1 exited; owner has chosen a placement.
@@ -126,10 +124,37 @@ detection-after-the-fact, never as prevention.
 **Stop conditions:** Claiming a transition is "blocked" when the chosen
 placement cannot block it → stop and restate the claim.
 
-- [ ] 3.1 Record the owner's enforcement decision in `design.md` section 8: pre-commit, push-time CI, or both.
-- [ ] 3.2 If pre-commit: add the hook invoking `spec_state_gate.py` on staged `openspec/` paths and document `--no-verify` bypass plus the CI backstop.
-- [ ] 3.3 If CI: add the workflow and word its failure as detection-after-the-fact, given that `main` accepts direct pushes with no pull-request gate.
-- [ ] 3.4 Audit every document for enforcement claims that exceed what the wired mechanism can do, and restate them.
+- [x] 3.1 Record the owner's enforcement decision in `design.md` section 8: pre-commit, push-time CI, or both.
+  Verify (run): `sed -n '/### 8.1/,/restated under 3.4/p' openspec/changes/add-spec-state-ledger/design.md`
+  → the owner answer "Both" with the per-layer blocks/does-not-block table and
+  the decidable-subset statement. Provenance: owner decision handoff of
+  2026-11-14; the implementer did not supply the answer.
+- [x] 3.2 If pre-commit: add the hook invoking `spec_state_gate.py` on staged `openspec/` paths and document `--no-verify` bypass plus the CI backstop.
+  Verify (run): `scripts/hooks/pre-commit` (executable). Exercised in a throwaway
+  repo carrying this gate and a real spec, with `core.hooksPath scripts/hooks`:
+  state edit with no ledger row → **blocked**, message
+  `VIOLATION — demo/base-write-01: state changed ... with no ledger row`;
+  ledger row with no state edit → **blocked**, `row 0: ledger adds ... but the
+  spec's state did not change`; an unrelated staged file → **allowed** without
+  invoking the gate; `git commit --no-verify` → **allowed** (the documented
+  bypass, reproduced rather than assumed). The hook prints the bypass and the
+  CI backstop in its own refusal text.
+  Install is per clone: `git config core.hooksPath scripts/hooks`.
+- [x] 3.3 If CI: add the workflow and word its failure as detection-after-the-fact, given that `main` accepts direct pushes with no pull-request gate.
+  Verify (run): `.github/workflows/spec-state.yml` — push to `main`, `fetch-depth: 0`,
+  range `github.event.before..HEAD` with a fallback to `HEAD^` when the base is
+  absent, and every failure line says detection after the fact and repair by
+  follow-up commit. Exit 3 (nothing scanned) is a failure, never a pass.
+  Locally, `python3 scripts/spec_state_gate.py --base HEAD^ --head HEAD` on a
+  no-transition range exits 0 (`reconciled (1 commit(s))`), so the workflow does
+  not red `main` for ordinary pushes.
+- [x] 3.4 Audit every document for enforcement claims that exceed what the wired mechanism can do, and restate them.
+  Verify (run): `README.md` line 91-95 and the claim table row — both said the
+  gate "is a check you run, not yet a hook that blocks" / "GATE BUILT —
+  placement is an open owner decision". Restated to the wired split: pre-commit
+  block (bypassable with `--no-verify`, per-clone install) plus a push-time
+  audit that detects after the ref moved. No document now claims CI prevents a
+  transition.
 
 ## Gate 4 — Migration of existing specs (non-terminal until complete)
 

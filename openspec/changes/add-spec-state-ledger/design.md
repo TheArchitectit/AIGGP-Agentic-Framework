@@ -230,6 +230,31 @@ push-time CI as "preventing" a transition; it reports one that already landed.
 This is recorded as an open decision, not a settled design, because it decides
 whether the gate can refuse or only report.
 
+### 8.1 Settled 2026-11-14 — both, with the split stated
+
+Owner answer: **Both. Hook as the local block, CI worded explicitly as the audit
+trail; 3.4 restates any doc that claims stronger enforcement.**
+
+What each layer can and cannot do, as wired:
+
+| Layer | Mechanism | Blocks? | Honest claim |
+|---|---|---|---|
+| Local block | `scripts/hooks/pre-commit` via `core.hooksPath scripts/hooks`, run against a prospective commit built from the index | **Yes**, locally | Refuses a commit whose staged state edit and ledger row disagree. `git commit --no-verify` bypasses it, and `core.hooksPath` is per-clone configuration, so a fresh clone has no block until installed. |
+| Audit trail | `.github/workflows/spec-state.yml` on push to `main`, over `before..HEAD` | **No** | Detects a transition after the ref moved. A failure is a repair commit, never a rewrite of `main`. |
+
+The hook's decidable subset is exact: check 1 (state edit without row, row
+without state edit) is fully decidable before the commit exists, as is every
+violation judged against commits that already resolve — digest, ancestry,
+`spec: <id>` marker, partial closure. What it cannot decide is a row naming the
+commit being created, because that SHA does not exist yet. The ledger's
+commit-pair rule already forces the row's `landed_commit` to be a distinct,
+earlier commit, so the intended shape — work commit, then a commit carrying the
+state edit and the row — passes the hook.
+
+Neither layer is described as preventing a transition. The hook can refuse one;
+CI can only report that one landed. Every document that says otherwise is
+restated under 3.4.
+
 ## 9. Migration: prove what is provable, mark the rest
 
 Order matters, because backfilling wrongly is worse than leaving blank:

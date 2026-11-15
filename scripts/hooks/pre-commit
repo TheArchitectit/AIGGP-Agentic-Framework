@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+# // spec: spec-state-01, spec-state-02, spec-state-03, spec-state-04, spec-state-05, spec-state-06
+#
+# Spec-state pre-commit block (Gate 3.2). Owner decision 2026-11-14: enforce
+# BOTH — this hook is the local block, `.github/workflows/spec-state.yml` is the
+# audit trail.
+#
+# What this hook can and cannot do, stated so nobody overclaims it:
+#
+#   * It BLOCKS a commit whose staged state edits a published spec without the
+#     matching ledger row, or appends a row with no state edit — the gate's
+#     check 1, which is fully decidable before the commit exists.
+#   * It also blocks any other violation the gate can decide against commits
+#     that already exist (digest, ancestry, marker, partial closure).
+#   * It CANNOT verify a row that names the commit being created: the SHA does
+#     not exist yet. The workflow's commit-pair rule therefore makes the row
+#     name an earlier, already-resolved commit — the work commit — while this
+#     commit carries the state edit and the row. That shape passes here.
+#   * `git commit --no-verify` bypasses this hook entirely. That is a known,
+#     documented bypass, not a hole we pretend is closed: the push-time
+#     workflow on `main` then reports the transition, after the fact.
+#
+# Install per clone (core.hooksPath is local configuration, not a repo file):
+#
+#     git config core.hooksPath scripts/hooks
+#
+# Exit codes: 0 allow, 1 block. Anything unexpected blocks (fail closed).
+
+set -uo pipefail
+
+repo="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 1
+cd "$repo" || exit 1
+
+gate="scripts/spec_state_gate.py"
+ledger="openspec/state-ledger.jsonl"
+
+[ -f "$gate" ] || exit 0   # gate absent: not this repository's business
+
+# Published specs and the ledger are the only inputs to the gate. A staged
+# change package (openspec/changes/...) is deliberately not gated: its deltas
+# are in flight, and a transition is a property of a published spec.
+staged="$(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null)" || exit 1
+if ! printf '%s\n' "$staged" | grep -qE '^(openspec/specs/[^/]+/spec\.md|'"$ledger"')$'; then
+    exit 0
+fi
+
+# The prospective commit: the index as a tree, hung off HEAD as its parent.
+# It is a dangling object (no branch names it); git gc collects it, and it
+# never moves a ref. Its only purpose is to give the gate a revision that
+# carries the staged content and resolves as a commit.
+if ! git rev-parse --verify -q HEAD >/dev/null; then
+    echo "spec-state: no HEAD yet (first commit) — nothing to reconcile"
+    exit 0
+fi
+tree="$(git write-tree)" || { echo "spec-state: cannot read the index"; exit 1; }
+prospective="$(
+    GIT_AUTHOR_NAME="spec-state hook" GIT_AUTHOR_EMAIL="spec-state@localhost" \
+    GIT_COMMITTER_NAME="spec-state hook" GIT_COMMITTER_EMAIL="spec-state@localhost" \
+    git commit-tree "$tree" -p HEAD -m "spec-state pre-commit probe" 2>/dev/null
+)" || { echo "spec-state: cannot build the prospective commit"; exit 1; }
+
+out="$(python3 "$gate" --base HEAD --head "$prospective" 2>&1)"
+rc=$?
+
+case "$rc" in
+    0)
+        printf '%s\n' "$out"
+        exit 0
+        ;;
+    3)
+        # Nothing scanned: the staged change touches spec files or the ledger
+        # but moves no requirement state and adds no row. There is nothing to
+        # reconcile here; the push-time workflow remains the audit trail.
+        printf '%s\n' "$out"
+        exit 0
+        ;;
+    1)
+        printf '%s\n' "$out" >&2
+        cat >&2 <<'EOF'
+
+spec-state: BLOCKED by the pre-commit hook.
+
+A spec-state transition needs the published spec edit and the matching row in
+openspec/state-ledger.jsonl in the SAME staged change, with two resolved,
+distinct commits in ancestry order, a file carrying `spec: <req-id>` in that
+window, and a sealed evidence bundle for a terminal closure.
+
+Fix the reported violation. `git commit --no-verify` bypasses this hook, and
+the push-time workflow on main will then report the transition after the fact
+— it does not prevent it.
+EOF
+        exit 1
+        ;;
+    *)
+        printf '%s\n' "$out" >&2
+        echo "spec-state: gate exited $rc (usage/configuration error) — blocking; fail closed" >&2
+        exit 1
+        ;;
+esac
