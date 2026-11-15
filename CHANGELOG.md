@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.41] - 2026-11-14
+
+### Added
+
+- **Spec-state gate wired on both sides** (owner decision 2026-11-14, Gate 3 of
+  `add-spec-state-ledger`). `scripts/hooks/pre-commit` blocks a commit whose
+  staged spec-state edit and `openspec/state-ledger.jsonl` row disagree;
+  `.github/workflows/spec-state.yml` audits the pushed range on `main` and is
+  worded as detection after the fact, never prevention. `git commit
+  --no-verify` bypasses the hook by design, and `core.hooksPath` is per-clone
+  configuration (`git config core.hooksPath scripts/hooks`), so the CI audit is
+  the only layer an author cannot skip — and it only reports. README restated
+  where it had said the gate was "a check you run, not yet a hook that blocks".
+
 ## [1.3.40] - 2026-11-14
 
 ### Changed
