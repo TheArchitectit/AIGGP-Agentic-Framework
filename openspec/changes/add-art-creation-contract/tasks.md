@@ -323,7 +323,9 @@ at that head: 228. Re-measure and rebind the number before archive.
       195/199, `f5da682` 184/187, `616f26f`, `0779267` and `3fcb661`
       235/241). It did not run the size gate, the regression gate or CI;
       those were run here, from `ci.yml`'s own commands, by exit code.
-      Out of its reach, and still open: 3.1's live title.
+      Out of its reach at the time, and since closed: 3.1's live title — run
+      2026-11-15 against the designated gate testbed, two real findings, a
+      manufactured third caught and removed, non-vacuity controlled. See 3.1.
 - [ ] 5.4 CHANGELOG entry at archive time, not before. — **Still open
       2026-11-15:** the package is not archived (`openspec/changes/archive/`
       has no `add-art-creation-contract`; the package is still under
