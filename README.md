@@ -124,6 +124,39 @@ bash .devgate/scripts/deploy.sh 1.0.0             # gated publish (npm/cargo/pip
 that exit 2. `--all` is a scheduled drift sweep; use `--base origin/main` for a
 pull-request-style range.
 
+### Open-item gates (wired 2026-11-15)
+
+Six gates, two layers with distinct jobs. The local layer (git hooks) blocks
+in the moment and is bypassable with `--no-verify` **by design**. The
+authoritative record is the push-time CI job: on a repository that accepts
+direct pushes to `main`, it **detects** a violation that has already landed —
+it is never described as blocking, because it cannot block anything.
+
+| Gate | Local hook (blocks in the moment) | Push-time CI (detects after landing) | Release preflight (blocks a release) |
+|---|---|---|---|
+| `scripts/tree_clean_check.py` | pre-commit | — (needs the working tree) | — |
+| `scripts/branch_drift_check.py` | pre-push | — (needs local ref tips) | — |
+| `scripts/open_item_aging_check.py` | pre-commit | yes | — |
+| `scripts/secret_rotation_check.py` | — | yes | yes |
+| `scripts/surface_reach_check.py` | — | yes | — |
+| `scripts/evidence_claim_check.py` | — | yes | yes |
+
+Install the hooks per clone (this is local configuration, not a repo file, and
+it is deliberately not auto-installed on clone):
+
+```bash
+git config core.hooksPath scripts/hooks
+```
+
+Inputs the ledger gates read: `docs/open-items-ledger.md` (dated open rows) plus
+`docs/open-items-triage.jsonl` (one disposition per aged row), and
+`docs/secret-rotation.jsonl` (one rotation record per detection).
+`docs/surfaces.json` declares the surface groups and
+`docs/evidence-claim-allowlist.txt` the declared marker-scan exemptions.
+Every hook and preflight step fails closed on a missing gate script: a missing
+gate is a hard error, never a silent pass. Nothing-scanned (exit 3) is not
+green anywhere in this wiring.
+
 ## Components
 
 | Gate or service | What it does |
@@ -504,6 +537,12 @@ they are not claims that every proposed integration is deployed.
 | The frozen OAP vectors are byte-identical to the current code | `tests` job → `tests/test_oap_evidence_vectors.py` | **GREEN** — [run 37354967182](https://github.com/TheArchitectit/AIGGP-Agentic-Framework/actions/runs/37354967182) |
 | Reintroduced unsafe OAP acceptance is killed by a named test | `evaluator-integrity` job → `tests/mutation_battery_oap_acceptance.py` (3/3 killed, negative control survives) | **GREEN** — [run 37354967182](https://github.com/TheArchitectit/AIGGP-Agentic-Framework/actions/runs/37354967182) |
 | No credential-shaped finding is left uncovered by a disposition | `secrets` job → `scripts/secret-scan.sh` (0 uncovered on the pushed range in CI; 0 uncovered / 0 stale on a full-history sweep re-verified locally at `3d92411`) | **GREEN** — [run 37354967182](https://github.com/TheArchitectit/AIGGP-Agentic-Framework/actions/runs/37354967182) |
+| Every aged open item carries a live triage disposition | `open_item_aging_check.py` → `scripts/hooks/pre-commit` (local block) + `open-item-gates` workflow (push-time, **detects**) | **GATE WIRED — measured 2026-11-15: 6 open rows, 3 aged, 3 triaged, rc=0** |
+| A scrubbed secret is not a revoked secret | `secret_rotation_check.py` → `open-item-gates` workflow (push-time, **detects**) + `scripts/release_preflight.sh` (blocks a release) | **GATE WIRED — RED on the 2026-11-15 measurement: 5 fixture-classification rows fail real-secret rules (OI-006)** |
+| A change must reach every declared surface | `surface_reach_check.py` → `open-item-gates` workflow (push-time, **detects**) over `docs/surfaces.json` | **GATE WIRED — measured 2026-11-15: 10 forge-twin groups, 20 surfaces, rc=0** |
+| An unevidenced DEFERRED/MOCK/STUB/TODO marker must carry a followable reference | `evidence_claim_check.py` → `open-item-gates` workflow (push-time, **detects**) + `scripts/release_preflight.sh` (blocks a release) | **GATE WIRED — RED on the 2026-11-15 measurement: 1 finding, `hub/alerts.py:67` (OI-005)** |
+| Unclassified working-tree dirt blinds review | `tree_clean_check.py` → `scripts/hooks/pre-commit` only (needs the working tree; a CI checkout cannot see it) | **GATE WIRED — local block; measured 2026-11-15 on a clean clone rc=0, on the working tree it names the uncommitted change** |
+| A local ref must exist on a remote or be explicitly archived | `branch_drift_check.py` → `scripts/hooks/pre-push` only (needs local ref tips; a CI checkout has none) | **GATE WIRED — local block; measured 2026-11-15: 5 drift refs on this clone (34/7/1/0/0 ahead)** |
 
 ## Proposed integrations and roadmap
 

@@ -32,6 +32,21 @@ CONTRACT
     revoked_at         date revoked at the provider
     evidence           pointer to the revocation record (ticket, console screenshot id)
     history_purged     bool
+    not_a_secret       bool, optional. TRUE only for a reviewed detection that is
+                       demonstrably not a secret (e.g. a public key, a key id, a
+                       synthetic fixture). REQUIRES a non-empty `determination`
+                       naming the evidence. Without one it is a violation (rule 6).
+    determination      why this is not a secret. Required when not_a_secret is set.
+
+  NOT_A_SECRET is a true-negative disposition, not an exemption. It exists because
+  the scanner is a heuristic: it matches credential-shaped strings, and a field
+  literally named `signing_public_key_hex` is a published key, not a secret.
+  Forcing every detection to be modelled as a secret is itself a false model — it
+  demands a provider revocation for something that has no provider secret, and it
+  trains people to write `revoked: true` for things that were never revoked, which
+  is worse than a red gate. This disposition is counted and printed on every run,
+  so a reviewed non-secret is visible, never silently absorbed. It never applies
+  to a row without a written determination.
 
   The gate fails when:
     1. `removed_from_head` is true but `revoked` is false and first_seen is older than
@@ -43,6 +58,11 @@ CONTRACT
     4. A required field is absent — a malformed row cannot be partially trusted.
     5. Zero entries is fine (nothing detected yet). Zero *parsed* lines from a non-empty
        file is a failure.
+    6. `not_a_secret` is true but `determination` is absent or empty — an
+       unevidenced "not a secret" is indistinguishable from hiding one.
+
+  Rules 1-3 do not apply to a row with `not_a_secret: true` and a determination:
+  there is no secret to scrub, revoke, or uncommit.
 
 Exit codes: 0 pass | 1 violation | 2 usage/config error | 3 nothing scanned
 """
@@ -109,7 +129,7 @@ def main() -> int:
 
     violations = []
     stats = {"total": len(entries), "unrevoked": 0, "still_committed": 0,
-             "missing_evidence": 0}
+             "missing_evidence": 0, "not_a_secret": 0}
 
     for e in entries:
         eid = e["id"]
@@ -117,6 +137,21 @@ def main() -> int:
         age = (today - seen).days
         removed = bool(e["removed_from_head"])
         revoked = bool(e["revoked"])
+        not_secret = bool(e.get("not_a_secret"))
+
+        # Rule 6 first: an unevidenced "not a secret" is indistinguishable from
+        # hiding one. Check it before honouring the disposition.
+        if not_secret and not str(e.get("determination") or "").strip():
+            violations.append(
+                f"{eid}: not_a_secret is true but determination is empty — "
+                f"an unevidenced non-secret is indistinguishable from hiding one")
+            continue
+
+        if not_secret:
+            # Reviewed true negative: there is no secret to scrub, revoke, or
+            # uncommit. Counted and printed, never silently absorbed.
+            stats["not_a_secret"] += 1
+            continue
 
         if not removed and age > args.max_unrevoked_days:
             stats["still_committed"] += 1
@@ -150,7 +185,8 @@ def main() -> int:
     else:
         print(f"entries: {stats['total']} | unrevoked: {stats['unrevoked']} "
               f"| still committed: {stats['still_committed']} "
-              f"| missing evidence: {stats['missing_evidence']}")
+              f"| missing evidence: {stats['missing_evidence']} "
+              f"| not-a-secret (reviewed): {stats['not_a_secret']}")
         if violations:
             print(f"\n{len(violations)} violation(s):", file=sys.stderr)
             for v in violations:

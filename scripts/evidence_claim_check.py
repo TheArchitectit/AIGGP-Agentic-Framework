@@ -141,6 +141,37 @@ def scan(root: Path, allow_globs: list[str]) -> tuple[list[dict], int]:
                             "text": line.strip()[:100]})
             # bare markers with no annotation on the line
             if BARE_RE.search(line) and not ANNOT_RE.search(line):
+                # PRECISION, not weakening: `raise NotImplementedError` as the body of
+                # an `@abc.abstractmethod` is not deferred work. It is unreachable —
+                # the ABC machinery refuses to instantiate the class — and it is the
+                # canonical Python body for a method that must be overridden. Flagging
+                # it does not surface a gap; it pressures the author to delete the
+                # guard, at which point an unimplemented abstract method silently
+                # returns None, which is strictly worse than the raise. The gate
+                # governs markers that look like a finished decision; an abstract
+                # method's body is the opposite of that. A bare raise NOT under
+                # @abstractmethod is still a finding — proved by negative control.
+                if re.search(r"\bNotImplementedError\b", line):
+                    # Walk back through the enclosing function body to its def
+                    # line, then keep walking through the decorator stack above
+                    # that def (decorators come BEFORE `def`). Stop at the first
+                    # non-decorator, non-comment, non-blank line so a decorator
+                    # on an earlier function cannot exempt this one — proved by
+                    # negative control: a plain 5-line window did exactly that.
+                    prev = text.splitlines()[:lineno - 1]
+                    body = []
+                    seen_def = False
+                    for t in reversed(prev):
+                        body.append(t)
+                        if re.match(r"\s*(def|class|async def)\b", t):
+                            seen_def = True
+                            continue
+                        if seen_def:
+                            if re.match(r"\s*@", t) or not t.strip():
+                                continue
+                            break
+                    if any(re.search(r"@(abc\.)?abstractmethod\b", t) for t in body):
+                        continue
                 findings.append({
                     "file": rel, "line": lineno, "kind": "bare",
                     "problem": "marker with no evidence annotation",

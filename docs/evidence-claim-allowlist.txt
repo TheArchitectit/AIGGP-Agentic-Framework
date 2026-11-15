@@ -1,0 +1,62 @@
+# evidence-claim allowlist — declared exemptions for scripts/evidence_claim_check.py
+# (--allow). One gitignore-style glob per line; matched against the repo-relative
+# path and the basename. Lines starting with # are comments.
+#
+# Rule (evidence-claims spec): exemptions come from THIS file, never from
+# inference. Every entry below was reviewed on 2026-11-15 against the gate's
+# measured findings; each class is named with its reason. A new bare marker
+# outside these paths is a finding on purpose.
+
+# Vendored dependency trees — third-party code, not program source.
+*node_modules*
+
+# Compiled bytecode — embeds source literals as data; generated, never authored.
+*__pycache__*
+*.pyc
+
+# Synthetic benchmark fixture repos — seeded trees the benchmark builds, not
+# program code (.benchmarks/tasks/*/repo/...).
+.benchmarks/*
+
+# Detector rule docs — the guardrails prevention-rules corpus quotes marker
+# shapes (regexes, suggestions) to govern them; a coarse scan reds on its own
+# detector documentation.
+.guardrails/prevention-rules/*
+
+# Gate tooling that must quote marker syntax in order to govern it: the
+# evidence gate's own regexes and usage text, the spec-gap scanner's guidance
+# strings, the guardrails scanner's comment-classification rules — and this
+# allowlist file, whose comments must name the shapes it exempts.
+scripts/evidence_claim_check.py
+scripts/spec_gap_scan.py
+scripts/guardrails-scan.mjs
+docs/evidence-claim-allowlist.txt
+
+# Prose ledgers that record findings by quoting them. The open-items backlog and
+# its triage dispositions name the marker they are about (measured 2026-11-15:
+# the OI-005 row quoting hub/alerts.py:67 tripped this gate on its own input),
+# and change-package task ledgers paste real gate output as measurement
+# evidence, which necessarily contains the gate's marker vocabulary. A marker
+# quoted in prose is not a code position. A marker in a code position outside
+# this scope is a finding on purpose.
+docs/open-items-ledger.md
+docs/open-items-triage.jsonl
+openspec/changes/*/tasks.md
+
+# Spec and QA prose that documents marker shapes by example (the evidence-claims
+# spec itself; an archived plan quoting the stub idiom it chose; a QA disposition
+# table quoting markers that live in other repositories).
+openspec/changes/add-open-item-gates/specs/evidence-claims/spec.md
+openspec/changes/archive/2026-10-03-ai01-runner-monitor-impl/plan.md
+docs/qa/2026-11-05-sgr16-d3-disposition.md
+
+# Test fixture corpora — markers here are payloads under test (this gate's own
+# fixtures, the guardrails scanner corpus strings, the diff-allow fixture, an
+# abstract test-double base class, and a except-clause that merely names
+# NotImplementedError). Assembling these at run time where practical is nicer;
+# the declaration is the honest scope until then.
+tests/test_open_item_gates.py
+tests/test_guardrails_scan.mjs
+tests/test_diff_pattern_allow.py
+tests/test_oap_replay_guard.py
+tests/platform_caps.py

@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The art scanner has now been run against a live title** (`add-art-creation-contract`
+  3.1). The designated gate testbed is a real Godot title with real art and no
+  art contract, which is the failure classes the proposal describes. A manifest
+  was written into the title declaring its actual state, because the contract's
+  design is that the title supplies its own manifest. The scan reports two
+  contract failures — no provenance ledger, and a target with no rendered-frame
+  capture — and passes the stage-consumer requirement once the consumer names a
+  real file. A third finding was manufactured by naming a path that never
+  existed; it was caught and removed before anything was claimed. Non-vacuity
+  is controlled: the scanner's own selftest is green and it explicitly refuses
+  a zero-input run.
+
+### Changed
+
+- **GitLab is an option on top of GitHub, not a swap** (`add-gitlab-forge-support`).
+  Owner decision: *"we are just adding git lab as a option not swaping to it"*,
+  and the fixture is enough — no live instance is required for the option to
+  ship. GitHub remains the main forge and nothing about it changes. GitLab is
+  recorded supported, tested against a fixture, not proven live. The
+  instance-dependent boxes are owner-deferred, not blocked.
+- **The hooks-or-webhooks ambiguity is resolved as both**, with distinct jobs:
+  git hooks on the machine catch mistakes before they leave (bypassable by
+  design), and push-time CI is the authoritative record — it *detects* rather
+  than blocks, because this repository accepts direct pushes to `main`.
+
 ## [1.3.42] - 2026-11-14
 
 ### Changed
