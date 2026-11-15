@@ -13,8 +13,21 @@
 > open and blocked on the operator:** Sprint 0 (no instance), Sprint 4's live
 > two-forge half, GLF-01's two-platform green, and GLF-10's real backup/restore
 > drill. No live GitLab instance was contacted.
+>
+> **OWNER DECISION 2026-11-15 — this re-frames the whole package.** The owner:
+> *"we are just adding git lab as a option not swaping to it"* and, on whether
+> the option needs proving against a live server, **"b is fine"** — i.e. the
+> fixture is enough. GitHub remains the main forge and nothing about it
+> changes. GitLab is a second forge you can point at if you happen to run one.
+> **It is recorded as SUPPORTED, tested against a fixture, NOT proven live.**
+> No server was started. The instance-dependent boxes below are therefore
+> **owner-deferred**, not blocked: they close when someone actually wants to
+> use GitLab, at which point proving it is a half-hour job. Sprint 0's "hard
+> gate — nothing below starts" is superseded by this decision for the
+> *hermetic* work (which is already done and stays done) and remains real only
+> for the *live* work, which is deliberately not being done now.
 
-- [ ] Sprint 0 (instance discovery): document the lab GitLab (version, URL, auth shape, tailnet posture); backup/restore drill; pin version. Hard gate — nothing below starts until this is evidenced.
+- [ ] Sprint 0 (instance discovery): document the lab GitLab (version, URL, auth shape, tailnet posture); backup/restore drill; pin version. ~~Hard gate — nothing below starts until this is evidenced.~~ **Owner-deferred 2026-11-15** (see the decision block above): live instance proof is not required for the option to ship. This box closes when someone chooses to use GitLab.
   - **Blocked on the operator.** Discovery on 2026-10-23 found no self-hosted GitLab instance: the private infra KB lists a GitLab *runner* host only, no server, and no GitLab endpoint responded on the fleet network. Re-checked 2026-11-13 — still no server entry. The operator must supply the instance (URL, version, auth shape, reachability) before this can close.
   - The backup/restore drill has a validator (`hub/forge/instance.py` `validate_backup_restore_drill`) and a synthetic test report; no drill has been run against a real instance.
   - **Operator-supplied data still missing, exactly (re-checked 2026-11-15):**

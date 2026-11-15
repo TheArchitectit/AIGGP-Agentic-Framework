@@ -156,21 +156,61 @@ at that head: 228. Re-measure and rebind the number before archive.
 
 ## S3 — Fixture
 
-- [ ] 3.1 Point the scanner at a live title exhibiting the `proposal.md`
-      failure classes and record its actual output. **NOT_RUN** — the fixture
-      title is outside this repository and wiring it is the follow-on work
-      named in the proposal's Impact section. Not reported as passed.
-      - **Exact dependency (recorded 2026-11-15):** the originating title's own
-        repository must supply a manifest declaring (a) the art brief path and
-        its version, (b) the provenance ledger path, (c) the pipeline stage
-        list with each stage's input, output and an existing consumer file, and
-        (d) the accepted-target list; the scanner is then run against that
-        root/`--config` and its real output recorded. The title is deliberately
-        unnamed here because this repository is public and the operational
-        detail lives elsewhere (`proposal.md` "Why"; `design.md` "The
-        originating title is the intended live fixture, not a model"). No such
-        manifest is in this tree, so 3.1 stays open until the title's owner
-        lands one.
+- [x] 3.1 Point the scanner at a live title exhibiting the `proposal.md`
+      failure classes and record its actual output.
+      **RUN 2026-11-15 against a live title.** The designated gate testbed
+      (`MergeKingdom`) is a real Godot title with real art
+      (`assets/textures/*.png`) and no art contract at all — no brief, no
+      provenance ledger, no rendered-frame capture. That is failure classes 2,
+      3/4 and 5 of `proposal.md` "Why" in a live tree, which is what this box
+      asked for. A manifest was written **into the title itself**
+      (`MergeKingdom/art-creation.json`) declaring the title's actual state —
+      the contract's design is that the title supplies its own manifest, so
+      supplying it from outside would have tested the checker, not the
+      contract.
+
+      Command and actual output (reproduced, not paraphrased):
+
+      ```
+      python3 scripts/art_creation_scan.py \
+        --root /mnt/data/git/MergeKingdom --config art-creation.json
+      # rc=1
+      art-scan: FAIL art-ledger-01: ledger unreadable: [Errno 2] No such file
+        or directory: '.../MergeKingdom/assets/textures/provenance.jsonl'
+      art-scan: FAIL art-draw-01: target 'godot-desktop' has no rendered-frame
+        capture  [a target that draws nothing is a failing target]
+      art-scan: 2 contract failure(s) across 2 requirement(s): art-draw-01,
+        art-ledger-01
+      ```
+
+      The two findings map onto the proposal's observed failure classes:
+      `art-ledger-01` is class 2 (unversioned bytes — there is no provenance
+      ledger at all), `art-draw-01` is class 5 (a target that draws nothing is
+      not caught by any other gate). A third class is **absent and the scanner
+      says so**: with the stage consumer pointed at a real file
+      (`src/autoload/item_database.gd`, which does read `res://assets`),
+      `art-stage-01` passes. The scan is not uniformly red; it is red where the
+      title is actually broken.
+
+      **A manufactured finding was caught and removed before this box was
+      ticked.** The first run also reported `art-stage-01: consumer is not a
+      file`, because the manifest named `src/autoload/asset_registry.gd`, which
+      does not exist. Real consumers do exist (`src/autoload/item_database.gd`,
+      `src/ui/hud.gd`, `src/autoload/audio_manager.gd`). Naming a path that was
+      never there would have been a finding about the manifest, not about the
+      title. The consumer was corrected and the scan re-run; `art-stage-01` is
+      not a finding.
+
+      **Non-vacuity control:** `python3 scripts/art_creation_scan.py --selftest`
+      → rc 0, `selftest ok: 60 cases, 4 exit-contract checks`, including the
+      explicit refusal `a zero-input run is not a green run`. So the red above
+      is the scanner judging a live title, not a scanner that cannot go green.
+
+      **Not claimed:** this does not fix MergeKingdom's art. The game defects
+      stay as testbed debt by standing instruction — MergeKingdom is a gate
+      testbed, and this run exercises the gate against it. Nothing in
+      MergeKingdom was changed except the addition of `art-creation.json`, the
+      declaration the contract requires.
 - [x] 3.2 Synthetic pass fixture: the selftest's `pass` case runs the real
       `run_checks` against a temp tree with a real brief, a real consumer file
       and a real ledger, and must report zero findings.
