@@ -160,6 +160,17 @@ at that head: 228. Re-measure and rebind the number before archive.
       failure classes and record its actual output. **NOT_RUN** — the fixture
       title is outside this repository and wiring it is the follow-on work
       named in the proposal's Impact section. Not reported as passed.
+      - **Exact dependency (recorded 2026-11-15):** the originating title's own
+        repository must supply a manifest declaring (a) the art brief path and
+        its version, (b) the provenance ledger path, (c) the pipeline stage
+        list with each stage's input, output and an existing consumer file, and
+        (d) the accepted-target list; the scanner is then run against that
+        root/`--config` and its real output recorded. The title is deliberately
+        unnamed here because this repository is public and the operational
+        detail lives elsewhere (`proposal.md` "Why"; `design.md` "The
+        originating title is the intended live fixture, not a model"). No such
+        manifest is in this tree, so 3.1 stays open until the title's owner
+        lands one.
 - [x] 3.2 Synthetic pass fixture: the selftest's `pass` case runs the real
       `run_checks` against a temp tree with a real brief, a real consumer file
       and a real ledger, and must report zero findings.
@@ -273,4 +284,8 @@ at that head: 228. Re-measure and rebind the number before archive.
       235/241). It did not run the size gate, the regression gate or CI;
       those were run here, from `ci.yml`'s own commands, by exit code.
       Out of its reach, and still open: 3.1's live title.
-- [ ] 5.4 CHANGELOG entry at archive time, not before.
+- [ ] 5.4 CHANGELOG entry at archive time, not before. — **Still open
+      2026-11-15:** the package is not archived (`openspec/changes/archive/`
+      has no `add-art-creation-contract`; the package is still under
+      `openspec/changes/`), so the entry is not written. Pre-writing it would
+      document a release that has not happened.

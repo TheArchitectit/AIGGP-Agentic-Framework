@@ -1,0 +1,11 @@
+{
+ "version": "2026-11-15.1",
+ "sha256": "sha256:18f43e9eb8c817ed99982a0013cf18e117a01072f08451ca6e21234a05b2949a",
+ "cases": [
+  "corpus-01-unevidenced-marker",
+  "corpus-02-surface-divergence",
+  "corpus-03-aged-untriaged",
+  "corpus-04-scrubbed-not-revoked",
+  "corpus-05-clean-control"
+ ]
+}

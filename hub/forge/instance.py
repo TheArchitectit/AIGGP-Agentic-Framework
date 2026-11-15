@@ -11,6 +11,10 @@ from pathlib import Path
 
 _DIGEST_PIN_RE = re.compile(r"^[A-Za-z0-9._/-]+@sha256:[0-9a-f]{64}$")
 _SHA256_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
+_VERSION_RE = re.compile(r"^\d+\.\d+(?:\.\d+)?$")
+# The one hosted GitLab surface. Any other instance id is self-hosted.
+HOSTED_GITLAB_INSTANCE_ID = "gitlab.com"
+SURFACES = ("self-hosted", "hosted")
 
 
 class OwnershipValidationError(ValueError):
@@ -23,7 +27,12 @@ class RunnerImageError(ValueError):
 
 @dataclass(frozen=True)
 class InstanceDeclaration:
-    """Per-instance ownership and access-model declaration (GLF-10, GLF-13)."""
+    """Per-instance ownership and access-model declaration (GLF-10, GLF-13).
+
+    The last four fields are the GLF-13 cadence/version declaration. They are
+    required for a GitLab instance but have empty defaults so a caller building
+    a partial record gets a named validation error instead of a TypeError.
+    """
 
     instance_id: str
     forge: str
@@ -35,6 +44,10 @@ class InstanceDeclaration:
     default_visibility: str
     ip_repo_visibilities: dict[str, str]
     tls_valid: bool
+    security_patch_cadence_days: int = 0
+    upgrade_cadence_days: int = 0
+    supported_version: str = ""
+    surface: str = "self-hosted"
 
 
 @dataclass(frozen=True)
@@ -103,6 +116,37 @@ def validate_instance_declaration(decl: InstanceDeclaration) -> InstanceDeclarat
                 f"intellectual-property repository {repo_name!r} on {decl.instance_id!r} "
                 f"cannot have visibility {vis!r}; must be private or internal (GLF-13)"
             )
+    if decl.surface not in SURFACES:
+        raise OwnershipValidationError(
+            f"instance {decl.instance_id!r} has invalid surface {decl.surface!r}; "
+            f"must be one of {SURFACES} (GLF-13)"
+        )
+    # GitLab.com is the only hosted surface, and naming it is the opt-in. A
+    # declaration that names gitlab.com without surface="hosted" is refused
+    # rather than silently treated as a self-hosted instance.
+    if (decl.instance_id == HOSTED_GITLAB_INSTANCE_ID) != (decl.surface == "hosted"):
+        raise OwnershipValidationError(
+            f"instance {decl.instance_id!r} with surface {decl.surface!r} is "
+            f"inconsistent: surface='hosted' is reserved for "
+            f"{HOSTED_GITLAB_INSTANCE_ID!r}, and {HOSTED_GITLAB_INSTANCE_ID!r} "
+            f"requires an explicit surface='hosted' declaration (GLF-13)"
+        )
+    for field_name, value in (
+        ("security_patch_cadence_days", decl.security_patch_cadence_days),
+        ("upgrade_cadence_days", decl.upgrade_cadence_days),
+    ):
+        if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+            raise OwnershipValidationError(
+                f"instance {decl.instance_id!r} must declare a positive integer "
+                f"{field_name} (GLF-13)"
+            )
+    if not isinstance(decl.supported_version, str) or not _VERSION_RE.match(
+        decl.supported_version.strip()
+    ):
+        raise OwnershipValidationError(
+            f"instance {decl.instance_id!r} must declare an adapter-supported "
+            f"GitLab version such as '17.4' or '17.4.2' (GLF-13)"
+        )
     return decl
 
 

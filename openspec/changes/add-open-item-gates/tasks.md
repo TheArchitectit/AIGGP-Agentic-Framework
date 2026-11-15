@@ -75,9 +75,66 @@ owner decision (see the closing section).
   decision: a push-time CI job **detects** a violation that already landed, and
   must not be described as blocking on a repository that accepts direct pushes
   to `main` (the same honesty rule as `spec-state-09`).
+  - **Measured 2026-11-15. No gate is wired anywhere.**
+    `grep -rnE 'open_item_aging_check|secret_rotation_check|branch_drift_check|tree_clean_check|surface_reach_check|evidence_claim_check' .github/ scripts/hooks/`
+    exits 1 with zero matches. The only execution today is
+    `tests/test_open_item_gates.py` under `pytest` in the `tests` job
+    (`.github/workflows/ci.yml`, "Run the shipped gates against its own tree"),
+    and it runs each gate against synthetic fixtures, not this repository's
+    own inputs. `scripts/hooks/pre-commit` runs `scripts/spec_state_gate.py`
+    only, is installed per clone (`git config core.hooksPath scripts/hooks`),
+    and is bypassable with `--no-verify`.
+  - **Measured placement constraints.** `actions/checkout` leaves CI in a
+    detached checkout with no local branches, so `branch_drift_check.py`
+    (local ref tips vs advertised remotes) and `tree_clean_check.py`
+    (working-tree classification) cannot see their inputs in CI; they can only
+    run on a developer machine. `open_item_aging_check.py`,
+    `secret_rotation_check.py`, `surface_reach_check.py` and
+    `evidence_claim_check.py` read files a checkout contains, so they are
+    CI-able in principle.
+  - **Owner question, exactly:** for each of the six gates, choose one
+    placement among (a) local pre-commit/pre-push hook (blocks locally,
+    bypassable with `--no-verify`), (b) push-time CI job (detects after the
+    commit has landed on `main`; does not block), (c) release preflight
+    (`scripts/release_preflight.sh`, blocks a release not a push), (d)
+    scheduled advisory run. `branch_drift` and `tree_clean` can only be (a) or
+    a developer-machine advisory. The owner must also name the input paths for
+    the two ledger gates (4.2).
 - [ ] 4.2 Adopt a triage ledger and a rotation ledger with content. The gates
   read these files; creating them is a process decision, and an empty ledger is
   a pass, not evidence.
+  - **Measured 2026-11-15 — neither ledger can be adopted from repository data
+    without a process decision, so both stay open with the missing input
+    named.**
+  - Triage ledger: the gate needs a backlog of dated open rows plus one
+    disposition per aged row (`fixed`, `deferred` with `review_by` + `reason`,
+    or `not-actionable`). This repository has no live dated backlog:
+    `git grep -nE '^\s*-\s*\[[ ~!]\].*20[0-9]{2}-[0-9]{2}-[0-9]{2}' -- '*.md'`
+    returns three rows, all historical lines inside archived change packages
+    (`openspec/changes/archive/2026-10-01-devgate-spec-coherence-service/tasks.md`
+    and `2026-10-13-harden-oap-evidence-verification/tasks.md`), not a ledger
+    the gate should age. The canonical append-only ledger the gate was written
+    against (`ai-news/nextday-actions.md`) lives outside this repository. A
+    named but absent backlog is exit 2
+    (`python3 scripts/open_item_aging_check.py /tmp/no-such-backlog.md` ->
+    `rc=2`, `FATAL: backlog not found`), not a pass, and there is nothing real
+    to point it at.
+  - Rotation ledger: `bash scripts/secret-scan.sh --repo . --report
+    /tmp/aiggp-ss.json --all` exits 1: `scanned 82 finding(s): 40 allowlisted,
+    42 to fix` (21 allowlist entries). The 42 uncovered hits are
+    credential-shaped fixtures in `openspec/changes/add-oap-evidence-consumer/vectors/`
+    and `tests/` (rule `generic-api-key`, plus one `github-pat` under
+    `fleet-manager/tests/`). Writing them into `secret-rotation.jsonl` forces
+    two decisions this change cannot make: whether each hit is a real
+    credential or a test fixture, and — for a real one — whether it was revoked
+    at the provider, with a revocation date and evidence id. The gate treats an
+    empty ledger as exit 0 (`OK: empty rotation ledger — no detections recorded
+    yet`, measured), which is a pass, not evidence, so an empty file ticks
+    nothing.
+  - **Missing inputs, named:** (1) the backlog path the operator adopts;
+    (2) a disposition per aged row; (3) a real-vs-fixture classification per
+    secret detection; (4) provider revocation records (date + evidence id) for
+    anything classified real.
 - [x] 4.3 Unit tests under `tests/` for each gate. Today the evidence is the
   authoring-time demonstration named in the commit; a suite that pins the
   passing and failing fixtures would make that evidence re-runnable.

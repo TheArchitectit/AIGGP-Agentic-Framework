@@ -1,0 +1,46 @@
+# EXAMPLE ONLY — not loaded by the adapter.
+#
+# Copy the needed [[instance]] tables into hub/forge/instances.toml (or the
+# file named by FORGE_INSTANCES_CONFIG) in the deployment, replacing every
+# placeholder. This file deliberately uses reserved example values, not a real
+# instance. See docs/GITLAB-FORGE.md for the field-by-field guide.
+
+version = 1
+
+# A self-hosted lab instance. Tailnet-only and version-pinned (GLF-10).
+[[instance]]
+instance_id = "lab-gitlab"
+forge = "gitlab"
+host_alias = "gitlab-lab.example.invalid"
+service_name = "gitlab-ce"
+owner = "platform-ops"
+backup_path = "/var/opt/gitlab/backups"
+runner_scope = "instance-dedicated"
+default_visibility = "private"
+tls_valid = true
+security_patch_cadence_days = 30
+upgrade_cadence_days = 90
+supported_version = "17.4"
+surface = "self-hosted"
+
+[instance.ip_repo_visibilities]
+"example-group/private-repo" = "private"
+"example-group/internal-repo" = "internal"
+
+# GitLab.com is OFF unless this exact declaration is added. Hosted evidence is
+# third-party ingress: the opt-in is the declaration itself (GLF-13).
+#
+# [[instance]]
+# instance_id = "gitlab.com"
+# forge = "gitlab"
+# host_alias = "gitlab.com"
+# service_name = "gitlab.com"
+# owner = "platform-ops"
+# backup_path = "/var/opt/gitlab/backups"
+# runner_scope = "group-dedicated"
+# default_visibility = "private"
+# tls_valid = true
+# security_patch_cadence_days = 30
+# upgrade_cadence_days = 90
+# supported_version = "17.4"
+# surface = "hosted"

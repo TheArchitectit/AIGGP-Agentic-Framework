@@ -83,6 +83,13 @@ jobs:
           npm --prefix actions/stitcher-codereview run build
       - name: pytest suite (collection is deterministic — tests/__init__.py)
         run: python3 -m pytest tests/ -v
+      # GLF-01/GLF-03: the parity drill is blocking. It runs the pinned corpus
+      # (hub/forge/corpus.lock.json) through both forge paths against real
+      # gates; a divergence, a stale pin, or a seed that no longer exercises
+      # its gate fails the job. Not a two-live-forge run: Sprint 0 is blocked
+      # on the operator-supplied instance, and this step says so.
+      - name: Forge parity drill (GLF-01/GLF-03, pinned corpus)
+        run: python3 scripts/forge_parity_drill.py
       # REPO-004 (devgate-product-tiers-fleet-manager box 1.2). The boundary
       # package carries its own contract tests, and they run from the package
       # alone: no core test tree, no network, no core code beyond the one

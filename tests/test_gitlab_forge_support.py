@@ -24,9 +24,9 @@ from hub.forge import (  # noqa: E402
     InstanceDeclaration,
     OwnershipValidationError,
     RunnerImageError,
-    default_seeded_corpus,
     get_forge_adapter,
     run_forge_parity_drill,
+    seeded_corpus,
     validate_backup_restore_drill,
     validate_instance_declaration,
     validate_runner_image_pin,
@@ -123,19 +123,23 @@ def test_glf02_evidence_bundle_records_and_verifies_forge_metadata():
 
 
 def test_glf03_forge_parity_drill_matches_across_seeded_corpus():
-    """GLF-03: all 5 seeded corpus cases produce identical pass/fail, exit code, and rule ID."""
-    corpus = default_seeded_corpus()
+    """GLF-03: every seeded case runs a real gate and both forge paths agree."""
+    corpus = seeded_corpus()
     assert len(corpus) == 5
     results = run_forge_parity_drill(corpus)
     assert len(results) == 5
     by_id = {r.case_id: r for r in results}
-    assert by_id["corpus-01-secret-leak"].passed is False
-    assert by_id["corpus-01-secret-leak"].rule_id == "secret-scan-01"
-    assert by_id["corpus-02-oversized-file"].rule_id == "size-hard-limit-500"
-    assert by_id["corpus-03-unregistered-failure"].rule_id == "failure-registry-unregistered"
-    assert by_id["corpus-04-guardrails-violation"].rule_id == "guardrails-silent-swallow"
+    assert by_id["corpus-01-unevidenced-marker"].passed is False
+    assert by_id["corpus-01-unevidenced-marker"].rule_id == "evc"
+    assert by_id["corpus-02-surface-divergence"].rule_id == "srch"
+    assert by_id["corpus-03-aged-untriaged"].rule_id == "oia"
+    assert by_id["corpus-04-scrubbed-not-revoked"].rule_id == "sr"
     assert by_id["corpus-05-clean-control"].passed is True
     assert by_id["corpus-05-clean-control"].exit_code == 0
+    for result in results:
+        assert (result.github_status.state == "success") == (
+            result.gitlab_status.state == "success"
+        )
 
 
 def test_glf10_and_glf13_instance_discovery_backup_drill_and_ownership():
@@ -151,6 +155,10 @@ def test_glf10_and_glf13_instance_discovery_backup_drill_and_ownership():
         default_visibility="private",
         ip_repo_visibilities={"aiggp/core": "private", "aiggp/internal-tools": "internal"},
         tls_valid=True,
+        security_patch_cadence_days=30,
+        upgrade_cadence_days=90,
+        supported_version="17.4",
+        surface="self-hosted",
     )
     assert validate_instance_declaration(decl) == decl
 
