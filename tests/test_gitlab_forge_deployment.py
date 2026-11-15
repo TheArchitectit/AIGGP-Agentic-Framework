@@ -5,6 +5,8 @@ and the pinned parity corpus. No live GitLab instance is contacted."""
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 import sys
 import threading
 import urllib.parse
@@ -223,6 +225,67 @@ def test_glf13_api_refuses_plain_http_and_credentials_in_url():
         GitLabClient("https://user:pass@gitlab.example.invalid", STUB_TOKEN)
     with pytest.raises(GitLabApiError, match="absolute http"):
         GitLabClient("gitlab.example.invalid", STUB_TOKEN)
+
+
+def test_glf13_fleet_declared_cli_merges_github_and_gitlab(tmp_path):
+    """The generator CLI composes the GitHub file with a walked GitLab source."""
+    server = ThreadingHTTPServer(("127.0.0.1", 0), _StubGitLab)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        port = server.server_address[1]
+        config = write_config(
+            tmp_path,
+            SELF_HOSTED.replace('"gitlab-lab.example.invalid"', f'"127.0.0.1:{port}"'),
+        )
+        gh = tmp_path / "gh.txt"
+        gh.write_text("https://github.com/example-org/framework\n", encoding="utf-8")
+        out = tmp_path / "all.txt"
+        env = dict(os.environ, GITLAB_TOKEN=STUB_TOKEN)
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(REPO / "scripts" / "forge-fleet-declared.py"),
+                "--config", str(config),
+                "--github-declaration", str(gh),
+                "--out", str(out),
+                "--allow-insecure",
+            ],
+            cwd=str(REPO),
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        assert result.returncode == 0, result.stderr
+        lines = out.read_text(encoding="utf-8").splitlines()
+        assert "https://github.com/example-org/framework" in lines
+        assert "https://gitlab.example.invalid/g/alpha" in lines
+        assert "https://gitlab.example.invalid/g/beta" in lines
+        assert "https://gitlab.example.invalid/g/gamma" in lines
+        assert "https://gitlab.example.invalid/g/old" not in lines
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+
+    no_token = {k: v for k, v in os.environ.items() if k != "GITLAB_TOKEN"}
+    refused = subprocess.run(
+        [
+            sys.executable,
+            str(REPO / "scripts" / "forge-fleet-declared.py"),
+            "--config", str(config),
+            "--github-declaration", str(gh),
+            "--out", str(tmp_path / "refused.txt"),
+            "--allow-insecure",
+        ],
+        cwd=str(REPO),
+        env=no_token,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert refused.returncode == 2
+    assert "GITLAB_TOKEN is empty" in refused.stderr
 
 
 def test_glf10_monitor_audits_declarations_and_backup_drill(tmp_path):

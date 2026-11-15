@@ -88,22 +88,21 @@ never names a real instance, owner, backup path, or token.
 ## Fleet declaration walk
 
 The GitHub half is derived by `scripts/secret-scan-declared.sh`. The GitLab
-half is derived from the declared instances:
+half is derived from the declared instances and merged by
+`scripts/forge-fleet-declared.py`:
 
-```python
-from hub.forge import GitLabClient, build_fleet_declaration, load_instance_declarations
-
-declarations = load_instance_declarations()
-clients = {
-    instance_id: GitLabClient(base_url, token)
-    for instance_id, base_url, token in configured_clients()
-}
-urls = build_fleet_declaration(github_urls, declarations, clients)
+```bash
+scripts/secret-scan-declared.sh --out gh.txt
+GITLAB_TOKEN=... scripts/forge-fleet-declared.py \
+  --github-declaration gh.txt --out all.txt
+scripts/secret-scan-fleet.sh --declared all.txt --report sweep.json
 ```
 
-`build_fleet_declaration` refuses three shapes rather than shortening the
-sweep silently: a client for an undeclared instance, a declared instance with
-no walk client, and an empty merged declaration.
+The library form is `build_fleet_declaration(github_urls, declarations,
+clients)`. Both refuse three shapes rather than shortening the sweep silently:
+a client for an undeclared instance, a declared instance with no walk client,
+and an empty merged declaration. The token is read from `GITLAB_TOKEN`
+(override with `--token-env`) and is never written to the declaration.
 
 ## Parity drill
 

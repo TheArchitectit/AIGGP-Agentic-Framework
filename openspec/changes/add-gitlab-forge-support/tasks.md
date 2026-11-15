@@ -47,8 +47,13 @@
     (`build_fleet_declaration`, `walk_gitlab_sources`) merges GitLab project
     URLs into the declaration `scripts/secret-scan-fleet.sh` consumes, refusing
     an undeclared instance, a declared instance with no walk client, and an
-    empty declaration. Sealed-bundle `forge` metadata was already shipped and
-    is pinned by
+    empty declaration. The runnable entry point is
+    `scripts/forge-fleet-declared.py`: it takes the GitHub declaration file,
+    walks each declared GitLab instance, and writes the merged one-URL-per-line
+    file; `test_glf13_fleet_declared_cli_merges_github_and_gitlab` drives it
+    through a local HTTP stub (archived projects excluded) and proves an empty
+    token is refused with exit 2. Sealed-bundle `forge` metadata was already
+    shipped and is pinned by
     `test_glf02_evidence_bundle_records_and_verifies_forge_metadata`. The
     adapter-to-instance binding (`resolve_instance_adapter`) is Sprint 5 /
     GLF-13's refusal guard, below. Live connectivity remains Sprint 0's gate.
