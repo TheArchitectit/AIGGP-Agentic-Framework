@@ -1,6 +1,6 @@
 # Documentation truth
 
-Status: Closed (2 of 2 requirements terminal 2026-11-03). `doc-version-01`:
+Status: Closed (2 of 2 requirements terminal 2026-11-03; ledger rows opened `0a26e37a`, landed `4f6f3bc`). `doc-version-01`:
 VERSION equals the newest `v*` git tag, CHANGELOG.md documents exactly those
 tags, `scripts/deploy.sh` writes VERSION and folds `[Unreleased]` in one step
 at release time, and `scripts/check_version_truth.py` gates the agreement in

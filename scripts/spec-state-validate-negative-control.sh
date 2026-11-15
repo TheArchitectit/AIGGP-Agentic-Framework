@@ -25,6 +25,11 @@
 #   6b skipped-test     the named test is recorded as skipped
 #   7 partial-closure   Status: CLOSED while a requirement is WIRED
 #   8 empty-scan        a range with no published specs exits 3, never 0
+#   9 bad-revision      an unresolvable base exits 2
+#  10 unknown-field     a row outside schema v1 is rejected
+#  11 ratchet-revert    a ledgered spec drops its closure table and asserts a
+#                       terminal Status line while its latest rows demote it
+#  12 row-removal       deleting a ledger row is never a correction
 #
 # Exit: 0 = every case rejected for the designed reason; 1 = anything else,
 # including a case the gate accepted or rejected for a different reason.
@@ -109,6 +114,30 @@ The system SHALL do the second thing.
 |---|---|---|---|
 | \`demo-01\` | $1 | \`src/demo.py\` | \`tests/test_demo.py\` |
 | \`demo-02\` | $2 | \`src/demo.py\` | \`tests/test_demo.py\` |
+EOF
+}
+
+spec_text_notable() {  # $1 document Status line; no closure table at all
+  cat <<EOF
+# Demo capability
+
+Status: $1
+
+## Purpose
+
+A fixture spec for the spec-state gate's negative control.
+
+## Requirements
+
+### Requirement: First behaviour
+<!-- id: demo-01 -->
+
+The system SHALL do the first thing.
+
+### Requirement: Second behaviour
+<!-- id: demo-02 -->
+
+The system SHALL do the second thing.
 EOF
 }
 
@@ -298,6 +327,27 @@ row_json demo demo-01 WIRED EXERCISED "$BASE" "$WORK" "$DIGEST" \
   >> "$repo/openspec/state-ledger.jsonl"
 git -C "$repo" commit -q -am "fixture: row carries a field outside schema v1"
 run_case unknown-field "unknown field(s)" work
+
+# ------------------------------------------------ 11. ratchet: status revert
+# Gate 4.6. `case-valid` carries a real ledger row for demo-01. Head deletes
+# the closure table, asserts a terminal Status line, and appends rows that
+# demote both requirements. The existing whole-spec check cannot see this -
+# it counts closure cells, and the table is gone - so only the ratchet rule
+# refuses the free-text terminal claim.
+stage ratchet-revert case-valid
+spec_text_notable "CLOSED (EXERCISED 2)" > "$repo/openspec/specs/demo/spec.md"
+row_json demo demo-01 EXERCISED WIRED "$BASE" "$WORK" "" '[]' >> "$repo/openspec/state-ledger.jsonl"
+row_json demo demo-02 WIRED ABSENT "$BASE" "$WORK" "" '[]' >> "$repo/openspec/state-ledger.jsonl"
+git -C "$repo" commit -q -am "fixture: ledgered spec reverts to a free-text terminal Status"
+run_case ratchet-revert "cannot revert to free-text Status authority" case-valid
+
+# ---------------------------------------------------- 12. row deletion
+# "Removing a row requires a new row recording the correction": the ledger is
+# append-only, so a deletion is a violation even when the intent is repair.
+stage row-removal case-valid
+printf '# devgate.spec-state-ledger/v1\n' > "$repo/openspec/state-ledger.jsonl"
+git -C "$repo" commit -q -am "fixture: a ledger row is deleted"
+run_case row-removal "the ledger is append-only; a correction is a new row, never a deletion" case-valid
 
 if [ "$failures" -ne 0 ]; then
   printf '\nspec-state negative control: %d case(s) FAILED\n' "$failures" >&2

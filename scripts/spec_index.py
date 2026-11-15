@@ -8,7 +8,6 @@ claim true, and `--check` makes a hand edit a red build instead of a silent
 divergence.
 
 Status is data, in this order of authority:
-
 1. the owner's `DEFERRED` decision in the spec's `Status:` line - a decision is
    not a backlog item and no cell count overrides it;
 2. the per-requirement closure cells: all `EXERCISED` is CLOSED, none is OPEN,
@@ -28,12 +27,21 @@ without restructuring its prose, and a row that disagrees with a cell is
 reported as a warning rather than silently resolved - the gate is what fails on
 disagreement, and this generator must not paper over it.
 
+A requirement that claims `EXERCISED` (a closure cell or a terminal `Status:`
+line) without a ledger row proving it is **UNPROVEN**. The migration markers in
+`openspec/state-unproven.jsonl` carry the reason (provenance accepted but no
+sealed evidence landed, or provenance rejected outright). Editing the spec
+cannot promote a marker: proof is a ledger row whose two bounding commits
+resolve and whose sealed evidence bundle validates, and the gate is what
+accepts it. A spec that carries a ledger row also cannot fall back to a
+free-text `Status:` line (the ratchet, design section 9).
+
 Usage:
   python3 scripts/spec_index.py            # print to stdout
   python3 scripts/spec_index.py --write    # rewrite openspec/INDEX.md
   python3 scripts/spec_index.py --check    # exit 1 if the file is not generated
 
-Exit: 0 rendered/agreeing, 1 drift (--check), 2 usage error.
+Exit: 0 rendered/agreeing, 1 drift (--check), 2 usage or marker-file error.
 """
 from __future__ import annotations
 
@@ -62,15 +70,21 @@ HEADER = """# OpenSpec index
 
 > **Generated, not typed.** Status is derived from each spec's own closure
 > table (the per-requirement `EXERCISED` / `WIRED` / `ABSENT` / `NOT_RUN`
-> cells) or its explicit `Status:` line. A spec with no closure evidence is
-> reported **UNKNOWN** rather than guessed at.
+> cells), the state ledger, or its explicit `Status:` line. A spec with no
+> closure evidence is reported **UNKNOWN** rather than guessed at.
+>
+> **UNPROVEN** is not a new state word: it says a requirement claims
+> `EXERCISED` while no ledger row proves it. `openspec/state-unproven.jsonl`
+> records why, and editing the spec cannot promote a marker — proof is a ledger
+> row with two resolved, ordered commits and a sealed evidence bundle, which
+> the spec-state gate accepts and no prose edit produces.
 >
 > **DEFERRED** is a decision, not a backlog item. The single row marked
 > DEFERRED below has its owner's answer (base-specs-01: the capability lives
 > in the consuming game repo) and stays DEFERRED until that repo builds it —
 > it is not closed by relabelling the line.
 
-**{count} specs** — CLOSED {closed} · DEFERRED {deferred} · PARTIAL {partial} · OPEN {open} · UNKNOWN {unknown}
+**{count} specs** — CLOSED {closed} · DEFERRED {deferred} · UNPROVEN {unproven} · PARTIAL {partial} · OPEN {open} · UNKNOWN {unknown}
 
 | Spec | Title | Status | Evidence |
 |---|---|---|---|
@@ -79,11 +93,15 @@ HEADER = """# OpenSpec index
 FOOTER = """
 ## Reading the status
 
-- **CLOSED** — every requirement row is `EXERCISED`: implementation present
-  and a test drives it.
+- **CLOSED** — every requirement row is `EXERCISED` **and** a ledger row proves
+  it with two resolved, ordered commits and sealed evidence.
+- **UNPROVEN** — at least one requirement claims `EXERCISED` (a closure cell or
+  a terminal `Status:` line) without a proving ledger row. The marker file
+  names each one and why; a spec edit cannot clear it.
 - **PARTIAL** — some rows `EXERCISED`, at least one `WIRED`/`ABSENT`/
   `NOT_RUN`/`DIFFERS`. The gap is named in that spec.
-- **OPEN** — no requirement reaches `EXERCISED`.
+- **OPEN** — no requirement reaches `EXERCISED`, or a non-terminal `Status:`
+  line is the only authority.
 - **UNKNOWN** — no closure table and no `Status:` line. A documentation gap,
   not a claim the work is unfinished. Fix by adding the closure table.
 """
@@ -123,21 +141,73 @@ def ledger_states(path: Path) -> dict[tuple[str, str], str]:
     return out
 
 
+def unproven_states(path: Path) -> dict[tuple[str, str], dict]:
+    """Migration markers, keyed by (spec, req). A malformed marker is an error,
+    never silently dropped: a marker that vanishes from the index would let an
+    unproven requirement read as closed."""
+    out: dict[tuple[str, str], dict] = {}
+    if not path.is_file():
+        return out
+    for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        try:
+            row = json.loads(line)
+        except ValueError as e:
+            raise ValueError(f"{path}:{lineno}: not JSON: {e}")
+        if not isinstance(row, dict) or row.get("schema") != "unproven-v1":
+            raise ValueError(f"{path}:{lineno}: row outside schema unproven-v1")
+        for field in ("spec", "req", "claim", "provenance", "reason"):
+            if not isinstance(row.get(field), str) or not row[field].strip():
+                raise ValueError(f"{path}:{lineno}: missing or empty {field!r}")
+        if row["provenance"] not in ("accepted", "rejected"):
+            raise ValueError(f"{path}:{lineno}: provenance must be "
+                             f"'accepted' or 'rejected', got {row['provenance']!r}")
+        out[(row["spec"], row["req"])] = row
+    return out
+
+
 def classify(cap: str, cells: dict, status: str | None, reqs: list[str],
-             rows: dict[tuple[str, str], str]) -> tuple[str, str]:
-    """(STATUS, Evidence cell) for one spec."""
+             rows: dict[tuple[str, str], str],
+             markers: dict[tuple[str, str], dict]) -> tuple[str, str]:
+    """(STATUS, Evidence cell) for one spec.
+
+    Order of authority: the owner's DEFERRED decision, then per-requirement
+    proof (a ledger row must prove every claimed `EXERCISED`), then the cell
+    counts, then - only for a spec with no ledger row - its `Status:` prose.
+    """
     if status and DEFERRED_WORD.search(status):
         return "DEFERRED", "Status: DEFERRED"
 
-    # A requirement with no cell may take its latest ledger state, so a spec
-    # with prose status can still be accounted per requirement.
-    states = []
+    ratcheted = any(spec == cap for (spec, _req) in rows)
+    terminal_status = bool(status and TERMINAL_WORD.search(status))
+
+    claimed: dict[str, str] = {}
     for req in reqs:
         if req in cells:
-            states.append(cells[req])
+            claimed[req] = cells[req]
         elif (cap, req) in rows:
-            states.append(rows[(cap, req)])
+            claimed[req] = rows[(cap, req)]
+        elif terminal_status:
+            claimed[req] = "EXERCISED"  # a terminal Status line is a claim
 
+    unproven: list[str] = []
+    for req in reqs:
+        proved = (claimed.get(req) == "EXERCISED"
+                  and rows.get((cap, req)) == "EXERCISED")
+        if (cap, req) in markers or (claimed.get(req) == "EXERCISED" and not proved):
+            unproven.append(req)
+    if unproven:
+        waived = sum(1 for req in unproven
+                     if markers.get((cap, req), {}).get("provenance") == "accepted")
+        detail = (f" ({waived} provenance-accepted, awaiting sealed evidence)"
+                  if waived else "")
+        return ("UNPROVEN",
+                f"UNPROVEN — {len(unproven)} of {len(reqs)} requirement(s) "
+                f"lack a proving ledger row{detail}")
+
+    states = [claimed[req] for req in reqs if req in claimed]
     if states and all(s == "EXERCISED" for s in states) and len(states) == len(reqs):
         return "CLOSED", f"Status: CLOSED (EXERCISED {len(states)})"
     if states:
@@ -145,20 +215,24 @@ def classify(cap: str, cells: dict, status: str | None, reqs: list[str],
         if exercised == 0:
             return "OPEN", f"EXERCISED 0 of {len(reqs)}"
         return "PARTIAL", f"EXERCISED {exercised} of {len(reqs)}"
-    if status:
+    if status and not ratcheted:
         word = re.match(r"^\s*\**\s*([A-Za-z]+)", status)
         label = (word.group(1) if word else "").upper()
         count = EXERCISED_COUNT.search(status)
         if TERMINAL_WORD.search(status):
             return "CLOSED", f"Status: {label}" + (f" (EXERCISED {count.group(1)})" if count else "")
         return "OPEN", f"Status: {label or 'OPEN'}"
+    if ratcheted:
+        return "UNKNOWN", "ledgered spec with no per-requirement state"
     return "UNKNOWN", "no closure table and no Status line"
 
 
-def render(root: Path, ledger: Path) -> str:
+def render(root: Path, ledger: Path, unproven: Path) -> str:
     specs = sorted(p for p in (root / "openspec" / "specs").glob("*/spec.md"))
     rows = ledger_states(ledger)
-    entries, counts = [], {"CLOSED": 0, "DEFERRED": 0, "PARTIAL": 0, "OPEN": 0, "UNKNOWN": 0}
+    markers = unproven_states(unproven)
+    entries, counts = [], {"CLOSED": 0, "DEFERRED": 0, "UNPROVEN": 0,
+                           "PARTIAL": 0, "OPEN": 0, "UNKNOWN": 0}
     for path in specs:
         cap = path.parent.name
         title, cells, status, reqs = read_spec(path)
@@ -166,11 +240,12 @@ def render(root: Path, ledger: Path) -> str:
             # OpenSpec's scaffolded heading repeats the capability name; the
             # human title is the same words without the scaffold suffix.
             title = cap.replace("-", " ").capitalize()
-        kind, evidence = classify(cap, cells, status, reqs, rows)
+        kind, evidence = classify(cap, cells, status, reqs, rows, markers)
         counts[kind] += 1
         entries.append(f"| [`{cap}/spec.md`](specs/{cap}/spec.md) | {title} | **{kind}** | {evidence} |")
     head = HEADER.format(count=len(specs), closed=counts["CLOSED"],
-                         deferred=counts["DEFERRED"], partial=counts["PARTIAL"],
+                         deferred=counts["DEFERRED"], unproven=counts["UNPROVEN"],
+                         partial=counts["PARTIAL"],
                          open=counts["OPEN"], unknown=counts["UNKNOWN"])
     return head + "\n".join(entries) + "\n" + FOOTER
 
@@ -179,6 +254,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="Render openspec/INDEX.md from spec data.")
     ap.add_argument("--repo", default=None, help="repo root (default: this script's repo)")
     ap.add_argument("--ledger", default="openspec/state-ledger.jsonl")
+    ap.add_argument("--unproven", default="openspec/state-unproven.jsonl")
     group = ap.add_mutually_exclusive_group()
     group.add_argument("--write", action="store_true", help="rewrite openspec/INDEX.md")
     group.add_argument("--check", action="store_true", help="exit 1 when the file is not generated")
@@ -189,7 +265,11 @@ def main() -> int:
     if not index.is_file():
         print(f"spec-index: {index} does not exist", file=sys.stderr)
         return 2
-    rendered = render(root, root / args.ledger)
+    try:
+        rendered = render(root, root / args.ledger, root / args.unproven)
+    except (OSError, ValueError) as e:
+        print(f"spec-index: cannot read migration markers: {e}", file=sys.stderr)
+        return 2
 
     if args.write:
         index.write_text(rendered, encoding="utf-8")

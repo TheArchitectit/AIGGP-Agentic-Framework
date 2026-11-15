@@ -1,0 +1,8 @@
+{
+ "tests": {
+  "tests/test_check_version_truth.py::TestVersionTruthGate::test_this_repository_agrees": "passed",
+  "tests/test_check_version_truth.py::TestVersionTruthGate::test_agreeing_repo_passes": "passed",
+  "tests/test_template_supply_chain.py::TestDocTruthAndBehaviorRuleContracts::test_version_and_changelog_agreement": "passed",
+  "tests/test_template_supply_chain.py::TestDocTruthAndBehaviorRuleContracts::test_overlay_and_behavior_rules_contracts": "passed"
+ }
+}

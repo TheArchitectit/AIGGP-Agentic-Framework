@@ -276,6 +276,45 @@ Order matters, because backfilling wrongly is worse than leaving blank:
 A spec with a ledger row enters the ratchet: it cannot revert to a free-text
 `Status:` line. Removing a row requires a new row that says so.
 
+### 9.1 The `UNPROVEN` marker (recorded 2026-11-15)
+
+The v1 row vocabulary is closed (section 1.1), so an unproven migration cannot
+be a ledger row. It is a separate append-only file,
+`openspec/state-unproven.jsonl`, one JSON object per unproven terminal
+requirement:
+
+| field | meaning |
+|---|---|
+| `schema` | exactly `"unproven-v1"` |
+| `spec` | capability dir name |
+| `req` | the requirement ID whose terminal claim is unproven |
+| `claim` | the claimed state (`EXERCISED`) |
+| `provenance` | `"accepted"` (the section 9 acceptance standard is met) or `"rejected"` (the failing condition is in `reason`) |
+| `citation` | the deciding `opened..landed` window, absent path, or unresolvable SHA |
+| `reason` | non-empty explanation |
+
+Three properties make a marker non-promotable by a spec edit:
+
+1. The index reports a spec **UNPROVEN** when any requirement claims
+   `EXERCISED` (a closure cell or a terminal `Status:` line) with no ledger row
+   proving it. The status is derived from the absence of proof, not from the
+   marker file: deleting the markers leaves the rollup unchanged, so the marker
+   records *why*, it does not carry the status.
+2. Proof is a ledger row whose `to` equals the claimed terminal state and which
+   the gate accepts (resolved ordered commits, marked source, sealed evidence).
+   Editing a cell or a `Status:` line cannot produce one: the gate refuses a
+   state edit without a matching row and a row without a state edit.
+3. The marker file is append-only, like the ledger: a later proof is a new
+   ledger row, never a deletion. `scripts/spec_index.py` fails closed (exit 2)
+   on a marker outside `unproven-v1`, so a malformed marker cannot quietly
+   flip a requirement back to CLOSED.
+
+The ratchet's final paragraph is enforced in `scripts/spec_state_gate.py`: a
+spec that carries a ledger row cannot present a terminal `Status:` line while
+its latest row for any requirement is non-terminal, and deleting a row is a
+violation. `scripts/spec_index.py` likewise never falls back to a `Status:`
+line for a spec that carries a ledger row.
+
 ## 10. Failure modes this design refuses
 
 - **Vacuous pass.** Zero specs evaluated is a failure (`nothing_scanned`),

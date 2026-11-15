@@ -1,8 +1,13 @@
 # Tasks: Bind Spec State Transitions to Commits and Evidence
 
-Status is per-task below, not a blanket label. Gate 0 and Gate 1 are complete
-and ticked with named evidence (2026-11-13); Gates 2-4 are still open, so no
-existing spec has been reclassified and no ledger row exists yet.
+Status is per-task below, not a blanket label. All five gates are complete and
+ticked with named evidence: Gate 0 and Gate 1 on 2026-11-13, Gates 2-3 on
+2026-11-14, and Gate 4 on 2026-11-15. After Gate 4 the tree has one real
+migrated spec (`doc-truth`, CLOSED and proven by two ledger rows with sealed
+evidence) and 42 specs marked UNPROVEN with 182 append-only migration markers.
+Gate 4's "31 specs" wording is the count audited at `7d3ebc5`; the sweep ran
+against the 44 specs the tree holds, the same stale-count deviation Gate 2.3
+recorded.
 
 Evidence file:line notes are inline against audited revision `7d3ebc5`. Gates
 are ordered; no later gate upgrades an earlier failed gate.
@@ -156,7 +161,15 @@ placement cannot block it → stop and restate the claim.
   audit that detects after the ref moved. No document now claims CI prevents a
   transition.
 
-## Gate 4 — Migration of existing specs (non-terminal until complete)
+## Gate 4 — Migration of existing specs (complete 2026-11-15)
+
+**Status 2026-11-15: EXITED.** The sweep ran, `doc-truth` is the worked example
+(two real rows, sealed evidence, gate-green), `zig-opengl-engine` is UNPROVEN on
+the unresolvable `4b69262` citation, 182 unproven terminal requirements (all 115
+cells, 65 terminal status lines including zig, and 2 `per-screen-tracking`
+requirements) carry append-only markers, and the ratchet is enforced by the gate
+with two control cases and two load-bearing canaries. Nothing was backfilled on
+a citation that does not resolve.
 
 **Sprint:** S-L4 | **Effort:** L | **Priority:** P1
 **Entry criteria:** Gates 1–3 exited.
@@ -174,12 +187,126 @@ requirement IDs in the supported format", never "nothing to check".
 **Stop conditions:** Any candidate accepted on a citation that does not resolve
 → stop and remove the row. Backfilling wrongly is worse than leaving blank.
 
-- [ ] 4.1 Run the report-only backfill across all 31 specs and emit candidate rows with their supporting citations.
-- [ ] 4.2 Apply the acceptance standard per candidate: implementation path exists at `HEAD`, marker present in a file that changed within a resolvable window, both commits resolvable.
-- [ ] 4.3 Land `doc-truth` as the worked example, deriving its row from `0a26e37a` and confirming that commit resolves in reachable history.
-- [ ] 4.4 Record `zig-opengl-engine`'s `4b69262` citation as `UNPROVEN` because it does not resolve in the full clone, and leave the spec non-terminal.
-- [ ] 4.5 Mark every remaining unprovable cell `UNPROVEN` in a way that is visible in the index and cannot be promoted to proof by editing the spec.
-- [ ] 4.6 Enable the ratchet: a spec with a ledger row cannot revert to free-text `Status:` authority, and removing a row requires a new row recording the correction.
+- [x] 4.1 Run the report-only backfill across all 31 specs and emit candidate rows with their supporting citations.
+  Verify (run): `python3 scripts/spec_state_backfill.py --repo . --json openspec/changes/add-spec-state-ledger/migration-report.json`
+  → exit 0, `44 specs at f40ad6b89f03: 115 EXERCISED cell(s), 111 accepted,
+  4 unproven; 72 status-line/unsupported entr(ies), 4 accepted`. The tool is
+  report-only: it never writes the ledger. Its only write is the marker file
+  behind `--unproven-out`. **Deviation recorded:** the exit criteria say 31
+  specs, the count audited at `7d3ebc5`; the tree now holds 44 (the same stale
+  count Gate 2.3 recorded), so the sweep covers all 44 — 27 with closure cells
+  (115 cells, every one `EXERCISED`) and 17 status-line specs. The full
+  per-candidate report with citations and verdicts is committed at
+  `openspec/changes/add-spec-state-ledger/migration-report.json`.
+- [x] 4.2 Apply the acceptance standard per candidate: implementation path exists at `HEAD`, marker present in a file that changed within a resolvable window, both commits resolvable.
+  Verify (run): the report's per-candidate `verdict`/`reasons`; summary 111 of
+  115 cells accepted, 4 rejected. Rejected: `ci-template-contract`
+  `ci-run-01`, `ci-match-01`, `ci-self-01` and `security-boundaries`
+  `ci-sec-01` all cite `templates/github/workflows/`, which does not exist at
+  HEAD (the tree carries `templates/github-workflows/`). Every accepted
+  candidate names the marked file and the `opened..landed` window that
+  resolves. Status-line sweep: `doc-truth` x2 and `per-screen-tracking` x2
+  accepted; 65 terminal status-line requirements rejected (no implementation
+  path cited); `zig-opengl-engine` x4 rejected because `4b69262` does not
+  resolve. **Landing constraint measured, not assumed:** an accepted cell still
+  cannot land as a migration row, because the gate reconciles a transition
+  against the diff and an unchanged `EXERCISED` cell produces `from == to` (not
+  a transition) or "a row with no state edit". Probe: a well-formed row
+  appended for `add-runner-to-fleet/fleet-add-01` on a prospective commit gave
+  `VIOLATION — row 2: ledger adds add-runner-to-fleet/fleet-add-01 ->
+  EXERCISED but the spec's state did not change between HEAD and <probe> — a
+  row with no state edit` (exit 1). Landing a cell-based closure needs a
+  two-commit re-evidencing (demote with a row, then re-close with sealed
+  evidence), which this migration does not fabricate; the accepted candidates
+  are recorded as provenance-accepted in 4.5 instead.
+- [x] 4.3 Land `doc-truth` as the worked example, deriving its row from `0a26e37a` and confirming that commit resolves in reachable history.
+  Verify (run):
+  - `git cat-file -t 0a26e37a` → `commit`; `git cat-file -t 4f6f3bc` →
+    `commit`; `git merge-base --is-ancestor 0a26e37a 4f6f3bc` → exit 0.
+  - Two rows appended to `openspec/state-ledger.jsonl` (`doc-version-01`,
+    `doc-overlay-01`), `from OPEN` → `to EXERCISED`, `opened_commit`
+    `0a26e37a33929ed671255da83b591795f84c8b0f`, `landed_commit`
+    `4f6f3bc6c3d7e9265604a3af5c428e3dafc03ac9`, `evidence`
+    `openspec/evidence/doc-truth`, `evidence_digest`
+    `sha256:d6e020b5d26f03ef700ebf3115bcba00807e017ea535b99293b88cf284f2a781`.
+  - `python3 scripts/evidence-validate.py openspec/evidence/doc-truth
+    --expected sha256:d6e020b5d26f03ef700ebf3115bcba00807e017ea535b99293b88cf284f2a781`
+    → exit 0, `bundle verified, claims consistent`. The bundle's `tests.json`
+    is a sealed manifest object and records four real pytest runs (`4 passed`,
+    parsed from junitxml) as `passed`; `run.json` carries the command and the
+    HEAD it ran against.
+  - The `0a26e37a..4f6f3bc` diff touches `scripts/check_version_truth.py`
+    (created by `4f6f3bc`, carries `# spec: doc-version-01`) and
+    `tests/test_template_supply_chain.py` (carries `doc-overlay-01`), both
+    still at HEAD — the marked-source condition.
+  - `python3 scripts/spec_state_gate.py --base HEAD --head <prospective>` over
+    the staged landing change → exit 0, `reconciled (1 commit(s))`; the same
+    change through `scripts/hooks/pre-commit` allowed the commit.
+- [x] 4.4 Record `zig-opengl-engine`'s `4b69262` citation as `UNPROVEN` because it does not resolve in the full clone, and leave the spec non-terminal.
+  Verify (run): `git cat-file -t 4b69262` → exit 128, `fatal: Not a valid
+  object name 4b69262`. Four `unproven-v1` markers (one per zig requirement)
+  in `openspec/state-unproven.jsonl`, `provenance: rejected`, `citation:
+  4b69262`, reason `provenance rejected: cited commit 4b69262 does not resolve
+  in reachable history`. The index row now reads `**UNPROVEN** | UNPROVEN — 4
+  of 4 requirement(s) lack a proving ledger row`. The spec prose is
+  deliberately untouched: editing its `Status:` line is itself a transition,
+  and the gate refuses one without a ledger row (design section 2); the index,
+  which design section 7 makes the data-derived status view, carries the
+  non-terminal state. The 4.5 canary shows that adding `EXERCISED` cells to
+  the spec leaves the index row byte-identical while the gate exits 1.
+- [x] 4.5 Mark every remaining unprovable cell `UNPROVEN` in a way that is visible in the index and cannot be promoted to proof by editing the spec.
+  Verify (run): `python3 scripts/spec_state_backfill.py --repo . --unproven-out
+  openspec/state-unproven.jsonl --exclude
+  doc-truth:doc-version-01,doc-truth:doc-overlay-01` → `182 UNPROVEN marker(s)
+  appended ... (182 classified, 2 landed row(s) excluded)`: all 115 closure
+  cells (111 provenance-accepted but no sealed evidence landed, 4
+  provenance-rejected), 65 terminal status-line requirements (zig included),
+  and the 2 `per-screen-tracking` requirements whose provenance is accepted
+  but which carry no sealed evidence. `python3 scripts/spec_index.py --repo .
+  --check` → exit 0; the index now reads `**44 specs** — CLOSED 1 · DEFERRED 1
+  · UNPROVEN 42 · PARTIAL 0 · OPEN 0 · UNKNOWN 0`, with `doc-truth` the only
+  CLOSED spec. The status is derived from the absence of proof, not from the
+  marker file: with `openspec/state-unproven.jsonl` moved aside the rollup and
+  the zig row are unchanged (markers record why, they do not carry the status),
+  and `spec_index.py` exits 2 on a marker outside `unproven-v1`.
+  **Canary (must fail, then restore):** appended a closure table marking all
+  four zig requirements `EXERCISED`; `python3 scripts/spec_index.py --repo .`
+  then printed the byte-identical zig row (`UNPROVEN — 4 of 4 requirement(s)
+  lack a proving ledger row`) and `--check` exited 0, while the gate on a
+  prospective commit exited 1 for all four (`VIOLATION —
+  zig-opengl-engine/zig-engine-01: state changed ... with no ledger row — a
+  transition without authority`). Restored the spec from backup, `cmp`
+  byte-identical, `--check` exit 0, gate exit 0.
+- [x] 4.6 Enable the ratchet: a spec with a ledger row cannot revert to free-text `Status:` authority, and removing a row requires a new row recording the correction.
+  Verify (run):
+  - `scripts/spec_state_gate.py` ratchet block (docstring check 6): a spec with
+    any ledger row cannot present a terminal `Status:` line while its latest
+    row for any requirement is non-terminal, and any removed row is a
+    violation (append-only).
+  - Two negative-control cases added to
+    `scripts/spec-state-validate-negative-control.sh`:
+    `ratchet-revert` (ledgered spec drops its closure table, asserts
+    `CLOSED (EXERCISED 2)`, and appends rows demoting both requirements) →
+    `VIOLATION — demo: Status line says terminal ('CLOSED (EXERCISED 2)') but
+    the ledger's latest row for 2 requirement(s) is not EXERCISED: ['demo-01',
+    'demo-02'] — a ledgered spec cannot revert to free-text Status authority`;
+    `row-removal` (delete a ledger row) → `VIOLATION — removed row 0:
+    demo/demo-01 — the ledger is append-only; a correction is a new row, never
+    a deletion`. `bash scripts/spec-state-validate-negative-control.sh` → exit
+    0, all 14 cases rejected for the designed reason.
+  - **Load-bearing canary:** running the control against `HEAD`'s gate (no
+    ratchet block) FAILS `ratchet-revert` (`expected exit 1, got 0 —
+    spec-state: OK — case-valid..case-ratchet-revert reconciled`); the restored
+    gate (`cmp` byte-identical) passes all 14. Real-tree canary after landing:
+    deleting a ledger row on a prospective commit → exit 1 with the
+    append-only and ratchet messages; a `Status:` edit with no row → exit 1
+    (`... with no ledger row — a transition without authority`); both restored
+    `cmp` byte-identical and green.
+  - Hook path: `git config core.hooksPath scripts/hooks`, then
+    `scripts/hooks/pre-commit` allowed the real doc-truth landing commit
+    (`spec-state: OK — HEAD..<prospective> reconciled (1 commit(s))`) and
+    blocked a planted state-edit-without-row canary in a scratch clone with
+    the documented message plus the `--no-verify` / CI-audit-trail text.
 
 ## Deferred, explicitly not in this package
 

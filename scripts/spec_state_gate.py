@@ -22,6 +22,9 @@ Checks (design section 2-6):
   4. terminal rows carry a sealed bundle that `scripts/evidence-validate.py`
      accepts, with a `passed` record for every test named
   5. a terminal spec has no requirement left non-terminal
+  6. ratchet: a spec carrying a ledger row cannot revert to a free-text
+     `Status:` line; its latest row per requirement must be terminal before a
+     terminal status stands, and a row deletion is a violation (append-only)
 
 Exit codes are frozen (design 1.6):
   0  every reconciled transition is sound
@@ -356,6 +359,30 @@ def reconcile(repo: Path, base: str, head: str, ledger: str) -> list[str]:
             violations.append(
                 f"{cap}: Status line says terminal ({status!r}) while {len(non_terminal)} "
                 f"requirement(s) are not EXERCISED: {sorted(non_terminal)[:5]}")
+
+    # Ratchet (design section 9, Gate 4.6): a spec that carries a ledger row
+    # does not revert to free-text Status authority. Deleting its closure
+    # table and asserting a terminal status cannot launder the state, because
+    # the ledger's latest row per requirement - not the prose - must be
+    # terminal. Append-only enforcement below rejects deleting the row that
+    # would otherwise be the correction.
+    latest: dict[tuple[str, str], str] = {}
+    for row in head_rows:
+        if isinstance(row, dict) and isinstance(row.get("spec"), str) \
+                and isinstance(row.get("req"), str):
+            latest[(row["spec"], row["req"])] = str(row.get("to"))
+    ratcheted = {cap for (cap, _req) in latest}
+    for cap, status in sorted(head_status.items()):
+        if cap not in ratcheted or not status or not TERMINAL_WORD.search(status):
+            continue
+        demoted = sorted(req for (c, req) in head_sig
+                         if c == cap and latest.get((cap, req)) != TERMINAL)
+        if demoted:
+            violations.append(
+                f"{cap}: Status line says terminal ({status!r}) but the ledger's "
+                f"latest row for {len(demoted)} requirement(s) is not {TERMINAL}: "
+                f"{demoted[:5]} — a ledgered spec cannot revert to free-text "
+                f"Status authority")
     return violations
 
 
