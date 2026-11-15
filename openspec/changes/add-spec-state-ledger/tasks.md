@@ -189,10 +189,12 @@ requirement IDs in the supported format", never "nothing to check".
 
 - [x] 4.1 Run the report-only backfill across all 31 specs and emit candidate rows with their supporting citations.
   Verify (run): `python3 scripts/spec_state_backfill.py --repo . --json openspec/changes/add-spec-state-ledger/migration-report.json`
-  → exit 0, `44 specs at f40ad6b89f03: 115 EXERCISED cell(s), 111 accepted,
-  4 unproven; 72 status-line/unsupported entr(ies), 4 accepted`. The tool is
-  report-only: it never writes the ledger. Its only write is the marker file
-  behind `--unproven-out`. **Deviation recorded:** the exit criteria say 31
+  → exit 0, `44 specs at f3abd3cb31ef: 115 EXERCISED cell(s), 111 accepted,
+  4 unproven; 72 status-line/unsupported entr(ies), 4 accepted` (first run at
+  `f40ad6b`; re-run after concurrent stitcher commits moved HEAD to `f3abd3c`,
+  identical verdicts, and the committed report records the later sweep). The
+  tool is report-only: it never writes the ledger. Its only write is the marker
+  file behind `--unproven-out`. **Deviation recorded:** the exit criteria say 31
   specs, the count audited at `7d3ebc5`; the tree now holds 44 (the same stale
   count Gate 2.3 recorded), so the sweep covers all 44 — 27 with closure cells
   (115 cells, every one `EXERCISED`) and 17 status-line specs. The full
