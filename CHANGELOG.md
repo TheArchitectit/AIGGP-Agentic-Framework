@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.44] - 2026-11-15
+
 ### Fixed
 
 - **The corpus pin was host-dependent while claiming not to be.** The parity

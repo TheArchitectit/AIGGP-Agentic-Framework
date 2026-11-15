@@ -1,4 +1,4 @@
-# DevGate release checksums — generated 2026-11-15T18:38:50Z
+# DevGate release checksums — generated 2026-11-15T19:19:51Z
 # Verify before use: python3 scripts/gen-checksums.py verify
 3ba50bc8b31743b05c2d11a2fe8156c44477548600ac9c2e1b4fa8f78e09c378  hub/__init__.py
 ee9d420de2f1a6dd228e9166b508e106f753dace985884ec6355581cabdbeb91  hub/alerts.py
@@ -50,7 +50,7 @@ d050f0c96e0f58859ca6e6ae2e3bbda6d7ac1b8767f5ccd46938069877c30dac  hub/forge/depl
 f2203c85f37e8607e33c7adc1afbe3f4bdf328537826214eeed7311e48a80999  hub/forge/fleet.py
 29fa26ed478aa48622d62fab95055a46a6018342e4f41aee6bef4266025f23f4  hub/forge/instance.py
 5a2f8968fa5fa946023dd6b7c449e600e8259c1d3cf8436671bedb32a029e85b  hub/forge/monitor.py
-6fbca80b309881a56f5af2b7b635d4583fa91ca4c9ef501acc13ea4318a1e7eb  hub/forge/parity.py
+cfe5349c3854b0315d2fbf664aa43a403e0906de7afa5faff5a4d8761e206130  hub/forge/parity.py
 8960eea165272552b7a285511c6ef6f2d7cede46bcb45e20fd66236dc62b6348  hub/github_client.py
 1325ed8f3adbe0b7a9db677033d3005ea4f837e2c8565cf594d94630514f3832  hub/main.py
 47710a0dedcfe9ba88effbc2b3dfaba8863e1b5e3056269e2fe0f255678d68e7  hub/monitor.py
@@ -81,7 +81,7 @@ e547eba9349180bedeb89095d11292c5dd2d6d51bc43eec3a10d3ee0826175a6  scripts/baseli
 f7e45dab9e7f664fe28e76e8b7ab144e8e4fff1a1da773a71de9fdfbece623c0  scripts/bundle-size-check.mjs
 28b460c15061355a49bc55a617c5eb7fce6b0a936661f998e026518a8c3882a4  scripts/check_boundary.py
 b342ca47beb9249c971b811315ab85952921e22d15581225358ef75ef81e23b1  scripts/check_charset.py
-73742a56f56eea1edcb7332c11786f430b12797ed490a90780db46a7de59275b  scripts/check_corruption.py
+09a72a9ab61e72a8efdbd152e2110ea53342147182fd457824bc46d54258e115  scripts/check_corruption.py
 1cc6e6510ea2a676ecf08ff2b644d63da1cb55330fe42f0b75e64d1b3192e881  scripts/check_encoding.py
 dea62a374ef07cb1d453b70beec24e14d8517753555300bcbb4368dcb0615e58  scripts/check_exec_bits.py
 e68a87b2e46aabf0034ff196878c27ca499bb3a82586367134a7284ca9fec502  scripts/check_manifest_join.py
