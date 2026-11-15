@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The corpus pin was host-dependent while claiming not to be.** The parity
+  drill hashed an absolute checkout path inside the digest it uses to pin its
+  seeded corpus, under a docstring that said it was independent of host. The
+  pin therefore only matched on the machine that generated it: the same commit
+  produced one digest here and a different one in CI, reddening GLF-01/03
+  while everything passed locally. `{scripts}` is now a placeholder like
+  `{python}` and `{root}`, and the digest is verified identical from two
+  different checkout paths.
+- **A checksum update no longer reads as data corruption.** The corruption
+  gate pairs lines and calls a same-length, high-character-change pair a
+  substitution flip. A checksum manifest is fixed-length hex digests, so a
+  legitimate digest update lands exactly on that signature. It now skips a
+  pair only when both sides are checksum lines and the path column is
+  unchanged — proved in both directions, including that a digest line whose
+  path also changed is still red.
+
+
 ## [1.3.43] - 2026-11-15
 
 ### Added
