@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.45] - 2026-11-16
+
 ### Fixed
 
 - **The size gate now treats a scope gap as an error, not a warning.** A scope
