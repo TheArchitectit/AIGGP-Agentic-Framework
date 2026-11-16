@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The size gate now treats a scope gap as an error, not a warning.** A scope
+  gap means the gate is not looking at part of the tree, so "0 over hard limit"
+  from a walk that never entered the tree is a lie — that blind spot has
+  already reddened a main branch once. Proved in both directions: planting an
+  unlisted source root reds with `1 scope gaps (ERROR; blocks commit)`,
+  removing it greens. Also named for anyone running the toolkit's own tests:
+  `python3 tests/test_gate_common.py` is a silent no-op with no `__main__`
+  runner — run it under pytest.
+
+### Changed
+
+- **Automated spec and fleet sweeps** recorded for 2026-11-16 under
+  `docs/qa/spec-sweeps/` and `docs/qa/fleet-sweeps/`.
+
+
 ## [1.3.44] - 2026-11-15
 
 ### Fixed
