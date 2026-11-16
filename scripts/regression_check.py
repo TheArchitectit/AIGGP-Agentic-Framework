@@ -383,9 +383,11 @@ def main():
 
     size_issues: list[dict] = []
     size_hard_count = 0
+    size_gap_count = 0
     if not args.no_file_sizes:
         size_issues = check_file_sizes(PROJECT_ROOT, SOURCE_DIRS, touched=touched)
         size_hard_count = sum(1 for i in size_issues if i["kind"] == "hard")
+        size_gap_count = sum(1 for i in size_issues if i["kind"] == "scope-gap")
 
     soft_as_hard_count = 0
     soft_as_hard_files: list[dict] = []
@@ -416,6 +418,7 @@ def main():
         print(json.dumps({"issue_count": count, "files_scanned": files_scanned,
                            "vacuous": vacuous,
                            "size_violations_hard": size_hard_count,
+                           "size_gaps": size_gap_count,
                            "soft_as_hard_blocked": soft_as_hard_count,
                            "audit_blocking": audit_blocking, "audit_warnings": audit_warnings,
                            "registry_regressions": len(registry_violations),
@@ -469,7 +472,8 @@ def main():
         pre_commit=args.pre_commit, blocking=blocking,
         size_hard=size_hard_count, soft_as_hard=soft_as_hard_count,
         audit_blocking=audit_blocking,
-        registry_regressions=len(registry_violations)))
+        registry_regressions=len(registry_violations),
+        size_gaps=size_gap_count))
 
 
 if __name__ == "__main__":

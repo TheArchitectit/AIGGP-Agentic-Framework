@@ -199,8 +199,11 @@ def check_scope_coverage(repo_root: Path, source_dirs: list[str]) -> list[dict]:
     This is the class fix for the directory-scope gap: a new source root
     (``web/``, ``infra/``, …) must not hide from the size gate just because
     nobody remembered to add it to the candidate list. Returns one
-    ``kind='scope-gap'`` warning per uncovered directory. Submodule checkouts
-    (a directory containing ``.git``) are first-party-exempt by definition.
+    ``kind='scope-gap'`` ERROR per uncovered directory — a gap means the walk
+    never entered part of the tree, so "0 over hard limit" from a scoped-out
+    tree is a lie (WARNING until 2026-11-15; that blind spot already reddened
+    main once). Submodule checkouts (a directory containing ``.git``) are
+    first-party-exempt by definition.
     """
     covered = {d.replace(os.sep, "/") for d in source_dirs}
     if "." in covered:
@@ -226,7 +229,7 @@ def check_scope_coverage(repo_root: Path, source_dirs: list[str]) -> list[dict]:
                     count += 1
         if count:
             gaps.append({"file": f"{p.name}/", "lines": count, "soft": None,
-                         "hard": None, "severity": "warning", "kind": "scope-gap"})
+                         "hard": None, "severity": "error", "kind": "scope-gap"})
     return gaps
 
 
@@ -281,5 +284,5 @@ def print_file_size_report(size_issues: list[dict], scope_empty: bool = False) -
               f"{untouched_count} pre-existing oversize (warning), "
               f"{soft_count} over soft limit (warning), "
               f"{over_count} reasoned overrides (warning), "
-              f"{gap_count} scope gaps (warning)")
+              f"{gap_count} scope gaps (ERROR; blocks commit)")
     print("=" * 70)

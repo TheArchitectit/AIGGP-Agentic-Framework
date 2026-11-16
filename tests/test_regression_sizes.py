@@ -455,7 +455,10 @@ def test_source_dirs_include_web_and_infra():
 def test_scope_coverage_flags_uncovered_source_dir():
     """MUST-flag: a top-level dir holding source files but sitting outside the
     walk is reported. This is the class fix — a new source root must not hide
-    just because nobody added it to the candidate list."""
+    just because nobody added it to the candidate list. Severity is ERROR
+    (2026-11-15): a gap means the walk never entered part of the tree, so a
+    green size verdict from a scoped-out tree is unearned — that blind spot
+    already reddened main once."""
     with tempfile.TemporaryDirectory() as td:
         root = Path(td)
         _write_fixture(root, "src/ok.py", 10)
@@ -463,7 +466,7 @@ def test_scope_coverage_flags_uncovered_source_dir():
         gaps = check_scope_coverage(root, ["src"])
         assert [g["file"] for g in gaps] == ["web/"], gaps
         assert gaps[0]["kind"] == "scope-gap", gaps[0]
-        assert gaps[0]["severity"] == "warning", gaps[0]
+        assert gaps[0]["severity"] == "error", gaps[0]
         # Covered, skipped, and submodule dirs are not gaps.
         assert check_scope_coverage(root, ["src", "web"]) == []
         (root / "node_modules").mkdir()

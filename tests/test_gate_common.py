@@ -304,11 +304,13 @@ def test_vacuous_wins_over_blocking_findings():
 
 def test_pre_commit_still_blocks_on_real_findings():
     """Regression guard for the other arm: non-empty scope + blocking findings
-    must still exit 1, at every blocking channel."""
+    must still exit 1, at every blocking channel. `size_gaps` joins the list
+    2026-11-15: a scope gap is an ERROR — the walk never entered part of the
+    tree, so "0 over hard limit" from it is a lie."""
     for channel in ("blocking", "size_hard", "soft_as_hard",
-                    "audit_blocking", "registry_regressions"):
+                    "audit_blocking", "registry_regressions", "size_gaps"):
         counts = dict(blocking=0, size_hard=0, soft_as_hard=0,
-                      audit_blocking=0, registry_regressions=0)
+                      audit_blocking=0, registry_regressions=0, size_gaps=0)
         counts[channel] = 1
         code = gate_common.exit_code_for(vacuous=False, fail_if_empty=False,
                                          pre_commit=True, **counts)
