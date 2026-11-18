@@ -148,6 +148,26 @@ jobs:
           OPENSPEC_PACKAGE: "@fission-ai/openspec@1.14.3"
         run: npm install --no-save --no-audit --no-fund "$OPENSPEC_PACKAGE"
 
+      # Not every devgate runner image carries `gh`: run 44361911555 died here
+      # with "[secret-scan-declared] gh is not on PATH and no --snapshot was
+      # given" while the identical workflow had just succeeded on a sibling
+      # runner. The declaration generator AND the visibility probe below both
+      # shell out to gh, so depending on which runner picks the job up is not
+      # an option. Pinned version + SHA256 from the release's own
+      # gh_2.83.1_checksums.txt, verified locally before wiring this in.
+      - name: Install the pinned GitHub CLI (declaration and probe need gh)
+        run: |
+          set -eu
+          VERSION=2.83.1
+          SHA256=1c5252d4ce3db07b51c01ff0b909583da6364ff3fdc06d0c2e75e62dc0380a34
+          URL="https://github.com/cli/cli/releases/download/v${VERSION}/gh_${VERSION}_linux_amd64.tar.gz"
+          curl -sSL -o "$RUNNER_TEMP/gh.tar.gz" "$URL"
+          echo "${SHA256}  $RUNNER_TEMP/gh.tar.gz" | sha256sum -c -
+          tar xzf "$RUNNER_TEMP/gh.tar.gz" -C "$RUNNER_TEMP"
+          install -m 0755 "$RUNNER_TEMP/gh_${VERSION}_linux_amd64/bin/gh" "$RUNNER_TEMP/gh"
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+          gh version
+
       - name: Generate the declaration (reuse secret-scan-declared.sh)
         id: generate
         env:
