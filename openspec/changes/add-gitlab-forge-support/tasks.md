@@ -27,7 +27,7 @@
 > *hermetic* work (which is already done and stays done) and remains real only
 > for the *live* work, which is deliberately not being done now.
 
-- [ ] Sprint 0 (instance discovery): document the lab GitLab (version, URL, auth shape, tailnet posture); backup/restore drill; pin version. ~~Hard gate — nothing below starts until this is evidenced.~~ **Owner-deferred 2026-11-15** (see the decision block above): live instance proof is not required for the option to ship. This box closes when someone chooses to use GitLab.
+- [ ] Sprint 0 (instance discovery): document the lab GitLab (version, URL, auth shape, tailnet posture); backup/restore drill; pin version. ~~Hard gate — nothing below starts until this is evidenced.~~ **DORMANT, not pending — owner decision 2026-11-15.** GitLab is an option on top of GitHub, not a swap, and the fixture is enough: live instance proof is NOT required for the option to ship. This box is not open work; it is a condition that activates only if someone adopts GitLab. It closes when they do.
   - **Blocked on the operator.** Discovery on 2026-10-23 found no self-hosted GitLab instance: the private infra KB lists a GitLab *runner* host only, no server, and no GitLab endpoint responded on the fleet network. Re-checked 2026-11-13 — still no server entry. The operator must supply the instance (URL, version, auth shape, reachability) before this can close.
   - The backup/restore drill has a validator (`hub/forge/instance.py` `validate_backup_restore_drill`) and a synthetic test report; no drill has been run against a real instance.
   - **Operator-supplied data still missing, exactly (re-checked 2026-11-15):**
@@ -122,3 +122,11 @@
 - [ ] Backup restore drill evidenced before any gate dependency (GLF-10). —
   blocked on Sprint 0: no instance exists to back up. `validate_backup_restore_drill`
   and `audit_deployment` are ready to consume the report and name its absence.
+
+**DORMANT SET, 2026-11-18.** Sprint 0, Sprint 4, GLF-01 and GLF-10 are the same
+condition: live proof against a real second forge. The owner decided GitLab is
+an **option on top of GitHub, not a swap**, and the fixture is enough — live
+instance proof is not required for the option to ship. These are not open
+work; they are conditions that activate only if someone adopts GitLab. The
+hermetic halves (adapter, templates, parity drill over a pinned corpus, the
+discovery gate) are landed and green.
