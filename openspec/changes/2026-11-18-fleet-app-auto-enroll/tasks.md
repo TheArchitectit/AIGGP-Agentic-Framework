@@ -44,11 +44,21 @@ ticked box below names the test that proves it.
 - [x] Keep the private key in step env (never argv) and pin the App-token and
   artifact actions, plus PyNaCl.
   - `test_workflow_keeps_the_private_key_in_env_and_pins_actions`
-- [ ] Live apply against installation 101651861, confirming the installation
-  can list repositories and write the variable and secret. The owner runs
-  this; no live GitHub call was made by this package.
-- [ ] `docs/GITHUB-APP-TOKEN.md` describes enrollment, comparison limits,
-  timing, flags, and scope. Written, but no test asserts the prose.
+- [x] Live apply against installation 101651861, confirming the installation
+  can list repositories and write the variable and secret.
+  - **Applied 2026-11-18 on the fleet** through
+    `fleet-app-enroll.yml` (run `44372819121`, then retry `44374319225` after
+    two transient GitHub errors). Final report: **repos 166, processed 165,
+    archived skipped 1, failed 0**. Variable: 165 unchanged. Secret: 163
+    unchanged (created by the first apply), 2 created by the retry, 0 rotated.
+    The first apply created 163 variables and 161 secrets; its only failures
+    were a transient HTTP 503 and a timeout, both closed by the idempotent
+    retry without overwriting anything.
+- [x] `docs/GITHUB-APP-TOKEN.md` describes enrollment, comparison limits,
+  timing, flags, and scope. Reviewed 2026-11-18: the section states the
+  user-account reason, nightly/manual timing, variable-versus-secret
+  comparison, `--dry-run`/`--rotate`, and the non-goals (no workflow install,
+  no code edit, collaborator account out of scope).
 
 ## Verification
 
