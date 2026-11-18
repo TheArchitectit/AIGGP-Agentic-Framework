@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Automatic fleet App enrollment.** `TheArchitectit` is a user account, so
+  repositories have no organization secret to inherit. `fleet-app-enroll.yml`
+  reconciles `DEVGATE_SWEEP_APP_ID` and the sealed
+  `DEVGATE_SWEEP_APP_PRIVATE_KEY` across every installation repository: it
+  creates missing values, updates a stale App ID, never overwrites an existing
+  secret unless `--rotate`, and defaults manual dispatches to dry-run. A
+  nightly run covers repositories created after today.
+
 ## [1.3.48] - 2026-11-18
 
 ### Fixed
