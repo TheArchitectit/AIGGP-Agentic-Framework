@@ -81,6 +81,42 @@ jobs:
           printf 'token=%s\n' "$TOKEN" >> "$GITHUB_OUTPUT"
           printf 'token_mode=%s\n' "$MODE" >> "$GITHUB_OUTPUT"
 
+      # 4. Positive control: the curated private fleet entries below can only
+      #    be cloned if the App installation actually covers them. Prove that
+      #    with the same askpass shape the walk uses, and fail HERE, by name,
+      #    rather than letting four repos red the nightly as `unscannable`.
+      #    The token is an env value, never git argv; the askpass helper reads
+      #    it from its environment and the error path redacts it again.
+      - name: Positive control — the App can read a private fleet repo
+        if: ${{ steps.auth.outputs.token_mode == 'app' }}
+        env:
+          CLONE_TOKEN: ${{ steps.auth.outputs.token }}
+        run: |
+          set -eu
+          if [ -z "$CLONE_TOKEN" ]; then
+            echo "::error::positive control: token mode is app but the minted token is empty."
+            exit 1
+          fi
+          echo "::add-mask::$CLONE_TOKEN"
+          askpass="$RUNNER_TEMP/spec-fleet-askpass.sh"
+          cat > "$askpass" <<'ASKPASS'
+          #!/bin/sh
+          case "$1" in
+            Username*) printf '%s\n' "x-access-token" ;;
+            *) printf '%s\n' "${SPEC_FLEET_ASKPASS_TOKEN:-}" ;;
+          esac
+          ASKPASS
+          chmod 700 "$askpass"
+          if ! err="$(SPEC_FLEET_ASKPASS_TOKEN="$CLONE_TOKEN" \
+                 GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 \
+                 git -c credential.username=x-access-token -c credential.helper= \
+                   ls-remote --heads https://github.com/TheArchitectit/rad-gateway 2>&1)"; then
+            printf '%s\n' "${err//$CLONE_TOKEN/***}" | tail -5
+            echo "::error::positive control failed: the App token cannot read the private fleet repo TheArchitectit/rad-gateway. The curated private entries would scan unscannable and red every night. Check installation 101651861's repository access."
+            exit 1
+          fi
+          echo "[auth] positive control: TheArchitectit/rad-gateway is readable with the App token"
+
       # The devgate runner image ships a node20 whose own npm is broken
       # (`Cannot find module '../lib/cli.js'` from bin/npm) — measured on the
       # first dispatch of this workflow, 2026-10-24. setup-node installs a
@@ -114,17 +150,24 @@ jobs:
           set -eu
           echo "[auth] this step spends the $TOKEN_MODE budget"
           bash scripts/secret-scan-declared.sh --out "$RUNNER_TEMP/declared.raw.txt"
-          # The walk clones unauthenticated, so a private repo can only ever
-          # read `unscannable` — and unscannable is a RED (SGA-12). Measured
-          # 2026-10-24: four private repos in the shared declaration red every
-          # night forever, which is the SGR-10 muted-gate failure. They are
-          # dropped HERE and named HERE, never silently; an authenticated
-          # clone would need a token-plumbing design of its own (a token in
-          # git's argv would land in the report and the public issue).
-          python3 - "$RUNNER_TEMP/declared.raw.txt" "$RUNNER_TEMP/declared.txt" <<'PY'
-          import json, re, subprocess, sys
+          # A private repo cannot be read by an UNAUTHENTICATED clone, so as a
+          # generated owner-scope entry it can only ever read `unscannable` —
+          # and unscannable is a RED (SGA-12). Generated private repos stay
+          # dropped HERE and named HERE, never silently.
+          #
+          # The curated exceptions in fleet-sweep-include.txt are different:
+          # they are the deliberately listed repos, and in `app` token mode the
+          # walk clones them with the App installation token (see the positive
+          # control above and scripts/spec-fleet-walk.sh). So in app mode a
+          # dropped-as-private entry that also appears in the include file is
+          # re-admitted, and the re-admission is printed by name. In workflow
+          # token mode nothing is re-admitted: that token cannot read another
+          # owner's private repos, and re-admitting would only move the red.
+          python3 - "$RUNNER_TEMP/declared.raw.txt" "$RUNNER_TEMP/declared.txt" "fleet-sweep-include.txt" <<'PY'
+          import json, os, re, subprocess, sys
           from pathlib import Path
-          raw, out = Path(sys.argv[1]), Path(sys.argv[2])
+          raw, out, include_path = Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3])
+          token_mode = os.environ.get("TOKEN_MODE", "workflow")
           lines = raw.read_text(encoding="utf-8").splitlines()
           def visibility(full):
               """True if GitHub says the repo is private, False if public, None
@@ -138,6 +181,19 @@ jobs:
               if res.returncode != 0:
                   return None
               return (res.stdout or "").strip() == "true"
+          def norm(u):
+              u = (u or "").strip().rstrip("/")
+              if u.endswith(".git"):
+                  u = u[:-4]
+              return u.lower()
+          # The curated set is exactly the include file's code tokens. Only a
+          # URL that a human wrote there can be re-admitted as private.
+          curated = set()
+          if include_path.is_file():
+              for line in include_path.read_text(encoding="utf-8").splitlines():
+                  code = line.split("#", 1)[0].strip()
+                  if code:
+                      curated.add(norm(code))
           seen_full = []
           for line in lines:
               m = re.match(r"https://github\.com/([^/]+)/([^/]+?)/?$", line.strip())
@@ -147,15 +203,18 @@ jobs:
           # A repo the API cannot read at all is NOT dropped: 404/401 is
           # exactly how a deleted repo answers too, and SGA-12 requires that
           # one to red and name itself. Only a repo GitHub positively reports
-          # as private is dropped — the unauthenticated clone can never read
-          # it, so it would red every night forever.
-          kept, dropped, seen = [], set(), set()
+          # as private is dropped — unless it is a curated include entry and
+          # the App token can read it.
+          kept, dropped, readmitted, seen = [], set(), set(), set()
           for line in lines:
               m = re.match(r"https://github\.com/([^/]+)/([^/]+?)/?$", line.strip())
               full = f"{m.group(1)}/{m.group(2)}" if m else None
               if full and full in private:
-                  dropped.add(full)
-                  continue
+                  if token_mode == "app" and norm(line) in curated:
+                      readmitted.add(full)
+                  else:
+                      dropped.add(full)
+                      continue
               # the generator can list the same repo twice (two discovery
               # paths); a duplicate scan double-counts the trend line.
               if line.strip() in seen:
@@ -163,6 +222,8 @@ jobs:
               seen.add(line.strip())
               kept.append(line)
           out.write_text("\n".join(kept) + ("\n" if kept else ""), encoding="utf-8")
+          if readmitted:
+              print(f"[declaration] re-admitted {len(readmitted)} curated private repo(s) with the App token: {sorted(readmitted)}")
           print(f"[declaration] dropped {len(dropped)} private repo(s), unreadable unauthenticated: {sorted(dropped)}")
           PY
           echo "count=$(wc -l < "$RUNNER_TEMP/declared.txt")" >> "$GITHUB_OUTPUT"
@@ -174,8 +235,13 @@ jobs:
           TIER: spec-audit-tier.txt
           LOCK: spec-templates.lock.json
           SPEC_AUDIT_OPENSPEC_BIN: ${{ github.workspace }}/node_modules/.bin/openspec
+          # Opt-in authenticated clone, app mode only. In workflow mode another
+          # owner's private repos are unreadable either way; an empty value
+          # keeps the walk on its unauthenticated path.
+          SPEC_FLEET_CLONE_TOKEN: ${{ steps.auth.outputs.token_mode == 'app' && steps.auth.outputs.token || '' }}
         run: |
           set +e
+          [ -z "${SPEC_FLEET_CLONE_TOKEN:-}" ] || echo "::add-mask::$SPEC_FLEET_CLONE_TOKEN"
           mkdir -p "$RUNNER_TEMP/spec-work"
           bash scripts/spec-fleet-walk.sh \
             --declared "$DECLARED" \

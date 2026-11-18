@@ -163,6 +163,52 @@ Not configured, fallback:
 The warning is the signal that distinguishes a fallback from a deliberate
 workflow-token choice.
 
+## Authenticated clones for the curated private set (spec-fleet)
+
+API budget is not the only thing the App is for. The nightly **Spec Fleet
+Sweep** (`.github/workflows/spec-fleet.yml`) also *clones* what it scans, and
+some of the curated fleet lives in private repositories that only the App can
+read. The shape there, in order:
+
+1. **The curated owner is the App-installed owner.** `fleet-sweep-include.txt`
+   lists the same content under `TheArchitectit`, where the App installation
+   (101651861) is, rather than under the collaborator account where those
+   copies are also private. Scanning both owners would double-count the
+   trend line; scanning the unreadable owner reds every night as
+   `unscannable`.
+2. **Re-admission, in `app` mode only.** The declaration step still drops
+   every *generated* owner-scope private repository — the unauthenticated
+   clone cannot read it, and `unscannable` is a RED. But a dropped-as-private
+   URL that a human wrote in `fleet-sweep-include.txt` is re-admitted when
+   the token mode is `app`, and the step prints the re-admitted repos by name.
+   In `workflow` mode nothing is re-admitted: `github.token` cannot read
+   another owner's private repos, so re-admitting would only move the red.
+3. **The token reaches the walk as an environment variable.**
+   `scripts/spec-fleet-walk.sh` reads `SPEC_FLEET_CLONE_TOKEN` (empty means the
+   historical unauthenticated path, byte for byte). It writes a `GIT_ASKPASS`
+   helper into its work temp dir at mode `700`; the helper reads the secret
+   from its own environment at prompt time, so the file itself carries no
+   credential. The clone also gets `credential.username=x-access-token`,
+   `credential.helper=` (so a runner credential store never caches it), and
+   `GIT_TERMINAL_PROMPT=0`. **The token is never on git's argv.**
+4. **Redaction before storage.** The report is committed to
+   `docs/qa/spec-sweeps/` in this public repository. Anything captured from a
+   failed clone is passed through a redactor (the token itself,
+   credential-shaped literals, and URL userinfo) before it becomes a report
+   `reason` or a log line.
+5. **A positive control, before the walk.** Immediately after the mode
+   resolver, an `app`-only step runs `git ls-remote` against
+   `https://github.com/TheArchitectit/rad-gateway` with the same askpass
+   mechanism. It fails loudly, naming the repository and the installation, if
+   the App cannot read it — so a mis-scoped installation is diagnosed at the
+   top of the run rather than as four `unscannable` repos at the bottom.
+
+The positive control and the clone-token plumbing are **spec-fleet-specific**:
+they belong only in a workflow that clones private fleet repos. Do not copy
+them into a workflow that only reads the API — it would spend budget and prove
+nothing. The three-step token shape above remains the copyable unit for
+everything else.
+
 ## Rules for adopters
 
 - The private key is read from `secrets.*` at run time only. Never echo it,

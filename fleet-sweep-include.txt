@@ -6,10 +6,20 @@
 # generated owner-scope list before exclusions apply, so an entry here can
 # still be dropped by fleet-sweep-exclude.txt.
 #
-# Content rule: the drwhofan2k18-pixel/* counterparts of TheArchitectit repos
-# — same code under a second owner account. These are the "two-owner
-# problem" repos: a finding on one remote implies the other until both are
-# swept (see docs/qa/<date>-secret-adoption.md for the per-repo note).
+# Content rule: these are ours, under a second owner account where the code
+# also exists under TheArchitectit. Where both owners carry the same content,
+# list the TheArchitectit copy: that is the owner the program's GitHub App is
+# installed on (installation 101651861), so it is the only copy the nightly
+# can clone with the App token. The drwhofan2k18-pixel copies of RADICAL-CODE,
+# radcode, rad-gateway and stitcher-codereview are the same content: the first
+# three under drwhofan are forks of the TheArchitectit repos, and
+# stitcher-codereview runs the other way (the TheArchitectit repo is the fork,
+# but the content is shared). Sweeping both owners would double-count the
+# trend line and spend two clones for one repository's worth of coverage.
+#
+# The drwhofan2k18-pixel entries that remain below are PUBLIC — the
+# unauthenticated clone path still reaches them — so they stay on the owner
+# where that work lives; moving them would only relocate the same scan.
 #
 # Upstream mirrors under drwhofan2k18-pixel (bun, redis, sqlite, react, ...)
 # are the same noise class as llama.cpp and are NOT listed here. Listing them
@@ -23,9 +33,9 @@
 # the wider farm should be swept, add the URLs here — the list is one file,
 # reviewable and reversible by editing it.
 https://github.com/drwhofan2k18-pixel/DevGate-Agentic-Framework
-https://github.com/drwhofan2k18-pixel/RADICAL-CODE
-https://github.com/drwhofan2k18-pixel/radcode
-https://github.com/drwhofan2k18-pixel/rad-gateway
-https://github.com/drwhofan2k18-pixel/stitcher-codereview
+https://github.com/TheArchitectit/RADICAL-CODE
+https://github.com/TheArchitectit/radcode
+https://github.com/TheArchitectit/rad-gateway
+https://github.com/TheArchitectit/stitcher-codereview
 https://github.com/drwhofan2k18-pixel/zombie-hero-match
 https://github.com/drwhofan2k18-pixel/pi-ithacus-agent-framework
