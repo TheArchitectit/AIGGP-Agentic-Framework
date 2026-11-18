@@ -21,11 +21,64 @@ jobs:
         with:
           fetch-depth: 0
 
+      # --- Fleet GitHub App token: canonical shape, docs/GITHUB-APP-TOKEN.md ---
+      # 1. Fail closed and named when half the pair is configured. The action
+      #    would also fail on a missing private-key input, but its message does
+      #    not name the secret a reader has to go and set.
+      - name: Check the App credential pair (fail closed, named)
+        id: app-cred
+        env:
+          APP_ID: ${{ vars.DEVGATE_SWEEP_APP_ID }}
+          APP_KEY: ${{ secrets.DEVGATE_SWEEP_APP_PRIVATE_KEY }}
+        run: |
+          set -eu
+          if [ -n "$APP_ID" ] && [ -z "$APP_KEY" ]; then
+            echo "::error::vars.DEVGATE_SWEEP_APP_ID is set but secrets.DEVGATE_SWEEP_APP_PRIVATE_KEY is missing."
+            echo "::error::Failing closed: a configured App never falls through to a wider identity."
+            exit 1
+          fi
+          echo "[auth] app id variable: $([ -n "$APP_ID" ] && echo set || echo unset)"
+
+      # 2. Mint the installation token. Skipped only when the variable is unset;
+      #    the pin is a full SHA, never a tag.
+      - name: Mint the fleet App token
+        id: app-token
+        if: ${{ vars.DEVGATE_SWEEP_APP_ID != '' }}
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+        with:
+          app-id: ${{ vars.DEVGATE_SWEEP_APP_ID }}
+          private-key: ${{ secrets.DEVGATE_SWEEP_APP_PRIVATE_KEY }}
+          owner: TheArchitectit   # owner scope: jobs that read other fleet repos
+
+      # 3. Resolve the mode once, announce it, and publish one token output for
+      #    the call sites. The fallback is never silent.
+      - name: Resolve and announce the token mode
+        id: auth
+        env:
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
+          WORKFLOW_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          if [ -n "$APP_TOKEN" ]; then
+            MODE=app
+            echo "[auth] token mode: app — program GitHub App installation, 5,000 req/h (separate from the user budget)"
+            TOKEN="$APP_TOKEN"
+          else
+            MODE=workflow
+            TOKEN="$WORKFLOW_TOKEN"
+            echo "::warning::[auth] token mode: workflow — vars.DEVGATE_SWEEP_APP_ID is unset on this repository. Falling back to github.token: 1,000 req/h, scoped to this repository only."
+          fi
+          [ -z "$APP_TOKEN" ] || echo "::add-mask::$APP_TOKEN"
+          printf 'token=%s\n' "$TOKEN" >> "$GITHUB_OUTPUT"
+          printf 'token_mode=%s\n' "$MODE" >> "$GITHUB_OUTPUT"
+
       - name: Publish and verify the GitHub Release
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.auth.outputs.token }}
+          TOKEN_MODE: ${{ steps.auth.outputs.token_mode }}
         run: |
           set -euo pipefail
+          echo "[auth] this step spends the $TOKEN_MODE budget (release create/readback)"
           TAG="${GITHUB_REF_NAME}"
           # actions/checkout can leave a local tag ref that resolves straight
           # to a commit even when the pushed ref is annotated. Fetch the tag

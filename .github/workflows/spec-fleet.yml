@@ -28,6 +28,59 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
+      # --- Fleet GitHub App token: canonical shape, docs/GITHUB-APP-TOKEN.md ---
+      # This workflow is the highest-calling one in the fleet: the declaration
+      # generator lists the owner scope, and the visibility probe asks GitHub
+      # about every declared repo, including repos this repository cannot see
+      # with `github.token` (1,000 req/h, this repository only). Measured
+      # 2026-11-18: `gh api rate_limit` read 0/5000 remaining on the user
+      # identity, which is the budget this path exists to stop spending.
+      # 1. Fail closed and named when half the pair is configured.
+      - name: Check the App credential pair (fail closed, named)
+        id: app-cred
+        env:
+          APP_ID: ${{ vars.DEVGATE_SWEEP_APP_ID }}
+          APP_KEY: ${{ secrets.DEVGATE_SWEEP_APP_PRIVATE_KEY }}
+        run: |
+          set -eu
+          if [ -n "$APP_ID" ] && [ -z "$APP_KEY" ]; then
+            echo "::error::vars.DEVGATE_SWEEP_APP_ID is set but secrets.DEVGATE_SWEEP_APP_PRIVATE_KEY is missing."
+            echo "::error::Failing closed: a configured App never falls through to a wider identity."
+            exit 1
+          fi
+          echo "[auth] app id variable: $([ -n "$APP_ID" ] && echo set || echo unset)"
+
+      # 2. Mint the installation token; skipped only when the variable is unset.
+      - name: Mint the fleet App token
+        id: app-token
+        if: ${{ vars.DEVGATE_SWEEP_APP_ID != '' }}
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+        with:
+          app-id: ${{ vars.DEVGATE_SWEEP_APP_ID }}
+          private-key: ${{ secrets.DEVGATE_SWEEP_APP_PRIVATE_KEY }}
+          owner: TheArchitectit   # owner scope: the generator and the visibility probe read other fleet repos
+
+      # 3. Resolve the mode once, announce it, publish one token for call sites.
+      - name: Resolve and announce the token mode
+        id: auth
+        env:
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
+          WORKFLOW_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          if [ -n "$APP_TOKEN" ]; then
+            MODE=app
+            TOKEN="$APP_TOKEN"
+            echo "[auth] token mode: app — program GitHub App installation, 5,000 req/h (separate from the user budget)"
+          else
+            MODE=workflow
+            TOKEN="$WORKFLOW_TOKEN"
+            echo "::warning::[auth] token mode: workflow — vars.DEVGATE_SWEEP_APP_ID is unset on this repository. Falling back to github.token: 1,000 req/h, scoped to this repository only."
+          fi
+          [ -z "$APP_TOKEN" ] || echo "::add-mask::$APP_TOKEN"
+          printf 'token=%s\n' "$TOKEN" >> "$GITHUB_OUTPUT"
+          printf 'token_mode=%s\n' "$MODE" >> "$GITHUB_OUTPUT"
+
       # The devgate runner image ships a node20 whose own npm is broken
       # (`Cannot find module '../lib/cli.js'` from bin/npm) — measured on the
       # first dispatch of this workflow, 2026-10-24. setup-node installs a
@@ -52,10 +105,14 @@ jobs:
         env:
           # The generator runs `gh repo list` for owner-scope discovery
           # (SGA-10: a new repo is noticed the night it appears). Without the
-          # token it exits 2 — measured on dispatch 40062752087.
-          GH_TOKEN: ${{ github.token }}
+          # token it exits 2 — measured on dispatch 40062752087. The App token
+          # is owner-scoped, which is what the discovery and the per-repo
+          # visibility probe below both need; see the mode line this step prints.
+          GH_TOKEN: ${{ steps.auth.outputs.token }}
+          TOKEN_MODE: ${{ steps.auth.outputs.token_mode }}
         run: |
           set -eu
+          echo "[auth] this step spends the $TOKEN_MODE budget"
           bash scripts/secret-scan-declared.sh --out "$RUNNER_TEMP/declared.raw.txt"
           # The walk clones unauthenticated, so a private repo can only ever
           # read `unscannable` — and unscannable is a RED (SGA-12). Measured
@@ -190,10 +247,14 @@ jobs:
       - name: Route template-drift findings
         if: always()
         env:
-          GH_TOKEN: ${{ github.token }}
+          # Always-run step: if the resolver never ran, the identity really is
+          # the workflow token, and the printed mode says so.
+          GH_TOKEN: ${{ steps.auth.outputs.token || github.token }}
+          TOKEN_MODE: ${{ steps.auth.outputs.token_mode || 'workflow' }}
           REPORT: ${{ runner.temp }}/spec-report.json
         run: |
           set -eu
+          echo "[auth] this step spends the $TOKEN_MODE budget"
           if [ ! -f "$REPORT" ]; then
             echo "no report — no drift findings to route"
             exit 0
@@ -231,10 +292,13 @@ jobs:
       - name: Fail loudly and route
         if: always()
         env:
-          GH_TOKEN: ${{ github.token }}
+          # Always-run step; same honest fallback as the drift step above.
+          GH_TOKEN: ${{ steps.auth.outputs.token || github.token }}
+          TOKEN_MODE: ${{ steps.auth.outputs.token_mode || 'workflow' }}
           REPORT: ${{ runner.temp }}/spec-report.json
         run: |
           set -eu
+          echo "[auth] this step spends the $TOKEN_MODE budget"
           if [ ! -f "$REPORT" ]; then
             python3 scripts/hub_alert.py --key spec_fleet_sweep \
               --detail "spec-fleet walk produced no report: nothing was measured" || true
