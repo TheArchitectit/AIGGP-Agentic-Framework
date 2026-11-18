@@ -397,6 +397,25 @@ def test_app_mode_has_a_positive_control_that_cannot_leak_the_token():
     assert "add-mask" in str(walk["run"])
 
 
+def test_no_comment_detaches_the_controls_env_assignments():
+    """A comment line placed between `VAR=… \\` and the command detaches the
+    assignment from it (reproduced in bash: the variable never reaches the
+    command). That is how run 44361231956 lost GIT_ASKPASS and died with
+    "could not read Password … No such device or address" — a shell bug, not
+    an auth bug. Pin the control against it, and require the extraheader
+    override the fix depends on."""
+    wf = wr.read_workflow(WORKFLOW.read_text(encoding="utf-8"))
+    control = next(s for s in wf.jobs["sweep"]["steps"]
+                   if str(s.get("name", "")).startswith("Positive control"))
+    lines = str(control["run"]).splitlines()
+    start = next(i for i, l in enumerate(lines) if 'err="$(SPEC_FLEET_ASKPASS_TOKEN=' in l)
+    end = next(i for i, l in enumerate(lines) if "ls-remote --heads" in l)
+    body = lines[start:end + 1]
+    assert not [l for l in body if l.strip().startswith("#")], (
+        "a comment inside the continued command detaches its env assignments")
+    assert any("http.https://github.com/.extraheader=" in l for l in body), body
+
+
 if __name__ == "__main__":
     import pytest
     sys.exit(pytest.main([str(Path(__file__))]))

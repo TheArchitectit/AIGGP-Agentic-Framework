@@ -107,15 +107,19 @@ jobs:
           esac
           ASKPASS
           chmod 700 "$askpass"
+          # The checkout above leaves its own workflow-token extraheader in
+          # this repo's local git config, and that header beats the askpass
+          # App token (measured on AI02: rc=128 inside such a checkout, rc=0
+          # outside it). Clear it as argv; the GIT_CONFIG_KEY_n env form does
+          # NOT override it — also measured.
+          #
+          # These comments must stay OUTSIDE the command below. An earlier
+          # revision put them between the `VAR=… \` assignments and `git`,
+          # which detaches the assignments from the command: reproduced in
+          # bash, the env never reaches git, askpass is never consulted, and
+          # the failure becomes "could not read Password … No such device".
           if ! err="$(SPEC_FLEET_ASKPASS_TOKEN="$CLONE_TOKEN" \
                  GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 \
-                 # The checkout above leaves its own workflow-token
-                 # extraheader in this repo's local git config, and that
-                 # header beats the askpass App token (measured on AI02:
-                 # rc=128 inside such a checkout, rc=0 outside it). Clear it
-                 # as argv; the GIT_CONFIG_KEY_n env form does NOT override
-                 # it — also measured. The failure this prevents reads
-                 # exactly like a missing App installation: "not found".
                  git -c credential.username=x-access-token -c credential.helper= \
                    -c http.https://github.com/.extraheader= \
                    ls-remote --heads https://github.com/TheArchitectit/rad-gateway 2>&1)"; then
