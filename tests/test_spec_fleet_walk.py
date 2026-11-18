@@ -416,6 +416,18 @@ def test_no_comment_detaches_the_controls_env_assignments():
     assert any("http.https://github.com/.extraheader=" in l for l in body), body
 
 
+def test_gh_install_verifies_the_binary_it_just_installed():
+    """GITHUB_PATH takes effect on the NEXT step, so the install step's own
+    smoke check must use the absolute path. Run 44362458145 failed with exit
+    127 after a valid checksum because it called bare `gh` in the same step."""
+    wf = wr.read_workflow(WORKFLOW.read_text(encoding="utf-8"))
+    install = next(s for s in wf.jobs["sweep"]["steps"]
+                   if str(s.get("name", "")).startswith("Install the pinned GitHub CLI"))
+    run = str(install["run"])
+    assert '"$RUNNER_TEMP/gh" version' in run
+    assert not any(line.strip() == "gh version" for line in run.splitlines())
+
+
 if __name__ == "__main__":
     import pytest
     sys.exit(pytest.main([str(Path(__file__))]))

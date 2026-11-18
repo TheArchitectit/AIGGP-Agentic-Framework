@@ -166,7 +166,10 @@ jobs:
           tar xzf "$RUNNER_TEMP/gh.tar.gz" -C "$RUNNER_TEMP"
           install -m 0755 "$RUNNER_TEMP/gh_${VERSION}_linux_amd64/bin/gh" "$RUNNER_TEMP/gh"
           echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
-          gh version
+          # GITHUB_PATH only affects LATER steps. Calling `gh` here failed
+          # with exit 127 on run 44362458145 even though the binary and its
+          # checksum were good; verify by absolute path within this step.
+          "$RUNNER_TEMP/gh" version
 
       - name: Generate the declaration (reuse secret-scan-declared.sh)
         id: generate
