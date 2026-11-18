@@ -28,6 +28,28 @@
     {
       "gaps": 0,
       "has_openspec": true,
+      "name": "RADICAL-CODE",
+      "provenance": {
+        "drift": [],
+        "escaping": [],
+        "fault": false,
+        "templates": {},
+        "unknown": [],
+        "unlocked": []
+      },
+      "provenance_findings": false,
+      "provenance_red": false,
+      "reason": "\u2717 change/CON-000\n  \u26a0 [WARNING] .openspec.yaml: Unrecognized key name(s) in .openspec.yaml (untrusted",
+      "red": false,
+      "state": "invalid",
+      "strict_reason": "\u2717 change/CON-000\n  \u26a0 [WARNING] .openspec.yaml: Unrecognized key name(s) in .openspec.yaml (untrusted",
+      "strict_state": "invalid",
+      "tiered": false,
+      "url": "https://github.com/TheArchitectit/RADICAL-CODE"
+    },
+    {
+      "gaps": 0,
+      "has_openspec": true,
       "name": "dflash2-glm5.3-flash",
       "provenance": {
         "drift": [],
@@ -50,6 +72,28 @@
     {
       "gaps": 0,
       "has_openspec": true,
+      "name": "radcode",
+      "provenance": {
+        "drift": [],
+        "escaping": [],
+        "fault": false,
+        "templates": {},
+        "unknown": [],
+        "unlocked": []
+      },
+      "provenance_findings": false,
+      "provenance_red": false,
+      "reason": "\u2717 change/CON-000\n  \u26a0 [WARNING] .openspec.yaml: Unrecognized key name(s) in .openspec.yaml (untrusted",
+      "red": false,
+      "state": "invalid",
+      "strict_reason": "\u2717 change/CON-000\n  \u26a0 [WARNING] .openspec.yaml: Unrecognized key name(s) in .openspec.yaml (untrusted",
+      "strict_state": "invalid",
+      "tiered": false,
+      "url": "https://github.com/TheArchitectit/radcode"
+    },
+    {
+      "gaps": 0,
+      "has_openspec": true,
       "name": "radreportgenerator",
       "provenance": {
         "drift": [],
@@ -68,6 +112,28 @@
       "strict_state": "invalid",
       "tiered": false,
       "url": "https://github.com/TheArchitectit/radreportgenerator"
+    },
+    {
+      "gaps": 0,
+      "has_openspec": true,
+      "name": "stitcher-codereview",
+      "provenance": {
+        "drift": [],
+        "escaping": [],
+        "fault": false,
+        "templates": {},
+        "unknown": [],
+        "unlocked": []
+      },
+      "provenance_findings": false,
+      "provenance_red": false,
+      "reason": "\u2717 spec/cli\n  \u2717 [ERROR] file: Spec must have a Purpose section. Missing required sections. Expected h",
+      "red": false,
+      "state": "invalid",
+      "strict_reason": "\u2717 spec/cli\n  \u2717 [ERROR] file: Spec must have a Purpose section. Missing required sections. Expected h",
+      "strict_state": "invalid",
+      "tiered": false,
+      "url": "https://github.com/TheArchitectit/stitcher-codereview"
     },
     {
       "gaps": 0,
@@ -181,30 +247,6 @@
       "strict_state": null,
       "tiered": false,
       "url": "https://github.com/drwhofan2k18-pixel/pi-ithacus-agent-framework"
-    },
-    {
-      "name": "rad-gateway",
-      "reason": "Command '['git', 'clone', '--depth', '1', 'https://github.com/drwhofan2k18-pixel/rad-gateway', '/_wo",
-      "state": "unscannable",
-      "url": "https://github.com/drwhofan2k18-pixel/rad-gateway"
-    },
-    {
-      "name": "radcode",
-      "reason": "Command '['git', 'clone', '--depth', '1', 'https://github.com/drwhofan2k18-pixel/radcode', '/_work/_",
-      "state": "unscannable",
-      "url": "https://github.com/drwhofan2k18-pixel/radcode"
-    },
-    {
-      "name": "RADICAL-CODE",
-      "reason": "Command '['git', 'clone', '--depth', '1', 'https://github.com/drwhofan2k18-pixel/RADICAL-CODE', '/_w",
-      "state": "unscannable",
-      "url": "https://github.com/drwhofan2k18-pixel/RADICAL-CODE"
-    },
-    {
-      "name": "stitcher-codereview",
-      "reason": "Command '['git', 'clone', '--depth', '1', 'https://github.com/drwhofan2k18-pixel/stitcher-codereview",
-      "state": "unscannable",
-      "url": "https://github.com/drwhofan2k18-pixel/stitcher-codereview"
     },
     {
       "gaps": 0,
@@ -494,6 +536,72 @@
     },
     {
       "gaps": 0,
+      "has_openspec": true,
+      "name": "rad-gateway",
+      "provenance": {
+        "drift": [],
+        "escaping": [],
+        "fault": false,
+        "templates": {},
+        "unknown": [],
+        "unlocked": []
+      },
+      "provenance_findings": false,
+      "provenance_red": false,
+      "reason": "",
+      "red": false,
+      "state": "spaced",
+      "strict_reason": "",
+      "strict_state": "ok",
+      "tiered": false,
+      "url": "https://github.com/TheArchitectit/rad-gateway"
+    },
+    {
+      "gaps": 0,
+      "has_openspec": true,
+      "name": "radcode",
+      "provenance": {
+        "drift": [],
+        "escaping": [],
+        "fault": false,
+        "templates": {},
+        "unknown": [],
+        "unlocked": []
+      },
+      "provenance_findings": false,
+      "provenance_red": false,
+      "reason": "\u2717 change/CON-000\n  \u26a0 [WARNING] .openspec.yaml: Unrecognized key name(s) in .openspec.yaml (untrusted",
+      "red": false,
+      "state": "invalid",
+      "strict_reason": "\u2717 change/CON-000\n  \u26a0 [WARNING] .openspec.yaml: Unrecognized key name(s) in .openspec.yaml (untrusted",
+      "strict_state": "invalid",
+      "tiered": false,
+      "url": "https://github.com/TheArchitectit/radcode"
+    },
+    {
+      "gaps": 0,
+      "has_openspec": true,
+      "name": "RADICAL-CODE",
+      "provenance": {
+        "drift": [],
+        "escaping": [],
+        "fault": false,
+        "templates": {},
+        "unknown": [],
+        "unlocked": []
+      },
+      "provenance_findings": false,
+      "provenance_red": false,
+      "reason": "\u2717 change/CON-000\n  \u26a0 [WARNING] .openspec.yaml: Unrecognized key name(s) in .openspec.yaml (untrusted",
+      "red": false,
+      "state": "invalid",
+      "strict_reason": "\u2717 change/CON-000\n  \u26a0 [WARNING] .openspec.yaml: Unrecognized key name(s) in .openspec.yaml (untrusted",
+      "strict_state": "invalid",
+      "tiered": false,
+      "url": "https://github.com/TheArchitectit/RADICAL-CODE"
+    },
+    {
+      "gaps": 0,
       "has_openspec": false,
       "name": "radicaltrainingplatform",
       "provenance": {
@@ -601,13 +709,34 @@
       "strict_state": null,
       "tiered": false,
       "url": "https://github.com/TheArchitectit/smallcode"
+    },
+    {
+      "gaps": 0,
+      "has_openspec": true,
+      "name": "stitcher-codereview",
+      "provenance": {
+        "drift": [],
+        "escaping": [],
+        "fault": false,
+        "templates": {},
+        "unknown": [],
+        "unlocked": []
+      },
+      "provenance_findings": false,
+      "provenance_red": false,
+      "reason": "\u2717 spec/cli\n  \u2717 [ERROR] file: Spec must have a Purpose section. Missing required sections. Expected h",
+      "red": false,
+      "state": "invalid",
+      "strict_reason": "\u2717 spec/cli\n  \u2717 [ERROR] file: Spec must have a Purpose section. Missing required sections. Expected h",
+      "strict_state": "invalid",
+      "tiered": false,
+      "url": "https://github.com/TheArchitectit/stitcher-codereview"
     }
   ],
   "scanned": 24,
   "states": {
-    "invalid": 4,
-    "spaced": 3,
-    "unscannable": 4,
+    "invalid": 7,
+    "spaced": 4,
     "unspaced": 13
   },
   "unspaced": [
