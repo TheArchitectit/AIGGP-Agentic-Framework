@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Hub shutdown handlers install before the listening socket.** A SIGTERM
+  arriving in the window between `create_server()` and handler registration
+  killed the process by signal instead of the documented clean exit 0. The
+  handlers now register first; hub main and hardening tests pass.
+
 ## [1.3.49] - 2026-11-18
 
 ### Added

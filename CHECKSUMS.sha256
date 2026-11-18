@@ -1,4 +1,4 @@
-# DevGate release checksums — generated 2026-11-18T18:59:03Z
+# DevGate release checksums — generated 2026-11-18T19:50:13Z
 # Verify before use: python3 scripts/gen-checksums.py verify
 3ba50bc8b31743b05c2d11a2fe8156c44477548600ac9c2e1b4fa8f78e09c378  hub/__init__.py
 ee9d420de2f1a6dd228e9166b508e106f753dace985884ec6355581cabdbeb91  hub/alerts.py
@@ -52,7 +52,7 @@ f2203c85f37e8607e33c7adc1afbe3f4bdf328537826214eeed7311e48a80999  hub/forge/flee
 5a2f8968fa5fa946023dd6b7c449e600e8259c1d3cf8436671bedb32a029e85b  hub/forge/monitor.py
 cfe5349c3854b0315d2fbf664aa43a403e0906de7afa5faff5a4d8761e206130  hub/forge/parity.py
 8960eea165272552b7a285511c6ef6f2d7cede46bcb45e20fd66236dc62b6348  hub/github_client.py
-1325ed8f3adbe0b7a9db677033d3005ea4f837e2c8565cf594d94630514f3832  hub/main.py
+1497871497b2e2b1cdca8b9bc294ae37a9e1afeee3bdb8b942cc7c65a2e37af9  hub/main.py
 47710a0dedcfe9ba88effbc2b3dfaba8863e1b5e3056269e2fe0f255678d68e7  hub/monitor.py
 65e5de504b431e7ce9fb342f6ad87aa0c6af48d6951b47a8a2c0a3c5779583d0  hub/registry.py
 3759a516b2fe1111a4ccf1463a6d42d38fcdfb2d8e38b92a3560318adb1a1a16  hub/registry_observations.py
