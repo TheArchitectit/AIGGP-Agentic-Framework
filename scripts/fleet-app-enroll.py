@@ -342,9 +342,9 @@ def _counts(records, *, archived, other_owner):
 def _scrub(value, known_values):
     """Replace any known credential in report strings before output.
 
-    The locals are deliberately not named `secret`: PREVENT-003 matches
-    `secret, "***"` as a hardcoded-credential literal even though this is the
-    redaction path itself.
+    The locals are deliberately not named `secret`: PREVENT-003 matches a
+    credential-like name next to a quoted replacement string even though this
+    is the redaction path itself.
     """
     if isinstance(value, dict):
         return {key: _scrub(item, known_values) for key, item in value.items()}
