@@ -61,7 +61,9 @@ jobs:
         with:
           node-version: "20"
       - name: Install test dependencies
-        run: python3 -m pip install --quiet pytest cryptography==45.0.7
+        # PyNaCl seals GitHub Actions secrets in the fleet-app-enroll tests;
+        # without it those tests skip, which would hide the sealing proof.
+        run: python3 -m pip install --quiet pytest cryptography==45.0.7 PyNaCl==1.5.0
       - name: Install the pinned TypeScript carrier runtime
         # Pi's adapter is TypeScript. Use an isolated tool root: the semantic
         # scanner fixture installs typescript at the repo root, and that

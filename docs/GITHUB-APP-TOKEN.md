@@ -209,6 +209,82 @@ them into a workflow that only reads the API — it would spend budget and prove
 nothing. The three-step token shape above remains the copyable unit for
 everything else.
 
+## Automatic enrollment for new repositories
+
+`TheArchitectit` is a **user** account, not an organization, so there are no
+organization-level secrets to inherit. Every repository needs its own
+`DEVGATE_SWEEP_APP_ID` variable and `DEVGATE_SWEEP_APP_PRIVATE_KEY` secret, and
+a repository created tomorrow starts without them. Until the pair is present,
+that repository's fleet workflows fall back to `github.token` (1,000 req/h,
+scoped to that one repository).
+
+`.github/workflows/fleet-app-enroll.yml` runs
+`scripts/fleet-app-enroll.py` to close that gap:
+
+- **Nightly at 05:23 UTC**, an off-minute that does not collide with the
+  04:17 / 04:47 sweeps. `concurrency` prevents one night's run overlapping the
+  next.
+- **Scheduled runs APPLY.** A `workflow_dispatch` run defaults to
+  `dry_run=true`; pass `dry_run=false` to apply by hand.
+- The report is uploaded as the `fleet-app-enroll-report` artifact (90 days).
+  It carries per-repository actions and errors plus summary counts, and the
+  step exits nonzero when any repository failed. A failure on one repository
+  does not stop the others.
+
+### What is compared, and what is not
+
+| Value | Compared | Action |
+|---|---|---|
+| variable `DEVGATE_SWEEP_APP_ID` | its value, against `FLEET_APP_ID` | create when absent, update when different, leave when equal |
+| secret `DEVGATE_SWEEP_APP_PRIVATE_KEY` | **existence only** | create when absent; never overwritten by default |
+
+A secret value cannot be read back from GitHub, so an existing secret is
+treated as correct and left alone. Overwriting it implicitly could replace a
+working key with a broken one and there would be nothing to compare against.
+`--rotate` is the deliberate re-seal path: fetch the repository's Actions
+public key, seal the PEM in memory, and `PUT` the new ciphertext.
+
+### Operating it by hand
+
+```bash
+# plan only: reads, no writes
+FLEET_APP_ID=... FLEET_APP_TOKEN=... \
+  python3 scripts/fleet-app-enroll.py --dry-run --report /tmp/plan.json
+
+# one repository only (safe testing)
+... --repo TheArchitectit/<name> --dry-run
+
+# deliberate rotation of an existing secret
+... --repo TheArchitectit/<name> --rotate
+```
+
+Inputs are environment variables, never argv: `FLEET_APP_ID`,
+`FLEET_APP_PRIVATE_KEY`, `FLEET_APP_TOKEN`, and `FLEET_OWNER` (default
+`TheArchitectit`). The PEM is read from the environment and sealed in memory;
+it is never printed, written to disk, or passed as a command argument.
+`--dry-run` without an existing secret needs no PyNaCl; an actual seal uses
+the pinned `PyNaCl==1.5.0` the workflow installs.
+
+The client requires HTTPS `api.github.com` and refuses any other URL,
+including a `Link` header that points elsewhere. Response bodies are never
+printed or included in the report; errors carry a repository name and an HTTP
+status only. Archived repositories are skipped with an explicit count; public,
+private, and fork repositories are all processed. The script does not delete,
+disable, or archive anything.
+
+### Scope and limits
+
+- The installation covers the `TheArchitectit` account. Repositories visible
+  under another owner are counted as `other_owner_skipped` and are not touched.
+  This workflow therefore cannot enroll the collaborator's separate account;
+  that account needs its own installation and its own credential pair.
+- Enrollment writes only the variable and the secret. It does **not** install
+  workflows into other repositories, does not modify their code, and does not
+  add collaborators.
+- The App installation must keep `repository_selection=all` (installation
+  101651861). A repository the installation cannot see does not appear in the
+  listing and cannot be enrolled; add it to the installation first.
+
 ## Rules for adopters
 
 - The private key is read from `secrets.*` at run time only. Never echo it,
