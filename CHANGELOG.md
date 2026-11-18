@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Fleet CI authenticates with the program's GitHub App** instead of the
+  shared user identity. Each workflow fails closed when the App id is set
+  without its key, mints an installation token through a SHA-pinned
+  `actions/create-github-app-token`, and prints which token mode it is
+  spending, so a silent fall back to the throttled 5,000/hour user budget is
+  visible rather than discovered months later.
+- **A positive control before the spec fleet walk** proves the App can read a
+  private fleet repo (`ls-remote` with the same askpass mechanism the walk
+  uses) and fails there, by name, instead of letting four repos red the
+  nightly as `unscannable`.
+
+### Fixed
+
+- **The spec fleet sweep now reaches the curated private repos.** The four
+  nightly `unscannable` entries were never an App installation gap: the
+  declaration listed them under the collaborator's owner account and the walk
+  cloned anonymously. Those entries now name the `TheArchitectit` copies
+  (same content, and the owner the App installation covers), and the walk can
+  clone authenticated via `GIT_ASKPASS` with `SPEC_FLEET_CLONE_TOKEN`. The
+  token never reaches git's argv, the committed report, or a log, and a
+  failed clone's captured stderr is redacted. Only curated include-file
+  entries are re-admitted when the App reports them private — the generated
+  owner-scope private repos stay dropped, so the nightly budget does not
+  change shape.
+
+### Changed
+
+- **GitLab forge support records its live half as dormant conditions**, not
+  pending work: the owner decided GitLab is an option on top of GitHub, not a
+  swap, and that fixture proof is enough for the option to ship. The hermetic
+  adapter, templates, parity drill and discovery gate remain landed and green.
+
+
 ## [1.3.46] - 2026-11-18
 
 ### Changed
