@@ -1,4 +1,4 @@
-# DevGate release checksums — generated 2026-11-18T18:12:01Z
+# DevGate release checksums — generated 2026-11-18T18:39:49Z
 # Verify before use: python3 scripts/gen-checksums.py verify
 3ba50bc8b31743b05c2d11a2fe8156c44477548600ac9c2e1b4fa8f78e09c378  hub/__init__.py
 ee9d420de2f1a6dd228e9166b508e106f753dace985884ec6355581cabdbeb91  hub/alerts.py
@@ -94,6 +94,7 @@ d198dd9cc4754da1d3fe6ed8452562ebed100fe52cab498191f107ca73541ee4  scripts/corrup
 4aca101f17478cf08f05efc8cded6896490c5f99ab370a5c4315cc3b17b100bc  scripts/evidence_claim_check.py
 b9d9c90d11c57e4a6ced4c39de830e290f02c9aa5c09cd49a9ecc0a14517242f  scripts/failure_registry_check.py
 08699c3bd45ee7747e7817c6fd584cf91bdc2422f4ddead8f5b53beae32213a3  scripts/findings_to_spec.py
+fc0e622799bf748526e2b4a6a5768a0d656b1c5c81d79a2edd11dd9a1f00c4bb  scripts/fleet-app-enroll.py
 f9e060020e40f873a0908258064bc3013031a1e16885abf49aa56f8313d6d6ab  scripts/fleet_drill.py
 0a9da0d83ae7c7b2b57a4687556b1ed6bac7e12f69fd1798140ceb76a13efcea  scripts/forge-fleet-declared.py
 c5f87032d881c96fa5334a3805b84e54a6932c0774b0fd00668d0f7f3e2e4910  scripts/forge_parity_drill.py
