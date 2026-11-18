@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The private-repo positive control now works from inside the Actions
+  checkout.** Clearing the checkout's persisted workflow-token
+  `http.extraheader` is required because it overrides the App's askpass
+  credential. The override is passed as an argv `-c …=`: the equivalent
+  `GIT_CONFIG_KEY_n` environment form was measured not to override it.
+- **The control's environment reaches git.** Explanatory comments no longer
+  sit between the continued `VAR=…` assignments and the command, which had
+  detached them and made git fall back to a terminal password prompt.
+- **The declaration no longer depends on the runner image shipping `gh`.**
+  The workflow installs gh 2.83.1 with the release's published SHA256, adds it
+  to `GITHUB_PATH` for later steps, and verifies it by absolute path within
+  the install step. Verified live on run 44365287915: 24 declared, 24 scanned,
+  zero `unscannable`; the four formerly inaccessible private repos all report
+  their actual spec state instead.
+
 ## [1.3.47] - 2026-11-18
 
 ### Added
