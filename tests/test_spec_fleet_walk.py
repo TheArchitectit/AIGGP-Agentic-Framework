@@ -244,6 +244,57 @@ def test_a_clone_failure_never_leaks_the_token_into_the_report(tmp_path):
         "not store it")
 
 
+def test_auth_clone_clears_the_checkout_extraheader_on_argv(tmp_path):
+    """actions/checkout persists the workflow token as
+    `http.https://github.com/.extraheader` in the workspace's local config,
+    and that header overrides the App askpass token — the measured cause of
+    run 44359038399's positive-control failure ("repository not found" on a
+    repo the App can read). The clone must clear it ON ARGV: the equivalent
+    GIT_CONFIG_KEY_n env form was measured NOT to override it."""
+    argv_out = tmp_path / "argv.txt"
+    bin_dir = _stub_bin(
+        tmp_path,
+        'printf "%s\\n" "$@" > "$STUB_GIT_ARGV"\n'
+        "exit 128\n")
+    env = os.environ.copy()
+    env["PATH"] = f"{bin_dir}{os.pathsep}{env.get('PATH', '')}"
+    env["STUB_GIT_ARGV"] = str(argv_out)
+    env["SPEC_FLEET_CLONE_TOKEN"] = "ghs_" + "".join(["D"] * 36)
+
+    res, _ = _run_walk(
+        tmp_path, ["https://github.com/TheArchitectit/rad-gateway"], env=env)
+
+    assert res.returncode == 0, res.stderr
+    args = argv_out.read_text(encoding="utf-8").splitlines()
+    assert "-c" in args and "http.https://github.com/.extraheader=" in args, args
+    # and it is an argv -c pair, not merely an env entry
+    idx = args.index("http.https://github.com/.extraheader=")
+    assert args[idx - 1] == "-c", args
+
+
+def test_no_token_clone_does_not_touch_the_extraheader(tmp_path):
+    """Without a token the clone command stays exactly the historical one —
+    no config overrides that a public mirror's own auth might depend on."""
+    argv_out = tmp_path / "argv.txt"
+    bin_dir = _stub_bin(
+        tmp_path,
+        'printf "%s\\n" "$@" > "$STUB_GIT_ARGV"\n'
+        "exit 128\n")
+    env = os.environ.copy()
+    env["PATH"] = f"{bin_dir}{os.pathsep}{env.get('PATH', '')}"
+    env["STUB_GIT_ARGV"] = str(argv_out)
+    env.pop("SPEC_FLEET_CLONE_TOKEN", None)
+
+    res, _ = _run_walk(
+        tmp_path, ["https://github.com/example/public-mirror"], env=env)
+
+    assert res.returncode == 0, res.stderr
+    args = argv_out.read_text(encoding="utf-8").splitlines()
+    assert args == ["clone", "--depth", "1",
+                    "https://github.com/example/public-mirror", args[-1]], args
+    assert not any("extraheader" in a for a in args)
+
+
 # --- the declaration step's re-admit rule ----------------------------------
 #
 # The drop/re-admit decision lives in the workflow step, so the test pulls the

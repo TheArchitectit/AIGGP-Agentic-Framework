@@ -107,6 +107,20 @@ if clone_token:
     os.environ.pop("SPEC_FLEET_CLONE_TOKEN", None)
     print("[walk] authenticated clone mode: askpass helper in place")
 
+# actions/checkout persists `http.https://github.com/.extraheader` in the
+# workspace's local git config, carrying the *workflow* token, which is scoped
+# to this repository only. Every git command run from the workspace inherits
+# it, and that header WINS over the askpass App token — so a private repo the
+# App can plainly read fails with "repository not found". Reproduced on AI02
+# against the real installation: inside a checkout carrying a bogus
+# extraheader the clone auth fails (rc=128); the identical command outside it
+# succeeds. Clearing the header as an argv `-c …=` works; the equivalent
+# GIT_CONFIG_KEY_n env form does NOT (also measured, rc=128), which is why
+# this is argv and not another entry in git_env above.
+git_cmd = ["git"]
+if clone_token:
+    git_cmd += ["-c", "http.https://github.com/.extraheader="]
+
 declared = [l.strip() for l in Path(declared_path).read_text().splitlines()
             if l.strip() and not l.strip().startswith("#")]
 
@@ -135,7 +149,7 @@ for idx, url in enumerate(declared):
         repo_name = "/".join(url.rstrip("/").split("/")[-2:])
         if not clone_dir.exists():
             try:
-                subprocess.run(["git", "clone", "--depth", "1", url, str(clone_dir)],
+                subprocess.run(git_cmd + ["clone", "--depth", "1", url, str(clone_dir)],
                               capture_output=True, text=True, check=True, timeout=120,
                               env=git_env)
             except Exception as exc:  # noqa: BLE001

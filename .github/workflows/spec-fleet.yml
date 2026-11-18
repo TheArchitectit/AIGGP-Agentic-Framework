@@ -109,7 +109,15 @@ jobs:
           chmod 700 "$askpass"
           if ! err="$(SPEC_FLEET_ASKPASS_TOKEN="$CLONE_TOKEN" \
                  GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 \
+                 # The checkout above leaves its own workflow-token
+                 # extraheader in this repo's local git config, and that
+                 # header beats the askpass App token (measured on AI02:
+                 # rc=128 inside such a checkout, rc=0 outside it). Clear it
+                 # as argv; the GIT_CONFIG_KEY_n env form does NOT override
+                 # it — also measured. The failure this prevents reads
+                 # exactly like a missing App installation: "not found".
                  git -c credential.username=x-access-token -c credential.helper= \
+                   -c http.https://github.com/.extraheader= \
                    ls-remote --heads https://github.com/TheArchitectit/rad-gateway 2>&1)"; then
             printf '%s\n' "${err//$CLONE_TOKEN/***}" | tail -5
             echo "::error::positive control failed: the App token cannot read the private fleet repo TheArchitectit/rad-gateway. The curated private entries would scan unscannable and red every night. Check installation 101651861's repository access."
