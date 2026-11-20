@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.51] - 2026-11-20
+
+### Changed
+
+- **Four OpenSpec packages archived and their spec deltas applied.**
+  `2026-11-18-fleet-app-auto-enroll`, `add-open-item-gates`,
+  `add-spec-state-ledger` and `aiggp-08-stitcher-proof-parity` move to
+  `openspec/changes/archive/`, contributing 52 requirements to the live
+  specs. The nine stitcher stages keep their fixtures and negative
+  controls in the archive. New capabilities ship with written Purpose
+  sections rather than the archiver's placeholder. `openspec validate
+  --all --strict` is 57/57.
+
 ## [1.3.50] - 2026-11-18
 
 ### Fixed
