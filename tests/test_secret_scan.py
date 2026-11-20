@@ -298,6 +298,39 @@ def test_a_finding_is_reported_by_location_not_by_value(tmp_path):
         "publishes it to a wider audience than the commit did")
 
 
+def test_the_summarizer_reads_the_report_path_the_scanner_wrote(tmp_path):
+    """FAIL-0eccc000: gitleaks wrote its report to the MSYS-translated path
+    while the python summarizer checked the untranslated spelling and counted
+    0 over real findings. The gate exit contract: 0 is reserved for "the
+    scanner ran over the scope and found nothing" - a green run must prove
+    the summarizer saw the report. Two consumers of one report path: the
+    gitleaks scanner writes it, the python summarizer reads it. A known
+    fixture leak has to surface from that one report; if the summarizer
+    opens any other spelling it counts 0 and the gate says OK, which is
+    exactly the false green the contract forbids."""
+    g = Gate(tmp_path, findings=[FINDING])
+    out = tmp_path / "gate-report.json"
+    res = g.runs("--tree", report=out)
+    text = res.stdout + res.stderr
+    scanner_paths = []
+    for c in g.calls():
+        for i, a in enumerate(c):
+            if a == "--report-path" and i + 1 < len(c):
+                scanner_paths.append(c[i + 1])
+    assert scanner_paths, "the gitleaks scanner was never given --report-path"
+    report = json.loads(out.read_text(encoding="utf-8"))
+    assert res.returncode == 1, (
+        "the python summarizer did not read the report the gitleaks scanner "
+        f"wrote at {scanner_paths} - a fixture leak became a silent 0 "
+        f"(the FAIL-0eccc000 false green): {text}")
+    assert report.get("findings"), (
+        "the python summarizer counted 0 over the report the gitleaks "
+        f"scanner wrote at {scanner_paths}")
+    assert "FINDING" in text, (
+        "the python summarizer counted 0 over the report the gitleaks "
+        "scanner wrote - the fixture leak was not reported")
+
+
 def test_the_written_report_never_carries_the_value(tmp_path):
     """The stub writes the true value into its report; whatever the gate writes
     out for humans must not pass that through."""
