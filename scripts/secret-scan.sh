@@ -131,6 +131,20 @@ for i, e in enumerate(entries):
 PY
 
 TMPD="$(mktemp -d)"
+# One spelling for every consumer of the report path. On MINGW/MSYS/CYGWIN a
+# POSIX temp path is translated for native executables (gitleaks) but not
+# inside the "rc:path" argument the summarizer receives, so the scanner wrote
+# its report to the translated spelling while the summarizer checked the
+# original and counted 0 over real findings - the false green this gate's exit
+# contract forbids. cygpath -m hands both consumers one string; POSIX hosts
+# keep their native temp dir.
+case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*)
+        if command -v cygpath >/dev/null 2>&1; then
+            TMPD="$(cygpath -m "$TMPD")"
+        fi
+        ;;
+esac
 trap 'rm -rf "$TMPD"' EXIT
 
 # Base-commit fall-back. The range's base may be absent on a first push or a
