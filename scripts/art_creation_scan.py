@@ -3,7 +3,7 @@
 
 Reads a title's declared art brief and provenance ledger, plus the pipeline
 stages declared inline in the manifest, and fails on the conditions
-`openspec/changes/add-art-creation-contract` states. There is no separate
+`openspec/specs/art-creation-contract` states. There is no separate
 pipeline-document path: the stage contract is the manifest's `stages` list.
 
 The checks themselves are split at the source soft limit:

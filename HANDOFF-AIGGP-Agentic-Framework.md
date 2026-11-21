@@ -11,10 +11,11 @@
 > matching archived change. It is the single answer to "which specs are closed
 > and which are not". Do not keep a second list here.
 >
-> Current census (2026-11-13): **44 capability specs** — 43 CLOSED, 1 DEFERRED,
-> 0 PARTIAL, 0 OPEN, 0 UNKNOWN; **38 archived changes**; **5 open changes**
-> (`add-art-creation-contract`, `add-gitlab-forge-support`, `add-open-item-gates`,
-> `add-spec-state-ledger`, `aiggp-08-stitcher-proof-parity`).
+> Current census (2026-11-20, from INDEX.md): **56 capability specs** — 1 CLOSED,
+> 1 DEFERRED, 42 UNPROVEN, 0 PARTIAL, 0 OPEN, 12 UNKNOWN; **43 archived changes**;
+> **1 open change** (`add-gitlab-forge-support`; `add-art-creation-contract`,
+> `add-open-item-gates`, `add-spec-state-ledger` and
+> `aiggp-08-stitcher-proof-parity` archived 2026-11-20).
 
 ## Identity
 

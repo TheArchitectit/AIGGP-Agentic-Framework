@@ -46,12 +46,12 @@ Rules that matter for this registry:
 
 ## 2. Decide whether the contract already covers it
 
-Search the requirement ids. The capability is still an open change, so until it
-is archived the authoritative file is the change's delta; after archive the same
-ids live under `openspec/specs/art-creation-contract/spec.md`:
+Search the requirement ids. The capability was archived 2026-11-20; the
+authoritative file is the live spec (the archived delta keeps the text as it
+was written, under `openspec/changes/archive/2026-11-20-add-art-creation-contract/`):
 
 ```sh
-grep -n 'id: art-' openspec/changes/add-art-creation-contract/specs/art-creation-contract/spec.md
+grep -n 'id: art-' openspec/specs/art-creation-contract/spec.md
 ```
 
 - **A requirement covers it** — the prevention rule cites that id and nothing
