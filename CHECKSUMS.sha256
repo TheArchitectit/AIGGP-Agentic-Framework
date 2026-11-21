@@ -1,4 +1,4 @@
-# DevGate release checksums — generated 2026-11-20T19:11:59Z
+# DevGate release checksums — generated 2026-11-21T05:45:19Z
 # Verify before use: python3 scripts/gen-checksums.py verify
 3ba50bc8b31743b05c2d11a2fe8156c44477548600ac9c2e1b4fa8f78e09c378  hub/__init__.py
 ee9d420de2f1a6dd228e9166b508e106f753dace985884ec6355581cabdbeb91  hub/alerts.py
@@ -140,7 +140,7 @@ d3343622996e52d68ed2796f7bf6c179088e8c0ecf16942214b603570cb14c52  scripts/runner
 c9d76700b3180f13d8194ef2fdb2bbe255f0d4a426b0068bde8fd90091f8da55  scripts/schema-health-check.mjs
 aeabab26a0c4a4216257a9a3740019b7e97ecb7ceeb5fa9399313b885f31868e  scripts/secret-scan-declared.sh
 a9128550cdee1d09307e2984d25153eaa2d41a6998720417fe40031903eb3c82  scripts/secret-scan-fleet.sh
-441797693623ecb89bc8292e2aa26641ac33681e1fbabccb1dbb59a977e303e4  scripts/secret-scan.sh
+dc0a0c947b062a039db301649f9d40f945ab95e4f0f9b3c31088e34bee9a7389  scripts/secret-scan.sh
 67bd4ba577b7d522150d1338e2f7d1fbee6636f43e3b93771dba4bbcca7c243c  scripts/secret_rotation_check.py
 5c9da0e2227e768ac545a86bdee1d04b4358d7a2b44a7e4c5b650a484d9ac277  scripts/semantic-scan.mjs
 9e4c797334d8e4ddcebf554fac221bca217a7a10d558b1c39eb99a6b7559e59b  scripts/silent-success-scan.sh

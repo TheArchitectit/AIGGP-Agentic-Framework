@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.52] - 2026-11-20
+
+### Changed
+
+- **The art-creation-contract change archived; its 12 requirements are
+  live.** `add-art-creation-contract` moves to
+  `openspec/changes/archive/` and `specs/art-creation-contract/spec.md`
+  opens as a new capability with a written Purpose. The scanner
+  (`scripts/art_creation_scan.py` — 60-case selftest plus 4 exit-contract
+  checks) and eight failure-registry entries remain the enforcement sites;
+  `art-evolve-01` stays deliberately uncovered as a process obligation on a
+  human. `openspec validate --all --strict` is 57/57; traceability reads
+  236/250 with the ratchet floor at 236. The generated spec index was
+  regenerated — it had been left behind by the previous archive batch as
+  well as this one.
+
 ## [1.3.51] - 2026-11-20
 
 ### Changed
