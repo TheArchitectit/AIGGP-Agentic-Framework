@@ -20,7 +20,12 @@ their enforcement sites across `scripts/art_checks.py` and
 (`scripts/art_creation_scan.py`) carries no marker (see 2.1); and
 `art-evolve-01` — a process obligation on a human, not a code enforcement site
 — is recorded as deliberately uncovered rather than papered over. Ratchet floor
-at that head: 228. Re-measure and rebind the number before archive.
+at that head: 228. Re-measured pre-archive 2026-11-20 at `2422bb0`:
+`236/250 covered`, advisory 14 uncovered; floor `236` in force since `ece3cd3`
+(2026-11-15, "ratchet on") and equal to the current count, `--ratchet` exit 0.
+Of the 14, only `art-evolve-01` belongs to this change; the rest are
+`fleet-app-01..09` (published to live by the 2026-11-20 archive, source
+markers pending), `game-matrix-01..03` and `spec-state-09`.
 
 ## S0 — Contract
 
@@ -294,10 +299,14 @@ at that head: 228. Re-measure and rebind the number before archive.
       `a596263` ("archive 13 complete change packages, publish 44 specs"),
       which is an ancestor of `f5da682`, so the 13-failure era was over
       before the stated base. Absolute counts are re-measured per head from
-      here on rather than carried forward.
+      here on rather than carried forward. Re-measured pre-archive 2026-11-20
+      at `2422bb0` on CLI 1.14.3: `Totals: 57 passed, 0 failed (57 items)`,
+      exit 0.
 - [x] 5.2 Traceability read and recorded above: `195/199` at `43a9bdb`,
       `235/241` at `cb2644c`; ratchet floor 184 at `43a9bdb` and 228 at
-      `cb2644c`, `--ratchet` exit 0 at both.
+      `cb2644c`, `--ratchet` exit 0 at both. Pre-archive re-read at
+      `2422bb0`: `236/250` covered, advisory 14, floor `236` (bound at
+      `ece3cd3`), `--ratchet` exit 0.
 - [x] 5.3 Independent audit by an agent that did not write this change. The
       earlier audit returned REQUEST-CHANGES; this is the re-audit. Run
       2026-11-14 by a fresh agent that was given the change and no
@@ -326,8 +335,8 @@ at that head: 228. Re-measure and rebind the number before archive.
       Out of its reach at the time, and since closed: 3.1's live title — run
       2026-11-15 against the designated gate testbed, two real findings, a
       manufactured third caught and removed, non-vacuity controlled. See 3.1.
-- [ ] 5.4 CHANGELOG entry at archive time, not before. — **Still open
-      2026-11-15:** the package is not archived (`openspec/changes/archive/`
-      has no `add-art-creation-contract`; the package is still under
-      `openspec/changes/`), so the entry is not written. Pre-writing it would
-      document a release that has not happened.
+- [x] 5.4 CHANGELOG entry at archive time, not before. — **Archived
+      2026-11-20** at `2422bb0`. The package moved to
+      `openspec/changes/archive/2026-11-20-add-art-creation-contract/` and
+      the `CHANGELOG.md` `[1.3.52]` entry was written with the archive, in
+      the same push — not before it.
