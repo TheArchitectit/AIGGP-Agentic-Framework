@@ -43,6 +43,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       runner: ${{ steps.host.outputs.runner }}
+      runner_json: ${{ steps.host.outputs.runner_json }}
       crons: ${{ steps.host.outputs.crons }}
     steps:
       - name: Checkout code (with DevGate submodule)
@@ -57,18 +58,42 @@ jobs:
           # repo already declare? Output is secrets-redacted by design.
           python3 .devgate/scripts/detect-host-ci.py | tee host-ci.json
 
-          # First declared runs-on label wins; fall back to ubuntu-latest.
-          RUNNER=$(python3 -c "
-          import json,sys
+          # Placement is a JSON array, not a string. detect-host-ci.py reports
+          # the host's `runs-on:` values verbatim, and a host that writes a
+          # YAML flow sequence (`runs-on: [self-hosted, devgate-rtp]`) makes
+          # the whole sequence — brackets and comma included — one extracted
+          # value. Asking a runner for the label "[self-hosted, devgate-rtp]"
+          # does not fail: the job queues forever and the schedule reports
+          # nothing, which reads as a quiet repository. So the labels are split
+          # apart here, `${{ ... }}` expressions are skipped (an expression is
+          # not a label), and the job consumes the array with fromJSON.
+          #
+          # Each extracted value is one alternative placement, not one entry in
+          # a conjunction: the first usable value wins whole. Merging values
+          # would ask for a runner carrying labels from two different jobs at
+          # once, which is the same never-queues failure in another shape.
+          RUNNER_JSON=$(python3 -c "
+          import json
           d = json.load(open('host-ci.json'))
-          labels = d.get('runs_on_labels') or []
-          print(labels[0] if labels else 'ubuntu-latest')
+          chosen = []
+          for raw in (d.get('runs_on_labels') or []):
+              v = str(raw).strip().strip('\"\'')
+              if not v or '\${{' in v:
+                  continue
+              parts = v.strip('[]').split(',') if v.startswith('[') else [v]
+              chosen = [p.strip().strip('\"\'') for p in parts]
+              chosen = [p for p in chosen if p]
+              if chosen:
+                  break
+          print(json.dumps(chosen or ['ubuntu-latest']))
           ")
+          RUNNER=$(printf '%s' "$RUNNER_JSON" | tr -d '[]"')
           CRONS=$(python3 -c "
           import json
           d = json.load(open('host-ci.json'))
           print(' '.join(d.get('scheduled_crons') or []))
           ")
+          echo "runner_json=$RUNNER_JSON" >> "$GITHUB_OUTPUT"
           echo "runner=$RUNNER" >> "$GITHUB_OUTPUT"
           echo "crons=$CRONS" >> "$GITHUB_OUTPUT"
           echo "Resolved scan target: $RUNNER"
@@ -76,7 +101,9 @@ jobs:
   drift-scan:
     name: Scheduled drift scan
     needs: resolve-target
-    runs-on: ${{ needs.resolve-target.outputs.runner }}
+    # A flow sequence is a YAML list, not a runner label: fromJSON keeps every
+    # declared label, where `labels[0]` as a string would keep none of them.
+    runs-on: ${{ fromJSON(needs.resolve-target.outputs.runner_json) }}
 
     steps:
       - name: Checkout code (with DevGate submodule)
