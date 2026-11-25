@@ -18,7 +18,8 @@
   "test_evidence_integrity": 18,
   "test_failure_registry_check": 11,
   "test_findings_to_spec": 4,
-  "test_fleet_app_enroll": 13,
+  "test_fleet_app_enroll": 16,
+  "test_fleet_app_enroll_workflow": 5,
   "test_fork_guard": 7,
   "test_fw_guards": 6,
   "test_game_regression": 18,
@@ -147,5 +148,5 @@
   "test_template_supply_chain": 9,
   "test_workflow_read": 15
  },
- "total_floor": 1915
+ "total_floor": 1923
 }

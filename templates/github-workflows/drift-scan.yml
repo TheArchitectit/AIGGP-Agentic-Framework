@@ -19,8 +19,8 @@
 #      scan. Gate results are written to the job summary.
 #
 # SETUP:
-#   - Add `.devgate/` to the consumer `.gitignore` and replace the workflow's
-#     `DEVGATE_SHA` placeholder with a reviewed, full 40-character commit.
+#   - Ignore `.devgate/` in `.gitignore`.
+#   - Set `DEVGATE_SHA` to a reviewed full commit SHA for `.devgate/`.
 #   - Copy this file into your repo at .github/workflows/drift-scan.yml
 #   - CUSTOMIZE the cron below (off-round minutes preferred; 04:23 UTC shown).
 #   - The host's OTHER schedules are reported by detect-host-ci.py in the

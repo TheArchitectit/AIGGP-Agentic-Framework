@@ -1,3 +1,4 @@
+# spec: fleet-app-07, fleet-enroll-auth-01, fleet-enroll-auth-02
 # fleet-app-enroll.yml - keep the fleet App credential pair on every repository.
 #
 # The owner (TheArchitectit) is a USER account: there are no organization
@@ -50,58 +51,24 @@ jobs:
           APP_KEY: ${{ secrets.DEVGATE_SWEEP_APP_PRIVATE_KEY }}
         run: |
           set -eu
-          if [ -n "$APP_ID" ] && [ -z "$APP_KEY" ]; then
-            echo "::error::vars.DEVGATE_SWEEP_APP_ID is set but secrets.DEVGATE_SWEEP_APP_PRIVATE_KEY is missing."
-            echo "::error::Failing closed: a configured App never falls through to a wider identity."
+          if [ -z "$APP_ID" ]; then
+            echo "::error::vars.DEVGATE_SWEEP_APP_ID is missing."
             exit 1
           fi
-          echo "[auth] app id variable: $([ -n "$APP_ID" ] && echo set || echo unset)"
-
-      # This workflow is the one that CREATES the pair on other repositories,
-      # so it cannot itself run on the fallback identity: github.token cannot
-      # administer variables or secrets outside this repository.
-      - name: Require the full App pair
-        env:
-          APP_ID: ${{ vars.DEVGATE_SWEEP_APP_ID }}
-          APP_KEY: ${{ secrets.DEVGATE_SWEEP_APP_PRIVATE_KEY }}
-        run: |
-          set -eu
-          if [ -z "$APP_ID" ] || [ -z "$APP_KEY" ]; then
-            echo "::error::Automatic enrollment needs both vars.DEVGATE_SWEEP_APP_ID and secrets.DEVGATE_SWEEP_APP_PRIVATE_KEY on this repository."
-            echo "::error::Failing closed: the workflow token cannot administer other repositories."
+          if [ -z "$APP_KEY" ]; then
+            echo "::error::secrets.DEVGATE_SWEEP_APP_PRIVATE_KEY is missing."
             exit 1
           fi
+          echo "[auth] GitHub App credential pair is configured."
 
-      # 2. Mint the installation token. Skipped only when the variable is unset.
+      # 2. Mint the installation token after the credential pair passes validation.
       - name: Mint the fleet App token
         id: app-token
-        if: ${{ vars.DEVGATE_SWEEP_APP_ID != '' }}
         uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
         with:
           app-id: ${{ vars.DEVGATE_SWEEP_APP_ID }}
           private-key: ${{ secrets.DEVGATE_SWEEP_APP_PRIVATE_KEY }}
           owner: TheArchitectit
-
-      # 3. Resolve and announce the mode; publish one token for call sites.
-      - name: Resolve and announce the token mode
-        id: auth
-        env:
-          APP_TOKEN: ${{ steps.app-token.outputs.token }}
-          WORKFLOW_TOKEN: ${{ github.token }}
-        run: |
-          set -eu
-          if [ -n "$APP_TOKEN" ]; then
-            MODE=app
-            TOKEN="$APP_TOKEN"
-            echo "[auth] token mode: app - program GitHub App installation, 5,000 req/h (separate from the user budget)"
-          else
-            MODE=workflow
-            TOKEN="$WORKFLOW_TOKEN"
-            echo "::warning::[auth] token mode: workflow - vars.DEVGATE_SWEEP_APP_ID is unset on this repository."
-          fi
-          [ -z "$APP_TOKEN" ] || echo "::add-mask::$APP_TOKEN"
-          printf 'token=%s\n' "$TOKEN" >> "$GITHUB_OUTPUT"
-          printf 'token_mode=%s\n' "$MODE" >> "$GITHUB_OUTPUT"
 
       # The sealing step needs libsodium bindings; a clean tool-cache Python
       # avoids the runner image's PEP 668 externally-managed environment.
@@ -120,11 +87,15 @@ jobs:
         env:
           FLEET_APP_ID: ${{ vars.DEVGATE_SWEEP_APP_ID }}
           FLEET_APP_PRIVATE_KEY: ${{ secrets.DEVGATE_SWEEP_APP_PRIVATE_KEY }}
-          FLEET_APP_TOKEN: ${{ steps.auth.outputs.token }}
+          FLEET_APP_TOKEN: ${{ steps.app-token.outputs.token }}
           FLEET_OWNER: TheArchitectit
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
         run: |
           set -eu
+          if [ -z "${FLEET_APP_TOKEN:-}" ]; then
+            echo "::error::GitHub App installation token is missing; refusing enrollment."
+            exit 1
+          fi
           echo "[auth] this step spends the app budget"
           echo "[enroll] mode: $([ "$DRY_RUN" = "1" ] && echo dry-run || echo apply)"
           args=(--report "$RUNNER_TEMP/fleet-app-enroll-report.json")

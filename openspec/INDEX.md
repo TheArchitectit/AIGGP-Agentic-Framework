@@ -16,7 +16,7 @@
 > in the consuming game repo) and stays DEFERRED until that repo builds it —
 > it is not closed by relabelling the line.
 
-**64 specs** — CLOSED 1 · DEFERRED 1 · UNPROVEN 42 · PARTIAL 0 · OPEN 1 · UNKNOWN 19
+**65 specs** — CLOSED 1 · DEFERRED 1 · UNPROVEN 42 · PARTIAL 0 · OPEN 1 · UNKNOWN 20
 
 | Spec | Title | Status | Evidence |
 |---|---|---|---|
@@ -33,6 +33,7 @@
 | [`container-runtime/spec.md`](specs/container-runtime/spec.md) | Container Runtime | **UNPROVEN** | UNPROVEN — 7 of 7 requirement(s) lack a proving ledger row (7 provenance-accepted, awaiting sealed evidence) |
 | [`decision-contract/spec.md`](specs/decision-contract/spec.md) | Decision Contract | **UNPROVEN** | UNPROVEN — 5 of 5 requirement(s) lack a proving ledger row (5 provenance-accepted, awaiting sealed evidence) |
 | [`doc-truth/spec.md`](specs/doc-truth/spec.md) | Documentation truth | **CLOSED** | Status: CLOSED (EXERCISED 2) |
+| [`drift-workflow-setup-instructions/spec.md`](specs/drift-workflow-setup-instructions/spec.md) | Drift workflow setup instructions | **UNKNOWN** | no closure table and no Status line |
 | [`enrollment-and-alerting/spec.md`](specs/enrollment-and-alerting/spec.md) | Enrollment, heartbeat, and alerting | **UNPROVEN** | UNPROVEN — 3 of 3 requirement(s) lack a proving ledger row (3 provenance-accepted, awaiting sealed evidence) |
 | [`evaluation-context/spec.md`](specs/evaluation-context/spec.md) | Evaluation Context | **UNPROVEN** | UNPROVEN — 5 of 5 requirement(s) lack a proving ledger row (5 provenance-accepted, awaiting sealed evidence) |
 | [`evidence-and-attestation/spec.md`](specs/evidence-and-attestation/spec.md) | Evidence and Attestation | **UNPROVEN** | UNPROVEN — 7 of 7 requirement(s) lack a proving ledger row (7 provenance-accepted, awaiting sealed evidence) |
