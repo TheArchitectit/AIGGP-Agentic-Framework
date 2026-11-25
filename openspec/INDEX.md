@@ -16,7 +16,7 @@
 > in the consuming game repo) and stays DEFERRED until that repo builds it —
 > it is not closed by relabelling the line.
 
-**65 specs** — CLOSED 1 · DEFERRED 1 · UNPROVEN 42 · PARTIAL 0 · OPEN 1 · UNKNOWN 20
+**66 specs** — CLOSED 1 · DEFERRED 1 · UNPROVEN 42 · PARTIAL 0 · OPEN 1 · UNKNOWN 21
 
 | Spec | Title | Status | Evidence |
 |---|---|---|---|
@@ -79,6 +79,7 @@
 | [`security-boundaries/spec.md`](specs/security-boundaries/spec.md) | Security boundaries | **UNPROVEN** | UNPROVEN — 4 of 4 requirement(s) lack a proving ledger row (3 provenance-accepted, awaiting sealed evidence) |
 | [`spec-platform/spec.md`](specs/spec-platform/spec.md) | Spec platform | **UNPROVEN** | UNPROVEN — 3 of 3 requirement(s) lack a proving ledger row (3 provenance-accepted, awaiting sealed evidence) |
 | [`spec-state-ledger/spec.md`](specs/spec-state-ledger/spec.md) | Spec state ledger | **UNKNOWN** | no closure table and no Status line |
+| [`spec-status-disposition/spec.md`](specs/spec-status-disposition/spec.md) | Spec status disposition | **UNKNOWN** | no closure table and no Status line |
 | [`subjects-3d/spec.md`](specs/subjects-3d/spec.md) | 3D Subjects | **UNPROVEN** | UNPROVEN — 4 of 4 requirement(s) lack a proving ledger row (4 provenance-accepted, awaiting sealed evidence) |
 | [`surface-reach/spec.md`](specs/surface-reach/spec.md) | Surface reach | **UNKNOWN** | no closure table and no Status line |
 | [`traceability-and-drift/spec.md`](specs/traceability-and-drift/spec.md) | Traceability and drift | **UNKNOWN** | no closure table and no Status line |
