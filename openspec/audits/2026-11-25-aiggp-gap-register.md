@@ -69,8 +69,9 @@ open. [DG-04 inventory and evidence](../changes/dg-04-archive-task-reconciliatio
 ## DG-02 evidence roster
 
 The verified baseline has 182 unproven requirement records across 42 specs.
-The source manifest and stable roster are available for the remaining
-per-requirement evidence review and ledger validation. [DG-02 roster evidence](../changes/dg-02-evidence-ledger-reconciliation/roster-evidence.md)
+The candidate review covers all 182 records and resolves 113 ordered commit
+ranges. Each requirement still needs its own enforcement, behavioral test,
+and sealed evidence before a lifecycle transition. [DG-02 candidate review](../changes/dg-02-evidence-ledger-reconciliation/task-1.2-evidence.md)
 
 ## Existing active work
 
