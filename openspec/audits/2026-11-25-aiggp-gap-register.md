@@ -31,6 +31,8 @@ evidence gate accepts proof for each requirement.
 
 ## Item register
 
+[Current requirement audit](2026-11-25-aiggp-current-audit.md) traces the reviewed draft and subsequent archive evidence.
+
 | ID | State | Owner role | Observed gap or evidence | Full OpenSpec |
 |---|---|---|---|---|
 | `DG-01` | Verified and archived | Spec maintainers | Eight stable IDs restored. The pinned CLI and shared parser now agree on the published inventory. | [Archived DG-01 evidence](../changes/archive/2026-11-25-dg-01-id-and-gate-alignment/evidence.md) |
@@ -40,7 +42,7 @@ evidence gate accepts proof for each requirement.
 | `DG-05` | Open | Fleet enrollment maintainers | Nine fleet app enrollment requirement markers are uncovered by the traceability gate. Verify each existing requirement at the actual enrollment entry point. | [dg-05-fleet-app-enrollment-traceability](../changes/dg-05-fleet-app-enrollment-traceability/proposal.md) |
 | `DG-06` | Open | Art workflow and consumer owners | The art evolution requirement is uncovered. Verify the applicable external consumer and record unavailable proof as NOT_RUN. | [dg-06-art-evolution-external-proof](../changes/dg-06-art-evolution-external-proof/proposal.md) |
 | `DG-07` | Open | Spec State and repository owners | The enforcement-placement requirement is uncovered. Correlate actual workflow placement and branch protections with the documented guarantees. | [dg-07-spec-state-gate-enforcement](../changes/dg-07-spec-state-gate-enforcement/proposal.md) |
-| `DG-08` | Open | GitHub template maintainers | The reusable drift workflow assumes a submodule-provided .devgate checkout while the consumer contract calls for local untracked tooling. | [dg08-consumer-workflow-bootstrap](../changes/dg08-consumer-workflow-bootstrap/proposal.md) |
+| `DG-08` | Open | GitHub template maintainers | Drift, specs, and text integrity use submodule checkout to supply ignored `.devgate/` tools. The expanded proposal covers all three reusable GitHub workflows. | [dg08-consumer-workflow-bootstrap](../changes/dg08-consumer-workflow-bootstrap/proposal.md) |
 | `DG-09` | Conditional on adoption | GitLab option and monitor owners | Forge enrollment and template behavior have fixture evidence. Live GitLab runner monitoring remains conditional on operator adoption. | [dg09-gitlab-runner-live-monitoring](../changes/dg09-gitlab-runner-live-monitoring/proposal.md) |
 | `DG-10` | Open | Runner distribution maintainers | GitLab templates pin an image digest. The repository review could not resolve its reviewed build source and artifact provenance. | [dg10-gitlab-runner-image-provenance](../changes/dg10-gitlab-runner-image-provenance/proposal.md) |
 | `DG-11` | Verified and archived | GitLab template maintainers | Ten mirrors share a reviewed full-commit DevGate bootstrap with passing hermetic controls. Live GitLab runner acceptance applies upon adoption. | [Archived evidence](../changes/archive/2026-11-25-dg11-gitlab-mirror-bootstrap/evidence.md) |
@@ -49,6 +51,8 @@ evidence gate accepts proof for each requirement.
 | `DG-14` | Verified and archived | Open-item gate maintainers | Exact-scope exclusions passed independent controls and the hosted detector at ac61e20. | [Archived evidence](../changes/archive/2026-11-25-dg-14-evidence-claim-scan-scope/evidence.md) |
 | `DG-15` | Verified and archived | GitLab parity maintainers | The pinned five-case drill passed on Windows and Linux, including a quoted Linux fixture path. | [Archived evidence](../changes/archive/2026-11-25-dg-15-windows-parity-seed-path/evidence.md) |
 | `DG-16` | Verified and archived | Framework CI maintainers | The verifier fails malformed SHA-256 and duplicate records, and checks the current 160-record inventory. | [Archived evidence](../changes/archive/2026-11-25-dg-16-checksum-manifest-record-validation/evidence.md) |
+| `DG-17` | Implemented and reviewed locally | Framework CI maintainers | Checksum inventory now preserves Unicode names and rejects unsupported names and duplicate index stages. Exact-head hosted acceptance is pending. | [OpenSpec change](../changes/dg17-checksum-unicode-path-inventory/proposal.md) |
+| `DG-18` | Open | Spec traceability maintainers | The shared marker scanner omits the actual GitLab bootstrap source marker in YAML. | [OpenSpec change](../changes/dg18-yaml-workflow-source-markers/proposal.md) |
 | `OI-001` | Disposition archived | GitLab option owner/operator | The owner specified feature support. Live instance enrollment requires explicit adoption. | [Archived evidence](../changes/archive/2026-11-25-review-gitlab-instance-deferral/evidence.md) |
 | `OI-002` | Disposition archived | GitLab option owner/operator | Hermetic parity passed. Live parity requires explicit adoption. | [Archived evidence](../changes/archive/2026-11-25-review-gitlab-parity-deferral/evidence.md) |
 | `OI-003` | Disposition archived | GitLab option owner/operator | The real GitLab backup and restore check requires explicit adoption and applies before gates depend on that instance. | [Archived evidence](../changes/archive/2026-11-25-review-gitlab-restore-deferral/evidence.md) |

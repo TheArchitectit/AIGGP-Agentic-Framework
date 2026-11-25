@@ -1,4 +1,4 @@
-# DevGate release checksums — generated 2026-11-25T17:09:57Z
+# DevGate release checksums — generated 2026-11-25T17:55:15Z
 # Verify before use: python3 scripts/gen-checksums.py verify
 3ba50bc8b31743b05c2d11a2fe8156c44477548600ac9c2e1b4fa8f78e09c378  hub/__init__.py
 ee9d420de2f1a6dd228e9166b508e106f753dace985884ec6355581cabdbeb91  hub/alerts.py
@@ -102,7 +102,7 @@ c5f87032d881c96fa5334a3805b84e54a6932c0774b0fd00668d0f7f3e2e4910  scripts/forge_
 c8cef34c5479755f698b594814ef5e7593d3af18964becb4435c5d481512fcd3  scripts/game_session_start.py
 a59776fb9e195b58cd68a91a329cb74e21599c238f085fdb2cac4b0f72b793a1  scripts/gate_common.py
 2b1c143fd0506ad3f025de31dd3751677561264fbf209cf3878707080fb96de0  scripts/gate_overlay.py
-ea8919a8d9a0c6b29904a78aaf35412ae09c00b417c338d04a8fb8d1da445731  scripts/gen-checksums.py
+618db25e82bdb296048ecb30204c673b2ca85e58df99194b9492aff0351e744b  scripts/gen-checksums.py
 ab936954f94687471090ea246d06cb9ef6d96378342d27a0042fd1178e531ba9  scripts/guardrails-scan.mjs
 d65cb83fb5c01d899c4aafef7a2cbde3fcf25a1eac8c54cfdbffeba87d62d8ee  scripts/hub-watchdog.sh
 749c0c6924a4842ab216578a9fd6a1039a09a341572f0b08edb5dec2cbf54ca5  scripts/hub_alert.py
