@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Preserved Unicode script names and rejected unresolved index duplicates in
+  release checksum inventory (DG-17).
 - Reconciled and verified all 160 release checksum entries in hosted CI (DG-13).
 - Scoped evidence-claim exclusions and verified the hosted detector (DG-14).
 - Made the hermetic forge parity corpus portable across Windows and POSIX

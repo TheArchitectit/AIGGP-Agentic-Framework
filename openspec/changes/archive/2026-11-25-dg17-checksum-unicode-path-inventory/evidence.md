@@ -12,7 +12,7 @@ Fixture created with Git `core.quotePath=true` and two committed supported scrip
 
 - `python scripts/gen-checksums.py generate --repo <fixture>` from the exact `ac61e20` source - exit 0; reports one checksum.
 - `python scripts/gen-checksums.py verify --repo <fixture>` from the exact `ac61e20` source - exit 0; reports `VERIFY OK` for one checksum.
-- The generated manifest contains only `scripts/ordinary.py`; the tracked Unicode path is omitted. This is a reproducible false success in the current candidate.
+- The generated manifest contains only `scripts/ordinary.py`; the tracked Unicode path is omitted. This reproduced a false success at the audited baseline.
 
 ## Implementation and local verification
 
@@ -24,4 +24,9 @@ Fixture created with Git `core.quotePath=true` and two committed supported scrip
 
 ## Acceptance boundary
 
-The independent audit reproduced all six Linux tests and the five applicable Windows tests. It verified all 160 canonical checksums against the final source. The integrated local test floor collected 2,082 tests across 143 suites. Exact-head hosted checksum acceptance remains open.
+The independent audit reproduced all six Linux tests and the five applicable Windows tests. It verified all 160 canonical checksums against the final source. The integrated local test floor collected 2,082 tests across 143 suites. The hosted checksum step tested the exact candidate tree
+`54acadb13d6a8e931865a58881e7ff49feb0a2b1` at
+`69d755e441dbd3172be97cb51b0ca2e880328f69` and verified all 160 records. The
+same job passed committed-range corruption checking. GitHub's synthetic merge
+commit `764681cf359ee4894d8ac3438188bb4d5f0f183b` used those exact tree bytes.
+[Hosted DevGate job](https://github.com/TheArchitectit/AIGGP-Agentic-Framework/actions/runs/45671009303/job/139405942794)

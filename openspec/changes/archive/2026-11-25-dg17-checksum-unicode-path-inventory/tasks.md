@@ -10,7 +10,7 @@
 
 ## 2. Candidate verification and independent review
 
-- [ ] 2.1 Verify the final manifest and CI checksum step at the integrated candidate head, including the DG-13 Bash diagnostic regression and DG-16 malformed/duplicate-record controls.
+- [x] 2.1 Verify the final manifest and CI checksum step at the integrated candidate head, including the DG-13 Bash diagnostic regression and DG-16 malformed/duplicate-record controls.
 - [x] 2.2 Obtain independent review of path-byte handling, candidate filtering, platform controls, manifest-preservation behavior, and evidence before archive.
 
 ## Workflow follow-up

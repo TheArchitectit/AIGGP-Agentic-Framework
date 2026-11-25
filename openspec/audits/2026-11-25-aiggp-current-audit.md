@@ -133,7 +133,7 @@ The existing DG-08 proposal covers the reusable drift workflow. Two other workfl
 
 ### DG-17 - checksum inventory loses quoted Unicode paths
 
-At `scripts/gen-checksums.py:26-34`, `git ls-files` output is read as newline-delimited text and extension-filtered. A disposable repository with `core.quotePath=true`, `scripts/ordinary.py`, and `scripts/r\u00e9sum\u00e9.py` reproduced false success against `ac61e20`: generation wrote one checksum and verification exited 0 with one checksum. DG-16's malformed/duplicate record checks do not cover inventory omission. The separate DG-17 proposal requires NUL-delimited path parsing, strict path representability checks, shared generator/verifier failure, and no partial manifest acceptance. The follow-up implementation and cross-platform verification are recorded in [DG-17 evidence](../changes/dg17-checksum-unicode-path-inventory/evidence.md).
+At `scripts/gen-checksums.py:26-34`, `git ls-files` output is read as newline-delimited text and extension-filtered. A disposable repository with `core.quotePath=true`, `scripts/ordinary.py`, and `scripts/r\u00e9sum\u00e9.py` reproduced false success against `ac61e20`: generation wrote one checksum and verification exited 0 with one checksum. DG-16's malformed/duplicate record checks do not cover inventory omission. The separate DG-17 proposal requires NUL-delimited path parsing, strict path representability checks, shared generator/verifier failure, and no partial manifest acceptance. The follow-up implementation and cross-platform verification are recorded in [DG-17 evidence](../changes/archive/2026-11-25-dg17-checksum-unicode-path-inventory/evidence.md).
 
 ### DG-18 - YAML source marker omitted by shared traceability discovery
 
@@ -165,7 +165,7 @@ checksums. [Hosted CI](https://github.com/TheArchitectit/AIGGP-Agentic-Framework
 | ID | Owner role | Proposed scope | Package |
 |---|---|---|---|
 | `DG-08` | GitHub template maintainers | Bootstrap all three runtime workflows (`drift-scan`, `specs`, `text-integrity`) and test the whole workflow directory. | [DG-08 proposal](../changes/dg08-consumer-workflow-bootstrap/proposal.md) |
-| `DG-17` | Framework CI maintainers | Preserve every supported tracked Git path in checksum generation and fail explicitly when the text manifest cannot encode a path. | [DG-17 proposal](../changes/dg17-checksum-unicode-path-inventory/proposal.md) |
+| `DG-17` | Framework CI maintainers | Preserve every supported tracked Git path in checksum generation and fail explicitly when the text manifest cannot encode a path. | [DG-17 proposal](../changes/archive/2026-11-25-dg17-checksum-unicode-path-inventory/proposal.md) |
 | `DG-18` | Spec format and traceability maintainers | Add tightly scoped YAML workflow marker discovery with real excluded/example controls. | [DG-18 proposal](../changes/dg18-yaml-workflow-source-markers/proposal.md) |
 
 ## Appendix A - complete per-requirement inventory

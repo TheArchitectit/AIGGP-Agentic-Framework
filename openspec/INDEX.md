@@ -66,7 +66,7 @@
 | [`package-resolution/spec.md`](specs/package-resolution/spec.md) | Package Resolution | **UNPROVEN** | UNPROVEN — 5 of 5 requirement(s) lack a proving ledger row (5 provenance-accepted, awaiting sealed evidence) |
 | [`per-screen-tracking/spec.md`](specs/per-screen-tracking/spec.md) | Per-screen feature tracking | **UNPROVEN** | UNPROVEN — 2 of 2 requirement(s) lack a proving ledger row (2 provenance-accepted, awaiting sealed evidence) |
 | [`publish-safety/spec.md`](specs/publish-safety/spec.md) | Publish leg safety | **UNPROVEN** | UNPROVEN — 3 of 3 requirement(s) lack a proving ledger row (3 provenance-accepted, awaiting sealed evidence) |
-| [`release-checksum-manifest/spec.md`](specs/release-checksum-manifest/spec.md) | Release checksum manifest | **OPEN** | EXERCISED 0 of 2 |
+| [`release-checksum-manifest/spec.md`](specs/release-checksum-manifest/spec.md) | Release checksum manifest | **OPEN** | EXERCISED 0 of 3 |
 | [`release-gate-targeting/spec.md`](specs/release-gate-targeting/spec.md) | Release gate targeting and audit classification | **UNPROVEN** | UNPROVEN — 2 of 2 requirement(s) lack a proving ledger row (2 provenance-accepted, awaiting sealed evidence) |
 | [`requirement-id-inventory/spec.md`](specs/requirement-id-inventory/spec.md) | Requirement id inventory | **UNKNOWN** | no closure table and no Status line |
 | [`reviewer-surfaces/spec.md`](specs/reviewer-surfaces/spec.md) | Reviewer surfaces | **UNKNOWN** | no closure table and no Status line |
