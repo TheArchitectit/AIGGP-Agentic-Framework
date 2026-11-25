@@ -1,4 +1,4 @@
-# // spec: GLF-01, GLF-02, GLF-03, GLF-10, GLF-11, GLF-12, GLF-13
+# // spec: GLF-01, GLF-02, GLF-03, GLF-10, GLF-11, GLF-12, GLF-13, GLF-14
 """Tests for GitLab forge parity and self-hosted instance/runner support."""
 
 from __future__ import annotations
@@ -33,6 +33,7 @@ from hub.forge import (  # noqa: E402
     verify_gitlab_ci_template_mirrors,
 )
 from hub.registry import Registry  # noqa: E402
+from hub.forge.parity import _materialize  # noqa: E402
 from tests.fixtures.runner_spoke import HUB, SCRIPT, Spoke  # noqa: E402
 
 
@@ -140,6 +141,33 @@ def test_glf03_forge_parity_drill_matches_across_seeded_corpus():
         assert (result.github_status.state == "success") == (
             result.gitlab_status.state == "success"
         )
+
+
+def test_glf14_materialized_json_paths_remain_absolute_and_valid(tmp_path):
+    """GLF-14: seed paths are JSON-safe on Windows and POSIX hosts."""
+    seed = next(case for case in seeded_corpus() if case.case_id == "corpus-02-surface-divergence")
+    root = (tmp_path / seed.case_id).resolve()
+    _materialize(seed, root)
+    surfaces = json.loads((root / "surfaces.json").read_text(encoding="utf-8"))
+    paths = surfaces["groups"][0]["paths"]
+    assert len(paths) == 2
+    assert all(Path(path).is_absolute() for path in paths)
+    assert all(Path(path).resolve().is_relative_to(root) for path in paths)
+
+
+def test_glf14_materialized_json_escapes_quote_in_posix_root(tmp_path):
+    """GLF-14: JSON-special characters in a legal POSIX root stay decodable."""
+    import pytest
+
+    if sys.platform == "win32":
+        pytest.skip('Windows does not permit double quotes in path components')
+    seed = next(case for case in seeded_corpus() if case.case_id == "corpus-02-surface-divergence")
+    root = (tmp_path / 'fixture"root').resolve()
+    _materialize(seed, root)
+    surfaces = json.loads((root / "surfaces.json").read_text(encoding="utf-8"))
+    paths = surfaces["groups"][0]["paths"]
+    assert all(Path(path).is_absolute() for path in paths)
+    assert all(Path(path).resolve().is_relative_to(root) for path in paths)
 
 
 def test_glf10_and_glf13_instance_discovery_backup_drill_and_ownership():

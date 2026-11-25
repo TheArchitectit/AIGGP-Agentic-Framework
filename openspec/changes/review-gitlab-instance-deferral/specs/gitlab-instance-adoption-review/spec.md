@@ -12,4 +12,4 @@ An overdue GitLab instance deferral SHALL have an owner decision record stating 
 
 #### Scenario: owner reviews the expired instance deferral
 - **WHEN** an authorized owner records the current OI-001 adoption decision
-- **THEN** the record states the dormant or explicitly activated outcome and next authorized trigger, leaves the source dates unchanged, and contains no private connection details
+- **THEN** the record uses the supported `not-actionable` disposition until explicit adoption, states that live instance setup is optional after adoption, leaves the OI-001 product-support row and Sprint 0 task open, preserves historical dates, and claims no live instance or private connection details

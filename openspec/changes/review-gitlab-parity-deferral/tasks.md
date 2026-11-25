@@ -2,10 +2,10 @@
 
 ## 1. Review parity status and dependency
 
-- [ ] 1.1 Verify OI-002's expired `review_by` date and compare its triage text with the latest OI-001 owner decision; preserve the existing dates and record whether OI-001 remains unresolved.
-- [ ] 1.2 Confirm the hermetic parity evidence is the five-case pinned corpus over real gate subprocesses and that the CI step is blocking; verify the existing record does not claim two live forges.
+- [x] 1.1 Verify OI-002's historical `review_by` date is 2026-11-22 and compare its old triage text with the 2026-11-25 OI-001 scope decision; preserve both historical records.
+- [x] 1.2 Confirm the hermetic parity drill runs actual gate subprocesses over the five-case pinned corpus and is invoked in CI; verify no two-live-forge result is claimed.
 
 ## 2. Record the owner decision
 
-- [ ] 2.1 Obtain an authorized owner decision on live two-forge readiness conditional on OI-001 and record the dormant/authorized state and next trigger without soliciting forge access or outside evidence.
-- [ ] 2.2 Confirm the package changes no parity implementation, corpus, ledger date, or triage date; run strict OpenSpec validation.
+- [x] 2.1 Record the 2026-11-25 owner scope: live parity is optional operator acceptance after explicit GitLab adoption. Append a `not-actionable` triage row with no `review_by`; preserve the unchecked live task and make no external request.
+- [x] 2.2 Run the hermetic template/adapter/interoperability parity tests and direct drill; run the aging gate and pinned strict OpenSpec validation. Windows focused tests pass 23/23 and all five direct cases pass; a Linux candidate copy with shell line endings normalized passes 23/23 and the same five direct cases.

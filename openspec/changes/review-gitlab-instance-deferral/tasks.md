@@ -2,9 +2,9 @@
 
 ## 1. Review the existing decision record
 
-- [ ] 1.1 Compare the OI-001 ledger row and triage entry with the 2026-11-15 owner decision and confirm that `review_by` 2026-11-22 is expired; verify the source records are unchanged.
-- [ ] 1.2 Obtain an authorized owner decision on whether GitLab instance work remains dormant or is activated; verify the outcome is recorded with its next authorized trigger and no endpoint, alias, or credential details.
+- [x] 1.1 Compare the OI-001 ledger row and triage entry with the 2026-11-15 owner decision and confirm that historical `review_by` 2026-11-22 is expired; keep both historical source records unchanged.
+- [x] 1.2 Record the 2026-11-25 owner scope: GitLab support alongside GitHub; real-instance selection/enrollment is optional operator acceptance after explicit adoption. Append a `not-actionable` triage row with no `review_by`, and preserve Sprint 0 as an open adoption-triggered task without private connection details.
 
 ## 2. Confirm the review boundary
 
-- [ ] 2.1 Verify the package does not modify the open-item ledger, triage dates, or dormant Sprint 0 implementation; confirm strict OpenSpec validation passes.
+- [x] 2.1 Verify the OI-001 checklist item's ID, source date, and unchecked state remain; its text now reflects the confirmed scope. The historical triage row and Sprint 0 implementation remain unchanged as live/conditional tasks. The aging check passes (3 aged items, 3 triaged, 0 expired deferrals) and pinned OpenSpec 1.14.3 strict validation passes.

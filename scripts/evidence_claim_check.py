@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# // spec: evc-01, evc-02, evc-03, evc-04, evc-05, evc-06
+# // spec: evc-01, evc-02, evc-03, evc-04, evc-05, evc-06, evc-07
 """evidence_claim_check.py — mock, stub, or deferral without evidence is not a decision.
 
 WHY THIS EXISTS (measured, not theoretical)
@@ -103,10 +103,11 @@ def scan(root: Path, allow_globs: list[str]) -> tuple[list[dict], int]:
     for p in root.rglob("*"):
         if not p.is_file() or p.suffix.lower() in SKIP_SUFFIX:
             continue
-        rel = str(p.relative_to(root))
-        if any(fnmatch.fnmatch(rel, g) or fnmatch.fnmatch(p.name, g) for g in allow_globs):
+        relative = p.relative_to(root)
+        if ".git" in relative.parts:
             continue
-        if "/.git/" in f"/{rel}" or rel.startswith(".git/"):
+        rel = relative.as_posix()
+        if any(fnmatch.fnmatch(rel, g) or fnmatch.fnmatch(p.name, g) for g in allow_globs):
             continue
         try:
             text = p.read_text(encoding="utf-8", errors="replace")

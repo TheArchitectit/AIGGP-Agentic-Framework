@@ -2,13 +2,13 @@
 
 ## Why
 
-OI-001's deferred review date was 2026-11-22, and the aging gate now reports it expired. The existing record says GitLab remains an optional, dormant integration until adoption, so the owner must review the current adoption/instance decision without implying that a server was found or contacting an endpoint.
+OI-001's historical deferred review date was 2026-11-22. On 2026-11-25, the owner confirmed the product goal is to support GitLab alongside GitHub; selecting or enrolling a live instance is optional operator acceptance after explicit adoption, not a prerequisite to ship. Record that scope decision without implying a server was found or contacting an endpoint.
 
 ## What Changes
 
-- Present the existing OI-001 ledger row, triage reason, and 2026-11-15 owner decision together for an authorized owner review.
-- Record the owner's current choice to keep instance work dormant or activate it, together with the next authorized trigger.
-- Preserve source and review dates; do not collect or publish private endpoints, aliases, credentials, or outside evidence.
+- Record the owner's confirmed product scope and the explicit adoption trigger; preserve the real-instance setup task as open.
+- Append a `not-actionable` triage disposition recorded 2026-11-25, without replacing the historical row or inventing a renewed review date.
+- Do not collect or publish private endpoints, aliases, credentials, or outside evidence.
 - Keep the dormant Sprint 0 implementation in `add-gitlab-forge-support` unchanged.
 
 ## Capabilities
@@ -23,4 +23,4 @@ None.
 
 ## Impact
 
-Only the OI-001 review package and its owner decision record. This does not run discovery, alter GitLab support, change the open-item ledger or triage dates, or claim a live instance exists.
+The OI-001 review package, append-only triage update, and owner decision record. The live product-scope row remains open as an adoption-triggered task. This does not run discovery, alter GitLab support, or claim a live instance exists.

@@ -6,18 +6,18 @@ See proposal.md for the review scope. OI-003's triage row says “blocked on OI-
 
 ## Goals / Non-Goals
 
-**Goals:** Let the owner reconcile the current status using local records, tie it to an OI-001 instance/adoption decision, and retain a real restore-drill prerequisite if the owner activates reliance.
+**Goals:** Record that a real restore drill is optional acceptance after GitLab adoption and remains mandatory before any gate depends on the selected instance.
 
 **Non-Goals:** Select an instance, contact it, request a backup or restore report, change dates, or declare the restore requirement satisfied.
 
 ## Decisions
 
-- Treat the ledger, triage entry, and current owner-decision block as separate records to reconcile; do not silently rewrite “blocked” as “dormant.”
-- Accept an owner decision that keeps the item dormant or activates a selected-instance review; do not assume either outcome.
-- If activated, preserve the existing rule that a real backup restore must be evidenced before a gate depends on the instance.
+- Use the supported `not-actionable` state with `recorded: 2026-11-25` and no `review_by`; the aging gate requires a future review date only for `deferred`.
+- Append the new triage row and preserve the historical row and expired review date.
+- Keep OI-003 unchecked and GLF-10 open until explicit GitLab adoption. A real backup restore remains required before any gate depends on the selected instance.
 - Keep endpoint, backup location, and authentication details outside this package; the review is disposition-only.
 
 ## Risks / Trade-offs
 
-- The source records currently use different status language; the package requests owner reconciliation rather than claiming they already agree.
+- The disposition records current product scope but does not establish instance adoption or complete a live restore drill.
 - The local validator and synthetic tests can establish input readiness only; they do not prove a live restore drill.

@@ -6,17 +6,18 @@ See proposal.md for the review scope. OI-002's triage entry is deferred through 
 
 ## Goals / Non-Goals
 
-**Goals:** Capture a fresh owner decision on whether live parity remains dormant or is authorized, tied to the latest OI-001 decision, without downgrading the hermetic evidence.
+**Goals:** Record that two-live-forge parity is optional acceptance after GitLab adoption while preserving hermetic parity as a ship requirement.
 
 **Non-Goals:** Execute the corpus on a live forge, ask for forge access or outside evidence, update dates, or treat adapter-level equivalence as a two-platform green.
 
 ## Decisions
 
-- Read the latest OI-001 decision before recording OI-002's conditional state; if OI-001 has no new decision, preserve that dependency as unresolved rather than assuming adoption.
-- Keep hermetic parity evidence and live two-forge readiness as separate claims.
-- Record the owner outcome and the event that could authorize a future live review; do not invent a date or live result.
+- Use the supported `not-actionable` state for the live half with `recorded: 2026-11-25` and no `review_by`; the aging gate requires a future review date only for `deferred`.
+- Append the new triage row and preserve the historical row and expired review date.
+- Keep the OI-002 backlog row unchecked and the two-live-forge task open until explicit adoption. Keep hermetic parity tests and CI verification separate from live acceptance.
+- Do not infer adoption, a second live forge, or a two-platform green result.
 
 ## Risks / Trade-offs
 
-- A fresh decision record does not create the second forge needed for live parity or alter the existing dormant integration state.
+- This disposition does not create the second forge needed for live parity or alter the existing dormant integration state.
 - The existing CI drill proves parity across adapter paths over a pinned corpus, not independent execution on two live CI platforms.

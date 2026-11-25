@@ -120,8 +120,9 @@ files.
   a specific ref) updates the tooling without a consumer-repo commit. If you
   need a rollback point, record the checkout SHA outside the repo.
 - **CI must provision the checkout itself.** There is no `.gitmodules` entry
-  for CI to follow. Clone the tooling into `.devgate/` as a workflow step
-  before any gate runs, pinned to a SHA if you want reproducible gate results.
+  for CI to follow. Clone the tooling into `.devgate/` before any gate runs.
+  The GitLab CI mirrors use `DEVGATE_SHA` to select and verify a full immutable
+  source commit; see [GitLab Forge Support](./GITLAB-FORGE.md#use-a-gitlab-ci-mirror).
 - **Don't repoint the path.** The checkout must stay at `.devgate/`; that is
   `root-anchor-01` (see `docs/NEW_REPO_ONBOARDING.md`).
 

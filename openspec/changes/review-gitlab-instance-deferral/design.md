@@ -6,18 +6,18 @@ See proposal.md for the expired review and its scope. `docs/open-items-ledger.md
 
 ## Goals / Non-Goals
 
-**Goals:** Give the owner an auditable local review point that captures current adoption status and the next authorized trigger.
+**Goals:** Record the owner's confirmed scope (GitLab support alongside GitHub) and preserve the real-instance task as conditional acceptance after explicit adoption.
 
 **Non-Goals:** Perform instance discovery, request or store endpoint/auth details, contact a server, change historical dates, or activate live work by default.
 
 ## Decisions
 
-- Keep this package independent of the dormant Sprint 0 implementation tasks; it reviews their owner disposition only.
-- Accept either an owner-confirmed dormant state or an explicitly authorized activation decision. Do not infer which one is current.
-- Describe the next trigger as an authorization event, such as an owner-approved adoption request, rather than inventing a new calendar date.
-- Keep private endpoint values, internal aliases, and credentials out of all artifacts. The review uses only the existing local owner-decision record.
+- Use the supported `not-actionable` triage state for the current product-scope decision, with `recorded: 2026-11-25` and no `review_by`. The aging checker accepts this state without a review date; it requires a future `review_by` only for `deferred`.
+- Append the new triage row so the prior 2026-11-15 record and expired 2026-11-22 date remain historical evidence. The loader uses the latest row for each ID.
+- Keep the original OI-001 checklist row unchecked and keep Sprint 0 open. Explicit GitLab adoption is the trigger to re-triage and complete operator acceptance.
+- Keep private endpoint values, internal aliases, and credentials out of all artifacts. This decision does not assert current reachability or adoption.
 
 ## Risks / Trade-offs
 
-- The review package does not itself reset the expired triage date or clear the aging gate; any disposition change requires a separately authorized owner action.
+- The disposition does not state a new instance exists or clear the operator task; it removes the expired deferral from the current aging decision while preserving the conditional task.
 - The former discovery notes are historical evidence only and do not establish current network reachability.

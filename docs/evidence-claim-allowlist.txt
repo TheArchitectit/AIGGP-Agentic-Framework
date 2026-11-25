@@ -50,6 +50,14 @@ openspec/changes/add-open-item-gates/specs/evidence-claims/spec.md
 openspec/changes/archive/2026-10-03-ai01-runner-monitor-impl/plan.md
 docs/qa/2026-11-05-sgr16-d3-disposition.md
 
+# The canonical evidence-claims specification contains normative examples of
+# marker forms that the detector itself evaluates; these are documentation,
+# not implementation claims. The archived source delta preserves those same
+# examples as the historical basis of the canonical requirement. Keep these
+# two exact paths scoped: other Markdown prose and fenced source remain scanned.
+openspec/specs/evidence-claims/spec.md
+openspec/changes/archive/2026-11-20-add-open-item-gates/specs/evidence-claims/spec.md
+
 # Test fixture corpora — markers here are payloads under test (this gate's own
 # fixtures, the guardrails scanner corpus strings, the diff-allow fixture, an
 # abstract test-double base class, and a except-clause that merely names

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# spec: fw-ci-05, fw-ci-06
 """gen-checksums.py — release-artifact checksums with a verify mode (R12).
 
 Generates sha256 checksums for every shipped script (the gate surface a
@@ -12,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import re
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -74,11 +76,17 @@ def main() -> int:
         if not line or line.startswith("#"):
             continue
         parts = line.split(None, 1)
-        if len(parts) != 2 or not parts[1].startswith(("scripts/", "hub/")):
+        if (len(parts) != 2 or not parts[1].startswith(("scripts/", "hub/"))
+                or re.fullmatch(r"[0-9a-fA-F]{64}", parts[0]) is None):
             print(f"gen-checksums: FAIL — malformed manifest line: {line[:60]}",
                   file=sys.stderr)
             return EXIT_MISMATCH
-        recorded[parts[1].strip()] = parts[0]
+        rel = parts[1].strip()
+        if rel in recorded:
+            print(f"gen-checksums: FAIL — duplicate manifest path: {rel}",
+                  file=sys.stderr)
+            return EXIT_MISMATCH
+        recorded[rel] = parts[0].lower()
     current = {rel: digest(repo / rel) for rel in files}
 
     problems = []

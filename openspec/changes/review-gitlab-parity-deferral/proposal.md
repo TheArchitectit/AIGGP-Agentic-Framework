@@ -2,13 +2,12 @@
 
 ## Why
 
-OI-002's deferred review date was 2026-11-22. Its live two-forge parity decision depends on whether OI-001 remains dormant or is explicitly activated, while the 2026-11-15 hermetic parity drill is already valid evidence and must not be presented as proof of two live platforms.
+OI-002's historical deferred review date was 2026-11-22. On 2026-11-25, the owner confirmed that two-live-forge parity is optional operator acceptance after explicit GitLab adoption, not a prerequisite to ship GitLab support alongside GitHub. Hermetic template, adapter, and interoperability parity remains required and must be verified separately; this decision claims no live parity.
 
 ## What Changes
 
-- Present the existing OI-002 ledger row and triage reason alongside the recorded OI-001 adoption decision for fresh owner review.
-- Record the owner's current view of live two-forge evidence readiness as conditional on OI-001.
-- Preserve the five-case hermetic parity result and explicitly distinguish it from live two-forge parity.
+- Append a `not-actionable` triage disposition recorded 2026-11-25, without replacing the historical row or inventing a renewed review date.
+- Preserve the live two-forge task as open and adoption-triggered; verify the hermetic parity test and CI invocation separately.
 - Do not run a live drill, contact a forge, request external evidence, or presume that GitLab adoption has been approved.
 
 ## Capabilities
@@ -23,4 +22,4 @@ None.
 
 ## Impact
 
-Only the OI-002 review package and its owner decision record. No parity implementation, CI behavior, corpus, or source date changes are included.
+The OI-002 review package and append-only triage update. The live two-forge item remains open as adoption-triggered operator acceptance. No parity implementation, CI behavior, corpus, or historical source date changes are included.

@@ -169,12 +169,14 @@ jobs:
         # digest from the tree, so a drifted manifest reds here instead of at
         # the consumer.
         run: |
-          out="$(python3 scripts/gen-checksums.py verify 2>&1)"; rc=$?
-          printf '%s\n' "$out"
-          if [ "$rc" -ne 0 ]; then
+          if out="$(python3 scripts/gen-checksums.py verify 2>&1)"; then
+            printf '%s\n' "$out"
+          else
+            rc=$?
+            printf '%s\n' "$out"
             echo "FAIL: CHECKSUMS.sha256 disagrees with the tracked scripts."
             echo "Regenerate it in the release commit: python3 scripts/gen-checksums.py generate"
-            exit 1
+            exit "$rc"
           fi
       - name: Semantic scan (installs the pinned parser)
         run: |

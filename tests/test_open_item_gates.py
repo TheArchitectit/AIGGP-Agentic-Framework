@@ -167,6 +167,62 @@ class EvidenceClaim(unittest.TestCase):
         r = self._run()
         self.assertEqual(r.returncode, EXIT_OK, r.stdout + r.stderr)
 
+    def test_git_metadata_is_excluded_by_path_component(self) -> None:
+        hook = self.root / ".git" / "hooks" / "sendemail-validate.sample"
+        hook.parent.mkdir(parents=True)
+        hook.write_text("# TODO: generated Git sample\n", encoding="utf-8")
+        self._write("def ready():\n    return True\n")
+        r = self._run()
+        self.assertEqual(r.returncode, EXIT_OK, r.stdout + r.stderr)
+
+    def test_markdown_inline_examples_outside_allowlist_stay_scanned(self) -> None:
+        docs = self.root / "docs" / "spec.md"
+        docs.parent.mkdir()
+        docs.write_text(
+            "A literal `DEFERRED(reason=blocked, review=2027-01-01)` example.\n"
+            "The words `TODO:` and `NotImplementedError` are examples.\n",
+            encoding="utf-8",
+        )
+        self._write("def ready():\n    return True\n")
+        result = self._run()
+        self.assertEqual(result.returncode, EXIT_VIOLATION, result.stdout + result.stderr)
+        self.assertIn("docs/spec.md", result.stdout)
+
+    def test_escaped_markdown_backticks_do_not_mask_markers(self) -> None:
+        docs = self.root / "docs" / "spec.md"
+        docs.parent.mkdir()
+        docs.write_text(r"Escaped \`TODO:\` marker remains visible." + "\n", encoding="utf-8")
+        self._write("def ready():\n    return True\n")
+        r = self._run()
+        self.assertEqual(r.returncode, EXIT_VIOLATION, r.stdout + r.stderr)
+        self.assertIn("docs/spec.md", r.stdout)
+
+    def test_fenced_markdown_source_remains_scanned(self) -> None:
+        docs = self.root / "docs" / "spec.md"
+        docs.parent.mkdir()
+        docs.write_text("```python\n# TODO: active source marker\n```\n", encoding="utf-8")
+        self._write("def ready():\n    return True\n")
+        r = self._run()
+        self.assertEqual(r.returncode, EXIT_VIOLATION, r.stdout + r.stderr)
+        self.assertIn("docs/spec.md", r.stdout)
+
+    def test_multiline_code_span_does_not_mask_marker_line(self) -> None:
+        docs = self.root / "docs" / "spec.md"
+        docs.parent.mkdir()
+        docs.write_text("A multiline `literal begins\nTODO: still scanned\n` ends.\n", encoding="utf-8")
+        self._write("def ready():\n    return True\n")
+        r = self._run()
+        self.assertEqual(r.returncode, EXIT_VIOLATION, r.stdout + r.stderr)
+        self.assertIn("docs/spec.md", r.stdout)
+
+    def test_github_path_is_not_excluded_with_git_metadata(self) -> None:
+        workflow = self.root / ".github" / "workflows" / "sample.yml"
+        workflow.parent.mkdir(parents=True)
+        workflow.write_text("# TODO: active workflow marker\n", encoding="utf-8")
+        r = self._run()
+        self.assertEqual(r.returncode, EXIT_VIOLATION, r.stdout + r.stderr)
+        self.assertIn(".github/workflows/sample.yml", r.stdout)
+
     def test_empty_root_is_not_green(self) -> None:
         empty = self.root / "empty"
         empty.mkdir()

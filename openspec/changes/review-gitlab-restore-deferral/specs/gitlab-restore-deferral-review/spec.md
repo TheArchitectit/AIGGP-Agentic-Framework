@@ -12,4 +12,4 @@ An OI-003 review SHALL state whether backup/restore work is dormant or activated
 
 #### Scenario: owner reviews the restore deferral
 - **WHEN** an authorized owner reviews OI-003 against the latest OI-001 decision
-- **THEN** the record states the dormant or activated status and, if activated, retains the real restore-drill prerequisite without claiming synthetic evidence is a live drill
+- **THEN** the record uses `not-actionable` until explicit adoption, keeps GLF-10 open, retains a real restore-drill prerequisite before any gate depends on the selected instance, and claims no live restore from synthetic evidence
