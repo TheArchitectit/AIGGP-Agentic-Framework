@@ -1,6 +1,8 @@
 # AIGGP OpenSpec re-audit - read-only
 
-**Checkout:** `fd2c11f08aa74f8b1f4917a7a5c2785860ef4cf1` (`main`, matches `origin/main` at audit time). **Scope:** native OpenSpec published specs, active changes, all archive directories, current ID-marker gate, plus historical state ledger evidence. This is a status/traceability review; a source marker is a locator, not behavioral proof. Cross-repo, deployment, and behavioral review is owned separately by quality.
+**Reviewed revision** `fd2c11f08aa74f8b1f4917a7a5c2785860ef4cf1` on `main`.
+
+This review covers published specs, active changes, all archives, the requirement ID gate, and the historical state ledger. Source markers identify code locations for verification. The companion report covers consumer workflows and deployment evidence. [Integration gap review](2026-11-25-aiggp-integration-gaps.md)
 
 ## Executive findings
 
