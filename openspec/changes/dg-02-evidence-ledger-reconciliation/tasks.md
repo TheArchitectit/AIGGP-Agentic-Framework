@@ -2,7 +2,7 @@
 
 ## 1. Reconciliation roster
 
-- [ ] 1.1 Extract all 182 unproven rows with spec/requirement IDs; verify exact one-to-one roster mapping and record a stable input digest.
+- [x] 1.1 Extract all 182 unproven rows with spec/requirement IDs; verify exact one-to-one roster mapping and record a stable input digest.
 - [ ] 1.2 For every row, inspect enforcement site, behavioral tests, reachable ordered commits, and evidence validator result; record each proof conjunct and concrete missing evidence.
 
 ## 2. Sealed disposition

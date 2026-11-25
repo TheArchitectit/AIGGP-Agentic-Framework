@@ -1,0 +1,323 @@
+{
+  "format": "dg02-unproven-input-manifest/v1",
+  "baseline_commit": "7ec9983466f1ba5dada04c29700f68dfaed15d9e",
+  "source_input_digest": "sha256:5de4a469e82c1b40cc750f9ab57b8b3c055f728fd6c925466f8d8ad81dd35804",
+  "unproven_source_file_sha256": "sha256:7b508628884863d3aa94f68b50fa0dfcfdbe280fefb2e0a69e489d1879114d1b",
+  "input_files": [
+    {
+      "path": "openspec/INDEX.md",
+      "git_blob": "37dca363c267ef3cff0e56aa53d7f18345a74e05",
+      "content_sha256": "627dc3a19f0d8faef9d5690045ba81848294af6050d073bc4f45669f6241b0aa"
+    },
+    {
+      "path": "openspec/changes/archive/2026-11-20-add-spec-state-ledger/design.md",
+      "git_blob": "9f8a6a80ef9287414ce96813e9dcd4db4c706234",
+      "content_sha256": "b879219f9e96f78c538c92a931ddddfc147eede156da4a88bafaa60a4e4df336"
+    },
+    {
+      "path": "openspec/changes/dg-02-evidence-ledger-reconciliation/design.md",
+      "git_blob": "ff6b58f832cb14db2a31873fd9cfdaae40e3756b",
+      "content_sha256": "05d7f2eee5c835564c885414551fd2052a42d351f5c2c79486bd4d40b0996607"
+    },
+    {
+      "path": "openspec/changes/dg-02-evidence-ledger-reconciliation/proposal.md",
+      "git_blob": "2a22f5bd21f23fd3f3b8911af6f4199bd2e7160a",
+      "content_sha256": "d8db892999ef099da4ac14a96347f1a11ffe86914d2b83e0a3ba9cce9e76414a"
+    },
+    {
+      "path": "openspec/changes/dg-02-evidence-ledger-reconciliation/specs/spec-state-ledger/spec.md",
+      "git_blob": "2e5a7a9c76ce6940b206af5c03486ce5fa9acf63",
+      "content_sha256": "331e5d19387abd3c57f4a3ffcb567bce0d8e6a16521e07e72b1a456abe97c89d"
+    },
+    {
+      "path": "openspec/changes/dg-02-evidence-ledger-reconciliation/tasks.md",
+      "git_blob": "143e50a92afdb66047a48efca8e1fd428057683a",
+      "content_sha256": "9da5a1aba1c3933a81b6a04f40d969a5680c0abd5a6155d2b9b14d98a900c309"
+    },
+    {
+      "path": "openspec/config.yaml",
+      "git_blob": "b4bbeb946f4c4d9310ee8730c5f89564bc95e9f0",
+      "content_sha256": "85b53dd24fbe7d19c8b0f0ddccf5e82600c5c372c76b57a2a89dc34dfb0fc5b9"
+    },
+    {
+      "path": "openspec/evidence/doc-truth/evidence-manifest.json",
+      "git_blob": "b475717ecef3a6742fbef27d7211be7fdeae0036",
+      "content_sha256": "f3e660ca1dfe3b438c116e74dccbc58cbb624796c579886cc690c642460cf078"
+    },
+    {
+      "path": "openspec/evidence/doc-truth/run.json",
+      "git_blob": "5ca6e33f6d2ed31335c3067235aad7196bec4bd3",
+      "content_sha256": "2a5f3a60558a91201b4d1d345d9c14229e61e64b2f1352f1f5dcbc5b28464f6b"
+    },
+    {
+      "path": "openspec/evidence/doc-truth/tests.json",
+      "git_blob": "47c8383d544111aaa46fe37f6ee28c8f546f3fb4",
+      "content_sha256": "2bfc12070069364b01b02f2c09a685354ec8150911f29f9d213b946baa0f1055"
+    },
+    {
+      "path": "openspec/specs/add-runner-to-fleet/spec.md",
+      "git_blob": "8762b9b1ad05313c6ad023e28be6339b4ea34a0b",
+      "content_sha256": "b863836765aed44f93d50f4bae2d2851bb329b573bd5636d9897e529dba87ef1"
+    },
+    {
+      "path": "openspec/specs/adoption-and-policy/spec.md",
+      "git_blob": "c07bdb737038a7e9d9f5889e61ca6263e5153c69",
+      "content_sha256": "c1ff54da5e9852f6274d0045cb83100f7f4b92d19778badde11a77f80068f149"
+    },
+    {
+      "path": "openspec/specs/assertions-and-evaluators/spec.md",
+      "git_blob": "a39f4dc5fb53d5d439b5ead5ee159333eb53bd36",
+      "content_sha256": "edc8f20fd0d21ae61b6c4a7c414de52391df643e429f96fad3f4f892170d9483"
+    },
+    {
+      "path": "openspec/specs/baseline-ownership/spec.md",
+      "git_blob": "0452c8b46733f0ff159c7ec7b2ef38b45bb9c0b1",
+      "content_sha256": "0c7ffaa71dc8dce537804e1a0e2b2bb348dc9b5266c1690ae7778e780e62e463"
+    },
+    {
+      "path": "openspec/specs/canonical-identity/spec.md",
+      "git_blob": "1d0135c5197539c2c433cac152d7075b925ca3f4",
+      "content_sha256": "01ece5058efbcca5c540f6f13ca742dda2d1f01f22da6d11d2620c29c431c64e"
+    },
+    {
+      "path": "openspec/specs/ci-template-contract/spec.md",
+      "git_blob": "190f96d2f1e4b74d34842e03b40e5e33c9270903",
+      "content_sha256": "1188cb3d9d90c83ba1bed55ea2f3779b70cc8f998beb94dd84434943ee9d0f90"
+    },
+    {
+      "path": "openspec/specs/coherence-evaluation/spec.md",
+      "git_blob": "896c9579bcb30ced04bc88b1f1af091639980ffc",
+      "content_sha256": "cc1210e44ad7e7d19ad1e5222cc6df453c3e214ad0b1b86445c88d697c533428"
+    },
+    {
+      "path": "openspec/specs/container-runtime/spec.md",
+      "git_blob": "0c3c50f055652bdb8d63eb9529a0f16b1f1ec41e",
+      "content_sha256": "14a5714243b467befc2bcaa0044df6ff011e1c2043c3e1f1d10ebc392ae1be2d"
+    },
+    {
+      "path": "openspec/specs/decision-contract/spec.md",
+      "git_blob": "80d130399e033dfafbdbcf47f26961fdfc4ed375",
+      "content_sha256": "c3854cfaffce5ab57ad29fd92e5d5259c8f86633cc9cee6f2a8a3d0897c4f45a"
+    },
+    {
+      "path": "openspec/specs/enrollment-and-alerting/spec.md",
+      "git_blob": "dec3e1529448733cc6ea9d8aefddb4e93de3de31",
+      "content_sha256": "3d7cad7442015864e057bc5a05e22646606b479cc175ab447c352d61371476bd"
+    },
+    {
+      "path": "openspec/specs/evaluation-context/spec.md",
+      "git_blob": "52da682548d2e36db1dec5d10c6753af857448f2",
+      "content_sha256": "abcd83976980045d8c34de70fceef29e1c70c5d196b402db5a167050295f6554"
+    },
+    {
+      "path": "openspec/specs/evidence-and-attestation/spec.md",
+      "git_blob": "2f75d1af4d20a304cda37e112e94f3f04d9335c3",
+      "content_sha256": "a0f488baa39178268ea511c63e47040e7321c9591050922205ae7ceb1fb5ba97"
+    },
+    {
+      "path": "openspec/specs/fleet-manager-adapter-contract/spec.md",
+      "git_blob": "cbb261b521b0f96579a53c259dce886a19622ae4",
+      "content_sha256": "7513ee9b793358a67b3d02bf1b50ddbc2c42522c64b602108d5651358df647da"
+    },
+    {
+      "path": "openspec/specs/fleet-manager-agent-channel/spec.md",
+      "git_blob": "a3fe1a571a10b4b144bdb27df38bb793e6ca84f8",
+      "content_sha256": "02b352849f00eacbafebc27c5028149a571e3a00de7e50ce5734c2fde0b06860"
+    },
+    {
+      "path": "openspec/specs/fleet-manager-agent-operations/spec.md",
+      "git_blob": "e74027d1624b39572ffa637304aabe3a214a6efe",
+      "content_sha256": "9fb66d5e441d6827968cf24d795ab7a54dcfe699fe688b4a2208071e9e011ac7"
+    },
+    {
+      "path": "openspec/specs/fleet-manager-boundary/spec.md",
+      "git_blob": "f6188d105d03bc7fef898cc21a0740583635a5b7",
+      "content_sha256": "d0953152209d488a482fc159ed167cf5d51098124f1e3fa345195a7e1ff9284e"
+    },
+    {
+      "path": "openspec/specs/fleet-manager-contracts/spec.md",
+      "git_blob": "85a17534a4daf7e3da8233f68729e0dfaf7874fa",
+      "content_sha256": "e9ae54bb0db230ff799310fc950b4fc4154971b0cbdbd74eb7d00f0f831bf597"
+    },
+    {
+      "path": "openspec/specs/fleet-manager-domain/spec.md",
+      "git_blob": "9a2e8c229fd1ec815a068f1c0fd770ecc8e76dc5",
+      "content_sha256": "9b5de48099bd2b9ac71ea16dd533c03d0a35db7a825d7842eb8a08cbac87832d"
+    },
+    {
+      "path": "openspec/specs/fleet-manager-extraction/spec.md",
+      "git_blob": "123dc1050d3033ea89f016c0aa42cdc45ef80a51",
+      "content_sha256": "070769f60f2d54bfd6f61f756ff2d342cb9737f1d0532e014fa700c3944b5c90"
+    },
+    {
+      "path": "openspec/specs/fleet-manager-job-lifecycle/spec.md",
+      "git_blob": "36dd1e81a1876471230c33469d6c2c06ca013ba1",
+      "content_sha256": "28e75bd7e5dcf9ec16aef9ded51a25e299e4facd65ade6fc07c071c7d03fa044"
+    },
+    {
+      "path": "openspec/specs/fleet-manager-plan/spec.md",
+      "git_blob": "c77eb5ef49efe50e2ca3048b06f3417f10c6c28b",
+      "content_sha256": "1df2298cf266d3ee8e5903dc2a7794fa4f5366d9cbe3a425faf480ab8cb54ce3"
+    },
+    {
+      "path": "openspec/specs/fleet-manager-reconciliation/spec.md",
+      "git_blob": "18ef38349a1f1a41f1e8ef6b9da5f2e0856d1150",
+      "content_sha256": "9cefc92e1767c00bd31b2f81204f3547109e70a34c753ba9729884e79b0c392c"
+    },
+    {
+      "path": "openspec/specs/fleet-manager-signed-state/spec.md",
+      "git_blob": "04c87e08cc1166184b8e012ba637a4739f2ff885",
+      "content_sha256": "073e678c9137b3b77dc74aa4c2053e4d0cd892b2b3158dab2aaaa1e5d0093f5e"
+    },
+    {
+      "path": "openspec/specs/framework-ci/spec.md",
+      "git_blob": "c65e11bb95be607d06b2cc38bf5bf58486719cd5",
+      "content_sha256": "389ad1a3040e52f9a0c4f45605f88e3e66b7b611856355b4f375e4108b179797"
+    },
+    {
+      "path": "openspec/specs/game-regression/spec.md",
+      "git_blob": "a16a669f0bb945cb6f4bee38e3b1f8d4ee25c8d4",
+      "content_sha256": "471287fd6cef14492c5eed2e8a638403178636289b48ec6f5238e17dc2f1028a"
+    },
+    {
+      "path": "openspec/specs/game-session-start/spec.md",
+      "git_blob": "14da3ecdf9259c01115aa5232e10df0899814ca8",
+      "content_sha256": "d32e58fe460ddb81edd3344c0bd19827c7f12452c0b1b6fdd854b1bd3db120bb"
+    },
+    {
+      "path": "openspec/specs/gate-configuration-contract/spec.md",
+      "git_blob": "cfc59bcc8aff63221018a40a959e30b5b777753b",
+      "content_sha256": "adaf6ce26558c92178999ac6195a95ffd75b25df5fa3f17c00b2e4d389ca3d5d"
+    },
+    {
+      "path": "openspec/specs/gate-execution-contract/spec.md",
+      "git_blob": "4d384ec2a9ba1c5975ed052dde206557e83d89fd",
+      "content_sha256": "f427cac7a8d70ac10c7f6c654b987243ce233d6e3629bca75cd8da9867b281cd"
+    },
+    {
+      "path": "openspec/specs/hub-architecture/spec.md",
+      "git_blob": "6cd4cffb6982c9a6e8745457da14cc20624f018e",
+      "content_sha256": "75a12b8ce0b588783026e1679a52190ec102389af5306ba7e30ca18963cc771f"
+    },
+    {
+      "path": "openspec/specs/integrations/spec.md",
+      "git_blob": "ad866a61748d6c9c63aadfdf2afd9a9eb1c22fa7",
+      "content_sha256": "52ba7a858751dce4ec415d0c02167030b95e212a9aeee59dffe69935fa894e0d"
+    },
+    {
+      "path": "openspec/specs/package-resolution/spec.md",
+      "git_blob": "2126f6c503f1f29046e7ae7f2f7e6c89ab061e12",
+      "content_sha256": "2c0f1cb2fb4401bf8abc24430e360d3271a8f45ba0c3e445aa15fc5c20be75e2"
+    },
+    {
+      "path": "openspec/specs/per-screen-tracking/spec.md",
+      "git_blob": "e2e81a2fe2b872e17587145bd4d799bac8265ebe",
+      "content_sha256": "b00061dbe228d7a44bda5ba247153464451ff4b1d06cbe6778ddce182960ecbc"
+    },
+    {
+      "path": "openspec/specs/publish-safety/spec.md",
+      "git_blob": "8592e21745f5c8b5d030b2a96ec67d8c5dc6b43d",
+      "content_sha256": "ccbe7581f79faab0a65c71c040419ba0bb0928e952cb2345b1422a133b2052aa"
+    },
+    {
+      "path": "openspec/specs/release-gate-targeting/spec.md",
+      "git_blob": "a152f804a327083cd9884613d1ffb274b7f2a73c",
+      "content_sha256": "687fb1907157a077f9dbd02024319fce097fe810b39230f387019023b5c9f9c2"
+    },
+    {
+      "path": "openspec/specs/rule-coverage-truth/spec.md",
+      "git_blob": "bbcfc2bd88d00e4d913bcee92c5927ea3b450c37",
+      "content_sha256": "58687f990afd0451e2b4f421c38af27798f031e2f0cf93198f87be97bee630e6"
+    },
+    {
+      "path": "openspec/specs/runner-monitoring/spec.md",
+      "git_blob": "1805ee4ffff3b61eb121c3784982714b9d2b81b7",
+      "content_sha256": "e37ef1eec11860212f7ded1ad4c8d2e05e2a9ed71365573c1e5ce2aa35a8095b"
+    },
+    {
+      "path": "openspec/specs/runner-toolchain-requests/spec.md",
+      "git_blob": "174c47dd814c0520d7babd84b7afab40d5e129da",
+      "content_sha256": "026be924e65f0f20f7079699f5802fec0bead8e53dc5895b503933a89770187b"
+    },
+    {
+      "path": "openspec/specs/scanner-parsing/spec.md",
+      "git_blob": "d41c7558a36d60b483c38123f2e37a1b31907327",
+      "content_sha256": "a85a678bf883964274828f1ef4bc1d2c216c6ebe3194a688d9560b123ce9184c"
+    },
+    {
+      "path": "openspec/specs/security-boundaries/spec.md",
+      "git_blob": "d6ef280a0693b13fc0a2f275a1212283c8cbb0ae",
+      "content_sha256": "55da52255fdd59f159faf1315ee86db1672eca4e89ff0bafc990e2e70ca12ff8"
+    },
+    {
+      "path": "openspec/specs/spec-platform/spec.md",
+      "git_blob": "781213a35540ed75dfd4d522565af7efc2b2d64c",
+      "content_sha256": "7a9b7b350a4c4b68d16b6d74014ec4896f2f3b301a61f02484c3035a229b0566"
+    },
+    {
+      "path": "openspec/specs/spec-state-ledger/spec.md",
+      "git_blob": "7245b58db00f80792f109a03d68451bf1e3608ae",
+      "content_sha256": "b021ee1f60e3b883799dc2e73c768573132af94689d4ea9653eafb959204ae5c"
+    },
+    {
+      "path": "openspec/specs/subjects-3d/spec.md",
+      "git_blob": "3cec53fd5a8475a9b4425ad6d6fdca3099ea0851",
+      "content_sha256": "53af6bb1e41b5d80f49062e4328ee864f3a06c66d8c639787cf3bbc804cb7c34"
+    },
+    {
+      "path": "openspec/specs/zig-opengl-engine/spec.md",
+      "git_blob": "8569476f96eb2b924098384dd2cb4f1345f44491",
+      "content_sha256": "d2b6e6eadfce36ce991dd1f0788e4a01f1f757fd059cb497ba21dd1565a93305"
+    },
+    {
+      "path": "openspec/state-ledger.jsonl",
+      "git_blob": "49bb32db02cf0f78890e9be785285360d7bcaf17",
+      "content_sha256": "94dcc7211c33f64946499d77fe1f38fbf5c307d85ddfe09ce5868343acc4d386"
+    },
+    {
+      "path": "openspec/state-unproven.jsonl",
+      "git_blob": "66ec1b54957ef4fb7ce5d91ae49dae59cf89d05c",
+      "content_sha256": "7b508628884863d3aa94f68b50fa0dfcfdbe280fefb2e0a69e489d1879114d1b"
+    },
+    {
+      "path": "scripts/evidence-validate.py",
+      "git_blob": "dc2087a3b88dc3def40eddfe0c218fee5ac35f29",
+      "content_sha256": "9d6adce43d3826ccbe9d2a57bf8d3595ada859238c749b06505f25f8b7b5846b"
+    },
+    {
+      "path": "scripts/spec_index.py",
+      "git_blob": "2fe105b5b58cd958e816f11be3153b362ee94568",
+      "content_sha256": "fdf304f0c80967a70ca987262a7ab913401fb6d5b90563c31b096dc18781cb05"
+    },
+    {
+      "path": "scripts/spec_state_gate.py",
+      "git_blob": "958822c76a6be402b41c097661c03568cd876728",
+      "content_sha256": "5a08442284ca1502f6ee2eb28ddcfb82bdc1e9bf09b6d19708bab41ad0e32d16"
+    }
+  ],
+  "source_rows": 182,
+  "unique_spec_requirement_pairs": 182,
+  "unique_specs": 42,
+  "index_unproven_specs": 42,
+  "index_unproven_requirement_count_sum": 182,
+  "owner_spec_requirement_ids_matched": 182,
+  "ledger_pair_overlap_count": 0,
+  "ledger_pair_overlap": [],
+  "distinct_citation_windows": 28,
+  "citation_reference_kinds": {
+    "full_commit_range": 25,
+    "empty": 1,
+    "other_path_or_commit_ref": 2
+  },
+  "provenance_counts": {
+    "accepted": 113,
+    "rejected": 69
+  },
+  "provenance_rejection_reason_counts": {
+    "no_path": 61,
+    "absent_path_at_head": 4,
+    "unresolved_cited_commit": 4
+  },
+  "citation_resolution_and_changed_file_review": "deferred to task 1.2",
+  "roster_sha256": "sha256:92c30d3b19cebdfac4a99f3a8a47ebbdb7ca3e28dcd8b35d63e16d1e4da4b27a"
+}

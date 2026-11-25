@@ -66,6 +66,12 @@ partial task records. The bounded source review records tested and dated
 evidence while leaving complete task adjudication and owner dispositions
 open. [DG-04 inventory and evidence](../changes/dg-04-archive-task-reconciliation/evidence.md)
 
+## DG-02 evidence roster
+
+The verified baseline has 182 unproven requirement records across 42 specs.
+The source manifest and stable roster are available for the remaining
+per-requirement evidence review and ledger validation. [DG-02 roster evidence](../changes/dg-02-evidence-ledger-reconciliation/roster-evidence.md)
+
 ## Existing active work
 
 - `add-gitlab-forge-support` has nine checked boxes and four unchecked live
