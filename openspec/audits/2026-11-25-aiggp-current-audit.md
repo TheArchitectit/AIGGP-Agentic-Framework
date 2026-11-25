@@ -164,9 +164,9 @@ checksums. [Hosted CI](https://github.com/TheArchitectit/AIGGP-Agentic-Framework
 
 | ID | Owner role | Proposed scope | Package |
 |---|---|---|---|
-| `DG-08` | GitHub template maintainers | Bootstrap all three runtime workflows (`drift-scan`, `specs`, `text-integrity`) and test the whole workflow directory. | [DG-08 proposal](../changes/dg08-consumer-workflow-bootstrap/proposal.md) |
+| `DG-08` | GitHub template maintainers | Bootstrap all three runtime workflows (`drift-scan`, `specs`, `text-integrity`) and test the whole workflow directory. | [DG-08 proposal](../changes/archive/2026-11-25-dg08-consumer-workflow-bootstrap/proposal.md) |
 | `DG-17` | Framework CI maintainers | Preserve every supported tracked Git path in checksum generation and fail explicitly when the text manifest cannot encode a path. | [DG-17 proposal](../changes/archive/2026-11-25-dg17-checksum-unicode-path-inventory/proposal.md) |
-| `DG-18` | Spec format and traceability maintainers | Add tightly scoped YAML workflow marker discovery with real excluded/example controls. | [DG-18 proposal](../changes/dg18-yaml-workflow-source-markers/proposal.md) |
+| `DG-18` | Spec format and traceability maintainers | Add tightly scoped YAML workflow marker discovery with real excluded/example controls. | [DG-18 proposal](../changes/archive/2026-11-25-dg18-yaml-workflow-source-markers/proposal.md) |
 
 ## Appendix A - complete per-requirement inventory
 

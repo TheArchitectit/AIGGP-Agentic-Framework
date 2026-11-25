@@ -36,7 +36,7 @@ Template repository `.devgate` pin/CI behavior is separate from AIGGP reusable w
 
 All task checkboxes remain unchecked pending implementation and independent review:
 
-- [DG-08: GitHub consumer bootstrap](../changes/dg08-consumer-workflow-bootstrap/proposal.md)
+- [DG-08: GitHub consumer bootstrap](../changes/archive/2026-11-25-dg08-consumer-workflow-bootstrap/proposal.md)
 - [DG-09: conditional GitLab runner monitoring](../changes/dg09-gitlab-runner-live-monitoring/proposal.md)
 - [DG-10: GitLab runner image provenance](../changes/dg10-gitlab-runner-image-provenance/proposal.md)
 - [DG-11: GitLab mirror bootstrap](../changes/archive/2026-11-25-dg11-gitlab-mirror-bootstrap/proposal.md)

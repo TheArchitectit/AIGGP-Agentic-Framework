@@ -39,6 +39,15 @@ git submodule add <devgate-url> .devgate
 > ordering, and the parent-repo git commands, see
 > [SUBMODULE_WIRING.md](./SUBMODULE_WIRING.md).
 
+For GitHub Actions consumers, the reusable `drift-scan.yml`, `specs.yml`, and
+`text-integrity.yml` workflows bootstrap this local-only path themselves. Add
+`.devgate/` to the consumer `.gitignore` and replace each workflow's
+`REPLACE_WITH_REVIEWED_FULL_40_HEX_COMMIT` value with the reviewed, full
+lowercase 40-character DevGate commit before enabling those workflows. Each
+workflow verifies the exact checkout and its
+workflow-specific scripts/data before running gates; it does not rely on
+`.gitmodules` or recursive submodule checkout.
+
 ---
 
 ## Layout
@@ -411,7 +420,9 @@ when the bug is genuinely generic to the framework. Entries are append-only.
 
 ## Onboarding checklist
 
-- [ ] Submodule at `.devgate/` (exact name)
+- [ ] Local, ignored checkout at `.devgate/` (exact name; never a submodule)
+- [ ] For GitHub reusable workflows, the workflow-level `DEVGATE_SHA` value is
+      the reviewed full DevGate commit SHA
 - [ ] `.guardrails/` overlay exists; baseline untouched
 - [ ] Secret ignore patterns added before first gate run
 - [ ] `.guardrails/scope.json` names every vendored/generated tree

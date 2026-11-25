@@ -14,7 +14,7 @@ generated drafts cannot inflate the coverage numbers that judge them.
 `find_spec_files`/raw text readers still see the file; only the ID map is
 filtered. Reviewing a draft means deleting the marker, which admits it.
 """
-# spec: sga-05, rule-marker-01, spec-fmt-01
+# spec: sga-05, rule-marker-01, spec-fmt-01, spec-fmt-06
 import re
 from pathlib import Path
 
@@ -43,6 +43,20 @@ ID = re.compile(r"[A-Za-z0-9-]+")
 # and MergeKingdom has no markers yet, so no existing number shifts.
 SCAN_EXTS = {".rs", ".py", ".mjs", ".js", ".ts", ".tsx", ".sh", ".zig", ".gd", ".sql", ".lua"}
 SCAN_SKIP = {"target", "node_modules", ".git", "openspec", ".devgate"}
+YAML_EXTS = {".yml", ".yaml"}
+YAML_SOURCE_ROOTS = {
+    (".github", "workflows"),
+    ("templates", "github-workflows"),
+    ("templates", "gitlab-ci"),
+}
+YAML_EXCLUDED_PARTS = {
+    "doc", "docs", "test", "tests", "fixture", "fixtures",
+    "example", "examples", "generated", "archive", "archives",
+}
+YAML_PREAMBLE_MARKER = re.compile(
+    r"^#[ \t]*spec:[ \t]*([A-Za-z0-9-]+(?:[ \t]*,[ \t]*[A-Za-z0-9-]+)*)"
+    r"(?=$|[ \t])"
+)
 
 
 def find_spec_files(root: Path) -> list[Path]:
@@ -96,10 +110,63 @@ def collect_requirements(root: Path) -> dict:
     return out
 
 
+def _yaml_preamble_markers(text: str) -> set[str]:
+    """Find file-level markers before the first YAML content line.
+
+    This intentionally does not try to tokenize YAML. The reviewed workflow
+    markers are comments in the leading preamble; after YAML content begins,
+    marker-shaped lines belong to YAML scalar values and must not count.
+    """
+    markers = set()
+    for index, line in enumerate(text.split("\n")):
+        if index == 0:
+            line = line.removeprefix("\ufeff")
+        if not line.strip(" \t"):
+            continue
+        if line.lstrip(" \t").startswith("#"):
+            # Only an unindented, standalone top-level comment can annotate
+            # the file. Indented comments remain part of the preamble but do
+            # not provide coverage.
+            if not line.startswith((" ", "\t")):
+                match = YAML_PREAMBLE_MARKER.match(line)
+                if match:
+                    markers.update(ID.findall(match.group(1)))
+            continue
+        break
+    return markers
+
+
+def _is_owned_yaml_source(root: Path, path: Path) -> bool:
+    if path.is_symlink() or path.suffix.lower() not in YAML_EXTS:
+        return False
+    try:
+        relative = path.relative_to(root)
+    except ValueError:
+        return False
+    if any(part in SCAN_SKIP for part in relative.parts):
+        return False
+    parts = relative.parts
+    if any(part.lower() in YAML_EXCLUDED_PARTS for part in parts):
+        return False
+    return any(parts[:len(source_root)] == source_root
+               and len(parts) > len(source_root)
+               for source_root in YAML_SOURCE_ROOTS)
+
+
 def collect_markers(root: Path) -> set:
     markers = set()
     for path in root.rglob("*"):
-        if not path.is_file() or path.suffix not in SCAN_EXTS:
+        if not path.is_file():
+            continue
+        if path.suffix.lower() in YAML_EXTS:
+            if not _is_owned_yaml_source(root, path):
+                continue
+            try:
+                markers.update(_yaml_preamble_markers(path.read_text(encoding="utf-8")))
+            except (OSError, UnicodeError):
+                continue
+            continue
+        if path.suffix not in SCAN_EXTS:
             continue
         if any(part in SCAN_SKIP for part in path.parts):
             continue

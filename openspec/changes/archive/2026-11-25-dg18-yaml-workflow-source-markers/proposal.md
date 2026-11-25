@@ -6,8 +6,8 @@ The requirement source-marker scanner recognizes Python, JavaScript, shell, Rust
 
 ## What Changes
 
-- Recognize standalone YAML comment markers only in the repository-owned CI source directories `.github/workflows/`, `templates/github-workflows/`, and `templates/gitlab-ci/`.
-- Keep marker extraction constrained to actual comment lines and exclude docs, tests, fixtures, generated files, and archived examples.
+- Recognize top-level YAML comment preamble markers only in the repository-owned CI source directories `.github/workflows/`, `templates/github-workflows/`, and `templates/gitlab-ci/`.
+- Limit annotations to leading standalone comments and exclude documentation, tests, fixtures, generated files, archives, and symlinked YAML files.
 - Add controls proving the real GitLab include marker is discovered and example/fixture markers do not satisfy an isolated requirement.
 
 ## Capabilities
