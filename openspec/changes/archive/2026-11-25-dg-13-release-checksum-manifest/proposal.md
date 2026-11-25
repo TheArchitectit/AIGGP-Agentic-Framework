@@ -23,7 +23,7 @@ None.
 
 ### Modified Capabilities
 
-- `framework-ci`: require the checked-in release checksum manifest to cover
+- `release-checksum-manifest`: require the checked-in release checksum manifest to cover
   every supported tracked script with its current SHA-256 digest.
 
 ## Impact

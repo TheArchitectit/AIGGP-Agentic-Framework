@@ -19,4 +19,6 @@
 
 ## Acceptance boundary
 
-All scoped local/bootstrap, template inventory, and forge parity checks passed. GitLab server parsing, runner execution, protected-variable configuration, private-source authentication, and real project adoption remain unverified and must stay dormant until an operator adopts GitLab. This package is held for independent audit and lead review; it is not archived or published.
+All scoped local/bootstrap, template inventory, and forge parity checks passed. GitLab server parsing, runner execution, protected-variable configuration, private-source authentication, and real project adoption remain unverified and must stay dormant until an operator adopts GitLab. Independent audit approved the integrated candidate. Ten isolated Linux
+bootstrap fixtures and the Windows structural inventory check passed. The
+reviewed implementation is published at `ac61e20fa7a4afcc8e2827817446fa01cb5730ff`.

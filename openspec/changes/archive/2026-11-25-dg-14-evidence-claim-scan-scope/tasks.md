@@ -22,9 +22,10 @@
 - [x] 3.1 Run focused gate tests and the direct evidence-claim scan. Windows
   focused tests passed 36/36; the tree scan reported 1,089 files and zero
   findings.
-- [ ] 3.2 Independently inspect the allowlist paths and positive controls.
-- [ ] 3.3 Run pinned strict OpenSpec and relevant CI checks after current main
-  is incorporated; keep hosted checks pending.
+- [x] 3.2 Independently inspect the allowlist paths and positive controls.
+- [x] 3.3 Run pinned strict OpenSpec and relevant CI checks after current main
+  is incorporated. Both relevant hosted detector steps passed on the reviewed
+  revision. [Evidence](evidence.md)
 
 ## Workflow follow-up
 

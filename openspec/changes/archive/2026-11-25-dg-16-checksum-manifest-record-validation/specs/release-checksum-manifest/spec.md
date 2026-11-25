@@ -1,5 +1,9 @@
 # Spec Delta
 
+## Purpose
+
+Verify that the shipped release checksum manifest unambiguously covers the current tracked script inventory.
+
 ## ADDED Requirements
 
 ### Requirement: Checksum manifest records are unambiguous and well-formed

@@ -1,5 +1,9 @@
 # Spec Delta
 
+## Purpose
+
+Define how the hermetic GitHub and GitLab parity corpus exercises gate behavior across supported local fixture hosts.
+
 ## ADDED Requirements
 
 ### Requirement: Hermetic parity seed paths are portable

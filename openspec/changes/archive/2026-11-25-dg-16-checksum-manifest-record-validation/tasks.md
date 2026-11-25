@@ -13,8 +13,8 @@
 
 ## 2. Candidate verification
 
-- [ ] 2.1 Run pinned OpenSpec strict validation and the repository test suite.
-- [ ] 2.2 Independently review the implementation and test evidence.
+- [x] 2.1 Run pinned OpenSpec strict validation and the repository test suite.
+- [x] 2.2 Independently review the implementation and test evidence.
 
 ## Workflow follow-up
 

@@ -7,4 +7,4 @@
 
 ## 2. Confirm the review boundary
 
-- [x] 2.1 Verify the OI-001 checklist item's ID, source date, and unchecked state remain; its text now reflects the confirmed scope. The historical triage row and Sprint 0 implementation remain unchanged as live/conditional tasks. The aging check passes (3 aged items, 3 triaged, 0 expired deferrals) and pinned OpenSpec 1.14.3 strict validation passes.
+- [x] 2.1 Verify the OI-001 checklist item's ID, source date, and unchecked state remain; its historical wording remains part of the ledger. The latest triage record carries the confirmed scope and Sprint 0 remains a live adoption-triggered task. The aging check passes (3 aged items, 3 triaged, 0 expired deferrals) and pinned OpenSpec 1.14.3 strict validation passes.

@@ -43,22 +43,22 @@ evidence gate accepts proof for each requirement.
 | `DG-08` | Open | GitHub template maintainers | The reusable drift workflow assumes a submodule-provided .devgate checkout while the consumer contract calls for local untracked tooling. | [dg08-consumer-workflow-bootstrap](../changes/dg08-consumer-workflow-bootstrap/proposal.md) |
 | `DG-09` | Conditional on adoption | GitLab option and monitor owners | Forge enrollment and template behavior have fixture evidence. Live GitLab runner monitoring remains conditional on operator adoption. | [dg09-gitlab-runner-live-monitoring](../changes/dg09-gitlab-runner-live-monitoring/proposal.md) |
 | `DG-10` | Open | Runner distribution maintainers | GitLab templates pin an image digest. The repository review could not resolve its reviewed build source and artifact provenance. | [dg10-gitlab-runner-image-provenance](../changes/dg10-gitlab-runner-image-provenance/proposal.md) |
-| `DG-11` | Open | GitLab template maintainers | The GitLab drift mirror assumes recursive submodule checkout and .devgate scripts. Its clean consumer bootstrap requires a verified framework pin. | [dg11-gitlab-mirror-bootstrap](../changes/dg11-gitlab-mirror-bootstrap/proposal.md) |
+| `DG-11` | Verified and archived | GitLab template maintainers | Ten mirrors share a reviewed full-commit DevGate bootstrap with passing hermetic controls. Live GitLab runner acceptance applies upon adoption. | [Archived evidence](../changes/archive/2026-11-25-dg11-gitlab-mirror-bootstrap/evidence.md) |
 | `DG-12` | Verified and archived | Framework CI maintainers | The drift-template test runs directly and is tracked at mode 100755. The executable gate passes. | [Archived DG-12 evidence](../changes/archive/2026-11-25-dg12-reconcile-drift-test-executable-mode/evidence.md) |
-| `DG-13` | Open | Framework CI maintainers | The PR-head release-checksum gate found a missing manifest entry for `scripts/spec_id_inventory.py` and a stale digest for `scripts/check_exec_bits.py`. | [dg-13-release-checksum-manifest](../changes/dg-13-release-checksum-manifest/proposal.md) |
-| `DG-14` | Open | Open-item gate maintainers | The evidence-claim detector reports generated Git metadata on Windows and literal marker examples in two spec documents. Preserve detection of real claims while narrowing path/context handling. | [dg-14-evidence-claim-scan-scope](../changes/dg-14-evidence-claim-scan-scope/proposal.md) |
-| `DG-15` | Open | GitLab parity maintainers | The hermetic parity drill embeds native Windows paths into JSON seed content, causing the surface-divergence case to exit with a usage error. Keep the pinned corpus unchanged and verify both hosts. | [dg-15-windows-parity-seed-path](../changes/dg-15-windows-parity-seed-path/proposal.md) |
-| `DG-16` | Open | Framework CI maintainers | The checksum verifier's dictionary parsing silently overwrites duplicate paths and accepts malformed digest strings. Reject duplicates and malformed SHA-256 rows with disposable-repository regressions. | [dg-16-checksum-manifest-record-validation](../changes/dg-16-checksum-manifest-record-validation/proposal.md) |
-| `OI-001` | Open owner review | GitLab option owner/operator | The instance selection deferral review date expired. Record a fresh decision and its next authorized trigger. | [review-gitlab-instance-deferral](../changes/review-gitlab-instance-deferral/proposal.md) |
-| `OI-002` | Open owner review | GitLab option owner/operator | The live parity deferral review date expired. Reassess the condition against the instance selection decision and separate fixture evidence from live proof. | [review-gitlab-parity-deferral](../changes/review-gitlab-parity-deferral/proposal.md) |
-| `OI-003` | Open owner review | GitLab option owner/operator | The restore drill deferral review date expired. Reassess the proof requirement against the approved instance disposition. | [review-gitlab-restore-deferral](../changes/review-gitlab-restore-deferral/proposal.md) |
+| `DG-13` | Verified and archived | Framework CI maintainers | The exact hosted checksum step passed for all 160 canonical entries. | [Archived evidence](../changes/archive/2026-11-25-dg-13-release-checksum-manifest/evidence.md) |
+| `DG-14` | Verified and archived | Open-item gate maintainers | Exact-scope exclusions passed independent controls and the hosted detector at ac61e20. | [Archived evidence](../changes/archive/2026-11-25-dg-14-evidence-claim-scan-scope/evidence.md) |
+| `DG-15` | Verified and archived | GitLab parity maintainers | The pinned five-case drill passed on Windows and Linux, including a quoted Linux fixture path. | [Archived evidence](../changes/archive/2026-11-25-dg-15-windows-parity-seed-path/evidence.md) |
+| `DG-16` | Verified and archived | Framework CI maintainers | The verifier fails malformed SHA-256 and duplicate records, and checks the current 160-record inventory. | [Archived evidence](../changes/archive/2026-11-25-dg-16-checksum-manifest-record-validation/evidence.md) |
+| `OI-001` | Disposition archived | GitLab option owner/operator | The owner specified feature support. Live instance enrollment requires explicit adoption. | [Archived evidence](../changes/archive/2026-11-25-review-gitlab-instance-deferral/evidence.md) |
+| `OI-002` | Disposition archived | GitLab option owner/operator | Hermetic parity passed. Live parity requires explicit adoption. | [Archived evidence](../changes/archive/2026-11-25-review-gitlab-parity-deferral/evidence.md) |
+| `OI-003` | Disposition archived | GitLab option owner/operator | The real GitLab backup and restore check requires explicit adoption and applies before gates depend on that instance. | [Archived evidence](../changes/archive/2026-11-25-review-gitlab-restore-deferral/evidence.md) |
 
 ## Existing active work
 
-- `add-gitlab-forge-support` has eight checked boxes and four unchecked live
+- `add-gitlab-forge-support` has nine checked boxes and four unchecked live
   conditions. The owner's existing decision accepts hermetic GitLab support
-  as optional, with live proof deferred until adoption. The three new
-  disposition packages preserve that decision pending review. [Existing plan](../changes/add-gitlab-forge-support/tasks.md)
+  as optional, with live proof deferred until adoption. The three
+  archived dispositions record the confirmed adoption trigger. [Existing plan](../changes/add-gitlab-forge-support/tasks.md)
 - `harden-template-runner-portability` has seven checked boxes and one
   outstanding consumer-runner acceptance item. The change remains active.
   [Existing plan](../changes/harden-template-runner-portability/tasks.md)
@@ -78,9 +78,9 @@ the task evidence and ledger disposition support closure.
 
 ## Review-branch checks
 
-The pinned CLI validates 73 items in the review branch: 56 published specs,
-two existing active changes, and 15 new item changes. The 15 new changes
-have complete planning artifacts and unchecked acceptance tasks. Peer review
+The pinned CLI validated 73 items in the initial review branch: 56 published specs,
+two existing active changes, and 15 new item changes. The 15 review changes
+began with complete planning artifacts and unchecked acceptance tasks. Peer review
 checked their evidence and refined the proposed scenarios, especially the
 GitLab heartbeat, signed runner image provenance, and marker-ID contracts.
 

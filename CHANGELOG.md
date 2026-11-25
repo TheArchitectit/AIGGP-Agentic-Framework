@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Reconciled and verified all 160 release checksum entries in hosted CI (DG-13).
+- Scoped evidence-claim exclusions and verified the hosted detector (DG-14).
+- Made the hermetic forge parity corpus portable across Windows and POSIX
+  fixtures (DG-15).
+- Rejected malformed and duplicate release checksum records (DG-16).
+- Provisioned pinned DevGate for ten GitLab mirrors in clean consumers
+  (DG-11).
+- Recorded the owner disposition for optional live GitLab acceptance
+  (OI-001 through OI-003).
 - Reconciled eight published requirement IDs and checked heading and marker
   agreement with the pinned OpenSpec CLI in CI (DG-01).
 - Restored direct execution of the drift template test and enforced its

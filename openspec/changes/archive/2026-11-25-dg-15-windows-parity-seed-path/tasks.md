@@ -21,7 +21,7 @@
   Linux direct drill passed under a temp root containing a double quote; the
   LF-normalized candidate also passed the five-case drill and 23 focused tests.
   Windows focused tests passed 23 with one POSIX-only quote test skipped.
-- [ ] 2.3 Independently review the diff and both host results; no live forge or
+- [x] 2.3 Independently review the diff and both host results; no live forge or
   external environment was contacted.
 
 ## Workflow follow-up

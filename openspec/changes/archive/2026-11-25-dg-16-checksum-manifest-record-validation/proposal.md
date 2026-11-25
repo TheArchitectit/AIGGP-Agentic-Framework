@@ -16,9 +16,9 @@ invalid record even though the gate is intended to fail closed.
 
 ## Capabilities
 
-### Modified Capabilities
+### New Capabilities
 
-- `framework-ci`: enforce unambiguous, well-formed checksum manifest records.
+- `release-checksum-manifest`: enforce unambiguous, well-formed checksum manifest records.
 
 ## Impact
 

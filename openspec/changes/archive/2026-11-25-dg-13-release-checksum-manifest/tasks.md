@@ -17,9 +17,9 @@
 
 ## 2. Candidate verification and review
 
-- [ ] 2.1 Run the repository's pinned CI workflow on the candidate commit;
+- [x] 2.1 Run the repository's pinned CI workflow on the candidate commit;
   verify the release-checksum step passes at that exact head.
-- [ ] 2.2 Independently inspect the manifest and CI evidence; verify the
+- [x] 2.2 Independently inspect the manifest and CI evidence; verify the
   reported revision matches the candidate and no local-only result is
   represented as hosted verification.
 
