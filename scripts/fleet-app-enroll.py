@@ -182,7 +182,7 @@ def next_link(link_header: str):
     return None
 
 
-def seal_secret(public_key_b64: str, plaintext: str) -> str:
+def seal_secret(public_key_b64: str, plaintext: str) -> str:  # spec: fleet-app-08
     """Seal `plaintext` for a GitHub Actions repository public key.
 
     Returns base64 ciphertext. PyNaCl is imported here, not at module scope,
@@ -204,7 +204,7 @@ def seal_secret(public_key_b64: str, plaintext: str) -> str:
             f"could not seal the private key ({type(exc).__name__})") from exc
 
 
-def list_repositories(api: GitHubAPI):
+def list_repositories(api: GitHubAPI):  # spec: fleet-app-01
     """Every repository the installation covers, following Link rel=next."""
     url = f"/installation/repositories?per_page={PER_PAGE}"
     repositories = []
@@ -231,7 +231,7 @@ def _full_name(repository) -> str:
     return name
 
 
-def _ensure_variable(api, full_name, app_id, dry_run):
+def _ensure_variable(api, full_name, app_id, dry_run):  # spec: fleet-app-03, fleet-app-05
     path = f"/repos/{full_name}/actions/variables/{VARIABLE_NAME}"
     response = api.request("GET", path)
     if response.status == 404:
@@ -271,7 +271,7 @@ def _put_secret(api, full_name, private_key):
     _expect(stored, {201, 204}, f"store secret on {full_name}")
 
 
-def _ensure_secret(api, full_name, private_key, rotate, dry_run):
+def _ensure_secret(api, full_name, private_key, rotate, dry_run):  # spec: fleet-app-04, fleet-app-05
     path = f"/repos/{full_name}/actions/secrets/{SECRET_NAME}"
     response = api.request("GET", path)
     if response.status == 200:
@@ -291,6 +291,7 @@ def _ensure_secret(api, full_name, private_key, rotate, dry_run):
     return "secret-created"
 
 
+# spec: fleet-app-02, fleet-app-09
 def reconcile_repo(api, repository, *, app_id, private_key, rotate, dry_run):
     try:
         full_name = _full_name(repository)
@@ -357,7 +358,7 @@ def _scrub(value, known_values):
     return value
 
 
-def _emit(report, report_path, secrets):
+def _emit(report, report_path, secrets):  # spec: fleet-app-08
     report = _scrub(report, secrets)
     text = json.dumps(report, indent=2, sort_keys=True)
     if report_path is None:
@@ -382,7 +383,7 @@ def _parse_args(argv):
     return parser.parse_args(argv)
 
 
-def _validate(args, environ):
+def _validate(args, environ):  # spec: fleet-app-06
     app_id = (environ.get("FLEET_APP_ID") or "").strip()
     token = (environ.get("FLEET_APP_TOKEN") or "").strip()
     private_key = environ.get("FLEET_APP_PRIVATE_KEY") or ""

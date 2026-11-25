@@ -102,11 +102,16 @@
 
 ## Verification
 
-- [ ] Parity drill green in CI on a pinned corpus version (GLF-01). — the
-  drill is pinned (`hub/forge/corpus.lock.json`, `2026-11-15.1`), runs real
-  gates, and is a blocking CI step; it exits 0 locally over 5 cases. **Still
-  open:** the spec's scenario pushes the corpus to both GitHub and GitLab, and
-  no live GitLab instance exists, so a two-platform green is not claimed.
+- [x] Hermetic adapter/template/interoperability parity remains green on the
+  pinned corpus (`hub/forge/corpus.lock.json`, `2026-11-15.1`). Windows tests
+  pass 23 cases and the direct drill passes all five expected gate outcomes.
+  A Linux temporary copy with shell files normalized to Linux line endings
+  also passes 23 cases and the same five-case drill. The host-portable JSON
+  seed test covers `corpus-02-surface-divergence` (GLF-14). No live forge was
+  contacted.
+- [ ] Two-live-forge parity (GLF-01 live half) is optional operator
+  acceptance after explicit GitLab adoption. Keep this task open; no two-
+  platform green result is claimed.
 - [x] `scripts/evidence-validate.py` accepts GitLab-emitted bundles with `forge` metadata (GLF-03).
 - [x] Runner-standard check fails a tag-pinned GitLab runner image (GLF-11).
 - [x] Mirror-count check fails when the two template families differ (GLF-12). — GitHub → GitLab direction only.
@@ -119,9 +124,10 @@
     deployment. Tests: `tests/test_gitlab_forge_deployment.py`
     (`test_glf13_*`). This is configuration-level proof; the adapter is still
     not bound to any live instance.
-- [ ] Backup restore drill evidenced before any gate dependency (GLF-10). —
-  blocked on Sprint 0: no instance exists to back up. `validate_backup_restore_drill`
-  and `audit_deployment` are ready to consume the report and name its absence.
+- [ ] Backup restore drill evidenced before any gate depends on an adopted
+  GitLab instance (GLF-10). It is optional operator acceptance before
+  adoption; `validate_backup_restore_drill` and `audit_deployment` still
+  require real restore evidence before such a dependency is enabled.
 
 **DORMANT SET, 2026-11-18.** Sprint 0, Sprint 4, GLF-01 and GLF-10 are the same
 condition: live proof against a real second forge. The owner decided GitLab is
@@ -130,3 +136,12 @@ instance proof is not required for the option to ship. These are not open
 work; they are conditions that activate only if someone adopts GitLab. The
 hermetic halves (adapter, templates, parity drill over a pinned corpus, the
 discovery gate) are landed and green.
+
+**OWNER SCOPE CONFIRMED, 2026-11-25.** The product goal is to support GitLab
+alongside GitHub. Selecting or enrolling a real GitLab instance, proving
+two-live-forge parity, and conducting a live backup/restore drill are optional
+operator acceptance after explicit adoption; none is a prerequisite to ship
+the GitLab support option. No live instance, two-forge result, or restore
+result is claimed by this decision. Sprint 0, the live half of Sprint 4, and
+GLF-10 remain unchecked, adoption-triggered tasks. The hermetic template,
+adapter, and parity evidence remains required and is verified separately.

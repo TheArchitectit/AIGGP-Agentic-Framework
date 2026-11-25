@@ -22,6 +22,10 @@ backlog (`docs/DIGEST-FOLLOWUPS.md`, NEXT-* ids, triaged in Mission Control) is
 deliberately NOT duplicated here — two ledgers tracking the same rows is how a
 row loses its single owner.
 
+The 2026-11-25 owner confirmed GitLab support as a product option. The existing
+live enrollment, parity, and restore tasks apply after explicit adoption.
+Their recorded disposition is in [the triage history](open-items-triage.jsonl).
+
 ## Open
 
 - [ ] 2026-10-11 OI-001 add-gitlab-forge-support Sprint 0: the operator must supply the lab GitLab instance (base URL + internal host alias, exact version to pin in `supported_version`, auth shape, reachability); discovery on 2026-10-23 found no server and re-checks on 2026-11-13 and 2026-11-15 still found none. Closes only when someone chooses to use GitLab (owner-deferred 2026-11-15).

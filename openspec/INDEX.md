@@ -16,7 +16,7 @@
 > in the consuming game repo) and stays DEFERRED until that repo builds it —
 > it is not closed by relabelling the line.
 
-**56 specs** — CLOSED 1 · DEFERRED 1 · UNPROVEN 42 · PARTIAL 0 · OPEN 0 · UNKNOWN 12
+**65 specs** — CLOSED 1 · DEFERRED 1 · UNPROVEN 42 · PARTIAL 0 · OPEN 1 · UNKNOWN 20
 
 | Spec | Title | Status | Evidence |
 |---|---|---|---|
@@ -33,6 +33,7 @@
 | [`container-runtime/spec.md`](specs/container-runtime/spec.md) | Container Runtime | **UNPROVEN** | UNPROVEN — 7 of 7 requirement(s) lack a proving ledger row (7 provenance-accepted, awaiting sealed evidence) |
 | [`decision-contract/spec.md`](specs/decision-contract/spec.md) | Decision Contract | **UNPROVEN** | UNPROVEN — 5 of 5 requirement(s) lack a proving ledger row (5 provenance-accepted, awaiting sealed evidence) |
 | [`doc-truth/spec.md`](specs/doc-truth/spec.md) | Documentation truth | **CLOSED** | Status: CLOSED (EXERCISED 2) |
+| [`drift-workflow-setup-instructions/spec.md`](specs/drift-workflow-setup-instructions/spec.md) | Drift workflow setup instructions | **UNKNOWN** | no closure table and no Status line |
 | [`enrollment-and-alerting/spec.md`](specs/enrollment-and-alerting/spec.md) | Enrollment, heartbeat, and alerting | **UNPROVEN** | UNPROVEN — 3 of 3 requirement(s) lack a proving ledger row (3 provenance-accepted, awaiting sealed evidence) |
 | [`evaluation-context/spec.md`](specs/evaluation-context/spec.md) | Evaluation Context | **UNPROVEN** | UNPROVEN — 5 of 5 requirement(s) lack a proving ledger row (5 provenance-accepted, awaiting sealed evidence) |
 | [`evidence-and-attestation/spec.md`](specs/evidence-and-attestation/spec.md) | Evidence and Attestation | **UNPROVEN** | UNPROVEN — 7 of 7 requirement(s) lack a proving ledger row (7 provenance-accepted, awaiting sealed evidence) |
@@ -49,19 +50,26 @@
 | [`fleet-manager-plan/spec.md`](specs/fleet-manager-plan/spec.md) | Fleet manager plan and apply | **UNPROVEN** | UNPROVEN — 4 of 4 requirement(s) lack a proving ledger row |
 | [`fleet-manager-reconciliation/spec.md`](specs/fleet-manager-reconciliation/spec.md) | Fleet manager reconciliation | **UNPROVEN** | UNPROVEN — 4 of 4 requirement(s) lack a proving ledger row |
 | [`fleet-manager-signed-state/spec.md`](specs/fleet-manager-signed-state/spec.md) | Fleet manager signed state | **UNPROVEN** | UNPROVEN — 4 of 4 requirement(s) lack a proving ledger row |
+| [`forge-parity/spec.md`](specs/forge-parity/spec.md) | Forge parity | **UNKNOWN** | no closure table and no Status line |
 | [`framework-ci/spec.md`](specs/framework-ci/spec.md) | Framework CI | **UNPROVEN** | UNPROVEN — 3 of 3 requirement(s) lack a proving ledger row (3 provenance-accepted, awaiting sealed evidence) |
 | [`game-regression/spec.md`](specs/game-regression/spec.md) | Game-class regression scanning | **UNPROVEN** | UNPROVEN — 6 of 6 requirement(s) lack a proving ledger row (6 provenance-accepted, awaiting sealed evidence) |
 | [`game-session-start/spec.md`](specs/game-session-start/spec.md) | Game session start | **UNPROVEN** | UNPROVEN — 6 of 6 requirement(s) lack a proving ledger row |
 | [`game-type-phase-matrix/spec.md`](specs/game-type-phase-matrix/spec.md) | Game-type phase matrix | **DEFERRED** | Status: DEFERRED |
 | [`gate-configuration-contract/spec.md`](specs/gate-configuration-contract/spec.md) | Gate configuration contract | **UNPROVEN** | UNPROVEN — 2 of 2 requirement(s) lack a proving ledger row (2 provenance-accepted, awaiting sealed evidence) |
 | [`gate-execution-contract/spec.md`](specs/gate-execution-contract/spec.md) | Gate execution contract | **UNPROVEN** | UNPROVEN — 3 of 3 requirement(s) lack a proving ledger row (3 provenance-accepted, awaiting sealed evidence) |
+| [`gitlab-instance-adoption-review/spec.md`](specs/gitlab-instance-adoption-review/spec.md) | Gitlab instance adoption review | **UNKNOWN** | no closure table and no Status line |
+| [`gitlab-parity-deferral-review/spec.md`](specs/gitlab-parity-deferral-review/spec.md) | Gitlab parity deferral review | **UNKNOWN** | no closure table and no Status line |
+| [`gitlab-restore-deferral-review/spec.md`](specs/gitlab-restore-deferral-review/spec.md) | Gitlab restore deferral review | **UNKNOWN** | no closure table and no Status line |
+| [`gitlab-template-bootstrap/spec.md`](specs/gitlab-template-bootstrap/spec.md) | Gitlab template bootstrap | **UNKNOWN** | no closure table and no Status line |
 | [`hub-architecture/spec.md`](specs/hub-architecture/spec.md) | Hub-and-spoke monitor architecture | **UNPROVEN** | UNPROVEN — 5 of 5 requirement(s) lack a proving ledger row (5 provenance-accepted, awaiting sealed evidence) |
 | [`integrations/spec.md`](specs/integrations/spec.md) | Integrations | **UNPROVEN** | UNPROVEN — 7 of 7 requirement(s) lack a proving ledger row (7 provenance-accepted, awaiting sealed evidence) |
 | [`open-item-aging/spec.md`](specs/open-item-aging/spec.md) | Open item aging | **UNKNOWN** | no closure table and no Status line |
 | [`package-resolution/spec.md`](specs/package-resolution/spec.md) | Package Resolution | **UNPROVEN** | UNPROVEN — 5 of 5 requirement(s) lack a proving ledger row (5 provenance-accepted, awaiting sealed evidence) |
 | [`per-screen-tracking/spec.md`](specs/per-screen-tracking/spec.md) | Per-screen feature tracking | **UNPROVEN** | UNPROVEN — 2 of 2 requirement(s) lack a proving ledger row (2 provenance-accepted, awaiting sealed evidence) |
 | [`publish-safety/spec.md`](specs/publish-safety/spec.md) | Publish leg safety | **UNPROVEN** | UNPROVEN — 3 of 3 requirement(s) lack a proving ledger row (3 provenance-accepted, awaiting sealed evidence) |
+| [`release-checksum-manifest/spec.md`](specs/release-checksum-manifest/spec.md) | Release checksum manifest | **OPEN** | EXERCISED 0 of 3 |
 | [`release-gate-targeting/spec.md`](specs/release-gate-targeting/spec.md) | Release gate targeting and audit classification | **UNPROVEN** | UNPROVEN — 2 of 2 requirement(s) lack a proving ledger row (2 provenance-accepted, awaiting sealed evidence) |
+| [`requirement-id-inventory/spec.md`](specs/requirement-id-inventory/spec.md) | Requirement id inventory | **UNKNOWN** | no closure table and no Status line |
 | [`reviewer-surfaces/spec.md`](specs/reviewer-surfaces/spec.md) | Reviewer surfaces | **UNKNOWN** | no closure table and no Status line |
 | [`rule-coverage-truth/spec.md`](specs/rule-coverage-truth/spec.md) | Rule coverage truth | **UNPROVEN** | UNPROVEN — 3 of 3 requirement(s) lack a proving ledger row (3 provenance-accepted, awaiting sealed evidence) |
 | [`runner-monitoring/spec.md`](specs/runner-monitoring/spec.md) | Runner health monitoring | **UNPROVEN** | UNPROVEN — 4 of 4 requirement(s) lack a proving ledger row (4 provenance-accepted, awaiting sealed evidence) |
@@ -74,6 +82,7 @@
 | [`subjects-3d/spec.md`](specs/subjects-3d/spec.md) | 3D Subjects | **UNPROVEN** | UNPROVEN — 4 of 4 requirement(s) lack a proving ledger row (4 provenance-accepted, awaiting sealed evidence) |
 | [`surface-reach/spec.md`](specs/surface-reach/spec.md) | Surface reach | **UNKNOWN** | no closure table and no Status line |
 | [`traceability-and-drift/spec.md`](specs/traceability-and-drift/spec.md) | Traceability and drift | **UNKNOWN** | no closure table and no Status line |
+| [`tracked-executable-integrity/spec.md`](specs/tracked-executable-integrity/spec.md) | Tracked executable integrity | **UNKNOWN** | no closure table and no Status line |
 | [`tree-clean/spec.md`](specs/tree-clean/spec.md) | Tree clean | **UNKNOWN** | no closure table and no Status line |
 | [`zig-opengl-engine/spec.md`](specs/zig-opengl-engine/spec.md) | Zig + OpenGL Engine Support | **UNPROVEN** | UNPROVEN — 4 of 4 requirement(s) lack a proving ledger row |
 

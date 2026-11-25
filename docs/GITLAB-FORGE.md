@@ -26,7 +26,65 @@ never names a real instance, owner, backup path, or token.
 - `hub/forge/parity.py` + `scripts/forge_parity_drill.py` — the pinned,
   blocking parity drill over real gates.
 - `templates/gitlab-ci/` — one digest-pinned GitLab CI include per GitHub
-  workflow template.
+  workflow template, each using a shared pinned-checkout bootstrap include.
+
+## Use a GitLab CI mirror
+
+The mirror templates are selectable alongside the GitHub workflows. Consumers
+can include one from the AIGGP GitLab project or copy it into their own
+repository. In either case, they declare the exact DevGate source commit its
+jobs should run.
+
+### Include from the AIGGP GitLab project
+
+Pin the AIGGP template project/ref and the DevGate source commit:
+
+```yaml
+include:
+  - project: "<AIGGP GitLab project path>"
+    ref: "<immutable template ref>"
+    file: "/templates/gitlab-ci/guardrails-compliance.gitlab-ci.yml"
+
+variables:
+  DEVGATE_SHA: "<40-character lowercase commit SHA>"
+```
+
+Each mirror inherits a shared hidden `before_script` through a nested
+`include:local`. GitLab resolves that local include in the repository and ref
+containing the mirror file, so this include-from-project path does not require
+copying the bootstrap helper. See [GitLab `include:local`](https://docs.gitlab.com/ci/yaml/#include-local).
+
+### Copy a mirror into the consumer repository
+
+Copy the selected `templates/gitlab-ci/<mirror>.gitlab-ci.yml` and
+`templates/gitlab-ci/includes/devgate-bootstrap.yml` into the same paths in the
+consumer repository. Then include the copied mirror locally:
+
+```yaml
+include:
+  - local: "/templates/gitlab-ci/guardrails-compliance.gitlab-ci.yml"
+
+variables:
+  DEVGATE_SHA: "<40-character lowercase commit SHA>"
+```
+
+Add `.devgate/` to the consumer's `.gitignore`; do not register DevGate in
+`.gitmodules`.
+
+Before any gate command, bootstrap checks the consumer root, requires the
+full immutable `DEVGATE_SHA`, fetches that commit to `.devgate/`, verifies
+`HEAD`, confirms the checkout root, and checks each mirror's explicitly
+declared required files. Malformed pins, failed or partial fetches, wrong
+roots, and missing scripts/rules/registries fail setup. Existing incomplete
+checkouts are left in place for review and are never reported as passing.
+
+The default source is the public AIGGP GitHub repository. Override
+`DEVGATE_SOURCE_URL` only when the consumer uses another approved source. If
+private fetch authentication is needed, supply `DEVGATE_GIT_USERNAME` and
+`DEVGATE_GIT_TOKEN` as masked, protected GitLab CI variables; the token is
+provided through a temporary askpass helper and is not embedded in a URL or
+printed. The checkout tests use a local bare synthetic repository only; they
+do not require or imply adoption of a live GitLab instance.
 
 ## What is blocked
 

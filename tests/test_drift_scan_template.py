@@ -18,13 +18,15 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-from tests.platform_caps import require_bash
-
 REPO = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO))
+
+from tests.platform_caps import require_bash
 TEMPLATE = REPO / "templates" / "github-workflows" / "drift-scan.yml"
 BASH = "/bin/bash"
 

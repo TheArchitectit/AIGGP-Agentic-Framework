@@ -1,4 +1,4 @@
-# // spec: GLF-01, GLF-02, GLF-03
+# // spec: GLF-01, GLF-02, GLF-03, GLF-14
 """hub.forge.parity — forge-parity drill over a seeded failure corpus.
 
 The drill runs REAL gates from this repository against seeded trees, then
@@ -281,10 +281,13 @@ def verify_corpus_pin(path: Path | None = None) -> dict:
 
 
 def _materialize(seed: GateSeed, root: Path) -> None:
+    # Seed file contents may be serialized JSON; keep separators portable and
+    # escape JSON-special path characters without changing subprocess argv.
+    escaped_root = json.dumps(root.as_posix())[1:-1]
     for rel, content in seed.files.items():
         target = root / rel
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(content.replace("{root}", str(root)), encoding="utf-8")
+        target.write_text(content.replace("{root}", escaped_root), encoding="utf-8")
 
 
 def _run_commands(seed: GateSeed, root: Path) -> list[tuple[tuple[str, ...], int]]:

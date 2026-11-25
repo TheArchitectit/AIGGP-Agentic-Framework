@@ -21,17 +21,16 @@ identity, CI ordering) see `docs/NEW_REPO_ONBOARDING.md`.
 
 ## Add the checkout
 
-From the consumer repository root:
+For a developer's local checkout (from the consumer repository root):
 
 ```bash
 git clone https://github.com/TheArchitectit/AIGGP-Agentic-Framework.git .devgate
 ```
 
 Keep it out of the consumer's history — add `.devgate/` to the project's
-`.gitignore` before the first gate run, and never `git add` it. To advance the
-tooling, re-pull the checkout (`git -C .devgate pull`); there is no committed
-pin to roll back, so record the checkout SHA in your own notes if you need
-reproducibility.
+`.gitignore` before the first gate run, and never `git add` it. Local tooling
+can be advanced with `git -C .devgate pull`; record a checkout SHA if you need
+to reproduce a local run.
 
 Verify the checkout is present and complete before running any gate:
 
@@ -116,12 +115,22 @@ files.
   `git add -A` cannot sweep the tooling into a commit. `PREVENT-SUB-001`
   blocks a `.gitmodules` entry naming this repository; the directory itself
   must not be tracked either.
-- **Advance by pulling, not by pinning.** `git -C .devgate pull` (or check out
-  a specific ref) updates the tooling without a consumer-repo commit. If you
-  need a rollback point, record the checkout SHA outside the repo.
-- **CI must provision the checkout itself.** There is no `.gitmodules` entry
-  for CI to follow. Clone the tooling into `.devgate/` as a workflow step
-  before any gate runs, pinned to a SHA if you want reproducible gate results.
+- **CI provisions an exact checkout.** There is no `.gitmodules` entry for CI
+  to follow. The GitHub `drift-scan.yml`, `specs.yml`, and `text-integrity.yml`
+  templates require the consumer to replace the workflow's
+  `REPLACE_WITH_REVIEWED_FULL_40_HEX_COMMIT` value with a reviewed, full
+  lowercase 40-character commit SHA. Keeping the pin in the copied workflow
+  makes changes visible in the consumer's code review. Each
+  job fetches that commit with native Git into `.devgate/`, verifies the
+  checkout root, exact `HEAD`, clean state, ignore/tracking state, and every
+  script/data path it will use, then starts its gates. An unresolved SHA
+  placeholder, failed/partial fetch, or invalid checkout fails the setup step before any
+  gate runs. Add `.devgate/` to the consumer `.gitignore` first. The templates
+  use the public DevGate repository by default; the workflow-level
+  `DEVGATE_SOURCE_URL` may point at a reviewed mirror and must not contain
+  credentials. The GitLab CI mirrors
+  use the same full-SHA contract; see
+  [GitLab Forge Support](./GITLAB-FORGE.md#use-a-gitlab-ci-mirror).
 - **Don't repoint the path.** The checkout must stay at `.devgate/`; that is
   `root-anchor-01` (see `docs/NEW_REPO_ONBOARDING.md`).
 

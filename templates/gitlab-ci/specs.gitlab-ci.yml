@@ -1,12 +1,16 @@
 # spec: GLF-01
 # Reusable GitLab CI template mirroring templates/github-workflows/specs.yml
 
+include:
+  - local: '/templates/gitlab-ci/includes/devgate-bootstrap.yml'
+
 default:
   image: ghcr.io/aiggp/devgate-runner@sha256:4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b
   tags:
     - aiggp-self-hosted
 
 specs:
+  extends: .devgate-bootstrap
   stage: test
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -15,6 +19,7 @@ specs:
     GIT_DEPTH: "0"
     GIT_SUBMODULE_STRATEGY: recursive
     OPENSPEC_PACKAGE: "@fission-ai/openspec@1.14.3"
+    DEVGATE_REQUIRED_PATHS: "scripts/spec_traceability.py scripts/spec_gap_scan.py scripts/specs-validate-negative-control.sh"
   script:
     - npm install --no-save --no-audit --no-fund "$OPENSPEC_PACKAGE"
     - npx openspec validate --all --strict

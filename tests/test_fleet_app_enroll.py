@@ -192,6 +192,7 @@ def invoke(tmp_path, fake, *flags, env=None):
     return rc, report
 
 
+# spec: fleet-app-01
 def test_installation_repositories_paginate_with_link_headers(tmp_path):
     names = [f"TheArchitectit/repo{i}" for i in range(3)]
     fake = FakeGitHub([repo(name) for name in names], page_size=2,
@@ -209,6 +210,30 @@ def test_installation_repositories_paginate_with_link_headers(tmp_path):
         assert [call for call in fake.calls if name in call[1]], name
 
 
+# spec: fleet-app-01
+def test_next_link_to_untrusted_host_fails_closed(tmp_path):
+    name = "TheArchitectit/repo"
+    fake = FakeGitHub([repo(name)], variables={name: APP_ID}, secrets={name})
+    original_transport = fake.transport
+
+    def hostile_link_transport(method, url, headers, body, timeout):
+        status, response_headers, response_body = original_transport(
+            method, url, headers, body, timeout)
+        if method == "GET" and urlsplit(url).path == "/installation/repositories":
+            response_headers["Link"] = (
+                "<https://example.invalid/installation/repositories?page=2>; rel=\"next\"")
+        return status, response_headers, response_body
+
+    fake.transport = hostile_link_transport
+    rc, report = invoke(tmp_path, fake)
+    assert rc == 1
+    assert report["repos"] == []
+    assert "not HTTPS api.github.com" in report["errors"][0]
+    assert len([call for call in fake.calls
+                if call[1] == "/installation/repositories"]) == 1
+
+
+# spec: fleet-app-02
 def test_archived_repositories_are_skipped_and_counted(tmp_path):
     live = "TheArchitectit/live"
     old = "TheArchitectit/old"
@@ -223,6 +248,7 @@ def test_archived_repositories_are_skipped_and_counted(tmp_path):
     assert record["actions"] == ["skipped-archived"]
 
 
+# spec: fleet-app-03
 def test_variable_is_created_updated_or_left_alone(tmp_path):
     absent = "TheArchitectit/absent"
     wrong = "TheArchitectit/wrong"
@@ -245,6 +271,7 @@ def test_variable_is_created_updated_or_left_alone(tmp_path):
     assert "variable-unchanged" in actions[right]
 
 
+# spec: fleet-app-04
 @needs_nacl
 def test_secret_is_created_only_when_absent_and_is_sealed(tmp_path):
     private, public = _keypair()
@@ -270,6 +297,7 @@ def test_secret_is_created_only_when_absent_and_is_sealed(tmp_path):
     assert "secret-unchanged" in actions[present]
 
 
+# spec: fleet-app-04
 @needs_nacl
 def test_rotate_reseals_an_existing_secret(tmp_path):
     private, public = _keypair()
@@ -291,10 +319,12 @@ def test_rotate_reseals_an_existing_secret(tmp_path):
     assert "secret-rotated" in report["repos"][0]["actions"]
 
 
+# spec: fleet-app-05
 def test_dry_run_performs_no_writes(tmp_path):
     name = "TheArchitectit/unconfigured"
     fake = FakeGitHub([repo(name)])
-    rc, report = invoke(tmp_path, fake, "--dry-run")
+    rc, report = invoke(tmp_path, fake, "--dry-run",
+                        env=base_env(FLEET_APP_PRIVATE_KEY=""))
     assert rc == 0
     assert fake.writes == []
     assert report["mode"] == "dry-run"
@@ -302,6 +332,7 @@ def test_dry_run_performs_no_writes(tmp_path):
         "variable-create-planned", "secret-create-planned"]
 
 
+# spec: fleet-app-09
 def test_one_repo_error_does_not_stop_the_others_and_exits_nonzero(tmp_path):
     broken = "TheArchitectit/broken"
     healthy = "TheArchitectit/healthy"
@@ -318,6 +349,7 @@ def test_one_repo_error_does_not_stop_the_others_and_exits_nonzero(tmp_path):
     assert "secret-unchanged" in records[healthy]["actions"]
 
 
+# spec: fleet-app-08
 @needs_nacl
 def test_credentials_never_reach_stdout_or_the_report(tmp_path, capsys):
     _private, public = _keypair()
@@ -336,12 +368,28 @@ def test_credentials_never_reach_stdout_or_the_report(tmp_path, capsys):
         assert TOKEN not in text
 
 
+# spec: fleet-app-06
 def test_missing_token_is_a_usage_error_and_writes_nothing(tmp_path):
     report_path = tmp_path / "report.json"
     rc = enroll.run(["--report", str(report_path)],
                     api=_api(FakeGitHub([])),
                     env=base_env(FLEET_APP_TOKEN=""))
     assert rc == 2
+    assert not report_path.exists()
+
+
+# spec: fleet-app-06
+@pytest.mark.parametrize("overrides", [
+    {"FLEET_APP_ID": ""},
+    {"FLEET_APP_ID": "not-numeric"},
+])
+def test_invalid_app_id_fails_before_api_request_or_report(tmp_path, overrides):
+    report_path = tmp_path / "report.json"
+    fake = FakeGitHub([])
+    env = base_env(**overrides)
+    rc = enroll.run(["--report", str(report_path)], api=_api(fake), env=env)
+    assert rc == 2
+    assert fake.calls == []
     assert not report_path.exists()
 
 
@@ -386,12 +434,17 @@ def _workflow():
     return wr.read_workflow(WORKFLOW.read_text(encoding="utf-8"))
 
 
+# spec: fleet-app-07
 def test_workflow_has_no_pull_request_trigger_and_a_safe_dispatch_default():
     workflow = _workflow()
     assert set(workflow.triggers) == {"schedule", "workflow_dispatch"}
     dry_run_input = workflow.dispatch_input("dry_run")
     assert dry_run_input["type"] == "boolean"
     assert str(dry_run_input["default"]).lower() == "true"
+    text = WORKFLOW.read_text(encoding="utf-8")
+    assert "github.event_name == 'workflow_dispatch' && inputs.dry_run" in text
+    assert 'args+=(--dry-run)' in text
+    assert 'args=(--report "$RUNNER_TEMP/fleet-app-enroll-report.json")' in text
 
 
 def test_workflow_runs_nightly_on_devgate_off_the_hour():
@@ -407,6 +460,7 @@ def test_workflow_runs_nightly_on_devgate_off_the_hour():
     assert "concurrency" in workflow.tree
 
 
+# spec: fleet-app-06, fleet-app-08
 def test_workflow_keeps_the_private_key_in_env_and_pins_actions():
     text = WORKFLOW.read_text(encoding="utf-8")
     for line in text.splitlines():
@@ -419,3 +473,5 @@ def test_workflow_keeps_the_private_key_in_env_and_pins_actions():
     assert ("actions/upload-artifact@"
             "ea165f8d65b6e75b540449e92b4886f43607fa02") in text
     assert "PyNaCl==1.5.0" in text
+    assert 'secrets.DEVGATE_SWEEP_APP_PRIVATE_KEY is missing' in text
+    assert 'vars.DEVGATE_SWEEP_APP_ID is missing' in text

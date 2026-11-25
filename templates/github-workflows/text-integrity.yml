@@ -34,9 +34,8 @@
 # in those trees must be clean on the first commit.
 #
 # SETUP:
-#   - DevGate must be present as `.devgate/` (submodule or clone); the scripts
-#     are resolved from there, so a submodule install works unchanged. A repo
-#     that vendors its own copies passes `scripts_dir: scripts`.
+#   - Add `.devgate/` to the consumer `.gitignore` and replace the workflow's
+#     `DEVGATE_SHA` placeholder with a reviewed, full 40-character commit.
 #   - Copy this file into your repo at `.github/workflows/text-integrity.yml`.
 #   - First run: the charset gate writes a baseline when `--write-baseline` is
 #     passed. Run it once locally, review the diff, commit the baseline.
@@ -55,6 +54,12 @@ on:
 permissions:
   contents: read
 
+# Replace this with the consumer-reviewed full commit before installing the
+# template. Keeping the pin in the workflow makes updates visible in code review.
+env:
+  DEVGATE_SHA: REPLACE_WITH_REVIEWED_FULL_40_HEX_COMMIT
+  DEVGATE_SOURCE_URL: https://github.com/TheArchitectit/AIGGP-Agentic-Framework.git
+
 concurrency:
   group: text-integrity-${{ github.ref }}
   cancel-in-progress: true
@@ -66,18 +71,62 @@ jobs:
     timeout-minutes: 10
 
     env:
-      # CUSTOMIZE: point at .devgate/scripts for a submodule install, or
+      # CUSTOMIZE: point at .devgate/scripts for the pinned checkout, or
       # scripts/ for a repo that vendors its own copies.
       SCRIPTS_DIR: .devgate/scripts
 
     steps:
-      - name: Checkout code (with DevGate submodule)
+      - name: Checkout consumer code
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
-          submodules: recursive
           # The corruption gate scans the pushed range, so history is needed
           # beyond the default single commit.
           fetch-depth: 0
+
+      - name: Bootstrap pinned DevGate
+        run: |
+          set -euo pipefail
+          bootstrap_fail() { echo "::error::DevGate bootstrap: $1"; exit 1; }
+          root=$(pwd -P)
+          consumer_root=$(git rev-parse --show-toplevel 2>/dev/null) || bootstrap_fail "cannot resolve the consumer Git root"
+          [ "$consumer_root" = "$root" ] || bootstrap_fail "job is not at the consumer Git root"
+          [ -n "${DEVGATE_SHA:-}" ] && [[ "$DEVGATE_SHA" =~ ^[0-9a-f]{40}$ ]] || bootstrap_fail "replace the workflow-level DEVGATE_SHA placeholder with a reviewed full lowercase commit SHA"
+          git check-ignore --quiet --no-index -- .devgate/ || bootstrap_fail ".devgate/ must be ignored by the consumer"
+          tracked_devgate=$(git ls-files -- .devgate 2>/dev/null) || bootstrap_fail "cannot inspect tracked DevGate paths"
+          [ -z "$tracked_devgate" ] || bootstrap_fail ".devgate/ must not be tracked"
+          [ ! -L .devgate ] || bootstrap_fail ".devgate must not be a symlink"
+          source_url=${DEVGATE_SOURCE_URL:-https://github.com/TheArchitectit/AIGGP-Agentic-Framework.git}
+          case "$source_url" in *://*@*) bootstrap_fail "DEVGATE_SOURCE_URL must not contain credentials" ;; esac
+          if [ -e .devgate ]; then
+            checkout_root=$(git -C .devgate rev-parse --show-toplevel 2>/dev/null) || bootstrap_fail "existing .devgate is not a complete Git checkout"
+            [ "$checkout_root" = "$root/.devgate" ] || bootstrap_fail "existing .devgate is not a checkout rooted at .devgate"
+            actual=$(git -C .devgate rev-parse HEAD 2>/dev/null) || bootstrap_fail "existing .devgate has no checked-out commit"
+            [ "$actual" = "$DEVGATE_SHA" ] || bootstrap_fail "existing .devgate is not at DEVGATE_SHA"
+            origin=$(git -C .devgate remote get-url origin 2>/dev/null) || bootstrap_fail "existing .devgate has no origin"
+            [ "$origin" = "$source_url" ] || bootstrap_fail "existing .devgate has the wrong source"
+            checkout_status=$(git -C .devgate status --porcelain --untracked-files=all --ignored=matching 2>/dev/null) || bootstrap_fail "cannot inspect existing .devgate state"
+            [ -z "$checkout_status" ] || bootstrap_fail "existing .devgate is dirty"
+          else
+            git init --quiet .devgate || bootstrap_fail "could not initialize .devgate"
+            git -C .devgate remote add origin "$source_url" || bootstrap_fail "could not configure DevGate source"
+            GIT_TERMINAL_PROMPT=0 GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null git -C .devgate fetch --quiet --no-tags --depth=1 origin "$DEVGATE_SHA" || bootstrap_fail "could not fetch the pinned DevGate commit"
+            git -C .devgate -c core.autocrlf=false checkout --quiet --detach FETCH_HEAD || bootstrap_fail "could not check out the pinned DevGate commit"
+          fi
+          checkout_root=$(git -C .devgate rev-parse --show-toplevel 2>/dev/null) || bootstrap_fail ".devgate is not a Git checkout"
+          [ "$checkout_root" = "$root/.devgate" ] || bootstrap_fail ".devgate has the wrong checkout root"
+          actual=$(git -C .devgate rev-parse HEAD 2>/dev/null) || bootstrap_fail ".devgate has no checked-out commit"
+          [ "$actual" = "$DEVGATE_SHA" ] || bootstrap_fail ".devgate HEAD does not match DEVGATE_SHA"
+          git -C .devgate cat-file -e "$DEVGATE_SHA^{commit}" || bootstrap_fail "DEVGATE_SHA is not a commit"
+          checkout_status=$(git -C .devgate status --porcelain --untracked-files=all --ignored=matching 2>/dev/null) || bootstrap_fail "cannot inspect .devgate worktree state"
+          [ -z "$checkout_status" ] || bootstrap_fail ".devgate worktree is not clean"
+          for required in .guardrails/scope.json scripts/check_charset.py scripts/check_encoding.py scripts/check_corruption.py scripts/corruption_diff.py scripts/gate_common.py scripts/lib/project_root.py tests/test_check_charset.py tests/test_check_encoding.py tests/test_check_corruption.py; do
+            [ ! -L ".devgate/$required" ] && [ -f ".devgate/$required" ] || bootstrap_fail "required DevGate file is missing or unsafe: $required"
+            git -C .devgate ls-files --error-unmatch -- "$required" >/dev/null 2>&1 || bootstrap_fail "required DevGate file is not tracked: $required"
+            pinned_blob=$(git -C .devgate rev-parse --verify "$DEVGATE_SHA:$required" 2>/dev/null) || bootstrap_fail "required DevGate file is absent from DEVGATE_SHA: $required"
+            actual_blob=$(git -C .devgate hash-object --no-filters -- "$required" 2>/dev/null) || bootstrap_fail "cannot hash required DevGate file: $required"
+            [ "$actual_blob" = "$pinned_blob" ] || bootstrap_fail "required DevGate file content does not match DEVGATE_SHA: $required"
+          done
+          echo "DevGate ready at $DEVGATE_SHA under .devgate/"
 
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:

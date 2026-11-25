@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-11-25
+goal: Make each canonical requirement stably identifiable and prevent CLI versus
+  marker-gate disagreement from being mistaken for completeness.
