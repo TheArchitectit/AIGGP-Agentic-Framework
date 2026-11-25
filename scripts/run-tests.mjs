@@ -16,6 +16,7 @@
  *   DEVGATE_TEST_POOL     parallel worker count (default = CPU count, max 8)
  *   DEVGATE_TEST_HANG_MS  silence threshold before force-kill (default 10000)
  */
+// spec: gate-test-launch-01
 
 import { spawn } from "node:child_process";
 import { mkdtempSync, rmSync, mkdirSync } from "node:fs";
@@ -141,16 +142,19 @@ function runOne(file) {
 		// and cargo need it).
 		const iso = mkdtempSync(join(tmpdir(), "dg-test-iso-"));
 		const child = spawn(cmd, args, { cwd: PROJECT_ROOT, env: childTestEnv(process.env, iso) });
-		child.on("close", () => {
-			setTimeout(() => { try { rmSync(iso, { recursive: true, force: true }); } catch { /* best-effort */ } }, 500);
-		});
 
 		let out = "";
+		let launchError = null;
 		let tapDone = false;
 		let graceTimer = null;
 		let startedCount = 0;
 		let completedCount = 0;
 		let lastOutputAt = Date.now();
+		child.on("error", (error) => {
+			launchError = `${error.message}${error.code ? ` [${error.code}]` : ""}`;
+			out += `launch failed: ${launchError}\n`;
+			lastOutputAt = Date.now();
+		});
 
 		const markTapDone = () => {
 			if (tapDone) return;
@@ -180,10 +184,14 @@ function runOne(file) {
 		const timer = setTimeout(() => { timedOut = true; child.kill("SIGKILL"); }, HARD_CAP_MS);
 
 		let stdoutEnded = false, stderrEnded = false, closeCode = undefined, drainTimer;
+		let settled = false;
 		const tryResolve = (code, force) => {
+			if (settled) return;
 			if (!force && (!stdoutEnded || !stderrEnded)) return;
+			settled = true;
 			clearTimeout(timer); clearInterval(silenceTimer);
 			if (graceTimer) clearTimeout(graceTimer);
+			if (drainTimer) clearTimeout(drainTimer);
 			try { rmSync(iso, { recursive: true, force: true }); } catch { /* best-effort */ }
 			const pass = (out.match(/^# pass\s+(\d+)/m) || out.match(/(\d+)\s+passed/))?.[1];
 			const fail = (out.match(/^# fail\s+(\d+)/m) || out.match(/(\d+)\s+failed/))?.[1];
@@ -196,6 +204,7 @@ function runOne(file) {
 				pass: pass ? Number(pass) : okCount,
 				fail: fail ? Number(fail) : notOkCount,
 				skipped: skipped ? Number(skipped) : 0,
+				launchError,
 				ms: Date.now() - start,
 				snippet: out.split("\n").filter((l) => /^# (fail|not ok|FAILED|ERROR)/.test(l)).slice(0, 3).join("  "),
 			});
@@ -266,9 +275,9 @@ async function main() {
 		// (node --test on an empty file and vitest with a non-matching filter
 		// both print a 1..0 plan and exit 0 — see lib/test-runner-select.mjs).
 		const emptyRun = r.code === 0 && !r.timedOut && isEmptyRun(r);
-		const ok = !r.timedOut && r.fail === 0 && !crashedBeforeTests && !emptyRun;
+		const ok = !r.launchError && !r.timedOut && r.fail === 0 && !crashedBeforeTests && !emptyRun;
 		const mark = ok ? "✓" : "✗";
-		const tail = r.fail > 0 ? `  ${r.snippet}` : r.timedOut ? "  TIMED OUT" :
+		const tail = r.launchError ? `  (launch failed: ${r.launchError})` : r.fail > 0 ? `  ${r.snippet}` : r.timedOut ? "  TIMED OUT" :
 			r.hung ? "  (tests passed; exit-hung)" : crashedBeforeTests ? `  (crashed, code ${r.code})` :
 			emptyRun ? "  (ran zero tests — vacuous, not a pass)" : "";
 		console.error(`${mark} ${relative(PROJECT_ROOT, f)}  (${r.pass} pass / ${r.fail} fail, ${fmt(r.ms)})${tail}`);
@@ -298,14 +307,14 @@ async function main() {
 			// import) emits no "N failed" lines — fail parses as 0 — and must
 			// NOT be adjudicated as a flake; neither must a 1..0 empty run.
 			// That masking is a silent-success failure mode.
-			const soloClean = solo.fail === 0 && solo.code === 0 && !solo.timedOut && !isEmptyRun(solo);
+			const soloClean = !solo.launchError && solo.fail === 0 && solo.code === 0 && !solo.timedOut && !isEmptyRun(solo);
 			if (soloClean) {
 				totalFail -= r.fail; flakes.push(r.file);
 				failed.splice(failed.indexOf(r), 1);
 				console.error(`✓ solo: ${r.file}  (${solo.pass} pass / 0 fail, ${fmt(solo.ms)})  (flake)`);
 			} else {
-				const why = solo.timedOut ? "TIMED OUT" :
-					solo.code !== 0 ? `crashed, code ${solo.code}` : `${solo.fail} fail`;
+				const why = solo.launchError ? `launch failed: ${solo.launchError}` : solo.timedOut ? "TIMED OUT" :
+					solo.code !== 0 ? `crashed, code ${solo.code}` : isEmptyRun(solo) ? "ran zero tests — vacuous, not a pass" : `${solo.fail} fail`;
 				console.error(`✗ solo: ${r.file}  (${solo.pass} pass / ${solo.fail} fail — ${why})`);
 			}
 		}
@@ -316,7 +325,7 @@ async function main() {
 	if (flakes.length) { console.error("FLAKY FILES:"); for (const f of flakes) console.error(`  - ${f}`); }
 	if (failed.length) {
 		console.error("FAILED FILES:");
-		for (const r of failed) console.error(`  - ${r.file}  (code ${r.code ?? "signal"}${r.timedOut ? ", TIMED OUT" : ""})`);
+		for (const r of failed) console.error(`  - ${r.file}  (${r.launchError ? `launch error: ${r.launchError}` : `code ${r.code ?? "signal"}`}${r.timedOut ? ", TIMED OUT" : ""})`);
 		process.exit(1);
 	}
 	process.exit(0);

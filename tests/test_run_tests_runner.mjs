@@ -1,4 +1,4 @@
-// // spec: fw-test-01, gate-vacuous-01
+// // spec: fw-test-01, gate-vacuous-01, gate-test-launch-01
 // Runner-selection contract for scripts/run-tests.mjs (lib/test-runner-select.mjs).
 //
 // Two measured defects pinned here:
@@ -258,6 +258,145 @@ function fixtureNodeConsumer() {
 		"import { test } from 'node:test';\ntest('t', () => {});\n");
 	return root;
 }
+
+function fixturePythonLaunchFailureConsumer() {
+	const root = mkdtempSync(join(tmpdir(), "dg-run-tests-launch-"));
+	const scripts = join(root, "scripts");
+	mkdirSync(join(scripts, "lib"), { recursive: true });
+	copyFileSync(join(SCRIPTS, "run-tests.mjs"), join(scripts, "run-tests.mjs"));
+	for (const f of ["gate_common.mjs", "project-root.mjs", "test-runner-select.mjs"]) {
+		copyFileSync(join(SCRIPTS, "lib", f), join(scripts, "lib", f));
+	}
+	mkdirSync(join(root, ".guardrails"), { recursive: true });
+	copyFileSync(join(SCRIPTS, "..", ".guardrails", "scope.json"),
+		join(root, ".guardrails", "scope.json"));
+	mkdirSync(join(root, "tests"));
+	writeFileSync(join(root, "tests", "test_launch.py"), "# launch is controlled by PATH\n");
+	writeFileSync(join(root, "tests", "z_healthy.test.mjs"),
+		"import { test } from 'node:test';\ntest('healthy sibling runs', () => {});\n");
+	const emptyPath = join(root, "empty-path");
+	mkdirSync(emptyPath);
+	return { root, emptyPath };
+}
+
+function fixtureEagainConsumer({ launchTestContents = "import { test } from 'node:test';\ntest('launch target runs', () => {});\n" } = {}) {
+	const root = fixtureNodeConsumer();
+	writeFileSync(join(root, "tests", "aaa_launch.test.mjs"), launchTestContents);
+	const preload = join(root, "spawn-eagain.cjs");
+	writeFileSync(preload, `
+const childProcess = require("node:child_process");
+const { PassThrough } = require("node:stream");
+const { syncBuiltinESMExports } = require("node:module");
+const realSpawn = childProcess.spawn;
+const match = process.env.DG21_FAIL_MATCH;
+const mode = process.env.DG21_FAIL_MODE;
+let attempts = 0;
+childProcess.spawn = function (file, args, options) {
+	const matches = file === process.execPath && Array.isArray(args) && args.some(arg => String(arg).includes(match));
+	if (matches) {
+		attempts++;
+		if (mode === "always" || attempts === 1) {
+			const child = new childProcess.ChildProcess();
+			child.stdout = new PassThrough();
+			child.stderr = new PassThrough();
+			process.nextTick(() => {
+				const error = Object.assign(new Error("controlled spawn EAGAIN"), {
+					code: "EAGAIN", errno: -11, syscall: "spawn " + file, path: file,
+				});
+				child.emit("error", error);
+				child.stdout.end();
+				child.stderr.end();
+				child.emit("close", -1, null);
+			});
+			return child;
+		}
+		if (mode === "empty-solo") {
+			const child = new childProcess.ChildProcess();
+			child.stdout = new PassThrough();
+			child.stderr = new PassThrough();
+			child.stdout.end("TAP version 13\\n1..0\\n# tests 0\\n# pass 0\\n# fail 0\\n# skipped 0\\n");
+			child.stderr.end();
+			process.nextTick(() => child.emit("close", 0, null));
+			return child;
+		}
+	}
+	return realSpawn.call(this, file, args, options);
+};
+syncBuiltinESMExports();
+`);
+	return { root, preload };
+}
+
+function runRealRunnerWithPreload(root, preload, extraEnv = {}) {
+	return runRealRunner(root, {
+		NODE_OPTIONS: `--require="${preload.replaceAll("\\", "/")}"`,
+		DG21_FAIL_MATCH: "aaa_launch.test.mjs",
+		...extraEnv,
+	});
+}
+
+test("run-tests accounts for a missing Python executable and runs its healthy sibling", () => {
+	const { root, emptyPath } = fixturePythonLaunchFailureConsumer();
+	try {
+		const { status, out } = runRealRunner(root, { PATH: emptyPath });
+		assert.equal(status, 1, out);
+		assert.match(out, /test_launch\.py/);
+		assert.match(out, /spawn python3 ENOENT/);
+		assert.match(out, /✓ tests[\\/]+z_healthy\.test\.mjs/);
+		assert.match(out, /FAILED FILES:[\s\S]*test_launch\.py/);
+		assert.match(out, /1 pass \/ 0 fail/);
+		assert.doesNotMatch(out, /TOTAL: 0 passed/);
+	} finally {
+		rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("run-tests keeps a persistent EAGAIN launch failure after running healthy siblings", () => {
+	const { root, preload } = fixtureEagainConsumer();
+	try {
+		const { status, out } = runRealRunnerWithPreload(root, preload, {
+			DG21_FAIL_MATCH: "aaa_launch.test.mjs", DG21_FAIL_MODE: "always",
+		});
+		assert.equal(status, 1, out);
+		assert.match(out, /launch failed: controlled spawn EAGAIN \[EAGAIN\]/);
+		assert.match(out, /✓ tests[\\/]+plain\.test\.mjs/);
+		assert.match(out, /FAILED FILES:[\s\S]*aaa_launch\.test\.mjs[\s\S]*EAGAIN/);
+		assert.doesNotMatch(out, /TOTAL: 0 passed, 0 failed across 0 files/);
+	} finally {
+		rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("run-tests clears EAGAIN only when solo adjudication runs tests successfully", () => {
+	const { root, preload } = fixtureEagainConsumer();
+	try {
+		const { status, out } = runRealRunnerWithPreload(root, preload, {
+			DG21_FAIL_MATCH: "aaa_launch.test.mjs", DG21_FAIL_MODE: "once",
+		});
+		assert.equal(status, 0, out);
+		assert.match(out, /solo adjudication \(1 files/);
+		assert.match(out, /✓ solo: tests[\\/]+aaa_launch\.test\.mjs  \(1 pass \/ 0 fail/);
+		assert.match(out, /FLAKY FILES:[\s\S]*aaa_launch\.test\.mjs/);
+		assert.match(out, /✓ tests[\\/]+plain\.test\.mjs/);
+	} finally {
+		rmSync(root, { recursive: true, force: true });
+	}
+});
+
+test("run-tests does not clear a launch failure when the solo run executes zero tests", () => {
+	const { root, preload } = fixtureEagainConsumer();
+	try {
+		const { status, out } = runRealRunnerWithPreload(root, preload, {
+			DG21_FAIL_MATCH: "aaa_launch.test.mjs", DG21_FAIL_MODE: "empty-solo",
+		});
+		assert.equal(status, 1, out);
+		assert.match(out, /solo: tests[\\/]+aaa_launch\.test\.mjs[\s\S]*ran zero tests — vacuous, not a pass/);
+		assert.match(out, /FAILED FILES:[\s\S]*aaa_launch\.test\.mjs/);
+		assert.doesNotMatch(out, /FLAKY FILES:[\s\S]*aaa_launch\.test\.mjs/);
+	} finally {
+		rmSync(root, { recursive: true, force: true });
+	}
+});
 
 test("run-tests children run top-level even when the runner sits under node --test", () => {
 	const root = fixtureNodeConsumer();
