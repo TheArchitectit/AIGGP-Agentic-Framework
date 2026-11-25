@@ -2,8 +2,8 @@
 
 ## 1. Historical inventory
 
-- [ ] 1.1 Extract all 829 archived task rows and verify 43 archive IDs and the 719 checked / 110 unchecked aggregate against repository content.
-- [ ] 1.2 Compare every archived delta capability against the 56 published specs, active deltas, retirement records, and archive-time Git history; save stable reconciliation IDs.
+- [x] 1.1 Reproduce the proposal baseline (43 archives; 829 ordinary task rows: 719 checked / 110 unchecked; one separate `[~]`) and verify the ready-tree inventory (58 archives; 907 ordinary rows: 797 checked / 110 unchecked; one `[~]`) against repository content.
+- [x] 1.2 Compare all 64 archived delta-capability directories (58 unique names) against the 65 ready-tree canonical specs, active deltas, available retirement records, and archive-path Git history; save stable `ARC-CAP-NNN` IDs and explicit unresolved dispositions in `delta-capability-reconciliation.md`.
 
 ## 2. Evidence disposition
 
