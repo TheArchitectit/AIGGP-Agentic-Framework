@@ -16,6 +16,7 @@ See proposal.md. `spec-fmt-01` already requires CLI and marker agreement, but th
 - Reconcile parsed IDs by capability against `openspec list --specs` counts plus requirement IDs extracted from full `openspec show <capability> --type spec --json` output. Report missing, extra, duplicate, and malformed entries separately. A successful CLI run alone is insufficient.
 - Assign stable new IDs only after searching source markers, archived deltas, tests, and documentation for existing candidate references. Do not attach a requirement to code without verifying its enforcement role.
 - Keep strict CLI validation and the negative malformed-control test in CI; add the identity completeness check adjacent to traceability.
+- Put these requirements in the focused `requirement-id-inventory` capability delta instead of `spec-platform`: the published `spec-platform` spec is terminal (`Status: CLOSED`), and merging new requirements there would incorrectly inherit its completed status and require closure ledger evidence for claims that were never included in that closure.
 
 ## Risks / Trade-offs
 

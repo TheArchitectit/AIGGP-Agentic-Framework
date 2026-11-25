@@ -15,11 +15,11 @@ The published tree has eight requirement headings without parseable IDs, while s
 
 ### New Capabilities
 
-None.
+- `requirement-id-inventory`: require complete stable requirement IDs and agreement between the canonical heading inventory and the local parser.
 
 ### Modified Capabilities
 
-- `spec-platform`: add the already-coded strict-validation negative control to the canonical contract and require complete, stable requirement identities across the CLI and marker inventory.
+None.
 
 ## Impact
 

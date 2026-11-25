@@ -415,6 +415,8 @@ jobs:
         run: npm install --no-save --no-audit --no-fund @fission-ai/openspec@1.14.3
       - name: openspec validate (strict, hard gate)
         run: npx openspec validate --all --strict
+      - name: requirement ID inventory matches OpenSpec CLI
+        run: python3 scripts/spec_id_inventory.py ./node_modules/.bin/openspec
       # The hard gate above proves the tree is well-formed. It does NOT prove
       # the validator can refuse ill-formed material — if the command were
       # downgraded to a no-op the tree would keep validating green and the gate

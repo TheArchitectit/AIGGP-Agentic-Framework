@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# spec: fw-ci-04
 """check_exec_bits.py — shebang'd files must be executable in the git index
 (fw-prov-01, R11 of the remediation plan).
 

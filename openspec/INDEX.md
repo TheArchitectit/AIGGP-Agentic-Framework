@@ -16,7 +16,7 @@
 > in the consuming game repo) and stays DEFERRED until that repo builds it —
 > it is not closed by relabelling the line.
 
-**56 specs** — CLOSED 1 · DEFERRED 1 · UNPROVEN 42 · PARTIAL 0 · OPEN 0 · UNKNOWN 12
+**58 specs** — CLOSED 1 · DEFERRED 1 · UNPROVEN 42 · PARTIAL 0 · OPEN 0 · UNKNOWN 14
 
 | Spec | Title | Status | Evidence |
 |---|---|---|---|
@@ -62,6 +62,7 @@
 | [`per-screen-tracking/spec.md`](specs/per-screen-tracking/spec.md) | Per-screen feature tracking | **UNPROVEN** | UNPROVEN — 2 of 2 requirement(s) lack a proving ledger row (2 provenance-accepted, awaiting sealed evidence) |
 | [`publish-safety/spec.md`](specs/publish-safety/spec.md) | Publish leg safety | **UNPROVEN** | UNPROVEN — 3 of 3 requirement(s) lack a proving ledger row (3 provenance-accepted, awaiting sealed evidence) |
 | [`release-gate-targeting/spec.md`](specs/release-gate-targeting/spec.md) | Release gate targeting and audit classification | **UNPROVEN** | UNPROVEN — 2 of 2 requirement(s) lack a proving ledger row (2 provenance-accepted, awaiting sealed evidence) |
+| [`requirement-id-inventory/spec.md`](specs/requirement-id-inventory/spec.md) | Requirement id inventory | **UNKNOWN** | no closure table and no Status line |
 | [`reviewer-surfaces/spec.md`](specs/reviewer-surfaces/spec.md) | Reviewer surfaces | **UNKNOWN** | no closure table and no Status line |
 | [`rule-coverage-truth/spec.md`](specs/rule-coverage-truth/spec.md) | Rule coverage truth | **UNPROVEN** | UNPROVEN — 3 of 3 requirement(s) lack a proving ledger row (3 provenance-accepted, awaiting sealed evidence) |
 | [`runner-monitoring/spec.md`](specs/runner-monitoring/spec.md) | Runner health monitoring | **UNPROVEN** | UNPROVEN — 4 of 4 requirement(s) lack a proving ledger row (4 provenance-accepted, awaiting sealed evidence) |
@@ -74,6 +75,7 @@
 | [`subjects-3d/spec.md`](specs/subjects-3d/spec.md) | 3D Subjects | **UNPROVEN** | UNPROVEN — 4 of 4 requirement(s) lack a proving ledger row (4 provenance-accepted, awaiting sealed evidence) |
 | [`surface-reach/spec.md`](specs/surface-reach/spec.md) | Surface reach | **UNKNOWN** | no closure table and no Status line |
 | [`traceability-and-drift/spec.md`](specs/traceability-and-drift/spec.md) | Traceability and drift | **UNKNOWN** | no closure table and no Status line |
+| [`tracked-executable-integrity/spec.md`](specs/tracked-executable-integrity/spec.md) | Tracked executable integrity | **UNKNOWN** | no closure table and no Status line |
 | [`tree-clean/spec.md`](specs/tree-clean/spec.md) | Tree clean | **UNKNOWN** | no closure table and no Status line |
 | [`zig-opengl-engine/spec.md`](specs/zig-opengl-engine/spec.md) | Zig + OpenGL Engine Support | **UNPROVEN** | UNPROVEN — 4 of 4 requirement(s) lack a proving ledger row |
 

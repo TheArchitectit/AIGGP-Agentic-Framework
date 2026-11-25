@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Reconciled eight published requirement IDs and checked heading and marker
+  agreement with the pinned OpenSpec CLI in CI (DG-01).
+- Restored direct execution of the drift template test and enforced its
+  executable Git index mode (DG-12).
+
 ## [1.3.52] - 2026-11-20
 
 ### Changed

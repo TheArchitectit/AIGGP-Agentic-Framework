@@ -1,4 +1,9 @@
-# Spec Delta
+# Requirement ID inventory
+
+## Purpose
+
+Keep the OpenSpec CLI and the repository's requirement ID inventory aligned,
+and require a stable identity for every canonical requirement heading.
 
 ## ADDED Requirements
 

@@ -2,6 +2,9 @@
 
 ## Context
 
+The executable-integrity behavior is a focused capability with its own verification contract. The existing `framework-ci` specification is terminally CLOSED and carries historical requirement counts and ledger claims; adding a requirement there would inherit that closure and imply ledger authority that this remediation does not establish. The delta therefore lives under `tracked-executable-integrity`, where it publishes the gate behavior without adding top-level status or ledger rows.
+
+
 `tests/test_drift_scan_template.py` begins with `#!/usr/bin/env python3` and ends with a `unittest.main()` entry point. It is exercised by pytest in `.github/workflows/ci.yml`, and can also run directly. No repository documentation or workflow invokes it by another path. Its Git index mode is `100644` at both `d10f2f1` and `fd2c11f`.
 
 `scripts/check_exec_bits.py` explicitly reads the Git index and requires every tracked shebang file to be `100755`; the main CI workflow runs it in the “Exec-bit integrity” step. At the current head it fails only on this test file. The existing `tests/test_fw_guards.py` negative control confirms that the gate detects a shebang committed as `100644` and passes after the index mode is corrected.

@@ -14,11 +14,11 @@ The current `tests/test_drift_scan_template.py` declares a Python shebang and `u
 
 ### New Capabilities
 
-None.
+- `tracked-executable-integrity`: specify and verify the Git index mode contract for tracked shebang entry points.
 
 ### Modified Capabilities
 
-- `framework-ci`: specify the relationship between a tracked shebang entry point and its Git index mode, including the failure result for a mismatch.
+None.
 
 ## Impact
 

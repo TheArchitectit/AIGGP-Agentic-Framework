@@ -1,4 +1,8 @@
-# Spec Delta
+# Tracked Executable Integrity
+
+## Purpose
+
+Ensure files that declare direct shebang entry points are tracked as executable in Git, and make index-mode verification observable without asserting unrecorded requirement ledger state.
 
 ## ADDED Requirements
 

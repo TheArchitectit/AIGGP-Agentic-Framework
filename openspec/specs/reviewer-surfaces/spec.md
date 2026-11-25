@@ -6,6 +6,7 @@ Review output that a human and a CI system can both trust: SARIF that is schema-
 ## Requirements
 
 ### Requirement: SARIF validity
+<!-- id: reviewer-01 -->
 
 Findings SHALL be emittable as schema-valid SARIF with rule, severity, location, and evidence reference.
 
@@ -14,6 +15,7 @@ Findings SHALL be emittable as schema-valid SARIF with rule, severity, location,
 Given emitted SARIF, when loaded by a standard viewer, then all findings SHALL render with locations and evidence links.
 
 ### Requirement: local-CI parity
+<!-- id: reviewer-02 -->
 
 Pre-commit execution SHALL use the same images and scripts as CI and SHALL produce identical verdicts for the same change.
 
@@ -22,6 +24,7 @@ Pre-commit execution SHALL use the same images and scripts as CI and SHALL produ
 Given a change passing pre-commit but failing CI, when the parity harness investigates, then the cause SHALL be classified as a defect and the parity fixture SHALL fail until fixed.
 
 ### Requirement: evidence-linked review comments
+<!-- id: reviewer-03 -->
 
 Forge review comments SHALL reference the finding's evidence record. A comment without an evidence link SHALL NOT be posted.
 
