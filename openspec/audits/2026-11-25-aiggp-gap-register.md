@@ -59,6 +59,13 @@ evidence gate accepts proof for each requirement.
 | `OI-002` | Disposition archived | GitLab option owner/operator | Hermetic parity passed. Live parity requires explicit adoption. | [Archived evidence](../changes/archive/2026-11-25-review-gitlab-parity-deferral/evidence.md) |
 | `OI-003` | Disposition archived | GitLab option owner/operator | The real GitLab backup and restore check requires explicit adoption and applies before gates depend on that instance. | [Archived evidence](../changes/archive/2026-11-25-review-gitlab-restore-deferral/evidence.md) |
 
+## DG-04 inventory progress
+
+The reviewed #41 snapshot has 64 archived delta paths and 111 unchecked or
+partial task records. The bounded source review records tested and dated
+evidence while leaving complete task adjudication and owner dispositions
+open. [DG-04 inventory and evidence](../changes/dg-04-archive-task-reconciliation/evidence.md)
+
 ## Existing active work
 
 - `add-gitlab-forge-support` has nine checked boxes and four unchecked live
