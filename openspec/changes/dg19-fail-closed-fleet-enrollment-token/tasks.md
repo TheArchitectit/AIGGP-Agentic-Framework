@@ -18,3 +18,7 @@
   boundary and this task is not claimed complete.
 - [ ] 2.2 Verify the input and trigger contract, run the focused enrollment
   suite and pinned repository gates, and obtain independent review.
+
+## Local verification
+
+See the [local verification evidence](local-token-handoff-verification.md) for the offline fixture scope and open acceptance.
