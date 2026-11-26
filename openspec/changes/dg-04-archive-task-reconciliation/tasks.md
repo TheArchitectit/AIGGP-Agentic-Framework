@@ -7,6 +7,6 @@
 
 ## 2. Evidence disposition
 
-- [ ] 2.1 Review every unchecked task and every vanished delta against current implementation, tests, CI, documentation, and commit history; record rationale and source evidence or explicit absence.
+- [ ] 2.1 Review every unchecked task and every vanished delta against current implementation, tests, CI, documentation, and commit history; record rationale and source evidence or explicit absence. The [first evidence batch](task-2.1-batch-001.md) covers the first two historical task rows.
 - [ ] 2.2 Carry only confirmed live work into active changes with owners and new IDs; verify archive files remain byte-for-byte unchanged.
 - [ ] 2.3 Independently review the reconciliation inventory and rerun pinned `openspec validate --archived --strict --json`; verify the ten baseline archive task-check failures are dispositioned and no task is classified implemented solely from its historical checkbox.
