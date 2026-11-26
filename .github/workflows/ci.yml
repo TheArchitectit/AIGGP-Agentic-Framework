@@ -1,3 +1,4 @@
+# spec: gate-test-count-01
 name: CI
 
 # The framework runs its own medicine (fw-ci-01..03): the full test suite,
