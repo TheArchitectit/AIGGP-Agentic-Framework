@@ -12,3 +12,6 @@ openspec/changes/add-oap-evidence-consumer/vectors/*.json text eol=lf
 # everywhere. A core.autocrlf clone must not rewrite these either.
 hub/coherence/schemas/*.schema.json text eol=lf
 
+# DG-02 batch evidence hashes raw artifact bytes; keep manifests, dispositions,
+# and finding payloads byte-stable on Windows checkouts as well as Linux.
+openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-002/** text eol=lf
