@@ -24,3 +24,7 @@ PR's test job passed. The main CI retry reported 2,569 passing tests across 173 
 This applies to the framework and consumers that use `scripts/run-tests.mjs`.
 The existing pool size, timeouts, test engine selection, and success criteria
 continue to govern completed test processes.
+
+## Capability
+
+The per-file-test-runner-integrity capability adds the launch and receipt requirements alongside the existing gate execution contract.

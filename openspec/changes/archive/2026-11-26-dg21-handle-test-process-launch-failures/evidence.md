@@ -26,3 +26,7 @@ The original runner-only commit `aa3e2f6012f49f38f1572491bdcbb1e0413c1064` left 
 ## Linux Docker verification
 
 Docker verified code commit `1a3d0a503a9a7e2da9af7945576fff6ee1036a6c`. All 19 Node runner and workflow tests passed, including exactly one invocation, a successful positive report, missing/malformed/zero counts, and a failed runner that printed a positive count. Failure-registry hygiene, verification of all 160 tracked checksums, the scoped regression gate, and strict OpenSpec validation of 76 items passed. The registry points to the commit that implemented per-file launch handling. The updated GitHub checks will run on the pushed candidate.
+
+## Independent archive review
+
+An independent Linux Docker run at published cf1c21d verified all 19 tests in the two runner and workflow receipt files. The approved code uses one Bash invocation, a job-local unique receipt, preserved producer exit, and a single canonical positive count. The archive publishes the stable requirement IDs under the dedicated per-file-test-runner-integrity capability. Historical execution-contract lifecycle rows retain their original authority.

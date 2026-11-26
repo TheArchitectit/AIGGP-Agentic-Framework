@@ -3,7 +3,7 @@
 ## 1. Reconciliation roster
 
 - [x] 1.1 Extract all 182 unproven rows with spec/requirement IDs; verify exact one-to-one roster mapping and record a stable input digest.
-- [ ] 1.2 For every row, inspect enforcement site, behavioral tests, reachable ordered commits, and evidence validator result; record each proof conjunct and concrete missing evidence.
+- [ ] 1.2 For every row, inspect enforcement site, behavioral tests, reachable ordered commits, and evidence validator result; record each proof conjunct and concrete missing evidence. The [candidate review](task-1.2-evidence.md) records provenance and discovery for all 182 rows. Row-specific enforcement and test evidence remain open.
 
 ## 2. Sealed disposition
 

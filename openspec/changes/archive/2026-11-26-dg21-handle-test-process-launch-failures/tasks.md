@@ -14,4 +14,4 @@
 
 ## 3. Review and archive
 
-- [ ] 3.1 Independently review evidence, scope and test behavior. Promote the reviewed delta and run strict validation and traceability with the archive candidate.
+- [x] 3.1 Independently review evidence, scope and test behavior. Promote the reviewed delta and run strict validation and traceability with the archive candidate.

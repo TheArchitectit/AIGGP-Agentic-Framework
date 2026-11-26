@@ -1,3 +1,9 @@
+# Spec Delta
+
+## Purpose
+
+Define per-file process launch outcomes and verify CI test discovery from the original runner invocation.
+
 ## ADDED Requirements
 
 ### Requirement: Per-file process launch failures are visible
