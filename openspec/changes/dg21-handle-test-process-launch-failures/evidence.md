@@ -1,7 +1,7 @@
 # DG-21 — process launch failure handling
 
 **Reviewed baseline:** `2bf84ddab55695340e91ceb026b319fcae7de3e4`
-**Scope status:** runner launch-error fix and focused behavior checks are complete. The CI completion-receipt work and broader gates remain open.
+**Scope status:** the runner launch-error fix and single-invocation CI receipt are implemented. The Linux verification below covers both. Hosted acceptance and archive review use their own evidence.
 
 ## CI evidence
 
@@ -21,7 +21,7 @@
 
 `scripts/run-tests.mjs` now consumes ChildProcess `error` events, retains the launch diagnostic in the per-file result and final failure list, and settles each file once through timer and scratch-directory cleanup. The existing solo adjudication remains the only recovery path and still rejects a zero-test run. No pool, timeout, engine-selection, or test success criteria were changed.
 
-The CI receipt change described by the active design is not implemented in this increment. Tasks 2.3, 2.4, and 3.1 remain open; no version or release reference, commit, archive, or remote write was made.
+The original runner-only commit `aa3e2f6012f49f38f1572491bdcbb1e0413c1064` left the workflow receipt open. Commit `1a3d0a503a9a7e2da9af7945576fff6ee1036a6c` made CI validate the saved report from its first invocation and added tests of the actual Bash workflow steps. The workflow preamble traces that implementation to `gate-test-count-01`. Task 3.1 remains open for archive review.
 
 ## Linux Docker verification
 
