@@ -5,10 +5,10 @@ identifies the owning change and its acceptance tasks.
 
 ## Current batch
 
-- [ ] DG-21. Finish the one-invocation CI check. Run the launch-failure,
+- [x] DG-21. Finish the one-invocation CI check. Run the launch-failure,
   healthy-sibling, solo recovery, and missing or zero report controls. Verify
   the pinned local and GitHub checks.
-- [ ] DG-22. Rehearse Release Coverage in disposable Git repositories.
+- [x] DG-22. Rehearse Release Coverage in disposable Git repositories.
   Exercise tagged and untagged product changes and the generated-report
   exception. Release metadata preparation remains pending.
 - [ ] DG-02. Review a bounded first batch of the indexed requirements against
@@ -28,7 +28,7 @@ identifies the owning change and its acceptance tasks.
 - [ ] DG-06. Verify the local art-extension and registry process. Record which
   external acceptance evidence is available from the responsible consumer.
 - [ ] DG-10. Verify the offline provenance checks against isolated fixtures.
-  Record open authoritative builder and production trust evidence.
+  The [offline baseline](../changes/dg10-gitlab-runner-image-provenance/offline-verification-evidence.md) records existing controls. The runner-specific preflight and authoritative builder and trust evidence remain open.
 - [ ] DG-05 and DG-19. Verify any locally testable enrollment evidence and record
   remaining issuer and configured fleet evidence.
 
