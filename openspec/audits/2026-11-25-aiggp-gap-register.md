@@ -113,3 +113,12 @@ remain isolated to DG-04.
 The pattern scan passed with 49 non-blocking warnings. The semantic and
 silent-success scans passed. Schema health reported SKIPPED because the
 checkout has no database configuration.
+
+## Future-state integration audit
+
+The [integration audit](2026-11-25-aiggp-future-integration-audit.md) records repository boundaries and the [verification queue](2026-11-25-aiggp-verification-queue.md) orders local evidence work.
+
+| ID | Evidence gap | OpenSpec |
+|---|---|---|
+| `DG-23` | The monitor standard defines one hub and persistent instance state. The implementation uses a process-local lock and atomic file writes. Operators need verified recovery for that supported topology. | [Proposal](../changes/dg23-qualify-single-writer-hub-recovery/proposal.md) |
+| `DG-24` | DevGate provides scoped checks and non-authorizing evidence. Adopters need a verified contract linking evidence, immutable delivery artifacts and runtime readback across eligible execution lanes. | [Proposal](../changes/dg24-bind-adopter-artifact-promotion-evidence/proposal.md) |

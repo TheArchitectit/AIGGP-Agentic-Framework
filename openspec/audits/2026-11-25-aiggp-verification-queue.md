@@ -1,0 +1,39 @@
+# AIGGP OpenSpec verification queue
+
+Work sequence for November 25–26, 2026. The [gap register](2026-11-25-aiggp-gap-register.md)
+identifies the owning change and its acceptance tasks.
+
+## Current batch
+
+- [ ] DG-21. Finish the one-invocation CI check. Run the launch-failure,
+  healthy-sibling, solo recovery, and missing or zero report controls. Verify
+  the pinned local and GitHub checks.
+- [ ] DG-22. Rehearse Release Coverage in disposable Git repositories.
+  Exercise tagged and untagged product changes and the generated-report
+  exception. Release metadata preparation remains pending.
+- [ ] DG-02. Review a bounded first batch of the indexed requirements against
+  enforcement, named behavioral tests, ordered commits, and sealed evidence.
+  Preserve the original roster and apply lifecycle transitions only for
+  requirements with accepted evidence.
+
+## Architecture acceptance
+
+- [ ] DG-23. Qualify monitor single-writer restart and recovery.
+- [ ] DG-24. Bind adopter promotion evidence to immutable artifacts.
+
+## Following batch
+
+- [ ] DG-04. Review the historical archive exceptions in batches and retain the
+  original task records. Route confirmed live work to its own change.
+- [ ] DG-06. Verify the local art-extension and registry process. Record which
+  external acceptance evidence is available from the responsible consumer.
+- [ ] DG-10. Verify the offline provenance checks against isolated fixtures.
+  Record open authoritative builder and production trust evidence.
+- [ ] DG-05 and DG-19. Verify any locally testable enrollment evidence and record
+  remaining issuer and configured fleet evidence.
+
+Run the task-specific local checks, pinned strict OpenSpec, and Spec State
+and traceability checks where applicable. Record the exact commit and test
+evidence with the owning change. Use available GitHub checks and merge each
+verified PR against its checked base. Live GitLab operational checks apply
+upon adoption.
