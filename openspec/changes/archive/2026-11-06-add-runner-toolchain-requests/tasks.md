@@ -1,5 +1,7 @@
 # Tasks: runner-toolchain-requests
 
+> PR #32 is the historical evidence and review record for tasks 5.0, 5.7, 6.6, and 6.7. Archiving these tasks records package disposition; the capability remains **UNPROVEN** in [openspec/INDEX.md](../../../INDEX.md) until ledger proof is accepted.
+
 Every normative clause in the spec gets a positive test and a negative control.
 Nothing here is marked complete from spec authoring.
 
