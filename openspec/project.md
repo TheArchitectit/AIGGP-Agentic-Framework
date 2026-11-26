@@ -2,18 +2,18 @@
 
 ## Purpose
 
-DevGate is a language-agnostic quality-engineering framework that consumers
-embed as a `.devgate/` submodule (or standalone clone). It ships static/CI
-quality gates (pattern, semantic, regression, file-size, schema, silent-success
-scans), a gated deploy pipeline, a self-hosted runner standard, a runner-monitor
-hub, and a spec-coherence evaluation service that turns OpenSpec packages into
+DevGate is a language-agnostic quality-engineering framework. Consumers
+use a local, untracked tooling checkout at `.devgate/`. Consumer CI can
+provision pinned tooling in a clean workspace. DevGate ships static and CI
+quality gates, a gated deploy pipeline, a self-hosted runner standard, a
+runner-monitor hub, and a spec-coherence evaluation service that produces
 digest-pinned, evidence-sealed decisions.
 
 ## Users
 
-- **Consumer projects** — any repo that embeds DevGate as `.devgate/` and runs
-  its gates in CI. They must never need to edit files inside the submodule
-  (the `.guardrails/` overlay contract).
+- **Consumer projects** — repositories that provision DevGate tooling at
+  `.devgate/` and run its gates in CI. They own configuration in
+  `.guardrails/` and keep tooling changes out of consumer source history.
 - **AI agents** — read `AGENTS.md` and the skill templates; are subject to the
   Four Laws and the Write→Audit→Review→Commit process.
 - **Fleet operators** — run self-hosted runners, the monitor hub, and the
@@ -23,8 +23,9 @@ digest-pinned, evidence-sealed decisions.
 
 ## Core Workflows
 
-1. **Consume**: clone/submodule into a project → run the gates in CI using the
-   `templates/github-workflows/` patterns → deploy via `scripts/deploy.sh`.
+1. **Consume**: provision an untracked `.devgate/` checkout → run pinned CI
+   gates using the published templates → supply evidence to the protected
+   consumer delivery path.
 2. **Monitor**: enroll runners with one-time tokens → hub polls GitHub API +
    receives heartbeats → deduplicated issue alerts + JSONL audit trail.
 3. **Evaluate**: build an OpenSpec package + policy + context →
@@ -33,7 +34,9 @@ digest-pinned, evidence-sealed decisions.
 
 ## Style / Conventions
 
-- Stdlib-only Python (hub, scripts); Node with no npm deps for `.mjs` gates.
+- Ship a standard-library runtime for the hub and core gates where specified.
+  The CI and test workflows provision their pinned prerequisites, including
+  the semantic scanner's TypeScript parser.
 - Spec traceability markers: `<!-- id: <req-id> -->` in spec files,
   `// spec: <id>` / `# // spec: <id>` in source, gated by
   `scripts/spec_traceability.py`.
@@ -49,7 +52,7 @@ digest-pinned, evidence-sealed decisions.
 
 ## Constraints
 
-- No pip/npm runtime dependencies for anything in the request path.
+- Keep the evaluator request path independent of CI and test dependencies.
 - Monitor hub binds loopback by default; secrets are env-only, never committed.
 - The coherence service is deterministic: time and stage come only from the
   signed evaluation context, never the host clock.
@@ -58,6 +61,8 @@ digest-pinned, evidence-sealed decisions.
 
 ## Anything Else
 
-Active roadmap: `docs/ROADMAP-2026-09.md` (2026-09-19 full-repo review).
+Current coverage and dependencies are recorded in
+[`docs/AIGGP-FUTURE-READINESS.md`](../docs/AIGGP-FUTURE-READINESS.md).
+`docs/ROADMAP-2026-09.md` records the September baseline.
 Prior audits live in `docs/qa/`; the failure registry in
 `.guardrails/failure-registry.jsonl` records incident-proven rules.

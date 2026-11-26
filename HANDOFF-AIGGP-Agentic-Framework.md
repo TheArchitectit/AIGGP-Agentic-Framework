@@ -6,16 +6,10 @@
 > filename does not match the work you are doing, you have the wrong handoff.
 > **Spec index:** [`openspec/INDEX.md`](openspec/INDEX.md)
 
-> **Spec status lives in the index: [`openspec/INDEX.md`](openspec/INDEX.md).**
-> Generated from each spec's own `Status:` line, its closure-table census, or a
-> matching archived change. It is the single answer to "which specs are closed
-> and which are not". Do not keep a second list here.
->
-> Current census (2026-11-20, from INDEX.md): **56 capability specs** — 1 CLOSED,
-> 1 DEFERRED, 42 UNPROVEN, 0 PARTIAL, 0 OPEN, 12 UNKNOWN; **43 archived changes**;
-> **1 open change** (`add-gitlab-forge-support`; `add-art-creation-contract`,
-> `add-open-item-gates`, `add-spec-state-ledger` and
-> `aiggp-08-stitcher-proof-parity` archived 2026-11-20).
+> Start with the [generated spec index](openspec/INDEX.md) for the current
+> capability and package states. See the
+> [future readiness audit](docs/AIGGP-FUTURE-READINESS.md) for dependencies,
+> owners, and what this repository can support in a consumer deployment.
 
 ## Identity
 
@@ -36,27 +30,20 @@ evaluation service all originate here.
 | Path | Purpose |
 |---|---|
 | `openspec/INDEX.md` | **generated** spec census — start here |
-| `openspec/specs/<capability>/spec.md` | 44 capability specs |
-| `openspec/changes/<change>/` | 5 open changes |
-| `openspec/changes/archive/` | 38 shipped changes |
+| `openspec/specs/<capability>/spec.md` | Published capability specs |
+| `openspec/changes/<change>/` | Active change packages and their tasks |
+| `openspec/changes/archive/` | Archived packages and dated disposition evidence |
 | `scripts/` | gates (`check_*.py`, `guardrail*`) |
 | `templates/github-workflows/` | consumer workflow templates incl. `text-integrity.yml` |
 | `tests/` | gate self-tests; floors in `tests/expected-counts.json` |
 
-## The thing to know about this repo's specs
+## Reading OpenSpec status
 
-**Every one of the 44 capability specs now carries closure evidence** — a
-`Status:` line, a closure table, or a matched archived change. As of 2026-11-13
-that is 43 CLOSED and 1 DEFERRED. The exception is deliberate:
-
-- `base-specs-01` is **DEFERRED by owner decision**, not open work: the
-  capability lives in the consuming game repo and stays deferred until that repo
-  builds it. Do not close it by relabelling the line.
-
-**Second structural gap (still live):** the 44 spec directory names and the 38
-archived change names have **zero** overlap. They are separate taxonomies, so an
-archived change cannot be used to close a spec by name. Fixing that means
-aligning the two naming schemes, not adding more status lines.
+Use the generated index and state ledger at the revision under review. An
+archived package describes its disposition. Where ledger proof is required,
+a capability remains `UNPROVEN` until the proving evidence is accepted.
+Active change deltas describe proposed behavior. Use the referenced acceptance
+records before presenting that behavior as available to consumers.
 
 ## Gates
 
@@ -67,7 +54,7 @@ python3 scripts/check_charset.py --repo .
 python3 scripts/check_corruption.py --repo .
 python3 scripts/check_manifest_join.py --repo .
 python3 tests/gen_floors.py
-openspec validate --all          # 49 passed / 0 failed at 2026-11-13
+openspec validate --all --strict
 ```
 
 Never weaken a gate, skip a check, or allowlist a finding to reach green.

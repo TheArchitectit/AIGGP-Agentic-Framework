@@ -183,17 +183,13 @@ green anywhere in this wiring.
 | `surface_reach_check.py` | Every declared surface of one artifact must exist and hold identical content. |
 | `evidence_claim_check.py` | `DEFERRED` needs owner, reason, and a future review date; mocks and stubs must point at the real thing or a tracked issue. |
 
-The six open-item gates are implemented and specified but **not wired into
-CI**: where each runs is an owner decision, and a push-time job detects a
-violation that already landed. Their behavior is pinned by
-`tests/test_open_item_gates.py` (30 fixture tests: each gate must fail on its
-failing fixture naming the offending input, pass on its clean fixture, and
-report `3` on empty input), so the evidence is re-runnable even though
-placement is open. The suite also pins determinism: `surface_reach_check.py`
-used to pick its "odd one out" by iterating a set of hashes, so a 1-1 tie
-named a different surface from run to run; identical input must now produce
-identical output. See `openspec/changes/add-open-item-gates/` for the specs
-and the open placement task.
+The six open-item gates run at the enforcement points listed above.
+Push-time CI reports findings after a change lands. The local hook and
+release preflight block the checks assigned to them. The
+`tests/test_open_item_gates.py` fixtures exercise passing, failing, and empty
+inputs, including deterministic results for the surface reach check. See
+the [archived OpenSpec change](openspec/changes/archive/2026-11-20-add-open-item-gates/)
+for the gate contracts and wiring.
 
 ### Releases and documentation
 
@@ -387,7 +383,7 @@ from a real pipe. It opens no socket and performs no effect.
 
 ### Frozen cross-language vectors
 
-`openspec/changes/add-oap-evidence-consumer/vectors/oap-evidence-v2-vectors.json`
+`openspec/changes/archive/2026-10-13-add-oap-evidence-consumer/vectors/oap-evidence-v2-vectors.json`
 freezes 13 canonical-byte / signature / verdict cases — one valid artifact,
 the rest forgery, structural, timestamp-window, context, binding, and replay
 negatives. The file is locked to LF by `.gitattributes`: byte-identity to the
@@ -443,7 +439,7 @@ in the sibling `openagentplatform` repository (branch
 `feat/oap-evidence-v2-receiver`), which consumed this repo's producer output
 across a process/language boundary with the expected verdicts for its cases —
 local file transport, observe-only (see
-`openspec/changes/add-oap-evidence-consumer/evidence-se4-local-pipe.md`).
+`openspec/changes/archive/2026-10-13-add-oap-evidence-consumer/evidence-se4-local-pipe.md`).
 That exercise stops short of deployed transport, full negative-fixture parity,
 and acceptance: independent review has not happened. The frozen vectors in
 this repository remain the conformance fixtures a second implementation must
@@ -545,6 +541,10 @@ they are not claims that every proposed integration is deployed.
 | A local ref must exist on a remote or be explicitly archived | `branch_drift_check.py` → `scripts/hooks/pre-push` only (needs local ref tips; a CI checkout has none) | **GATE WIRED — local block; measured 2026-11-15: 5 drift refs on this clone (34/7/1/0/0 ahead)** |
 
 ## Proposed integrations and roadmap
+
+The [AIGGP future readiness audit](docs/AIGGP-FUTURE-READINESS.md) maps
+consumer delivery, runtime evidence, and monitor recovery to current
+capabilities and proposed OpenSpec work.
 
 ### AIGGP unification — proposed, not shipped
 

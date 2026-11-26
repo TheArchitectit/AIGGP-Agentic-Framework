@@ -3,7 +3,7 @@
 ## 1. Rehearse the current gate
 
 - [x] 1.1 Capture the exact main CI failure and validate this change using OpenSpec 1.14.3 strict.
-- [ ] 1.2 Replay the actual Verify release coverage workflow step against isolated positive and negative fixture repositories, including only-generated and mixed diffs. Record command outcomes and ref preservation.
+- [x] 1.2 Replay the actual Verify release coverage workflow step against isolated positive and negative fixture repositories, including only-generated and mixed diffs. Record command outcomes and ref preservation.
 
 ## 2. Prepare release metadata
 
