@@ -29,3 +29,7 @@ source state, then ran the unmodified extracted step with
 The fixture HEAD and ref inventories matched before and after each execution.
 Release approval, candidate selection, metadata, publication, and release
 verification remain open.
+
+## Linux fixture replay
+
+The [pinned template test](https://github.com/TheArchitectit/agent-guardrails-template/blob/d0b00a444090c7b8deebc86c352208f3f258320e/tests/test_release_coverage_workflow.py) replayed this repository's coverage step using its structural reader at 1070d3e. All seven cases passed, including missing and lightweight tags in addition to the five recorded controls. The fixture sources and worktrees were disposable. A sentinel repository retained the same refs with inherited Git directory overrides set. Approval and release preparation remain open.

@@ -24,3 +24,7 @@
   environment-specific setup. Any additional runner path needs its own receipt.
 - [ ] 3.2 Run strict OpenSpec, traceability, and independent acceptance review.
   Archive when tracked evidence and tasks support closure.
+
+## 4. Verify deployed artifact identity
+
+- [ ] 4.1 Replay exact and mismatched destination and digest controls using an isolated deployment readback fixture. Require the existing subject attestation and detached approval before recording verified deployment.

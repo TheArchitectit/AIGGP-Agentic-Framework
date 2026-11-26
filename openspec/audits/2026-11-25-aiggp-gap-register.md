@@ -114,3 +114,15 @@ remain isolated to DG-04.
 The pattern scan passed with 49 non-blocking warnings. The semantic and
 silent-success scans passed. Schema health reported SKIPPED because the
 checkout has no database configuration.
+
+## Future-state verification queue
+
+The [readiness audit](../../docs/AIGGP-FUTURE-READINESS.md) identifies supported
+surfaces and the [verification queue](2026-11-25-aiggp-verification-queue.md)
+orders the following acceptance work.
+
+| Work | Acceptance |
+|---|---|
+| [Single-writer monitor recovery](../changes/qualify-monitor-recovery/proposal.md) | Verify one active writer, consistent restore and independent convergence evidence. |
+| [Consumer delivery evidence](../changes/qualify-consumer-delivery-evidence/proposal.md) | Verify existing artifact and approval evidence, intended target and deployed immutable identity. |
+| [Consumer evidence boundary](../changes/define-consumer-evidence-boundary/proposal.md) | Verify required evidence before independently authorized effects. |

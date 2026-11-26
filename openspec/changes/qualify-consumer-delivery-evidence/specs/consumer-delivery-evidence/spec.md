@@ -53,3 +53,19 @@ their enforcement status.
 - **WHEN** a check is configured only to report after promotion
 - **THEN** qualification records it as observational and does not count it
   toward the required pre-promotion checks
+
+### Requirement: Deployment readback matches the approved promotion target
+<!-- id: ci-consumer-qual-04 -->
+
+The adopting promotion handoff SHALL verify the existing subject attestation
+and detached approval. It SHALL match the approved artifact and selected
+deployment target to returned runtime readback before reporting verified
+deployment.
+
+#### Scenario: The target reports the approved artifact
+- **WHEN** existing attestation and approval verify and the selected deployment reports the approved artifact
+- **THEN** the handoff records verified deployment with the selected target and observed immutable artifact identity
+
+#### Scenario: Runtime evidence cannot be matched
+- **WHEN** reported target or artifact differs from the approved selection or readback is unavailable
+- **THEN** the handoff reports the reason and withholds verified deployment evidence

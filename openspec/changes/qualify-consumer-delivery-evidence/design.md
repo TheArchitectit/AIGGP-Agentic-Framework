@@ -28,3 +28,7 @@ approval and artifact identity across runner classes.
 Use the pinned consumer bootstrap and account for existing DG-21 runner work
 and DG-22 upstream release planning. The reference fixture can be exercised
 before any optional runner or forge is adopted.
+
+## Runtime readback
+
+Reuse the [subject attestation and detached approval](../../specs/evidence-and-attestation/spec.md). A consumer verifies the intended destination and observed immutable artifact after deployment before accepting a delivery receipt. Absence or mismatch remains an unresolved result.
