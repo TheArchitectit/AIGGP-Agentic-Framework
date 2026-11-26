@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Preserved per-file launch failures and verified the original runner report
+  in CI (DG-21).
 - Preserved Unicode script names and rejected unresolved index duplicates in
   release checksum inventory (DG-17).
 - Reconciled and verified all 160 release checksum entries in hosted CI (DG-13).
