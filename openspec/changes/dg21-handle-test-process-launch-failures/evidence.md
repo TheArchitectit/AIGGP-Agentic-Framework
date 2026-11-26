@@ -22,3 +22,7 @@
 `scripts/run-tests.mjs` now consumes ChildProcess `error` events, retains the launch diagnostic in the per-file result and final failure list, and settles each file once through timer and scratch-directory cleanup. The existing solo adjudication remains the only recovery path and still rejects a zero-test run. No pool, timeout, engine-selection, or test success criteria were changed.
 
 The CI receipt change described by the active design is not implemented in this increment. Tasks 2.3, 2.4, and 3.1 remain open; no version or release reference, commit, archive, or remote write was made.
+
+## Linux Docker verification
+
+Docker verified code commit `1a3d0a503a9a7e2da9af7945576fff6ee1036a6c`. All 19 Node runner and workflow tests passed, including exactly one invocation, a successful positive report, missing/malformed/zero counts, and a failed runner that printed a positive count. Failure-registry hygiene, verification of all 160 tracked checksums, the scoped regression gate, and strict OpenSpec validation of 76 items passed. The registry points to the commit that implemented per-file launch handling. The updated GitHub checks will run on the pushed candidate.

@@ -9,8 +9,8 @@
 
 - [x] 2.1 Route child launch errors through the existing per-file failure, cleanup, and solo adjudication. **Evidence:** `evidence.md`.
 - [x] 2.2 Verify the revised runner reports a launch failure accurately, continues healthy files, and exits nonzero for a persistent launch failure. Verify the successful scenario and guard against vacuous solo adjudication. **Evidence:** `evidence.md`.
-- [ ] 2.3 Use the first runner step's job-local completion report for the non-vacuity assertion. Verify one invocation, a positive report, absent or zero count, and a failed runner whose output cannot make the step pass.
-- [ ] 2.4 Run the targeted test-runner tests and relevant local repository gates. Record exact commands, outcomes, and any pending hosted evidence.
+- [x] 2.3 Use the first runner step's job-local completion report for the non-vacuity assertion. Verify one invocation, a positive report, absent or zero count, and a failed runner whose output cannot make the step pass.
+- [x] 2.4 Run the targeted test-runner tests and relevant local repository gates. Record exact commands, outcomes, and any pending hosted evidence.
 
 ## 3. Review and archive
 
