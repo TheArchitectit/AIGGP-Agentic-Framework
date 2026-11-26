@@ -11,3 +11,7 @@
 - [ ] 2.2 Seal per-requirement evidence and run the existing evidence validator; verify bundle integrity, a configured-signer attestation bound to bundle digest and commit, test identity, and absence of secrets; when signing is unavailable, record NOT_RUN.
 - [x] 2.3 Mark actual enrollment workflow/live fleet runs NOT_RUN unless a real signed run artifact is reviewed; verify no hermetic result is described as live.
 - [x] 2.4 Add source markers only at reviewed enforcing sites and update the mapping; run traceability and verify each marker resolves to that site.
+
+## Local verification
+
+See the [local verification evidence](local-enrollment-verification.md) for the offline fixture scope and open acceptance.
