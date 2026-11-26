@@ -18,7 +18,7 @@ below ships here and is specified under `openspec/specs/`:
 
 | Tool | Spec | What it enforces |
 |---|---|---|
-| `scripts/game_regression.py` | `game-regression` | Game-class failure patterns (NULL_DEREF, SCENE_LOAD_FAIL, SAVE_CORRUPT, SCRIPT_ERROR, ORPHAN_SIGNAL) plus failure-registry patterns with `file_glob` scoping, `guardrails-allow` annotations, and `.guardrailsignore` support. Empty scopes print NOTHING SCANNED; `--fail-if-empty` exits 2 for CI. |
+| `scripts/game_regression.py` | `game-regression` | Game-class failure patterns (NULL_DEREF, SCENE_LOAD_FAIL, SAVE_CORRUPT, ORPHAN_SIGNAL; SCRIPT_ERROR retired 2026-10-25 as `push_error`/`assert` noise) whose rules may name a guard (`(regex, guard, window)`) so the check written on the next line is not reported as the bug, plus failure-registry patterns with `file_glob` scoping, `guardrails-allow` annotations, and `.guardrailsignore` support; whole-line comments are never scanned. Empty scopes print NOTHING SCANNED; `--fail-if-empty` exits 2 for CI. |
 | `scripts/scene_inventory.py` | `per-screen-tracking` | Static Godot `.tscn` inventory: discovers scenes under `src/` and `scenes/`, parses the text-scene grammar, reports Buttons whose `pressed` signal has no connected handler. |
 | `openspec/specs/game-type-phase-matrix/` | `game-matrix-01` | **Planned, not implemented here** — the manifest-driven per-phase gate is owned by the consuming game repo. |
 
@@ -30,6 +30,29 @@ work: they need the engine and the game itself. This framework contributes the
 static scanners above and the generic gate machinery
 (`regression_check.py`, `guardrails-scan.mjs`, the failure registry) that a
 game repo layers its own gates onto.
+
+### Planned: the manifest-driven phase matrix (owned by consuming game repos)
+
+Bundled as `openspec/specs/game-type-phase-matrix/` per base-specs-01 and
+marked NOT IMPLEMENTED — nothing here reads a phase or gates on one. When a
+consuming repo implements it, its phase gate (`game-version` flag) reads the
+current game type and phase from the project manifest, requires every gate
+named by that phase's matrix row plus all gates to its left, and fails closed
+on a game type with no matrix row. Each cell lists required screens, systems,
+and gates (a gate is the per-screen/regression enforcement that must pass at
+that phase). Reference matrix — Roguelike (Sword of Hope):
+
+| Phase | Required screens | Required systems | Gates |
+|---|---|---|---|
+| Prototype | core loop screen | seeded RNG, single run | per-screen smoke, determinism |
+| Pre-Alpha | map, battle | procedural gen, permadeath | button validation, demo-loop |
+| Alpha | shop, meta-progression | economy lock, save/load | save round-trip, perf budget |
+| Beta | everything + codex/achievements | content complete, balance lock | regression, input/focus, demo-loop clean |
+| Release | all live screens | zero SCRIPT errors | ALL gates green; <=500-line rule |
+
+The gates the matrix would invoke — `scene_inventory.py` (per-screen-tracking)
+and `game_regression.py` (game-regression) — do ship here; the phase gate
+itself does not.
 
 ## Using the game gates in a game repo
 
@@ -54,6 +77,43 @@ python scripts/game_regression.py --all
 Record game bugs with `scripts/log_failure.py` so `regression_check.py`
 blocks their reintroduction (game-class entries and their
 `regression_pattern`s work exactly like every other registry entry).
+
+## Session start (`game_session_start.py`)
+
+Every session - an agent opening the repo to edit, or the runtime booting a
+run - is described by one `aiggp.session/v1` manifest and judged by
+`scripts/game_session_start.py` (schema:
+`.guardrails/prevention-rules/session-manifest.schema.json`, spec:
+`openspec/changes/archive/2026-11-06-add-game-session-start/`). The advisory block it prints
+states `unknown` explicitly for any block it could not evaluate. A `work`
+session's block carries a `worst-tracked gaps: N` line read from the gap
+scanner's own JSON report - produced with
+
+```bash
+python3 .devgate/scripts/spec_gap_scan.py --json > .guardrails/spec-gap-report.json
+```
+
+The brain never runs the scanner itself: one inventory source. Without a
+report the line reads `unknown`, never `0`.
+
+Exit codes are inverted against the secret-scan family: `2` refused a known
+session, `1` the brain cannot say, `0` accepted. Read the spec before wiring
+either family into a pipeline.
+
+### `determinism.enabled` in `game-manifest.json`
+
+The one hard session rule reads this key:
+
+| value | play-session |
+|---|---|
+| `true` | must carry a non-empty `seed`; refused (exit 2) without one |
+| `false` | the rule is off |
+| absent | the rule is off - a project opts in by declaring it |
+
+A value that is present and is not a boolean is not read as a policy: the
+brain exits 1 rather than guess whether a run is comparable. A `play` session
+in a root with no `game-manifest.json` is refused; a `work` session in that
+root proceeds with `determinism: unknown`.
 
 ## Provenance
 

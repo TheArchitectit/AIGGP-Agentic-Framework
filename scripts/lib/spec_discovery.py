@@ -14,28 +14,49 @@ generated drafts cannot inflate the coverage numbers that judge them.
 `find_spec_files`/raw text readers still see the file; only the ID map is
 filtered. Reviewing a draft means deleting the marker, which admits it.
 """
-# spec: sga-05
+# spec: sga-05, rule-marker-01, spec-fmt-01, spec-fmt-06
 import re
 from pathlib import Path
 
-REQ_ID = re.compile(r"<!--\s*id:\s*([a-z0-9-]+)\s*-->")
+# ID shape is case-preserving: `add-gitlab-forge-support` writes `GLF-01`,
+# everything else writes kebab-case, and the original lowercase-only class
+# could read neither the marker nor its `// spec: GLF-01` coverage line — the
+# seven requirements were discovered as nothing, so the gate reported 187
+# where the tree holds 194. IDs are compared exactly (case-sensitive), so a
+# marker must spell the ID the way its spec does.
+REQ_ID = re.compile(r"<!--\s*id:\s*([A-Za-z0-9-]+)\s*-->")
 DRAFT = re.compile(r"<!--\s*draft:\s*unreviewed\s*-->")
 # One marker line may carry several IDs: `// spec: a-01, b-02, c-03`.
 # Anchored to the ID shape and comma-separated so a trailing comment
-# (`// spec: a-01 -- why`) is not swallowed into the match. Both `//`
-# (C-family, JS) and `#` (Python, shell) comment prefixes are accepted —
-# H6: the `//`-only grammar locked Python consumers out of blocking mode.
+# (`// spec: a-01 -- why`) is not swallowed into the match. `//`
+# (C-family, JS), `#` (Python, shell), and `--` (SQL, Lua) comment prefixes
+# are accepted — H6 / rule-marker-01: the `//`-only grammar locked Python
+# consumers out of blocking mode.
 # `.sh` files use the same `# // spec:` shape (see
 # scripts/specs-validate-negative-control.sh); the extension list below is
 # widened to match the shipped gate surface.
-MARKER = re.compile(r"(?://|#)\s*spec:[ \t]*([a-z0-9-]+(?:[ \t]*,[ \t]*[a-z0-9-]+)*)")
-ID = re.compile(r"[a-z0-9-]+")
+MARKER = re.compile(r"(?://|#|--)\s*spec:[ \t]*([A-Za-z0-9-]+(?:[ \t]*,[ \t]*[A-Za-z0-9-]+)*)")
+ID = re.compile(r"[A-Za-z0-9-]+")
 # `.gd` joined the set for the gap-scanner work (SGA-07 acceptance 4): game
 # repos mark coverage in GDScript source, and a marker the discovery cannot
 # read is an uncovered requirement forever. No .gd file exists in this repo
 # and MergeKingdom has no markers yet, so no existing number shifts.
-SCAN_EXTS = {".rs", ".py", ".mjs", ".js", ".ts", ".sh", ".zig", ".gd"}
+SCAN_EXTS = {".rs", ".py", ".mjs", ".js", ".ts", ".tsx", ".sh", ".zig", ".gd", ".sql", ".lua"}
 SCAN_SKIP = {"target", "node_modules", ".git", "openspec", ".devgate"}
+YAML_EXTS = {".yml", ".yaml"}
+YAML_SOURCE_ROOTS = {
+    (".github", "workflows"),
+    ("templates", "github-workflows"),
+    ("templates", "gitlab-ci"),
+}
+YAML_EXCLUDED_PARTS = {
+    "doc", "docs", "test", "tests", "fixture", "fixtures",
+    "example", "examples", "generated", "archive", "archives",
+}
+YAML_PREAMBLE_MARKER = re.compile(
+    r"^#[ \t]*spec:[ \t]*([A-Za-z0-9-]+(?:[ \t]*,[ \t]*[A-Za-z0-9-]+)*)"
+    r"(?=$|[ \t])"
+)
 
 
 def find_spec_files(root: Path) -> list[Path]:
@@ -89,10 +110,63 @@ def collect_requirements(root: Path) -> dict:
     return out
 
 
+def _yaml_preamble_markers(text: str) -> set[str]:
+    """Find file-level markers before the first YAML content line.
+
+    This intentionally does not try to tokenize YAML. The reviewed workflow
+    markers are comments in the leading preamble; after YAML content begins,
+    marker-shaped lines belong to YAML scalar values and must not count.
+    """
+    markers = set()
+    for index, line in enumerate(text.split("\n")):
+        if index == 0:
+            line = line.removeprefix("\ufeff")
+        if not line.strip(" \t"):
+            continue
+        if line.lstrip(" \t").startswith("#"):
+            # Only an unindented, standalone top-level comment can annotate
+            # the file. Indented comments remain part of the preamble but do
+            # not provide coverage.
+            if not line.startswith((" ", "\t")):
+                match = YAML_PREAMBLE_MARKER.match(line)
+                if match:
+                    markers.update(ID.findall(match.group(1)))
+            continue
+        break
+    return markers
+
+
+def _is_owned_yaml_source(root: Path, path: Path) -> bool:
+    if path.is_symlink() or path.suffix.lower() not in YAML_EXTS:
+        return False
+    try:
+        relative = path.relative_to(root)
+    except ValueError:
+        return False
+    if any(part in SCAN_SKIP for part in relative.parts):
+        return False
+    parts = relative.parts
+    if any(part.lower() in YAML_EXCLUDED_PARTS for part in parts):
+        return False
+    return any(parts[:len(source_root)] == source_root
+               and len(parts) > len(source_root)
+               for source_root in YAML_SOURCE_ROOTS)
+
+
 def collect_markers(root: Path) -> set:
     markers = set()
     for path in root.rglob("*"):
-        if not path.is_file() or path.suffix not in SCAN_EXTS:
+        if not path.is_file():
+            continue
+        if path.suffix.lower() in YAML_EXTS:
+            if not _is_owned_yaml_source(root, path):
+                continue
+            try:
+                markers.update(_yaml_preamble_markers(path.read_text(encoding="utf-8")))
+            except (OSError, UnicodeError):
+                continue
+            continue
+        if path.suffix not in SCAN_EXTS:
             continue
         if any(part in SCAN_SKIP for part in path.parts):
             continue

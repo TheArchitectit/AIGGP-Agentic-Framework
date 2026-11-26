@@ -359,7 +359,7 @@ class TestFixtureE_Nondeterminism(unittest.TestCase):
             self.assertEqual(_digest_of(root2), _digest_of(root))
 
     def test_traversal_guard_layers_each_isolated(self):
-        """_check_safe has three independent layers. Assert on the
+        """check_safe has three independent layers. Assert on the
         message so deleting any single layer is caught."""
         from hub.coherence import manifest
         with tempfile.TemporaryDirectory() as td:
@@ -367,10 +367,10 @@ class TestFixtureE_Nondeterminism(unittest.TestCase):
             root.mkdir()
             (root / "ok.txt").write_text("x", encoding="utf-8")
             with self.assertRaises(manifest.SubjectError) as c1:
-                manifest._check_safe("/etc/passwd", root)
+                manifest.check_safe("/etc/passwd", root)
             self.assertIn("absolute path", str(c1.exception))
             with self.assertRaises(manifest.SubjectError) as c2:
-                manifest._check_safe("../escape.txt", root)
+                manifest.check_safe("../escape.txt", root)
             self.assertIn("traversal", str(c2.exception))
             # Guarded HERE, not at the top: layers one and two above are pure
             # path arithmetic and must keep running on a host that cannot make
@@ -381,7 +381,7 @@ class TestFixtureE_Nondeterminism(unittest.TestCase):
             (outside / "secret.txt").write_text("s", encoding="utf-8")
             (root / "link").symlink_to(outside, target_is_directory=True)
             with self.assertRaises(manifest.SubjectError) as c3:
-                manifest._check_safe("link/secret.txt", root)
+                manifest.check_safe("link/secret.txt", root)
             self.assertIn("escapes root", str(c3.exception))
 
     def test_symlinked_directory_never_enters_manifest(self):

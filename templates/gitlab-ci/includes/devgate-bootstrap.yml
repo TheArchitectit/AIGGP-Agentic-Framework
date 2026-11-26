@@ -1,0 +1,110 @@
+# spec: glf-template-bootstrap-01
+# Included by each mirror. GitLab resolves this include in the same project/ref
+# as the mirror file, not in the consumer checkout.
+.devgate-bootstrap:
+  before_script:
+    - |
+      (
+      set -eu
+      bootstrap_fail() {
+        printf '%s\n' "ERROR: DevGate bootstrap: $1" >&2
+        exit 1
+      }
+
+      project_dir=${CI_PROJECT_DIR:-}
+      [ -n "$project_dir" ] && [ -d "$project_dir" ] || bootstrap_fail "CI_PROJECT_DIR is unavailable"
+      project_dir=$(cd "$project_dir" 2>/dev/null && pwd -P) || bootstrap_fail "cannot resolve consumer root"
+      git_root=$(git -C "$project_dir" rev-parse --show-toplevel 2>/dev/null) || bootstrap_fail "consumer root is not a Git checkout"
+      [ "$git_root" = "$project_dir" ] || bootstrap_fail "CI_PROJECT_DIR is not the consumer Git root"
+
+      requested_root=${DEVGATE_DIR:-.devgate}
+      [ "$requested_root" = ".devgate" ] || bootstrap_fail "DevGate root must be .devgate"
+      tracked_devgate=$(git -C "$project_dir" ls-files -- .devgate 2>/dev/null) || bootstrap_fail "cannot inspect tracked DevGate paths"
+      [ -z "$tracked_devgate" ] || bootstrap_fail "DevGate must not be tracked by the consumer"
+      git -C "$project_dir" check-ignore --quiet --no-index -- .devgate/ || bootstrap_fail ".devgate must be ignored by the consumer"
+
+      pin=${DEVGATE_SHA:-}
+      [ "${#pin}" -eq 40 ] || bootstrap_fail "DEVGATE_SHA must be a full lowercase commit SHA"
+      case "$pin" in
+        *[!0-9a-f]*) bootstrap_fail "DEVGATE_SHA must be a full lowercase commit SHA" ;;
+      esac
+
+      source_url=${DEVGATE_SOURCE_URL:-https://github.com/TheArchitectit/AIGGP-Agentic-Framework.git}
+      case "$source_url" in
+        *://*@*) bootstrap_fail "DEVGATE_SOURCE_URL must not embed credentials" ;;
+      esac
+      root="$project_dir/.devgate"
+      [ ! -L "$root" ] || bootstrap_fail ".devgate must not be a symlink"
+
+      if [ -e "$root" ]; then
+        checkout_root=$(git -C "$root" rev-parse --show-toplevel 2>/dev/null) || bootstrap_fail "existing .devgate is not a complete Git checkout"
+        [ "$checkout_root" = "$root" ] || bootstrap_fail "existing checkout has the wrong root"
+        actual=$(git -C "$root" rev-parse HEAD 2>/dev/null) || bootstrap_fail "existing .devgate has no checked-out commit"
+        [ "$actual" = "$pin" ] || bootstrap_fail "existing checkout has the wrong commit"
+        origin=$(git -C "$root" remote get-url origin 2>/dev/null) || bootstrap_fail "existing checkout has no origin"
+        [ "$origin" = "$source_url" ] || bootstrap_fail "existing checkout has the wrong source"
+        checkout_status=$(git -C "$root" status --porcelain --untracked-files=all --ignored=matching 2>/dev/null) || bootstrap_fail "cannot verify existing checkout state"
+        [ -z "$checkout_status" ] || bootstrap_fail "existing .devgate worktree is not clean"
+      else
+        git init --quiet "$root" 2>/dev/null || bootstrap_fail "could not initialize .devgate"
+        git -C "$root" remote add origin "$source_url" 2>/dev/null || bootstrap_fail "could not configure DevGate source"
+
+        askpass=
+        if [ -n "${DEVGATE_GIT_TOKEN:-}" ]; then
+          askpass=$(mktemp "${TMPDIR:-/tmp}/devgate-askpass.XXXXXXXX") || bootstrap_fail "could not create protected credential helper"
+          cat > "$askpass" <<'ASKPASS'
+      #!/bin/sh
+      case "${1:-}" in
+        *Username*) printf '%s\n' "${DEVGATE_GIT_USERNAME:-x-access-token}" ;;
+        *Password*) printf '%s\n' "${DEVGATE_GIT_TOKEN:-}" ;;
+        *) exit 1 ;;
+      esac
+      ASKPASS
+          chmod 700 "$askpass" || bootstrap_fail "could not protect credential helper"
+          export GIT_ASKPASS="$askpass"
+          export GIT_TERMINAL_PROMPT=0
+        fi
+        cleanup_askpass() {
+          if [ -n "$askpass" ]; then
+            rm -f -- "$askpass"
+            askpass=
+          fi
+        }
+        trap cleanup_askpass EXIT
+        if ! git -C "$root" fetch --quiet --no-tags --depth=1 origin "$pin" 2>/dev/null; then
+          cleanup_askpass
+          bootstrap_fail "could not fetch the pinned DevGate commit"
+        fi
+        if ! git -C "$root" checkout --quiet --detach FETCH_HEAD 2>/dev/null; then
+          cleanup_askpass
+          bootstrap_fail "could not check out the pinned DevGate commit"
+        fi
+        cleanup_askpass
+        trap - EXIT
+      fi
+
+      checkout_root=$(git -C "$root" rev-parse --show-toplevel 2>/dev/null) || bootstrap_fail ".devgate is not a Git checkout"
+      [ "$checkout_root" = "$root" ] || bootstrap_fail ".devgate has the wrong checkout root"
+      actual=$(git -C "$root" rev-parse HEAD 2>/dev/null) || bootstrap_fail ".devgate has no checked-out commit"
+      [ "$actual" = "$pin" ] || bootstrap_fail ".devgate HEAD does not match DEVGATE_SHA"
+      git -C "$root" cat-file -e "$pin^{commit}" 2>/dev/null || bootstrap_fail "DEVGATE_SHA is not a commit"
+      checkout_status=$(git -C "$root" status --porcelain --untracked-files=all --ignored=matching 2>/dev/null) || bootstrap_fail "cannot verify checkout state"
+      [ -z "$checkout_status" ] || bootstrap_fail ".devgate worktree is not clean"
+
+      required_paths=${DEVGATE_REQUIRED_PATHS:-}
+      [ -n "$required_paths" ] || bootstrap_fail "DEVGATE_REQUIRED_PATHS is empty"
+      set -f
+      for required in $required_paths; do
+        case "$required" in
+          /*|..|../*|*/../*|*/..|*' '*|*'\t'*) bootstrap_fail "required path is not a safe relative path" ;;
+        esac
+        [ ! -L "$root/$required" ] || bootstrap_fail "a required DevGate file is a symlink"
+        [ -f "$root/$required" ] || bootstrap_fail "a required DevGate file is missing"
+        git -C "$root" ls-files --error-unmatch -- "$required" >/dev/null 2>&1 || bootstrap_fail "a required DevGate file is not tracked"
+        tree_entry=$(git -C "$root" ls-tree -r "$pin" -- "$required" 2>/dev/null) || bootstrap_fail "cannot inspect a required DevGate file"
+        case "$tree_entry" in
+          "100644 blob "*|"100755 blob "*) ;;
+          *) bootstrap_fail "a required DevGate path is not a regular file in DEVGATE_SHA" ;;
+        esac
+      done
+      )

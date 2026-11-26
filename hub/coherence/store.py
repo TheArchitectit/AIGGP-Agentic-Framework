@@ -1,4 +1,4 @@
-# // spec: coh-ev-02, coh-ev-04, coh-ctx-05
+# // spec: coh-ev-02, coh-ev-04, coh-ctx-05, coh-sec-01
 """Evidence store: sealed run bundles, immutable content-addressed objects,
 retryable upload, complete decision-cache keys.
 
@@ -28,7 +28,7 @@ import os
 import time
 from pathlib import Path
 
-from . import canon, evidence
+from . import canon, evidence, manifest
 from .resource_limits import backoff
 
 
@@ -179,21 +179,31 @@ def upload_bundle(store: LocalBundleStore, bundle_dir: str,
     those, so partial uploads are RESUMED, never duplicated or faked.
     Returns {uploaded, already_present, failed} plus the manifest digest.
     """
-    bundle = Path(bundle_dir)
+    bundle = Path(bundle_dir).resolve()
     manifest_path = bundle / "evidence-manifest.json"
     try:
         manifest_bytes = manifest_path.read_bytes()
-        manifest = json.loads(manifest_bytes)
+        manifest_doc = json.loads(manifest_bytes)
     except (OSError, json.JSONDecodeError) as e:
         raise StoreError(f"cannot read evidence manifest: {e}") from e
 
     uploaded, present, failed = [], [], []
-    for obj in manifest.get("objects", []):
+    for obj in manifest_doc.get("objects", []):
         rel, digest = obj.get("path"), obj.get("digest")
         if not isinstance(rel, str) or not isinstance(digest, str):
             failed.append({"path": rel, "reason": "malformed-manifest-entry"})
             continue
-        fp = bundle / rel
+        # The manifest is inside an untrusted bundle: its object paths are
+        # repository-supplied inventory entries (coh-sec-01). Contain before
+        # the read — otherwise `../secret` uploads host content into the
+        # evidence store, which is exfiltration down the durability path, not
+        # a read-only leak. A refused path fails closed like an unreadable one.
+        try:
+            manifest.check_safe(rel, bundle)
+        except manifest.SubjectError:
+            failed.append({"path": rel, "reason": "path-escapes-bundle"})
+            continue
+        fp = (bundle / rel).resolve()
         try:
             payload = fp.read_bytes()
         except OSError as e:

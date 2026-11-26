@@ -29,9 +29,16 @@ import mutation_harness  # noqa: E402  (sibling module, tests/ is sys.path[0])
 CI = ".github/workflows/ci.yml"
 T_TRIGGER = "tests/test_publish_trigger.py"
 
-DELIBERATE = ("if: (github.event_name == 'push' && github.ref == 'refs/heads/main') "
-              "|| (github.event_name == 'workflow_dispatch' && inputs.publish)")
+GUARD = ("github.event_name != 'pull_request' || "
+         "github.event.pull_request.head.repo.full_name == github.repository")
+PUBLISH = ("(github.event_name == 'push' && github.ref == 'refs/heads/main') "
+           "|| (github.event_name == 'workflow_dispatch' && inputs.publish)")
+DELIBERATE = f"if: ({GUARD}) && ({PUBLISH})"
+# Guard dropped AND policy reverted: the pre-routing shape.
 DISPATCH_ONLY = "if: github.event_name == 'workflow_dispatch' && inputs.publish"
+# Policy reverted, guard kept: the shape this file's P2 pins.
+DISPATCH_ONLY_GUARDED = ("if: (" + GUARD + ") && "
+                         "(github.event_name == 'workflow_dispatch' && inputs.publish)")
 
 INPUT_DECL = """      publish:
         description: "Build and push the evaluator image to GHCR"
@@ -54,16 +61,19 @@ MUTATIONS = [
      [(CI, DELIBERATE, DISPATCH_ONLY)], [T_TRIGGER], {}),
 
     # P2 — the auto half dropped: a push to main stops publishing, while the
-    # comment still claims it does.
+    # comment still claims it does. The fork guard is left intact so this
+    # mutation is about the publish policy, not about runner routing.
     ("P2: the main-push half is dropped from the condition",
-     [(CI, DELIBERATE, "if: github.event_name == 'workflow_dispatch' && inputs.publish")],
+     [(CI, DELIBERATE, DISPATCH_ONLY_GUARDED)],
      [T_TRIGGER], {}),
 
     # P3 — the main-push half weakened from && to ||. A branch push (or any
     # push at all) then publishes, which is what the new policy must not do:
     # auto-publish is scoped to main, not to every ref.
     ("P3: the main-push half's `&&` weakens to `||`",
-     [(CI, DELIBERATE, "if: (github.event_name == 'push' || github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.publish)")],
+     [(CI, DELIBERATE,
+       f"if: ({GUARD}) && ((github.event_name == 'push' || github.ref == 'refs/heads/main') "
+       f"|| (github.event_name == 'workflow_dispatch' && inputs.publish))")],
      [T_TRIGGER], {}),
 
     # P4 — the input deleted. The condition then references an undeclared

@@ -1,20 +1,23 @@
 name: CI
 
 # The framework runs its own medicine (fw-ci-01..03): the full test suite,
-# the shipped gates against its own tree, and spec validation — on every PR
-# and every push to main. Before this workflow existed, nothing executed
-# tests/ in CI (QA M9) and a foreign `tests` package could silently drop five
-# conformance files from collection without anyone noticing.
+# the shipped gates against its own tree, and spec validation — on every
+# same-repository PR and every push to main. Before this workflow existed,
+# nothing executed tests/ in CI (QA M9) and a foreign `tests` package could
+# silently drop five conformance files from collection without anyone noticing.
 #
-# Runner targeting: hosted ubuntu-latest (mirrors drift-scan.yml's choice to
-# keep the framework's own CI runnable on any fork/PR without fleet access;
-# the fleet-labeled runner stays dedicated to consumer drift scans). The
-# container-image job never passes silently when podman is missing: the build
-# and schema steps say SKIPPED in the log, and the identity gate — the one
-# that decides whether consumers can fetch the pinned evaluator — fails
-# closed, because "we could not evaluate the pin" is not a pass. That branch
-# is future-proofing only: hosted ubuntu-latest ships podman, and the logged
-# runs since 2026-09-22 execute the build on every push.
+# Runner targeting: the UCS03 fleet lane (`devgate`, runner ucs03-devgate).
+# All of this repository's CI work runs on our own hardware; there is no
+# GitHub-hosted fallback. Same-repository pull requests run here too, behind a
+# job-level fork guard (`github.event_name != 'pull_request' ||
+# github.event.pull_request.head.repo.full_name == github.repository`) that
+# GitHub evaluates before any runner is assigned — so a fork PR's jobs are
+# skipped rather than dispatched to the private pool. Every job carries it;
+# `pull_request_target` is not used. The container-image job never passes
+# silently when podman is missing: the build and schema steps say SKIPPED in
+# the log, and the identity gate — the one that decides whether consumers can
+# fetch the pinned evaluator — fails closed, because "we could not evaluate the
+# pin" is not a pass.
 
 on:
   pull_request:
@@ -40,8 +43,9 @@ concurrency:
 
 jobs:
   tests:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     name: Test suite (Python + Node)
-    runs-on: ubuntu-latest
+    runs-on: devgate
     steps:
       # fetch-depth 0: the template's DEVGATE_PIN is checked here against the
       # registry IN THAT COMMIT's tree (test_the_pinned_commit_carries_the_
@@ -57,9 +61,53 @@ jobs:
         with:
           node-version: "20"
       - name: Install test dependencies
-        run: python3 -m pip install --quiet pytest cryptography==45.0.7
+        # PyNaCl seals GitHub Actions secrets in the fleet-app-enroll tests;
+        # without it those tests skip, which would hide the sealing proof.
+        run: python3 -m pip install --quiet pytest cryptography==45.0.7 PyNaCl==1.5.0
+      - name: Install the pinned TypeScript carrier runtime
+        # Pi's adapter is TypeScript. Use an isolated tool root: the semantic
+        # scanner fixture installs typescript at the repo root, and that
+        # unsaved root install must not delete another test's carrier runtime.
+        run: |
+          npm --prefix "${RUNNER_TEMP}/pi-tools" install --no-save \
+            --no-package-lock --no-audit --no-fund tsx@4.23.15
+          echo "PI_SESSION_TSX=${RUNNER_TEMP}/pi-tools/node_modules/.bin/tsx" >> "$GITHUB_ENV"
+      # aiggp-08 (Stage 4 harness, Fixtures A-H). The vendored stitcher package
+      # carries its own vitest suite under actions/stitcher-codereview/test/.
+      # scripts/run-tests.mjs selects the engine from the NEAREST package.json
+      # that declares vitest, so the nested package's deps (and its compiled
+      # dist, used by the gate/parity fixtures) must exist before the runner
+      # executes. Without this step the runner would fall back to node --test,
+      # which cannot load a vitest suite at all.
+      - name: stitcher-codereview harness deps + build (nested vitest package)
+        run: |
+          npm --prefix actions/stitcher-codereview ci --no-audit --no-fund
+          npm --prefix actions/stitcher-codereview run build
       - name: pytest suite (collection is deterministic — tests/__init__.py)
         run: python3 -m pytest tests/ -v
+      # GLF-01/GLF-03: the parity drill is blocking. It runs the pinned corpus
+      # (hub/forge/corpus.lock.json) through both forge paths against real
+      # gates; a divergence, a stale pin, or a seed that no longer exercises
+      # its gate fails the job. Not a two-live-forge run: Sprint 0 is blocked
+      # on the operator-supplied instance, and this step says so.
+      - name: Forge parity drill (GLF-01/GLF-03, pinned corpus)
+        run: python3 scripts/forge_parity_drill.py
+      # REPO-004 (devgate-product-tiers-fleet-manager box 1.2). The boundary
+      # package carries its own contract tests, and they run from the package
+      # alone: no core test tree, no network, no core code beyond the one
+      # schema checker the import-surface test pins. Running them separately is
+      # what makes the extraction rehearsal (1.3) possible without rewriting
+      # the command.
+      - name: fleet-manager contract tests (REPO-003/REPO-004)
+        run: python3 -m pytest fleet-manager/tests -q
+      # REPO-005 (box 1.3). Two throwaway copies of the tree: the boundary
+      # package alone with only its declared build inputs (its suite must still
+      # pass — a hidden repository-relative import fails here), and the open
+      # core with the boundary deleted (the whole core suite must still
+      # collect, and the pattern scan must still be clean). The real checkout
+      # is never modified.
+      - name: Extraction rehearsal (REPO-005 — boundary alone, core without it)
+        run: python3 fleet-manager/scripts/extraction_rehearsal.py --source .
       - name: guardrails scanner fixture suite
         run: node tests/test_guardrails_scan.mjs
       # The Python root-anchor suite pins the PYTHON scanners
@@ -96,8 +144,9 @@ jobs:
           echo "runner discovered $n test file(s)"
 
   self-gates:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     name: DevGate gates on DevGate
-    runs-on: ubuntu-latest
+    runs-on: devgate
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -112,6 +161,23 @@ jobs:
         run: python3 -m pip install --quiet pytest
       - name: Pattern scan (own tree must be warning-clean)
         run: node scripts/guardrails-scan.mjs
+      - name: Release checksums (the shipped manifest must match the shipped scripts)
+        # R12. The manifest is generated at tag time, but nothing verified it
+        # afterwards, so it shipped stale from 2026-11-01 to 2026-11-13 — a
+        # consumer following its "verify before use" line got 38 mismatched
+        # digests and 18 entries missing entirely. Verify mode recomputes each
+        # digest from the tree, so a drifted manifest reds here instead of at
+        # the consumer.
+        run: |
+          if out="$(python3 scripts/gen-checksums.py verify 2>&1)"; then
+            printf '%s\n' "$out"
+          else
+            rc=$?
+            printf '%s\n' "$out"
+            echo "FAIL: CHECKSUMS.sha256 disagrees with the tracked scripts."
+            echo "Regenerate it in the release commit: python3 scripts/gen-checksums.py generate"
+            exit "$rc"
+          fi
       - name: Semantic scan (installs the pinned parser)
         run: |
           npm install --no-save --no-audit --no-fund typescript@5
@@ -144,6 +210,14 @@ jobs:
         run: bash scripts/silent-success-scan.sh
       - name: Failure-registry hygiene
         run: python3 scripts/failure_registry_check.py
+      # base-own-01: every entry in a BUNDLED baseline data file may name only
+      # this repository's paths and capabilities. failure_registry_check.py
+      # above enforces the failure-registry half; this is the silent-success
+      # allowlist half - the file a consumer overwrites with its own entries,
+      # and the one that went back to 1,725 gamerepo01 entries the day after it
+      # was emptied (2026-09-19 -> 2026-09-20, unnoticed until 2026-10-25).
+      - name: Bundled baseline ownership (base-own-01 - silent-success allowlist)
+        run: python3 scripts/baseline_ownership_check.py
       # rule-truth-01 (design D7): an enabled rule with no executing checker
       # is dead coverage presented as live. This gate fails on it, on rules
       # files that no longer validate, and on enabled rules missing a message
@@ -208,6 +282,13 @@ jobs:
       # every upload step's retention bound where it is written.
       - name: Artifact retention bounds (fw-storage-01)
         run: python3 scripts/artifact_hygiene.py --repo . --audit
+      # doc-version-01: VERSION, CHANGELOG.md, and git tags describe the same
+      # release history — both directions. A hand-bumped VERSION, a changelog
+      # version heading with no tag, or a tag the changelog never documented
+      # FAILS naming which artifact is lying. checkout@v5 with fetch-depth 0
+      # fetches tags; the gate itself fails closed if the tag set is invisible.
+      - name: Version truth (VERSION ⇄ CHANGELOG ⇄ tags, doc-version-01)
+        run: python3 scripts/check_version_truth.py --repo .
 
   # The repository shipped a secret-scanning template for consumers and did not
   # run one on itself: every push to main passed six jobs and none of them
@@ -218,8 +299,9 @@ jobs:
   # no licence question, and the same mechanism works on a self-hosted runner
   # that already carries the pinned version (the fleet path — design D5/D6).
   secrets:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     name: Secret scan (pinned gitleaks over the pushed range)
-    runs-on: ubuntu-latest
+    runs-on: devgate
     permissions:
       contents: read
     steps:
@@ -307,10 +389,15 @@ jobs:
           fi
 
   specs:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     name: Specs (openspec strict + traceability)
-    runs-on: ubuntu-latest
+    runs-on: devgate
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          # The boundary gate's --changed-base check needs history; a shallow
+          # single-commit clone has no origin/main to diff against.
+          fetch-depth: 0
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12"
@@ -327,9 +414,11 @@ jobs:
       # with no commit on our side. Bump deliberately, and re-run the negative
       # control below when you do — the pin and the control are a pair.
       - name: Install openspec CLI (pinned)
-        run: npm install --no-save --no-audit --no-fund @fission-ai/openspec@1.13.0
+        run: npm install --no-save --no-audit --no-fund @fission-ai/openspec@1.14.3
       - name: openspec validate (strict, hard gate)
         run: npx openspec validate --all --strict
+      - name: requirement ID inventory matches OpenSpec CLI
+        run: python3 scripts/spec_id_inventory.py ./node_modules/.bin/openspec
       # The hard gate above proves the tree is well-formed. It does NOT prove
       # the validator can refuse ill-formed material — if the command were
       # downgraded to a no-op the tree would keep validating green and the gate
@@ -351,10 +440,39 @@ jobs:
           # covered requirement IDs drop below .guardrails/traceability-ratchet.json.
           # Without this the floor was decorative — a regression still read green.
           python3 scripts/spec_traceability.py --root . --ratchet
+      # spec-state-07. INDEX.md says "Generated, not typed"; before the
+      # generator existed nothing produced it, so the claim was false and every
+      # status in it was typed by hand. --check regenerates to a temp path and
+      # reds on any divergence, which makes the claim true and a hand edit a
+      # build failure rather than a silent second source of truth.
+      - name: Index is generated (spec-state-07)
+        run: python3 scripts/spec_index.py --repo . --check
+      # REPO-002 (devgate-product-tiers-fleet-manager box 1.1). The boundary is
+      # a declaration, and this is the gate that keeps it one: a file under
+      # fleet-manager/ that nobody declared, or open-core code importing it,
+      # reds here. Exit 2 (unreadable manifest) is a failure too — a gate that
+      # cannot read its declaration must never read as clean.
+      - name: Package boundary (fleet-manager, REPO-002)
+        run: |
+          set -eu
+          python3 scripts/check_boundary.py --repo .
+          if git rev-parse --verify -q origin/main >/dev/null; then
+            python3 scripts/check_boundary.py --repo . --changed-base origin/main
+          else
+            echo "origin/main not resolvable here — changed-path half skipped; the coverage and dependency-direction checks above still ran"
+          fi
 
   container-image:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     name: Evaluator image builds with its contracts (coh-rt-08)
-    runs-on: ubuntu-latest
+    # Needs a real container engine, which the containerized lane runners do
+    # not have: nested rootless podman cannot create a sub-userns inside the
+    # runner's own userns (setuid newuidmap is neutered there), so this job
+    # died with "podman unavailable" when it moved off ubuntu-latest in
+    # c40aabb. `devgate-podman` is ucs03-devgate-podman: a host-level,
+    # unprivileged runner on a dedicated `cipodman` user with its own rootless
+    # podman — still on UCS03, still fork-guarded.
+    runs-on: devgate-podman
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       # The full real-container smoke (valid-request PASS) requires the image
@@ -435,8 +553,9 @@ jobs:
   # stays green, if the evaluator accepts forged input, or if identical
   # inputs produce different decisions.
   evaluator-integrity:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     name: The evaluator itself is attacked (fw-*)
-    runs-on: ubuntu-latest
+    runs-on: devgate
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -479,6 +598,7 @@ jobs:
                    tests/mutation_battery_runbook_claims.py \
                    tests/mutation_battery_zig_comment.py \
                    tests/mutation_battery_compat.py \
+                   tests/mutation_battery_fork_guard.py \
                    tests/mutation_battery_oap_acceptance.py; do
             echo "::group::$b"
             python3 "$b" || exit 1
@@ -545,7 +665,10 @@ jobs:
   # is a failing test rather than a sentence nobody re-reads.
   container-publish:
     name: Publish evaluator image to GHCR (S4)
-    runs-on: ubuntu-latest
+    # Same engine requirement as container-image above: `podman build` and the
+    # digest-pinned pull need a real podman, so this runs on the dedicated
+    # unprivileged host-level runner rather than the containerized lane.
+    runs-on: devgate-podman
     permissions:
       contents: read
       packages: write
@@ -553,9 +676,61 @@ jobs:
       # the same path the fleet's monitor raises (img-cycle-05 says SHALL NOT
       # be reported only as a CI log notice). The notifier is hub/alerts.py.
       issues: write
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.publish)
+    if: (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.publish))
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      # --- Fleet GitHub App token: canonical shape, docs/GITHUB-APP-TOKEN.md ---
+      # 1. Fail closed and named when half the pair is configured. The action
+      #    would also fail on a missing private-key input, but its message does
+      #    not name the secret a reader has to go and set.
+      - name: Check the App credential pair (fail closed, named)
+        id: app-cred
+        env:
+          APP_ID: ${{ vars.DEVGATE_SWEEP_APP_ID }}
+          APP_KEY: ${{ secrets.DEVGATE_SWEEP_APP_PRIVATE_KEY }}
+        run: |
+          set -eu
+          if [ -n "$APP_ID" ] && [ -z "$APP_KEY" ]; then
+            echo "::error::vars.DEVGATE_SWEEP_APP_ID is set but secrets.DEVGATE_SWEEP_APP_PRIVATE_KEY is missing."
+            echo "::error::Failing closed: a configured App never falls through to a wider identity."
+            exit 1
+          fi
+          echo "[auth] app id variable: $([ -n "$APP_ID" ] && echo set || echo unset)"
+
+      # 2. Mint the installation token. Skipped only when the variable is unset;
+      #    the pin is a full SHA, never a tag.
+      - name: Mint the fleet App token
+        id: app-token
+        if: ${{ vars.DEVGATE_SWEEP_APP_ID != '' }}
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+        with:
+          app-id: ${{ vars.DEVGATE_SWEEP_APP_ID }}
+          private-key: ${{ secrets.DEVGATE_SWEEP_APP_PRIVATE_KEY }}
+          owner: TheArchitectit   # owner scope: jobs that read other fleet repos
+
+      # 3. Resolve the mode once, announce it, and publish one token output for
+      #    the call sites. The fallback is never silent.
+      - name: Resolve and announce the token mode
+        id: auth
+        env:
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
+          WORKFLOW_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          if [ -n "$APP_TOKEN" ]; then
+            MODE=app
+            echo "[auth] token mode: app — program GitHub App installation, 5,000 req/h (separate from the user budget)"
+            TOKEN="$APP_TOKEN"
+          else
+            MODE=workflow
+            TOKEN="$WORKFLOW_TOKEN"
+            echo "::warning::[auth] token mode: workflow — vars.DEVGATE_SWEEP_APP_ID is unset on this repository. Falling back to github.token: 1,000 req/h, scoped to this repository only."
+          fi
+          [ -z "$APP_TOKEN" ] || echo "::add-mask::$APP_TOKEN"
+          printf 'token=%s\n' "$TOKEN" >> "$GITHUB_OUTPUT"
+          printf 'token_mode=%s\n' "$MODE" >> "$GITHUB_OUTPUT"
+
       - name: Build pinned image
         run: |
           podman build --timestamp 0 -t devgate-coherence -f container/Containerfile .
@@ -566,7 +741,15 @@ jobs:
             --entrypoint python3 devgate-coherence -c \
             "from hub.coherence import schemacheck; schemacheck.load('request.schema.json'); schemacheck.load('result.schema.json'); print('schemas OK in image')"
       - name: Push to ghcr.io (sha-pinned)
+        env:
+          # The image-pin divergence alert below is a real GitHub API call
+          # (hub/alerts.py -> api.github.com). The GHCR login in this step is
+          # registry auth, not the REST budget, and stays on
+          # secrets.GITHUB_TOKEN deliberately.
+          GITHUB_TOKEN: ${{ steps.auth.outputs.token }}
+          TOKEN_MODE: ${{ steps.auth.outputs.token_mode }}
         run: |
+          echo "[auth] this step spends the $TOKEN_MODE budget (GitHub API: image-pin divergence alert)"
           # GHCR requires lowercase repository names; github.repository
           # preserves the owner/repo casing, so normalize here.
           IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}/devgate-coherence"

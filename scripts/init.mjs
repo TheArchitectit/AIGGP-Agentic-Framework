@@ -13,7 +13,7 @@
  *
  * --dry-run: print what would happen, change nothing.
  */
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, chmodSync } from "node:fs";
 import { join, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createInterface } from "node:readline";
@@ -28,6 +28,16 @@ const flag = (name) => {
 };
 const cron = flag("cron") ?? null;
 const labels = flag("labels") ?? null;
+const hasCarriersFlag = process.argv.includes("--carriers");
+const carriersArg = flag("carriers");
+
+const CARRIER_TEMPLATES = {
+  "claude-code": { src: ["claude-code", "session-start.sh"], dest: [".guardrails", "hooks", "claude-code", "session-start.sh"], mode: 0o755 },
+  "pi-extension": { src: ["pi-extension", "session-init.ts"], dest: [".guardrails", "hooks", "pi-extension", "session-init.ts"], mode: 0o644 },
+  "codex": { src: ["codex", "session-start.sh"], dest: [".guardrails", "hooks", "codex", "session-start.sh"], mode: 0o755 },
+  "opencode": { src: ["opencode", "session-start.mjs"], dest: [".guardrails", "hooks", "opencode", "session-start.mjs"], mode: 0o755 },
+  "mimo": { src: ["mimo", "session-start.sh"], dest: [".guardrails", "hooks", "mimo", "session-start.sh"], mode: 0o755 },
+};
 
 const WORKFLOWS = ["guardrails-compliance.yml", "secret-validation.yml",
   "drift-scan.yml"];
@@ -105,6 +115,35 @@ if (DRY) {
       .replace(/runs-on: ubuntu-latest/g, `runs-on: ${answers.labels.split(",")[0].trim()}`);
     writeFileSync(join(wfDir, name), text);
     note(`workflow written: .github/workflows/${name}`);
+  }
+}
+
+// 3b. Optional carrier adapters (--carriers [all|claude-code,pi-extension,...])
+if (hasCarriersFlag) {
+  const rawList = !carriersArg || carriersArg.startsWith("--") || carriersArg === "all"
+    ? Object.keys(CARRIER_TEMPLATES)
+    : carriersArg.split(",").map((c) => c.trim()).filter(Boolean);
+  for (const name of rawList) {
+    if (!CARRIER_TEMPLATES[name]) {
+      fail(`unknown carrier '${name}' (expected one of: ${Object.keys(CARRIER_TEMPLATES).join(", ")})`);
+    }
+  }
+  for (const name of rawList) {
+    const spec = CARRIER_TEMPLATES[name];
+    const src = join(DEVGATE_ROOT, "templates", "hooks", ...spec.src);
+    const dest = join(TARGET, ...spec.dest);
+    const relDest = spec.dest.join("/");
+    if (!existsSync(src)) fail(`carrier template missing: ${src}`);
+    if (existsSync(dest)) {
+      note(`carrier hook exists — left untouched: ${relDest}`);
+    } else if (DRY) {
+      note(`[dry-run] would write carrier hook: ${relDest}`);
+    } else {
+      mkdirSync(dirname(dest), { recursive: true });
+      writeFileSync(dest, readFileSync(src));
+      chmodSync(dest, spec.mode);
+      note(`carrier hook written: ${relDest}`);
+    }
   }
 }
 

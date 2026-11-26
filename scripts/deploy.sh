@@ -1,25 +1,26 @@
 #!/usr/bin/env bash
+# // spec: rel-upload-01, rel-artifact-01, rel-target-01, doc-version-01
 #
 # scripts/deploy.sh — Generic gated publish pipeline (language-agnostic).
 #
-# Auto-detects the project's package manager (npm, cargo, pip) and runs
-# the appropriate build/test/publish commands. Does NOT assume any specific
-# language or framework.
+# Auto-detects npm/cargo/pip and runs the matching build/test/publish commands;
+# assumes no specific language or framework.
 #
 # Steps:
 #   1. Clean git tree
 #   2. Full gate (build + test + lint + regression + guardrails)
 #   3. Schema health validation (if database configured)
 #   4. Build artifacts (if applicable)
-#   5. Version bump
+#   5. Version bump — package manifest AND the version-truth artifacts
+#      (VERSION + CHANGELOG.md fold) in one step (doc-version-01), with a
+#      tag ⇄ VERSION ⇄ CHANGELOG agreement check before anything publishes
 #   6. Commit + tag + push (before publish — push failure aborts, stderr shown)
 #   6b. Tag-reached-remote verification (--follow-tags pushes annotated tags only)
 #   6c. ARTIFACT VERIFY (manifest-driven; skipped when unconfigured)
 #   7. Publish (auto-detected: npm / cargo / pip / custom)
 #   8. GitHub release
 #
-# Usage:
-#   ./scripts/deploy.sh <new-version>
+# Usage: ./scripts/deploy.sh <new-version>
 #
 # Optional: create .guardrails/release-artifact-contract.json (see
 # release-artifact-contract.example.json) to assert the packed artifact really
@@ -183,17 +184,69 @@ else
 	echo "[deploy] no recognized manifest — skipping version bump (set manually)"
 fi
 
+# doc-version-01: VERSION and CHANGELOG.md are release-truth artifacts this
+# pipeline owns, and they update in the same step as the manifest — a VERSION
+# left at a hand-set value is exactly how it came to disagree with the tag.
+# The CHANGELOG fold is a pure insert: the [Unreleased] body becomes this
+# release's notes under a dated heading, and an empty [Unreleased] stays on top.
+if [ -f "VERSION" ]; then
+	CURRENT_VERSION="$(tr -d '[:space:]' < VERSION)"
+	if [[ "$CURRENT_VERSION" != "$NEW_VERSION" ]]; then
+		printf '%s\n' "$NEW_VERSION" > VERSION
+		echo "[deploy] bumped VERSION $CURRENT_VERSION → v$NEW_VERSION"
+	fi
+fi
+if [ -f "CHANGELOG.md" ]; then
+	if ! grep -q '^## \[Unreleased\]' CHANGELOG.md; then
+		echo "[deploy] FAIL: CHANGELOG.md has no '## [Unreleased]' section to fold — doc-version-01 requires the release pipeline to update every artifact it owns" >&2
+		exit 1
+	fi
+	if grep -q "^## \[$NEW_VERSION\]" CHANGELOG.md; then
+		echo "[deploy] FAIL: CHANGELOG.md already has a '## [$NEW_VERSION]' section — refusing to double-fold a release claim" >&2
+		exit 1
+	fi
+	RELEASE_DATE="$(date -u +%Y-%m-%d)"
+	# The fold moves the [Unreleased] body under the new dated heading; an
+	# empty body would publish an empty release, so END refuses it.
+	awk -v ver="$NEW_VERSION" -v date="$RELEASE_DATE" '
+		/^## \[Unreleased\]/ { print; print ""; print "## [" ver "] - " date; insec = 1; next }
+		insec && /^## \[/ { insec = 0 }
+		insec && NF { found = 1 }
+		{ print }
+		END { exit !found }
+	' CHANGELOG.md > CHANGELOG.md.fold.tmp && mv CHANGELOG.md.fold.tmp CHANGELOG.md || {
+		echo "[deploy] FAIL: [Unreleased] is empty — refusing to publish v$NEW_VERSION" >&2; exit 1; }
+	echo "[deploy] folded CHANGELOG.md [Unreleased] into v$NEW_VERSION ($RELEASE_DATE)"
+fi
+
 # --- 5. commit + tag + push ---------------------------------------------------
 cd "$PROJECT_ROOT"
 if ! git diff --quiet; then
 	echo "[deploy] committing version bump"
 	git add -A
+	bash scripts/release_preflight.sh
 	git commit -m "chore(release): v$NEW_VERSION"
 fi
 
 TAG="v$NEW_VERSION"
 if ! git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
 	git tag -a "$TAG" -m "Release v$NEW_VERSION"
+fi
+
+# doc-version-01: tag ⇄ VERSION ⇄ CHANGELOG agreement, verified where the tag
+# is created and again before publish — disagreeing version truth must fail
+# the deploy, never ship and get explained afterwards.
+if [ -f "VERSION" ]; then
+	VERSION_CONTENT="$(tr -d '[:space:]' < VERSION)"
+	if [[ "v$VERSION_CONTENT" != "$TAG" ]]; then
+		echo "[deploy] FAIL: doc-version-01 — tag $TAG does not agree with VERSION ($VERSION_CONTENT); refusing to publish disagreeing version artifacts" >&2
+		exit 1
+	fi
+	echo "[deploy] tag $TAG agrees with VERSION ($VERSION_CONTENT)"
+fi
+if [ -f "CHANGELOG.md" ] && ! grep -q "^## \[$NEW_VERSION\]" CHANGELOG.md; then
+	echo "[deploy] FAIL: doc-version-01 — CHANGELOG.md has no '## [$NEW_VERSION]' section for tag $TAG" >&2
+	exit 1
 fi
 
 echo "[deploy] pushing commits + tag"
@@ -267,6 +320,11 @@ elif val is not None:
 
 	ARTIFACT_GLOB="$(contract_field artifact_glob)"
 	ENTRY_PREFIX="$(contract_field entry_prefix)"
+	MUST_CONTAIN="$(contract_field must_contain)"
+	if [ -z "${MUST_CONTAIN//[[:space:]]/}" ]; then
+		echo "[deploy] ERROR: $ARTIFACT_CONTRACT is misconfigured — must_contain is empty or missing." >&2
+		exit 1
+	fi
 
 	# Per-package-manager pack + listing command. Each branch sets PACK_CMD (may
 	# be empty when the artifact is pre-built) and LIST_MODE.
@@ -414,20 +472,25 @@ echo "[deploy] published v$NEW_VERSION."
 
 # --- 7. GitHub release --------------------------------------------------------
 cd "$PROJECT_ROOT"
-if command -v gh >/dev/null 2>&1; then
-	echo "[deploy] creating GitHub release $TAG"
-	PREV_TAG=$(git describe --tags --abbrev=0 "$TAG^" 2>/dev/null || true)
-	if [ -n "$PREV_TAG" ]; then
-		RELEASE_NOTES=$(git log --pretty=format:"- %s" "$PREV_TAG..$TAG" 2>/dev/null | grep -vE "^- chore\(release\)" | sed -n '1,15p' || true)
-	else
-		RELEASE_NOTES=$(git log --pretty=format:"- %s" "$TAG" 2>/dev/null | sed -n '1,15p' || true)
-	fi
-	RELEASE_NOTES="${RELEASE_NOTES:-(no commit notes extracted)}"
-	gh release create "$TAG" --title "v$NEW_VERSION" --notes "$(printf '## What changed\n\n%s' "$RELEASE_NOTES")" \
-		|| echo "[deploy] WARN: gh release create failed — skipping"
-else
-	echo "[deploy] WARN: gh CLI not installed — skipping GitHub release."
+if ! command -v gh >/dev/null 2>&1; then
+	echo "[deploy] ERROR: gh CLI not installed — refusing to claim a GitHub release." >&2
+	exit 1
 fi
+echo "[deploy] creating GitHub release $TAG"
+PREV_TAG=$(git describe --tags --abbrev=0 "$TAG^" 2>/dev/null || true)
+RANGE="$TAG"
+if [ -n "$PREV_TAG" ]; then RANGE="$PREV_TAG..$TAG"; fi
+RELEASE_NOTES=$(git log --pretty=format:"- %s" "$RANGE" 2>/dev/null | grep -vE "^- chore\(release\)" | sed -n '1,15p' || true)
+RELEASE_NOTES="${RELEASE_NOTES:-(no commit notes extracted)}"
+# The tag workflow and this command can race to create the same release.
+# The view below, not create's exit alone, is the authoritative proof.
+if ! gh release view "$TAG" --json url --jq .url >/dev/null 2>&1; then
+	gh release create "$TAG" --title "v$NEW_VERSION" --notes "$(printf '## What changed\n\n%s' "$RELEASE_NOTES")" || true
+fi
+gh release view "$TAG" --json url --jq .url || {
+	echo "[deploy] ERROR: GitHub Release $TAG could not be created or verified" >&2
+	exit 1
+}
 
 echo
 echo "============================================================"

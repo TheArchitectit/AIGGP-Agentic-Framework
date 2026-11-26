@@ -1,5 +1,7 @@
 # Gate execution contract
 
+Status: CLOSED (EXERCISED 3)
+
 ## Purpose
 
 Define how gates resolve the project they evaluate — standalone checkout versus submodule checkout — so a gate always scans the intended tree and nothing above or beside it.
@@ -59,3 +61,11 @@ where base is the most recent tag or the documented fallback.
 #### Scenario: per-PR scoping
 - **WHEN** `--base origin/main` is supplied
 - **THEN** only added lines of `origin/main...HEAD` are scanned
+
+## Requirement Closure
+
+| Requirement | Status | Implementation | Verification |
+|---|---|---|---|
+| `gate-root-01` (Project-root resolution) | **EXERCISED** | `scripts/gate_common.py`, `scripts/lib/project_root.py` | `tests/test_gate_common.py`, `tests/test_python_root_anchor.py` |
+| `gate-vacuous-01` (No vacuous green) | **EXERCISED** | `scripts/lib/test-runner-select.mjs` | `tests/test_run_tests_runner.mjs` |
+| `gate-allwindow-01` (--all diff window) | **EXERCISED** | `scripts/regression_check.py`, `scripts/regression_diff.py` | `tests/test_regression_check.py` |

@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/TheArchitectit/AIGGP-Agentic-Framework/fleet-manager/contracts/v1/capacity-decision.schema.json",
+  "title": "Fleet Manager -> DevGate core: capacity decision (contract v1)",
+  "description": "The only document shape in which Fleet Manager answers a capacity request (REPO-003). Producer: Fleet Manager. Consumer: core. A non-zero answer is a typed outcome, never an absent document: 'unavailable' is a stated state, not a timeout the core side has to guess at.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "request_id", "decided_at", "outcome"],
+  "properties": {
+    "contract_version": {
+      "const": 1
+    },
+    "request_id": {
+      "description": "Echo of the request's request_id. A decision that cannot be matched to a request is not a decision.",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "decided_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "outcome": {
+      "description": "assigned: capacity exists now. queued: it will. refused: policy says no. unavailable: Fleet Manager cannot answer — the core side must degrade explicitly and must never read this as pass.",
+      "enum": ["assigned", "queued", "refused", "unavailable"]
+    },
+    "assignment": {
+      "description": "Present iff outcome is assigned (cross-field rule enforced in fleet_manager.contracts, which the schema language cannot express).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["assignment_id", "pool", "host"],
+      "properties": {
+        "assignment_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+        },
+        "pool": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "host": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "runner_image": {
+          "description": "digest-pinned image reference the job will run in.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      }
+    },
+    "reason": {
+      "description": "Present iff outcome is not assigned. code is a closed enum so a consumer can branch without parsing prose; detail is for humans and is capped.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "detail"],
+      "properties": {
+        "code": {
+          "enum": [
+            "capacity",
+            "policy",
+            "trust_class",
+            "unknown_repository",
+            "invalid_request",
+            "fleet_unavailable"
+          ]
+        },
+        "detail": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      }
+    }
+  }
+}

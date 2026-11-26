@@ -1,4 +1,4 @@
-# // spec: coh-ctx-01, coh-ctx-02, coh-ctx-03
+# // spec: coh-ctx-01, coh-ctx-02, coh-ctx-03, coh-sec-01
 """Evaluation-context loading and validation. Time and stage come only from
 this control-plane-issued manifest, never from the host clock or request.
 Distinguishes fresh-promotion from replay semantics.
@@ -6,7 +6,7 @@ Distinguishes fresh-promotion from replay semantics.
 import json
 from pathlib import Path
 
-from . import canon
+from . import canon, manifest
 
 
 class ContextError(ValueError):
@@ -95,12 +95,22 @@ def load_captured_facts(root: str, ctx: dict) -> dict:
         if not isinstance(rec, dict) or not rec.get("fact_id"):
             raise ContextError("captured fact record missing fact_id")
         fid = rec["fact_id"]
-        if "/" in fid or fid in (".", ".."):
+        if not isinstance(fid, str) or "/" in fid or fid in (".", "..") \
+                or "\x00" in fid:
             raise ContextError(f"captured-fact-bad-id:{fid}")
         dig = rec.get("digest")
         if not dig:
             continue
+        # Segment checks do not catch a symlink: `facts/<id>` may point
+        # outside the run root, and the digest check does not help because a
+        # caller who can plant the link knows what it points at. Contain the
+        # resolved path before the read (coh-sec-01).
         fp = base / "facts" / fid
+        try:
+            manifest.check_safe(f"facts/{fid}", base)
+        except manifest.SubjectError:
+            raise ContextError(f"captured-fact-escapes-root:{fid}") from None
+        fp = fp.resolve()
         try:
             raw = fp.read_bytes()
         except OSError:

@@ -45,7 +45,7 @@ export function checkTests(change: OpenSpecChange, diff: Diff, opts: TestsOption
       .join(' ')
       .toLowerCase()
       .replace(/[^a-z0-9_\-/ ]/g, ' ')
-      .split(/[\s/_\-]+/)
+      .split(/[\s/_-]+/)
       .filter((w) => w.length > 3)
   );
   for (const r of addedReqs) {
@@ -57,7 +57,7 @@ export function checkTests(change: OpenSpecChange, diff: Diff, opts: TestsOption
         `${s.name} ${s.whenThen.join(' ')}`
           .toLowerCase()
           .replace(/[^a-z0-9_\-/ ]/g, ' ')
-          .split(/[\s/_\-]+/)
+          .split(/[\s/_-]+/)
           .filter((w) => w.length > 3)
       );
       let shared = 0;

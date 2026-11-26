@@ -1,0 +1,32 @@
+# Deployer instance declarations for the forge adapter (GLF-10, GLF-13).
+#
+# This shipped file declares NO instance. That is deliberate: a GitLab
+# surface is opt-in, so a fresh deployment refuses every GitLab instance by
+# name and GitLab.com stays off until a hosted declaration below is added.
+#
+# Format and a filled-in example: hub/forge/instances.example.toml
+# External-instance guide:      docs/GITLAB-FORGE.md
+# Validate with:                 python3 -m pytest tests/test_gitlab_forge_support.py
+#
+# Own this file in the deployment's configuration repository. Do not name a
+# real instance, owner or backup path in this public repository.
+
+version = 1
+
+# [[instance]]
+# instance_id = "lab-gitlab"
+# forge = "gitlab"
+# host_alias = "gitlab-lab"
+# service_name = "gitlab-ce"
+# owner = "platform-ops"
+# backup_path = "/var/opt/gitlab/backups"
+# runner_scope = "instance-dedicated"
+# default_visibility = "private"
+# tls_valid = true
+# security_patch_cadence_days = 30
+# upgrade_cadence_days = 90
+# supported_version = "17.4"
+# surface = "self-hosted"
+#
+# [instance.ip_repo_visibilities]
+# "group/repo" = "private"

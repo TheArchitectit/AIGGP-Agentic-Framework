@@ -74,12 +74,14 @@ These are lab-fleet measurements that outlive the package:
 | C7 deploy audits wrong tree → .devgate-basename layout detection | SHIPPED |
 | H6 Python marker grammar → `# spec:` accepted | SHIPPED |
 | H8 baseline contamination → overlay-default registry, explicit --baseline | SHIPPED |
-| "no dead configuration" (dead-rule startup validation) | **NOT SHIPPED** — deferred idea |
-| path confinement (traversal = finding, not follow) | **NOT SHIPPED** — deferred idea |
+| "no dead configuration" (dead-rule startup validation) | **SHIPPED** (`rule-truth-01` / `scripts/rules_check.py`, 2026-10-25) |
+| path confinement (traversal = finding, not follow) | **SHIPPED** (`coh-sec-01` / `gate_common.contained_path`, `725dd1e`, 2026-10-25) |
 
-The two gaps are recorded as deferred native-spec ideas (the
-add-gitlab-forge-support pattern: written against the shipped surface, when
-wanted). They are not scheduled.
+Both initially deferred items shipped on 2026-10-25: dead-rule validation is
+published truth (`rule-coverage-truth` / `rule-truth-01`) enforced by
+`scripts/rules_check.py`, and path confinement is enforced across all seven
+repository-supplied path readers via `gate_common.contained_path` (`725dd1e`,
+verified by `tests/test_gate_containment.py`).
 
 ## Rules going forward (SA-12)
 

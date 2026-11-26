@@ -1,0 +1,74 @@
+name: Spec State
+
+# Gate 3.3 — push-time enforcement, worded honestly.
+#
+# Owner decision 2026-11-14: enforce BOTH. `scripts/hooks/pre-commit` is the
+# local block (bypassable with `git commit --no-verify`); this workflow is the
+# AUDIT TRAIL, not a prevention mechanism. It runs after the ref has moved, so a
+# failure here reports a transition that is already history. The repair is a
+# follow-up commit — the ledger row and the state edit that make the transition
+# sound — never a rewrite of `main`.
+#
+# The range is the one that was pushed (`before..HEAD`), not `HEAD^..HEAD`: a
+# multi-commit push is audited whole, and a merge or a batched push must not
+# hide a transition in the middle of the range.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: spec-state-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: Spec-state ledger audit (detection, not prevention)
+    runs-on: devgate
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          # A range gate needs the pushed base in history. A shallow clone has
+          # no `before`, and the gate fails closed (exit 2) rather than
+          # scanning nothing, which would read as a green audit.
+          fetch-depth: 0
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+
+      - name: Resolve the pushed range
+        id: range
+        run: |
+          set -euo pipefail
+          before="${{ github.event.before }}"
+          if [ -z "$before" ] || ! git cat-file -e "${before}^{commit}" 2>/dev/null; then
+            echo "::warning::pushed base '$before' is not in history (new branch or force-push); auditing HEAD^..HEAD"
+            before="$(git rev-parse HEAD^ 2>/dev/null || git rev-parse HEAD)"
+          fi
+          echo "base=$before" >> "$GITHUB_OUTPUT"
+          echo "auditing ${before}..HEAD"
+
+      - name: Spec-state ledger audit
+        run: |
+          set +e
+          set -uo pipefail
+          python3 scripts/spec_state_gate.py --base "${{ steps.range.outputs.base }}" --head HEAD
+          status=$?
+          case "$status" in
+            0)
+              echo "spec-state audit: every reconciled transition in the pushed range is sound"
+              ;;
+            3)
+              echo "::error::spec-state audit scanned nothing (exit 3) — an empty scan is not a pass"
+              exit 1
+              ;;
+            *)
+              echo "::error::spec-state audit FAILED (exit $status). This is detection after the fact: the transition is already on main."
+              echo "::error::Repair it with a follow-up commit that adds the missing ledger row, resolution or sealed evidence — do not rewrite main."
+              exit 1
+              ;;
+          esac

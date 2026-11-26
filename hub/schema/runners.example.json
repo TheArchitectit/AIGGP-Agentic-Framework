@@ -13,6 +13,7 @@
     {
       "name": "example-runner",
       "repo": "OWNER/REPO",
+      "forge": "github",
       "labels": ["devgate"],
       "host_alias": "monitor-hub",
       "address": "100.64.0.10",

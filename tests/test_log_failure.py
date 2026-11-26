@@ -6,7 +6,9 @@ accumulated entries referencing other repos' files. Now: project overlay by
 default, --baseline for maintainers, --registry / FAILURE_REGISTRY_PATH
 override, and the append-only contract (never rewrites existing lines).
 """
+import importlib.util
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -46,12 +48,24 @@ class TestLogFailureTargeting(unittest.TestCase):
         self.assertTrue(target.exists())
 
     def test_standalone_default_is_the_repo_registry(self):
-        # Standalone layout: DevGate IS the project, so the default target
-        # resolves to this repo's own .guardrails/failure-registry.jsonl —
-        # the same file the old default used. (Verified by resolution, not by
-        # writing into the real registry.)
-        sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-        from scripts import log_failure as lf
+        # Standalone (clone) layout: DevGate IS the project, so the default
+        # target resolves to the repo's own .guardrails/failure-registry.jsonl.
+        # The layout must be BUILT, not assumed: when this checkout is vendored
+        # as <host>/.devgate the module correctly resolves the parent as the
+        # project — asserting standalone against the live tree fails in exactly
+        # the layout every consumer uses. Copy the script into a tree NOT named
+        # .devgate and import that copy. (Verified by resolution, not by
+        # writing into any registry.)
+        standalone = Path(tempfile.mkdtemp(prefix="dg-logf-standalone-"))
+        self.addCleanup(shutil.rmtree, standalone, ignore_errors=True)
+        scripts = standalone / "scripts"
+        scripts.mkdir()
+        shutil.copy2(SCRIPT, scripts / "log_failure.py")
+        spec = importlib.util.spec_from_file_location(
+            "log_failure_standalone", scripts / "log_failure.py")
+        lf = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(lf)
+        self.assertEqual(lf.DEVGATE_ROOT, standalone)
         self.assertEqual(lf.PROJECT_ROOT, lf.DEVGATE_ROOT)
         self.assertEqual(lf.DEFAULT_REGISTRY,
                          lf.DEVGATE_ROOT / ".guardrails" / "failure-registry.jsonl")
@@ -73,6 +87,119 @@ class TestLogFailureTargeting(unittest.TestCase):
         self.assertEqual(len(lines), 2, "appended entry must not merge lines")
         for ln in lines:
             json.loads(ln)  # both lines parse
+
+
+class TestBaseWrite01Contract(unittest.TestCase):
+    """base-write-01: in a submodule layout the default target is the PROJECT's
+    overlay, the shared baseline needs the explicit `--upstream` flag, and the
+    output names the file that received the entry.
+
+    The script is staged inside a directory literally named `.devgate`, because
+    that name is what selects the consumer layout in the script itself - the
+    same deployment-shape reasoning as the containment fixture suite.
+    """
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="dg-logf-own-"))
+        staged = self.tmp / ".devgate" / "scripts"
+        staged.mkdir(parents=True)
+        self.script = staged / "log_failure.py"
+        self.script.write_bytes(SCRIPT.read_bytes())
+        self.overlay = self.tmp / ".guardrails" / "failure-registry.jsonl"
+        self.baseline = self.tmp / ".devgate" / ".guardrails" / "failure-registry.jsonl"
+
+    def _run(self, *args):
+        import os
+        env = dict(os.environ)
+        env.pop("FAILURE_REGISTRY_PATH", None)
+        return subprocess.run([PYTHON, str(self.script), *args],
+                              capture_output=True, text=True, env=env)
+
+    def test_default_writes_the_project_overlay_and_names_it(self):
+        r = self._run("--error-message", "boom")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertTrue(self.overlay.exists(), r.stdout + r.stderr)
+        self.assertIn(f"registry: {self.overlay}", r.stdout)
+        self.assertEqual(self.overlay.read_text().count("\n"), 1)
+        self.assertFalse(self.baseline.exists(),
+                         "a consumer's bug must not land in the shared baseline")
+
+    def test_upstream_writes_the_shared_baseline_and_names_it(self):
+        r = self._run("--error-message", "boom", "--upstream")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertTrue(self.baseline.exists(), r.stdout + r.stderr)
+        self.assertIn(f"registry: {self.baseline}", r.stdout)
+        self.assertFalse(self.overlay.exists(),
+                         "an explicit upstream append must not also write the overlay")
+
+    def test_baseline_is_still_accepted_as_an_alias(self):
+        sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+        from scripts import log_failure as lf
+        parser = lf.build_parser()
+        self.assertTrue(parser.parse_args(["--error-message", "x", "--upstream"]).baseline)
+        self.assertTrue(parser.parse_args(["--error-message", "x", "--baseline"]).baseline)
+        self.assertFalse(parser.parse_args(["--error-message", "x"]).baseline)
+
+    def test_join_fields_are_preserved_and_optional_outside_gameplay_crash(self):
+        target = self.tmp / "reg.jsonl"
+        r = run_log(
+            "--error-message", "determinism drift on frame 42",
+            "--seed", "1337",
+            "--stream-id", "mergekingdom-alpha-1337",
+            "--registry", str(target),
+        )
+        self.assertEqual(r.returncode, 0, r.stderr)
+        entry = json.loads(target.read_text().strip())
+        self.assertEqual(entry["seed"], "1337")
+        self.assertEqual(entry["stream_id"], "mergekingdom-alpha-1337")
+        plain = self.tmp / "plain.jsonl"
+        run_log("--error-message", "no session join", "--registry", str(plain))
+        plain_entry = json.loads(plain.read_text().strip())
+        self.assertNotIn("seed", plain_entry)
+        self.assertNotIn("stream_id", plain_entry)
+
+    def test_gameplay_crash_entry_records_seed_and_input_trace(self):
+        target = self.tmp / "crash.jsonl"
+        r = run_log(
+            "--error-message", "null deref on scene reload",
+            "--gameplay-crash",
+            "--seed", "4242",
+            "--input-trace", "replay://run/4242/inputs.jsonl",
+            "--registry", str(target),
+        )
+        self.assertEqual(r.returncode, 0, r.stderr)
+        entry = json.loads(target.read_text().strip())
+        self.assertEqual(entry["kind"], "gameplay-crash")
+        self.assertEqual(entry["seed"], "4242")
+        self.assertEqual(entry["input_trace"], "replay://run/4242/inputs.jsonl")
+
+    def test_unseeded_gameplay_crash_is_refused_and_names_what_is_missing(self):
+        target = self.tmp / "refused.jsonl"
+        r = run_log(
+            "--error-message", "null deref on scene reload",
+            "--gameplay-crash",
+            "--registry", str(target),
+        )
+        self.assertEqual(r.returncode, 1, r.stdout)
+        self.assertFalse(target.exists(),
+                         "a refused entry must not be registered at all")
+        self.assertIn("--seed", r.stderr)
+        self.assertIn("--input-trace", r.stderr)
+        self.assertIn("refusing to register it as a regression", r.stderr)
+
+    def test_gameplay_crash_without_input_trace_is_refused(self):
+        target = self.tmp / "notrace.jsonl"
+        r = run_log(
+            "--error-message", "null deref on scene reload",
+            "--gameplay-crash",
+            "--seed", "4242",
+            "--registry", str(target),
+        )
+        self.assertEqual(r.returncode, 1, r.stdout)
+        self.assertFalse(target.exists())
+        self.assertIn("missing --input-trace", r.stderr)
+        self.assertNotIn("missing --seed", r.stderr)
+
 
 
 if __name__ == "__main__":

@@ -1,0 +1,114 @@
+# spec: fleet-app-07, fleet-enroll-auth-01, fleet-enroll-auth-02
+# fleet-app-enroll.yml - keep the fleet App credential pair on every repository.
+#
+# The owner (TheArchitectit) is a USER account: there are no organization
+# secrets, so every repository carries its own DEVGATE_SWEEP_APP_ID variable
+# and DEVGATE_SWEEP_APP_PRIVATE_KEY secret. A repository created tomorrow is
+# unconfigured until someone sets the pair by hand; scripts/fleet-app-enroll.py
+# does it automatically. This workflow is the nightly caller.
+#
+# Scheduled runs APPLY. A manual dispatch defaults to dry_run=true so a human
+# can inspect the plan first; pass dry_run=false to apply by hand.
+#
+# This workflow only writes the two repository-scoped values. It does not
+# install workflows into other repositories and does not touch their code.
+#
+# Schedule: '23 5', an off-minute that does not collide with the 04:17 /
+# 04:47 sweeps. Concurrency keeps a slow run from overlapping the next night.
+name: Fleet App Enrollment
+
+on:
+  schedule:
+    - cron: '23 5 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Plan only (no variable or secret writes)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fleet-app-enroll
+  cancel-in-progress: false
+
+jobs:
+  enroll:
+    name: Reconcile the App pair across the fleet
+    runs-on: devgate
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      # --- Fleet GitHub App token: canonical shape, docs/GITHUB-APP-TOKEN.md ---
+      # 1. Fail closed and named when half the pair is configured.
+      - name: Check the App credential pair (fail closed, named)
+        id: app-cred
+        env:
+          APP_ID: ${{ vars.DEVGATE_SWEEP_APP_ID }}
+          APP_KEY: ${{ secrets.DEVGATE_SWEEP_APP_PRIVATE_KEY }}
+        run: |
+          set -eu
+          if [ -z "$APP_ID" ]; then
+            echo "::error::vars.DEVGATE_SWEEP_APP_ID is missing."
+            exit 1
+          fi
+          if [ -z "$APP_KEY" ]; then
+            echo "::error::secrets.DEVGATE_SWEEP_APP_PRIVATE_KEY is missing."
+            exit 1
+          fi
+          echo "[auth] GitHub App credential pair is configured."
+
+      # 2. Mint the installation token after the credential pair passes validation.
+      - name: Mint the fleet App token
+        id: app-token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+        with:
+          app-id: ${{ vars.DEVGATE_SWEEP_APP_ID }}
+          private-key: ${{ secrets.DEVGATE_SWEEP_APP_PRIVATE_KEY }}
+          owner: TheArchitectit
+
+      # The sealing step needs libsodium bindings; a clean tool-cache Python
+      # avoids the runner image's PEP 668 externally-managed environment.
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned PyNaCl
+        run: python3 -m pip install --quiet "PyNaCl==1.5.0"
+
+      # The private key is an env value in THIS step only: never an argv
+      # element, never written to a file, never echoed. The script reads it
+      # from its environment and seals it in memory with the repository's
+      # Actions public key.
+      - name: Reconcile the App pair across the fleet
+        env:
+          FLEET_APP_ID: ${{ vars.DEVGATE_SWEEP_APP_ID }}
+          FLEET_APP_PRIVATE_KEY: ${{ secrets.DEVGATE_SWEEP_APP_PRIVATE_KEY }}
+          FLEET_APP_TOKEN: ${{ steps.app-token.outputs.token }}
+          FLEET_OWNER: TheArchitectit
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
+        run: |
+          set -eu
+          if [ -z "${FLEET_APP_TOKEN:-}" ]; then
+            echo "::error::GitHub App installation token is missing; refusing enrollment."
+            exit 1
+          fi
+          echo "[auth] this step spends the app budget"
+          echo "[enroll] mode: $([ "$DRY_RUN" = "1" ] && echo dry-run || echo apply)"
+          args=(--report "$RUNNER_TEMP/fleet-app-enroll-report.json")
+          if [ "$DRY_RUN" = "1" ]; then
+            args+=(--dry-run)
+          fi
+          python3 scripts/fleet-app-enroll.py "${args[@]}"
+
+      - name: Upload the enrollment report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: fleet-app-enroll-report
+          path: ${{ runner.temp }}/fleet-app-enroll-report.json
+          retention-days: 90
+          if-no-files-found: warn

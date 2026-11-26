@@ -1,8 +1,13 @@
 import type { Diff, Finding, OpenSpecChange } from '../types.js';
 import { keywords } from '../spec/parser.js';
+import { traceabilityFindings, type CommitTrace } from './commitMap.js';
 
-export function checkTasks(change: OpenSpecChange, diff: Diff): Finding[] {
+export function checkTasks(change: OpenSpecChange, diff: Diff, trace?: CommitTrace | null): Finding[] {
   const findings: Finding[] = [];
+  // Bidirectional commit mapping (Stage 1): every commit maps to a covering
+  // task or is reported uncovered, and every done task maps to a commit or is
+  // reported unimplemented.
+  if (trace) findings.push(...traceabilityFindings(change, diff, trace));
   if (change.tasks.length === 0) {
     findings.push({
       severity: 'low',

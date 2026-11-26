@@ -246,8 +246,14 @@ class TestSealingOrder(unittest.TestCase):
 class TestFailClosed(unittest.TestCase):
     def test_stage2_no_signer_key_fails(self):
         """Without HUB_COHERENCE_SIGNER_KEY, Stage 2 fresh-promotion exits 33."""
-        env = {k: v for k, v in fx.cli_env().items()
-               if k != "HUB_COHERENCE_SIGNER_KEY"}
+        # "Without the signer key" means without that key -- not without an
+        # environment. Inherit the parent env so sys.executable can start (a
+        # venv or toolcache CPython can need LD_LIBRARY_PATH for its own shared
+        # libpython), then guarantee the key is absent even if the parent had
+        # one. The assertion below is unchanged; only the plumbing was wrong.
+        env = {**os.environ, **{k: v for k, v in fx.cli_env().items()
+                                if k != "HUB_COHERENCE_SIGNER_KEY"}}
+        env.pop("HUB_COHERENCE_SIGNER_KEY", None)
         with tempfile.TemporaryDirectory() as td:
             req, out = fx.build_root(Path(td), declared_name="widget",
                                      approved_name="widget", stage=2)

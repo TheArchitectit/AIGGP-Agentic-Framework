@@ -16,6 +16,8 @@ import type { ProjectTemplate } from './templates/types.js';
 import type { Diff, ReviewResult, Severity, Finding } from './types.js';
 import { decodeMarker, findingKey, ghRunner, glabRunner } from './vcs.js';
 import { toJson, toMarkdown } from './reporter.js';
+import { driftOnlyFindings, driftOnlyResult, formatResult, exitForFindings, verdictRecord } from './modes.js';
+import { subjectDigestOf } from './verdict.js';
 
 /** Build a ReviewResult from scan findings. */
 function buildScanResult(changeName: string, findings: Finding[]): ReviewResult {
@@ -45,7 +47,6 @@ function outputAndExit(result: ReviewResult, fmt: string, failOn: string): never
     console.error(`stitcher-codereview: invalid --fail-on "${failOn}" (want blocker|high|medium|low|never).`);
     process.exit(2);
   }
-  if (failOn === 'never') process.exit(0);
   const threshold = rank[failOn as keyof typeof rank];
   const worst = result.findings.length === 0 ? 99 : Math.min(...result.findings.map((f) => rank[f.severity]));
   if (fmt === 'json') console.log(toJson(result));
@@ -54,6 +55,11 @@ function outputAndExit(result: ReviewResult, fmt: string, failOn: string): never
     console.error(`stitcher-codereview: invalid --format "${fmt}" (want markdown|json|sarif).`);
     process.exit(2);
   } else console.log(toMarkdown(result));
+  // --fail-on never still PRINTS the report; it only skips the failure exit.
+  // (Exiting before the write dropped the whole report on piped stdout, which
+  // made report-consuming callers - parity harness, scheduled scans - read
+  // an empty success.)
+  if (failOn === 'never') process.exit(0);
   // Exit 0 = success (PASS), 1 = findings at/above --fail-on (CHANGES_REQUESTED).
   process.exit(worst <= threshold ? 1 : 0);
 }
@@ -81,7 +87,15 @@ async function postVcs(result: ReviewResult, diff: Diff): Promise<void> {
     : (process.env.GITLAB_TOKEN ?? process.env.GLAB_TOKEN);
   const run = providerName === 'github' ? ghRunner(token) : glabRunner(token);
   try {
-    const { comments, bodyOnly } = partitionInline(result, diff);
+    const { comments, bodyOnly, unlinked } = partitionInline(result, diff, {
+      evidenceBaseUrl: process.env.STITCHER_EVIDENCE_BASE_URL
+    });
+    if (unlinked.length > 0) {
+      console.error(
+        `stitcher-codereview: ${unlinked.length} finding(s) not posted — no evidence link ` +
+          `(${unlinked.slice(0, 3).map((f) => f.checkId).join(', ')}).`
+      );
+    }
     const existing = new Set(await provider.listPostedKeys(ctx, run));
     const fresh = comments.filter((c) => !decodeMarker(c.body).some((k) => existing.has(k)));
     const currentKeys = new Set(result.findings.map((f) => findingKey(f)));
@@ -138,6 +152,13 @@ program
   .option('--timing', 'Record per-category durations in stats.durationsMs (JSON output)')
   .option('--post <mode>', 'Post findings: none|github|gitlab|vcs (inline review comments via gh/glab; requires ${{ github.token }} / ${{ gitlab.token }})', 'none')
   .option('--scan <mode>', 'Scan mode: off|repository (whole-tree drift scan, no --change required)', 'off')
+  .option('--drift-only', 'Reverse-drift gate: report behavior changes with no spec update (needs --base, no --change required)')
+  .option('--drift-severity <sev>', 'Severity for reverse-drift findings: blocker|high|medium|low (default medium)', 'medium')
+  .option('--verdict', 'Emit a promote/halt verdict record keyed to --subject-digest (agent-loop endpoint)')
+  .option('--subject-digest <digest>', 'Subject digest the verdict is keyed to (default: review fingerprint)')
+  .option('--producer <name>', 'Producer identity for the verdict (e.g. claude-code-loop)')
+  .option('--loop-outputs <csv>', 'Comma list of digests this producer emitted earlier (loop self-certification check)')
+  .option('--evidence-base-url <url>', 'Base URL used to render evidence links in review comments')
   .option('--serve', 'Start webhook server for async reviews (GitHub/GitLab)')
   .option('--serve-port <n>', 'Port for webhook server (default 3000)', '3000')
   .option('--serve-host <h>', 'Host for webhook server (default 0.0.0.0)', '0.0.0.0')
@@ -262,6 +283,25 @@ program
         return;
       }
 
+      // --drift-only: reverse-drift gate (Stage 3), no change package required
+      if (opts.driftOnly) {
+        const severityRaw = String(opts.driftSeverity ?? 'medium');
+        const sevs = ['blocker', 'high', 'medium', 'low'];
+        if (!sevs.includes(severityRaw)) {
+          console.error(`stitcher-codereview: invalid --drift-severity \"${severityRaw}\" (want ${sevs.join('|')}).`);
+          process.exit(2);
+        }
+        const findings = await driftOnlyFindings({
+          root,
+          base: opts.base,
+          change: opts.change,
+          severity: severityRaw as Severity
+        });
+        const result = driftOnlyResult(findings, opts.change ?? 'reverse-drift');
+        console.log(formatResult(result, effective.format));
+        exitForFindings(findings, effective.failOn);
+      }
+
       // --scan mode: whole-tree drift scan against baselines (no --change required)
       if (effective.scan) {
         const baseline = await loadBaseline(root, fileCfg.baselines);
@@ -351,6 +391,22 @@ program
 
       if (effective.post === 'github' || effective.post === 'gitlab' || effective.post === 'vcs') {
         await postVcs(result, diff);
+      }
+
+      // --verdict: agent-loop promote/halt endpoint (Stage 9)
+      if (opts.verdict) {
+        const record = verdictRecord(
+          {
+            subjectDigest: String(opts.subjectDigest ?? subjectDigestOf(result)),
+            producer: opts.producer ? String(opts.producer) : undefined,
+            priorLoopOutputs: opts.loopOutputs
+              ? String(opts.loopOutputs).split(',').map((s: string) => s.trim()).filter(Boolean)
+              : undefined
+          },
+          result
+        );
+        console.log(JSON.stringify(record, null, 2));
+        process.exit(record.verdict === 'promote' ? 0 : 1);
       }
 
       outputAndExit(result, effective.format, effective.failOn);

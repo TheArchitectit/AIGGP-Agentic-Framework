@@ -204,6 +204,108 @@ def test_declared_exclusion_unions_with_defaults_and_filters_scan(tmp_path=None)
         assert len(hits) == 1
 
 
+# --- 2026-10-26: the pattern table must not report the CHECK as the bug ------
+# MergeKingdom's `--all --pre-commit` run reported 60 issues and every one was
+# a false positive: 3 `preload` constants, 14 `FileAccess.open` calls whose next
+# line is `if file == null:`, 43 `push_error(...)` call sites. Each of these
+# tests pins one of those shapes so the noise cannot come back.
+from game_regression import GAME_PATTERNS  # noqa: E402
+
+
+def _scan_text(tmp: Path, name: str, text: str):
+    return scan_file_for_patterns(_write(tmp, name, text), GAME_PATTERNS)
+
+
+def test_preload_constant_is_not_an_unchecked_scene_load():
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        hits = _scan_text(tmp, "a.gd",
+                          'const SHOP: PackedScene = preload("res://src/ui/shop_popup.tscn")\n')
+        assert hits == [], "preload resolves at compile time and cannot fail unchecked"
+
+
+def test_load_without_a_null_check_still_fires():
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        hits = _scan_text(tmp, "b.gd", 'var s = load("res://src/ui/shop_popup.tscn")\n')
+        assert [h["pattern"] for h in hits] == ["SCENE_LOAD_FAIL"]
+
+
+def test_file_open_checked_on_the_next_line_is_not_save_corrupt():
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        text = ('func _load() -> void:\n'
+                '\tvar file := FileAccess.open("res://data/zones.json", FileAccess.READ)\n'
+                '\tif file == null:\n'
+                '\t\tpush_error("Failed to open")\n'
+                '\t\treturn\n')
+        assert _scan_text(tmp, "c.gd", text) == [], "the null check IS the handling, not the bug"
+
+
+def test_file_open_without_a_null_check_still_fires():
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        text = ('func _load() -> void:\n'
+                '\tvar file := FileAccess.open("res://data/zones.json", FileAccess.READ)\n'
+                '\tprint(file.get_as_text())\n')
+        assert [h["pattern"] for h in _scan_text(tmp, "d.gd", text)] == ["SAVE_CORRUPT"]
+
+
+def test_file_open_guarded_by_gdscript_truthiness():
+    # Godot's own save system checks the open with `if file:` / `if not file:`
+    # rather than `== null`; both are checks and neither is a defect.
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        truthy = ('var file := FileAccess.open(SAVE_PATH, FileAccess.READ)\n'
+                  'if file:\n'
+                  '\tvar content := file.get_as_text()\n')
+        negated = ('var file := FileAccess.open(SAVE_PATH, FileAccess.READ)\n'
+                   'if not file:\n'
+                   '\treturn false\n')
+        assert _scan_text(tmp, "t.gd", truthy) == []
+        assert _scan_text(tmp, "n.gd", negated) == []
+
+
+def test_guard_window_is_bounded():
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        text = ('var file := FileAccess.open("res://data/zones.json", FileAccess.READ)\n'
+                '\tvar text := file.get_as_text()\n'
+                '\tvar n := text.length()\n'
+                '\tprint(n)\n'
+                '\tif file == null:\n')
+        hits = _scan_text(tmp, "e.gd", text)
+        assert [h["pattern"] for h in hits] == ["SAVE_CORRUPT"], \
+            "a check four lines later is not a guard — the window is 2"
+
+
+def test_push_error_and_assert_are_not_defects():
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        text = ('func f() -> void:\n'
+                '\tpush_error("SaveManager: save file is not valid JSON")\n'
+                '\tassert(true)\n')
+        hits = _scan_text(tmp, "f.gd", text)
+        assert hits == [], "SCRIPT_ERROR was retired: push_error is the recommended handling"
+        assert "SCRIPT_ERROR" not in GAME_PATTERNS
+
+
+def test_comment_describing_a_pattern_is_not_a_hit():
+    import tempfile
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        text = ('# Wiring looks like btn.connect("pressed", callable) — described here.\n'
+                '// and the same in a C-style comment: x.connect("pressed")\n')
+        assert _scan_text(tmp, "g.gd", text) == []
+
+
 _TESTS = [v for k, v, in sorted(globals().items()) if k.startswith("test_") and callable(v)]
 
 if __name__ == "__main__":
@@ -222,11 +324,23 @@ if __name__ == "__main__":
 def test_zero_files_is_nothing_scanned_not_pass(tmp_path, capsys):
     """No vacuous green: an empty scope prints NOTHING SCANNED and exits 0 by
     default (non-game consumers), 2 with --fail-if-empty (CI)."""
-    import subprocess, sys
+    import os, subprocess, sys
     script = Path(__file__).resolve().parent.parent / "scripts" / "game_regression.py"
+    # Minimal env so ambient DevGate configuration cannot leak into the run --
+    # that isolation is the point. But the interpreter still has to START. A
+    # venv or toolcache CPython can be linked against a shared libpython that
+    # the loader finds only via LD_LIBRARY_PATH, and stripping it turns this
+    # assertion into "python failed to launch" (exit 127) instead of the gate
+    # verdict it is about. Loader vars are the interpreter's own runtime, not
+    # ambient influence on the gate.
+    env = {"DEVGATE_PROJECT_ROOT": str(tmp_path), "PATH": "/usr/bin:/bin"}
+    for loader_var in ("LD_LIBRARY_PATH", "DYLD_LIBRARY_PATH",
+                       "DYLD_FALLBACK_LIBRARY_PATH"):
+        if os.environ.get(loader_var):
+            env[loader_var] = os.environ[loader_var]
     r = subprocess.run(
         [sys.executable, str(script), "--all", "--pre-commit", "--fail-if-empty"],
         capture_output=True, text=True,
-        env={"DEVGATE_PROJECT_ROOT": str(tmp_path), "PATH": "/usr/bin:/bin"})
+        env=env)
     assert r.returncode == 2, (r.stdout, r.stderr)
     assert "NOTHING SCANNED" in r.stdout

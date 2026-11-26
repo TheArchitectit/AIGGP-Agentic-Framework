@@ -39,6 +39,7 @@ your-project/               ← YOUR project code lives here (any structure, any
     │   └── WRITE_AUDIT_REVIEW.md   ← The four-gate agent process
     ├── scripts/
     │   ├── deploy.sh
+    │   ├── baseline_ownership_check.py  ← base-own-01: bundled baselines name only this repo
     │   ├── guardrails-scan.mjs
     │   ├── log_failure.py          ← Append a failure-registry entry
     │   ├── regression_check.py
@@ -118,8 +119,9 @@ runs as a hard gate) and the marker gate (`scripts/spec_traceability.py`).
 - **Requirement IDs**: every requirement carries an `<!-- id: <req-id> -->`
   marker right under its heading. ID namespaces: `mon-*` (monitor hub),
   `gate-*`, `base-*`, `doc-*`, `pub-*`, `rel-*`, `rule-*`, `scan-*`,
-  `fw-ci-*`, `game-*`, `screen-*`, `coh-*` (spec-coherence service), and the
-  security requirements (`coh-sec-*`, `mon-sec-*`, `ci-sec-*`).
+  `fw-ci-*`, `game-*`, `screen-*`, `coh-*` (spec-coherence service),
+  `comm-*` (community sub-site capabilities), and the security requirements
+  (`coh-sec-*`, `mon-sec-*`, `ci-sec-*`).
 - **Source markers**: enforcing code carries `// spec: <id>` (C-family, JS)
   or `# spec: <id>` (Python/Ruby/shell) — both comment styles count; the
   marker line may carry several comma-separated IDs.
@@ -239,9 +241,10 @@ edit files inside `.devgate/`):
 ```
 
 If no config file exists the gate skips gracefully (`DB_ADAPTER = "none"`).
-Note: until the config-file surface lands in `schema-health-check.mjs`
-(tracked in the audit roadmap), the gate reads only its built-in constants —
-do not hand-edit the script; flag the gap instead.
+Adapter implementations are selected by the config `adapter` name at runtime
+(sqlite / postgres / mysql / none) — a half-configured gate (adapter without
+columns, columns without adapter, unknown adapter name) FAILS, never skips
+green. Do not hand-edit the script; flag the gap instead.
 
 **DevGate will NOT change your database engine or suggest one.** It only validates schema integrity for whatever engine you've chosen.
 

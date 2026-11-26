@@ -44,10 +44,21 @@ REAL_INCLUDE = REPO_ROOT / "fleet-sweep-include.txt"
 REAL_EXCLUDE = REPO_ROOT / "fleet-sweep-exclude.txt"
 BASH = shutil.which("bash") or "/bin/bash"
 
-# How many URLs the shipped include file unions in. If the file changes
-# deliberately, bump this constant in the same commit — a silent emptying of
-# the include list is exactly the coverage gap this constant exists to catch.
-REAL_INCLUDE_COUNT = 7
+# How many URLs the shipped include file still carries on the collaborator
+# owner. If the file changes deliberately, bump this constant in the same
+# commit — a silent emptying of the include list is exactly the coverage gap
+# this constant exists to catch. The same content under both owners is listed
+# on TheArchitectit only (the App-installed owner the nightly can clone), so
+# this counts the remaining PUBLIC drwhofan entries.
+REAL_INCLUDE_DRWHOFAN_COUNT = 3
+
+# The curated private set: TheArchitectit copies the App-token walk clones.
+REAL_INCLUDE_CURATED = {
+    "https://github.com/TheArchitectit/RADICAL-CODE",
+    "https://github.com/TheArchitectit/radcode",
+    "https://github.com/TheArchitectit/rad-gateway",
+    "https://github.com/TheArchitectit/stitcher-codereview",
+}
 
 
 def repo(owner, name, *, archived=False, url=None):
@@ -184,10 +195,17 @@ def test_T09_real_include_file_unions_the_two_owner_repos(tmp_path):
         f"excluded upstream fork reached the declaration: {got}"
     )
     assert not any("awesome-cline-skills" in u for u in got), got
+    # Where the same content exists under both owners, the include file lists
+    # the TheArchitectit copy — the owner the program's App is installed on
+    # and the only copy the authenticated nightly can clone.
+    for curated_url in REAL_INCLUDE_CURATED:
+        assert curated_url in got, (
+            f"curated private entry missing from the declaration: {curated_url}"
+        )
     included = [u for u in got if "drwhofan2k18-pixel/" in u]
-    assert len(included) == REAL_INCLUDE_COUNT, (
-        f"the include file is expected to carry {REAL_INCLUDE_COUNT} URLs, "
-        f"the generator unioned {len(included)}: {included}"
+    assert len(included) == REAL_INCLUDE_DRWHOFAN_COUNT, (
+        f"the include file is expected to carry {REAL_INCLUDE_DRWHOFAN_COUNT} "
+        f"drwhofan URLs, the generator unioned {len(included)}: {included}"
     )
 
 

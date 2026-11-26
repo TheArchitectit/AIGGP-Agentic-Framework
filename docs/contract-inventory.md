@@ -20,6 +20,7 @@ tests/gen_floors.py` is this document being stale, not a regression.
 - `tests/test_coherence_workflow_template.py` — 14 tests
 - `tests/test_evidence_integrity.py` — 20 tests
 - `tests/test_findings_to_spec.py` — 5 tests
+- `tests/test_fork_guard.py` — 8 tests
 - `tests/test_fw_guards.py` — 7 tests
 - `tests/test_game_regression.py` — 6 tests
 - `tests/test_gate_overlay.py` — 7 tests

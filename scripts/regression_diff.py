@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# // spec: gate-allwindow-01
 """regression_diff.py — hunk-accurate diff parsing + failure-registry matching.
 
 Helper module for scripts/regression_check.py, split out to keep both files
@@ -20,6 +21,11 @@ What lives here:
     status: patterns are enforced for active AND resolved entries (a resolved
     bug is exactly the one that must not come back), while the affected-files
     advisory stays active-only.
+
+The per-line prevention-pattern contract (test-file scope, comment-line scope,
+check_diff_against_patterns) lives in scripts/regression_patterns.py — split
+out again to keep both modules under the 500-line hard limit. It is
+re-exported below so callers keep importing one module.
 
 Only ADDED lines are ever scanned, so pre-existing legitimate code is never
 flagged — only new introductions.
@@ -139,18 +145,32 @@ def _collect_git_scope(run_git, *, staged: bool, unstaged: bool,
     """Shared endpoint validation for get_added_lines and get_changed_files.
 
     Runs each requested scope's `git diff` and returns the raw stdout blobs to
-    parse. Every scope fails loud on a non-zero git exit (gate-vacuous-01): an
-    unresolvable ref/range must never read as 'scanned, found nothing'.
+    parse. Every scope fails loud on a git exit that is not 0/1
+    (gate-vacuous-01): an unresolvable ref/range — or a staged scope that
+    cannot be read (lock contention, corrupt index, rc 128) — must never read
+    as 'scanned, found nothing'. rc 0 (no diff / plain `git diff`) and 1
+    (diff exists under --exit-code-style wrappers) are data; the old
+    `if rc == 0: append` silently dropped both an error AND a diff seen by a
+    rc-1 git, emptying the scope exactly like the mode-only parse bug this
+    module also carries a regression class for.
     """
     outputs: list[str] = []
+
+    def _scope(cmd: list[str], what: str) -> str:
+        rc, stdout, stderr = run_git(cmd)
+        if rc not in (0, 1):
+            raise RuntimeError(
+                f"git {' '.join(cmd)} failed (rc {rc}): "
+                f"{(stderr or stdout).strip()[:200]} — the {what} scope "
+                "cannot be read and must not read as an empty one "
+                "(gate-vacuous-01)"
+            )
+        return stdout
+
     if staged:
-        rc, stdout, _ = run_git(["diff", "--cached"])
-        if rc == 0:
-            outputs.append(stdout)
+        outputs.append(_scope(["diff", "--cached"], "staged"))
     if unstaged:
-        rc, stdout, _ = run_git(["diff"])
-        if rc == 0:
-            outputs.append(stdout)
+        outputs.append(_scope(["diff"], "unstaged"))
     if all_scope:
         all_base = resolve_all_base(run_git)
         # The empty tree is not a commit, so merge-base (...) syntax cannot
@@ -219,6 +239,20 @@ def get_changed_files(run_git, staged: bool = True, unstaged: bool = False,
     checkout the staged scope is empty, and without the base range in this
     file set the known-bug and pattern checks would evaluate nothing while the
     run still printed a clean pass.
+
+    A path is in scope when the diff NAMES it — including hunks that carry no
+    `+++` target at all: git omits the ---/+++ pair entirely for a pure mode
+    change (old mode/new mode only), and a pure deletion's only `+++` target
+    is /dev/null. Parsing just the `+++` headers dropped both, so a
+    metadata-only push read as an EMPTY scope and --fail-if-empty failed a
+    real change (measured 2026-10-27: AIGGP run 40562221604, the exec-bit fix
+    88c3223 → "NOTHING SCANNED — the selected scope contains 0 changed files"
+    → exit 2). The `diff --git a/<old> b/<new>` header names the path on both
+    sides in every form, so its b/ side is taken too (post-image name — the
+    same rename semantics as the `+++` parse; the set dedupes). A header pair
+    quoting a path with spaces stays ambiguous in git's own format and is
+    only resolved when its `+++` line names the file, matching the previous
+    parse.
     """
     names: set[str] = set()
     for blob in _collect_git_scope(run_git, staged=staged, unstaged=unstaged,
@@ -228,6 +262,10 @@ def get_changed_files(run_git, staged: bool = True, unstaged: bool = False,
             if raw.startswith("+++ "):
                 target = raw[4:].strip()
                 if target != "/dev/null":
+                    names.add(re.sub(r"^b/", "", target))
+            elif raw.startswith("diff --git ") and " b/" in raw:
+                target = raw.split(" b/", 1)[1].strip()
+                if target and not target.startswith('"') and target != "/dev/null":
                     names.add(re.sub(r"^b/", "", target))
     return sorted(names)
 
@@ -358,6 +396,12 @@ def check_added_against_registry(added: list[tuple[str, int, str]],
                 "added": text.strip()[:120],
             })
     return violations
+
+
+# The per-line prevention-pattern contract moved to
+# scripts/regression_patterns.py (500-line cap split); re-exported here so
+# callers (regression_check.py, tests) keep importing one helper module.
+from regression_patterns import check_diff_against_patterns  # noqa: E402,F401
 
 
 def load_failure_registry(registry_path: Path) -> list[dict]:

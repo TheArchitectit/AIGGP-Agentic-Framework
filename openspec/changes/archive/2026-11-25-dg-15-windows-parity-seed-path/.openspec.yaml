@@ -1,0 +1,3 @@
+schema: spec-driven
+created: 2026-11-25
+goal: Keep the pinned hermetic GitLab parity corpus valid across Windows and POSIX paths.

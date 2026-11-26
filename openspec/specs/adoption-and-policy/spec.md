@@ -1,5 +1,7 @@
 # Adoption and Policy
 
+Status: CLOSED (EXERCISED 7)
+
 ## Purpose
 
 Advisory-to-enforced lifecycle for coherence findings: centrally-enforced minimums that repository configuration cannot weaken, an authenticated policy authority outside repository trust, a bounded advisory stage with an expiry and owner, a no-regression ratchet on discovered findings, stable finding fingerprints, scoped exceptions with a rollback story, and an enforcement boundary whose decision is not made inside repository submission.
@@ -127,3 +129,15 @@ Enforcement MUST be anchored in configuration the repository cannot unilaterally
 - **GIVEN** a valid PASS attestation for subject digest D1 presented for promotion of digest D2
 - **WHEN** the promotion consumer verifies binding
 - **THEN** promotion is refused; attestations bind exact subject digests.
+
+## Requirement Closure
+
+| Requirement | Status | Implementation | Verification |
+|---|---|---|---|
+| `coh-pol-01` (centrally enforced minimums) | **EXERCISED** | `hub/coherence/plan.py`, `hub/coherence/policy.py` | `tests/test_hub_coherence_allowlist.py`, `tests/test_hub_coherence_antirollback.py`, `tests/test_hub_coherence_modes.py` |
+| `coh-pol-02` (authenticated policy authority) | **EXERCISED** | `hub/coherence/__main__.py`, `hub/coherence/attest_detached.py`, `hub/coherence/policy.py` | `tests/test_hub_coherence_antirollback.py`, `tests/test_hub_coherence_attest.py` |
+| `coh-pol-03` (bounded advisory stage) | **EXERCISED** | `hub/coherence/policy.py`, `hub/coherence/report.py` | `tests/test_hub_coherence_adoption_policy.py`, `tests/test_hub_coherence_ladder.py`, `tests/test_hub_coherence_report.py` |
+| `coh-pol-04` (no-regression ratchet) | **EXERCISED** | `hub/coherence/adoption.py`, `scripts/ratchet_demo.py` | `tests/fixtures/coherence/fixtures.py`, `tests/test_hub_coherence_adoption_policy.py`, `tests/test_hub_coherence_conformance.py` |
+| `coh-pol-05` (finding fingerprint definition) | **EXERCISED** | `hub/coherence/adoption.py`, `hub/coherence/issue.py`, `scripts/ratchet_demo.py` | `tests/fixtures/coherence/fixtures.py`, `tests/test_hub_coherence_adoption_policy.py`, `tests/test_hub_coherence_conformance.py` |
+| `coh-pol-06` (scoped exceptions) | **EXERCISED** | `hub/coherence/adoption.py`, `hub/coherence/report.py`, `scripts/ratchet_demo.py` | `tests/fixtures/coherence/fixtures.py`, `tests/test_hub_coherence_conformance.py`, `tests/test_hub_coherence_exitcodes.py` |
+| `coh-pol-07` (enforcement boundary is external) | **EXERCISED** | `hub/coherence/attest.py`, `hub/coherence_view.py` | `tests/test_hub_coherence_attest.py`, `tests/test_hub_coherence_attestation.py`, `tests/test_hub_monitor_coherence.py` |

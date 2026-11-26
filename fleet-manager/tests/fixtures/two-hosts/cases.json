@@ -1,0 +1,96 @@
+{
+  "note": "Failure and revocation fixtures for the two-host world (Sprint 3.3). Each case names a scenario the suite drives against world.json and the rule it must fail closed on. Expectations are hand-written: the message fragment is the rule, not a snapshot of an implementation detail.",
+  "cases": [
+    {
+      "name": "a replayed report is refused",
+      "why": "A captured report is not a second report. The channel accepts each sequence once.",
+      "scenario": "replayed-report",
+      "expect": "refused",
+      "expect_contains": "the sequence is not new"
+    },
+    {
+      "name": "a reordered report is refused",
+      "why": "An older sequence arriving late is a replay from the channel's point of view.",
+      "scenario": "reordered-report",
+      "expect": "refused",
+      "expect_contains": "the sequence is not new"
+    },
+    {
+      "name": "a report signed by the other host's key is refused",
+      "why": "A compromised key for one host must not speak for another. The key belongs to one host.",
+      "scenario": "wrong-host-report",
+      "expect": "refused",
+      "expect_contains": "the signature does not verify"
+    },
+    {
+      "name": "a forged report is refused and does not consume its sequence",
+      "why": "Failing closed means the forgery costs the real host nothing.",
+      "scenario": "forged-report",
+      "expect": "refused",
+      "expect_contains": "the signature does not verify"
+    },
+    {
+      "name": "a report signed by a revoked key is refused",
+      "why": "Revocation is immediate; a key that still signs is still refused.",
+      "scenario": "revoked-report",
+      "expect": "refused",
+      "expect_contains": "the credential is not usable at this instant"
+    },
+    {
+      "name": "a revoked key is not freed for re-enrollment",
+      "why": "Revocation that re-issues is not revocation. Another host offering the revoked key is refused by name, and the original host is refused a second identity.",
+      "scenario": "revoked-key-not-reusable",
+      "expect": "refused",
+      "expect_contains": "already enrolled"
+    },
+    {
+      "name": "a compromised host stops at the channel and never reaches operations",
+      "why": "The pipeline order is the fail-closed property: nothing downstream is asked about a report the channel refused.",
+      "scenario": "compromised-host-pipeline",
+      "expect": "refused",
+      "expect_contains": "the credential is not usable at this instant"
+    },
+    {
+      "name": "a replayed desired state is refused",
+      "why": "A captured state is not a new instruction to become something.",
+      "scenario": "replayed-state",
+      "expect": "refused",
+      "expect_contains": "replayed"
+    },
+    {
+      "name": "a desired state for the other host is refused",
+      "why": "The audience is the authorization; a redirected document is not configuration.",
+      "scenario": "wrong-audience-state",
+      "expect": "refused",
+      "expect_contains": "different audience"
+    },
+    {
+      "name": "a tampered desired state is refused",
+      "why": "The body is the configuration: changing it must break the signature.",
+      "scenario": "tampered-state",
+      "expect": "refused",
+      "expect_contains": "did not verify"
+    },
+    {
+      "name": "a forged desired state is refused",
+      "why": "A state nobody signed is a suggestion, not configuration.",
+      "scenario": "forged-state",
+      "expect": "refused",
+      "expect_contains": "did not verify"
+    },
+    {
+      "name": "an expired desired state is refused",
+      "why": "Configuration has a lifetime; a host that has been away does not adopt a stale world forever.",
+      "scenario": "expired-state",
+      "expect": "refused",
+      "expect_contains": "expired"
+    },
+    {
+      "name": "a revoked host's desired state is still verifiable but its reports are not",
+      "why": "Revocation cuts the host's voice, not the manager's: the host can still read what it was asked to become, and that is not a way back in.",
+      "scenario": "revoked-host-state-still-verifies",
+      "expect": "accepted",
+      "expect_contains": ""
+    }
+  ]
+}

@@ -141,10 +141,29 @@ same time. Pick one shape per fleet and make it true everywhere:
 - **(a) podman inside the runner container.** Give the runner image podman and
   back `~/.local/share/containers` with a named volume. The job, the cycle and
   the image all live in that store; the cycle runs *in the container*, so do
-  not enable the host-side timer for these hosts.
+  not enable the host-side timer for these hosts. **This shape only works when
+  the container can create a nested user namespace, and a stock rootless runner
+  cannot.** Measured on our fleet 2026-11-13: the runner is uid 1001 inside its
+  own userns, and starting a container inside it needs a *second* subordinate
+  mapping, which the setuid helpers refuse — `newuidmap: write to uid_map
+  failed: Operation not permitted` — regardless of the subuid range, added
+  capabilities (`SETUID`/`SETGID`), `--userns=host`, `--userns=auto`, or storage
+  driver (overlay, then vfs `chown … operation not permitted`). Before you
+  build an image for this shape, prove it: run
+  `podman run --rm docker.io/library/alpine:3 true` inside the runner container
+  and require exit 0. If it fails, use (c).
 - **(b) socket-shared host storage.** Bind the host's rootless podman socket
   (and its storage) into the runner container. The host-side timer installed
   here is the right one: the job reaches the same store through the socket.
+- **(c) a host-level runner for the engine jobs.** When neither (a) nor (b) is
+  acceptable — (a) is impossible on an unprivileged fleet and (b) hands job code
+  a socket that can start arbitrary containers — run a second, host-level
+  actions-runner under its own unprivileged user (no sudo, no docker group, its
+  own rootless podman storage) on the same machine, and give it a dedicated
+  label. Route only the jobs that genuinely need an engine to it, keeping the
+  fork guard on those jobs; leave every other job on the containerized pool.
+  One engine-capable runner is deliberate — do not widen the label, or ordinary
+  jobs leave the pool and serialize.
 
 Either way the cycle is told which store to fill and **verifies it by asking
 podman** (`--root <store> info`, compared as the directory the name denotes, so

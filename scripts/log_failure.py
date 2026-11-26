@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# // spec: base-write-01, game-reg-04, game-reg-06
 """log_failure.py — append one entry to the DevGate failure registry.
 
 The registry header points at this script ("Use scripts/log_failure.py to add
@@ -28,7 +29,15 @@ Usage:
       --prevention-rule "strip the repo root before glob-matching" \\
       --status resolved
 
-Prints the generated failure_id on success. Exit 0 on success, 1 on write error.
+Gameplay-crash entries (game-reg-06) are a different contract: a crash without
+the seed and input trace of the run that produced it is not comparable, so
+`--gameplay-crash` makes `--seed` and `--input-trace` required and the writer
+refuses the entry (exit 1, naming what is missing) instead of registering a
+regression that can never be replayed.
+
+Prints the generated failure_id, then the registry file that received the
+entry (base-write-01: "the tool SHALL report which file received the entry").
+Exit 0 on success, 1 on write error or a refused gameplay-crash entry.
 """
 
 from __future__ import annotations
@@ -99,10 +108,43 @@ def build_entry(args: argparse.Namespace) -> dict:
     }
     if args.file_glob:
         entry["file_glob"] = args.file_glob
+    if getattr(args, "seed", ""):
+        entry["seed"] = args.seed
+    if getattr(args, "stream_id", ""):
+        entry["stream_id"] = args.stream_id
+    if getattr(args, "input_trace", ""):
+        entry["input_trace"] = args.input_trace
+    if getattr(args, "gameplay_crash", False):
+        entry["kind"] = "gameplay-crash"
     return entry
 
 
-def main() -> int:
+def gameplay_crash_errors(args: argparse.Namespace) -> list:
+    """game-reg-06: determinism evidence is required for gameplay crashes.
+
+    A gameplay-crash entry without the seed and input trace of the run that
+    produced it cannot be replayed, so it must not be registered as a
+    regression at all. Non-gameplay entries keep seed/trace optional.
+    """
+    if not getattr(args, "gameplay_crash", False):
+        return []
+    missing = []
+    if not (getattr(args, "seed", "") or "").strip():
+        missing.append("--seed")
+    if not (getattr(args, "input_trace", "") or "").strip():
+        missing.append("--input-trace")
+    if missing:
+        return [
+            "gameplay-crash entry missing {}: a crash without the seed and "
+            "input trace of the run that produced it is not comparable; "
+            "refusing to register it as a regression - rerun seeded and log "
+            "the replay".format(", ".join(missing))
+        ]
+    return []
+
+
+def build_parser() -> argparse.ArgumentParser:
+    """The CLI surface. Split out of main() so the flag contract is testable."""
     ap = argparse.ArgumentParser(
         description="append an entry to the DevGate failure registry (append-only)"
     )
@@ -138,9 +180,37 @@ def main() -> int:
         help="explicit failure_id (default: generated FAIL-<uuid8>)",
     )
     ap.add_argument(
-        "--baseline",
+        "--seed",
+        default="",
+        help="session seed for play-side / red-eye regressions (optional, "
+             "required with --gameplay-crash)",
+    )
+    ap.add_argument(
+        "--stream-id",
+        default="",
+        help="capture stream_id joining to .guardrails/sessions.jsonl (optional)",
+    )
+    ap.add_argument(
+        "--input-trace",
+        default="",
+        help="input trace of the run that produced the failure (optional, "
+             "required with --gameplay-crash)",
+    )
+    ap.add_argument(
+        "--gameplay-crash",
         action="store_true",
-        help="append to the bundled DevGate baseline registry instead of the "
+        help="this entry is a gameplay crash: --seed and --input-trace become "
+             "required, and an unseeded crash is refused (game-reg-06)",
+    )
+    # base-write-01 names the flag `--upstream`; --baseline is kept as an
+    # accepted alias so existing callers, agent instructions and CI steps that
+    # learned the older spelling keep working. Same destination either way.
+    ap.add_argument(
+        "--upstream",
+        "--baseline",
+        dest="baseline",
+        action="store_true",
+        help="append to the shared DevGate baseline registry instead of the "
              "project overlay (for maintainers of DevGate itself)",
     )
     ap.add_argument(
@@ -150,7 +220,18 @@ def main() -> int:
         metavar="PATH",
         help="explicit registry path (same as FAILURE_REGISTRY_PATH env)",
     )
-    args = ap.parse_args()
+    return ap
+
+
+def main() -> int:
+    args = build_parser().parse_args()
+
+    # game-reg-06: refuse an unseeded/traceless gameplay crash BEFORE anything
+    # is written - the registry must never hold a regression that cannot be
+    # replayed. The refusal names exactly what is missing.
+    for error in gameplay_crash_errors(args):
+        print(f"error: {error}", file=sys.stderr)
+        return 1
 
     entry = build_entry(args)
 
@@ -175,6 +256,7 @@ def main() -> int:
         return 1
 
     print(entry["failure_id"])
+    print(f"registry: {path}")  # base-write-01: name the file that received it
     return 0
 
 

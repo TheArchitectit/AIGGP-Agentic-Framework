@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# spec: coh-sec-01
 """regression_corpus.py — engineering memory: relevance selection and
 stale-knowledge detection over the failure registry (fw-mem-*).
 
@@ -36,6 +37,10 @@ from pathlib import Path
 
 DEVGATE_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_REGISTRY = DEVGATE_ROOT / ".guardrails" / "failure-registry.jsonl"
+
+if str(Path(__file__).resolve().parent) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+from gate_common import contained_path  # noqa: E402
 
 EXIT_OK = 0
 EXIT_STALE = 1
@@ -115,8 +120,21 @@ def stale_entries(entries: list, root: Path) -> list:
     stale = []
     for e in entries:
         fid = e.get("failure_id")
-        missing_paths = [p for p in (e.get("affected_files") or [])
-                         if not (root / p).exists()]
+        # affected_files is registry-supplied (coh-sec-01): contain it before
+        # the existence check and before any pattern read. An escaping path is
+        # its OWN staleness signal — reported as such, never followed — so a
+        # registry row naming `../secret` cannot make this audit print whether
+        # the pattern matched host content.
+        pairs: list[tuple[str, Path]] = []
+        escaping_paths: list[str] = []
+        for p in (e.get("affected_files") or []):
+            fp, perr = contained_path(root, p)
+            if perr:
+                escaping_paths.append(str(p))
+                continue
+            pairs.append((p, fp))
+        missing_paths = [p for p, fp in pairs if not fp.exists()]
+        missing_paths += escaping_paths
         dead_pattern = ""
         unresolved_pattern = ""
         pattern = e.get("regression_pattern") or ""
@@ -127,8 +145,7 @@ def stale_entries(entries: list, root: Path) -> list:
                 dead_pattern = pattern
                 rx = None
             if rx is not None and e.get("status") == "resolved":
-                for p in (e.get("affected_files") or []):
-                    fp = root / p
+                for p, fp in pairs:
                     if not fp.is_file():
                         continue
                     try:
@@ -143,6 +160,7 @@ def stale_entries(entries: list, root: Path) -> list:
             stale.append({
                 "failure_id": fid,
                 "missing_paths": missing_paths,
+                "escaping_paths": escaping_paths,
                 "dead_pattern": dead_pattern,
                 "unresolved_pattern": unresolved_pattern,
             })

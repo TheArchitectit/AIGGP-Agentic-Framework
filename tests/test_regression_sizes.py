@@ -17,18 +17,19 @@ this file also works standalone with plain asserts):
 
 from __future__ import annotations
 
+import json
 import sys
 import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
 
-from regression_check import PROJECT_ROOT, SOURCE_DIRS  # noqa: E402
 from regression_sizes import (  # noqa: E402
     SRC_HARD,
     TEST_HARD,
     check_file_sizes,
     check_scope_coverage,
+    print_file_size_report,
 )
 
 
@@ -71,6 +72,45 @@ def _write_html_fixture(root: Path, rel_path: str, line_count: int) -> Path:
     body = "\n".join(f"  <p>line {i}</p>" for i in range(line_count - 3))
     path.write_text(f"<!DOCTYPE html>\n<html>\n{body}\n</html>\n", encoding="utf-8")
     return path
+
+
+def _write_mjs_fixture(root: Path, rel_path: str, line_count: int) -> Path:
+    """An ES-module fixture. The gate counts lines and never parses the
+    language, but a fixture claiming to be `.mjs` should be one -- a reader
+    checking "does this really exercise .mjs?" should get a yes."""
+    path = root / rel_path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    body = "\n".join(f"const value{i} = {i};" for i in range(line_count - 2))
+    path.write_text(f"import fs from 'node:fs';\n{body}\nexport default {{}};\n",
+                    encoding="utf-8")
+    return path
+
+
+def _write_css_fixture(root: Path, rel_path: str, line_count: int) -> Path:
+    """A stylesheet fixture -- same reasoning as the HTML one."""
+    path = root / rel_path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    body = "\n".join(f".rule-{i} {{ color: #000; }}" for i in range(line_count))
+    path.write_text(body + "\n", encoding="utf-8")
+    return path
+
+
+def _write_scope(root: Path, scope: dict) -> Path:
+    """<root>/.devgate/.guardrails/scope.json -- a submodule layout, built.
+
+    The scope-list checks below used to assert against SOURCE_DIRS resolved
+    from the LIVE checkout. That measures the checkout, not the contract: run
+    vendored as <host>/.devgate with a consumer's `source_dirs: ["."]` overlay,
+    SOURCE_DIRS is correctly `["."]` and every one of those checks is red --
+    in exactly the layout every consumer runs. This helper builds the tree the
+    test means to describe, so the candidate list and the walk are pinned
+    whatever the surrounding checkout looks like. Same shape as
+    tests/test_gate_common.py:_scope_layout.
+    """
+    dg = root / ".devgate"
+    (dg / ".guardrails").mkdir(parents=True, exist_ok=True)
+    (dg / ".guardrails" / "scope.json").write_text(json.dumps(scope), encoding="utf-8")
+    return dg
 
 
 def test_oversize_test_file_is_flagged_at_test_hard():
@@ -260,13 +300,99 @@ def test_a_small_html_file_is_not_flagged():
         assert issues == [], f"under-limit html flagged: {issues}"
 
 
+def test_oversize_es_module_is_flagged_at_src_hard():
+    """MUST-flag. `.mjs` was absent from SOURCE_EXTENSIONS, so every `.mjs` gate
+    entry point in this repository -- and seven of their tests -- went unsized
+    while the gate printed "0 over hard limit". Same shape as the `.sh`, `.zig`
+    and `.html` gaps: the scope list omitted the extension the tooling is
+    actually written in, so a clean report measured nothing.
+
+    Measured 2026-11-10: 18 tracked `.mjs`/`.cjs`/`.css` files, including
+    `scripts/semantic-scan.mjs` (454 lines, under the limit) and
+    `scripts/guardrails-scan.mjs` (359)."""
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        _write_mjs_fixture(root, "scripts/giant.mjs", SRC_HARD + 1)
+        issues = check_file_sizes(root, ["scripts"])
+        hard = [i for i in issues if i["kind"] == "hard"]
+        assert len(hard) == 1, f"oversize ES module not flagged: {issues}"
+        v = hard[0]
+        assert v["file"] == "scripts/giant.mjs", v
+        assert v["lines"] == SRC_HARD + 1, v
+        assert v["hard"] == SRC_HARD, (
+            f"evaluated at hard={v['hard']}, not SRC_HARD: {v}")
+        assert v["severity"] == "error", v
+
+
+def test_oversize_stylesheet_is_flagged_at_src_hard():
+    """MUST-flag. `.css` was absent from SOURCE_EXTENSIONS with `.mjs`/`.cjs`.
+    A stylesheet is source the project ships; the gate counts lines and does not
+    read the language."""
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        _write_css_fixture(root, "src/giant.css", SRC_HARD + 1)
+        issues = check_file_sizes(root, ["src"])
+        hard = [i for i in issues if i["kind"] == "hard"]
+        assert len(hard) == 1, f"oversize stylesheet not flagged: {issues}"
+        assert hard[0]["hard"] == SRC_HARD, hard[0]
+
+
+def test_an_es_module_test_file_is_judged_at_the_test_limit():
+    """The half that must land with the extension: `.mjs` in scope without
+    `.mjs` in TEST_PREFIX_EXTENSIONS judges `tests/test_x.mjs` at SRC_HARD while
+    `tests/test_x.py` at the same size gets TEST_HARD -- exactly the
+    FAIL-8f9249ca inconsistency, one language later. This repository has three
+    such files over SRC_HARD (577, 517 and 463 lines), so the misclassification
+    would have fired on the first run."""
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        _write_mjs_fixture(root, "tests/test_big.mjs", 550)
+        issues = check_file_sizes(root, ["tests"])
+        assert issues == [], (
+            f"550-line ES-module test flagged at {issues} -- misclassified against SRC_HARD"
+        )
+        _write_mjs_fixture(root, "tests/test_giant.mjs", TEST_HARD + 1)
+        issues = check_file_sizes(root, ["tests"])
+        assert [i["file"] for i in issues] == ["tests/test_giant.mjs"], (
+            f"the ES-module-test fixtures produced other findings: {issues}")
+        assert issues[0]["hard"] == TEST_HARD, issues[0]
+
+
+def test_a_dot_test_es_module_is_judged_at_the_test_limit():
+    """The suffix arm: `*.test.mjs` / `*.spec.mjs` are tests by the same
+    convention as `*.test.ts`, and endswith() is where that is expressed."""
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        _write_mjs_fixture(root, "src/thing.spec.mjs", TEST_HARD + 1)
+        issues = check_file_sizes(root, ["src"])
+        assert len(issues) == 1, issues
+        assert issues[0]["hard"] == TEST_HARD, issues[0]
+
+
 def test_source_dirs_include_test_directories():
-    """FAIL-f6228dda scope defect: tests/ must be a candidate, not just hub/scripts."""
+    """FAIL-f6228dda scope defect: tests/ must be a candidate, not just hub/scripts.
+
+    Two halves, both layout-independent: the name is on the candidate list,
+    and a project that HAS the directory gets it walked. The second half runs
+    against a built tree -- a consumer that replaces `source_dirs` with
+    `["."]` is using the documented explicit override, not tripping this.
+    """
+    from gate_common import DEFAULT_SOURCE_DIR_CANDIDATES, load_source_dirs
     for candidate in ("tests", "test"):
-        if (PROJECT_ROOT / candidate).is_dir():
-            assert candidate in SOURCE_DIRS, (
-                f"{candidate}/ exists under the project root but SOURCE_DIRS "
-                f"skips it — the size gate never walks test files ({SOURCE_DIRS})"
+        assert candidate in DEFAULT_SOURCE_DIR_CANDIDATES, (
+            f"{candidate}/ must be a size-gate candidate "
+            f"({DEFAULT_SOURCE_DIR_CANDIDATES})"
+        )
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        dg = _write_scope(root, {"skip_dirs": []})
+        (root / "tests").mkdir()
+        (root / "test").mkdir()
+        dirs = load_source_dirs(dg)
+        for candidate in ("tests", "test"):
+            assert candidate in dirs, (
+                f"{candidate}/ exists under the project root but the walk "
+                f"skips it -- the size gate never walks test files ({dirs})"
             )
 
 
@@ -277,13 +403,25 @@ def test_source_dirs_include_the_directory_the_shell_scripts_live_in():
     dropping "scripts" from the candidate list was uncaught while every shell
     script in this repository — the language this file's scope extension was
     written for — silently stopped being sized. FAIL-f6228dda was a scope list
-    drifting from its intent; the scope list needs its own MUST-flag test."""
-    assert (PROJECT_ROOT / "scripts").is_dir(), (
-        "fixture assumption broken: this repository has no scripts/ directory")
-    assert "scripts" in SOURCE_DIRS, (
-        f"scripts/ exists under the project root but SOURCE_DIRS skips it — no "
-        f"shell script in this repository is sized ({SOURCE_DIRS})"
+    drifting from its intent; the scope list needs its own MUST-flag test.
+
+    The tree is built, not demanded of the checkout: "this repository has a
+    scripts/ directory" is a fact about whichever repo the framework happens
+    to be vendored into, and a consumer without one was reading it as a
+    fixture-assumption failure rather than as the contract holding."""
+    from gate_common import DEFAULT_SOURCE_DIR_CANDIDATES, load_source_dirs
+    assert "scripts" in DEFAULT_SOURCE_DIR_CANDIDATES, (
+        f"scripts/ must be a size-gate candidate ({DEFAULT_SOURCE_DIR_CANDIDATES})"
     )
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        dg = _write_scope(root, {"skip_dirs": []})
+        (root / "scripts").mkdir()
+        dirs = load_source_dirs(dg)
+        assert "scripts" in dirs, (
+            f"scripts/ exists under the project root but the walk skips it -- "
+            f"no shell script in a tree like this is sized ({dirs})"
+        )
 
 
 def test_source_dirs_include_web_and_infra():
@@ -291,20 +429,36 @@ def test_source_dirs_include_web_and_infra():
     web/render3d.js (1470) and web/index.html (685) sat past SRC_HARD while the
     walk never entered web/ — the FAIL-f6228dda shape, one directory short.
     Frontend and infra roots must be candidates even when this repository
-    happens not to have them, or the next consumer's game host is invisible."""
-    from gate_common import DEFAULT_SOURCE_DIR_CANDIDATES
+    happens not to have them, or the next consumer's game host is invisible.
+
+    The candidate half is unconditional (that is the 2026-10-11 fix). The walk
+    half runs against a built tree that has both directories, so it is pinned
+    in a standalone clone and in a vendored `.devgate` alike."""
+    from gate_common import DEFAULT_SOURCE_DIR_CANDIDATES, load_source_dirs
     for candidate in ("web", "infra"):
         assert candidate in DEFAULT_SOURCE_DIR_CANDIDATES, (
-            f"{candidate}/ must be a size-gate candidate ({DEFAULT_SOURCE_DIR_CANDIDATES})")
-        if (PROJECT_ROOT / candidate).is_dir():
-            assert candidate in SOURCE_DIRS, (
-                f"{candidate}/ exists but SOURCE_DIRS skips it ({SOURCE_DIRS})")
+            f"{candidate}/ must be a size-gate candidate "
+            f"({DEFAULT_SOURCE_DIR_CANDIDATES})"
+        )
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        dg = _write_scope(root, {"skip_dirs": []})
+        (root / "web").mkdir()
+        (root / "infra").mkdir()
+        dirs = load_source_dirs(dg)
+        for candidate in ("web", "infra"):
+            assert candidate in dirs, (
+                f"{candidate}/ exists but the walk skips it ({dirs})"
+            )
 
 
 def test_scope_coverage_flags_uncovered_source_dir():
     """MUST-flag: a top-level dir holding source files but sitting outside the
     walk is reported. This is the class fix — a new source root must not hide
-    just because nobody added it to the candidate list."""
+    just because nobody added it to the candidate list. Severity is ERROR
+    (2026-11-15): a gap means the walk never entered part of the tree, so a
+    green size verdict from a scoped-out tree is unearned — that blind spot
+    already reddened main once."""
     with tempfile.TemporaryDirectory() as td:
         root = Path(td)
         _write_fixture(root, "src/ok.py", 10)
@@ -312,7 +466,7 @@ def test_scope_coverage_flags_uncovered_source_dir():
         gaps = check_scope_coverage(root, ["src"])
         assert [g["file"] for g in gaps] == ["web/"], gaps
         assert gaps[0]["kind"] == "scope-gap", gaps[0]
-        assert gaps[0]["severity"] == "warning", gaps[0]
+        assert gaps[0]["severity"] == "error", gaps[0]
         # Covered, skipped, and submodule dirs are not gaps.
         assert check_scope_coverage(root, ["src", "web"]) == []
         (root / "node_modules").mkdir()
@@ -347,6 +501,38 @@ def test_size_overrides_raise_the_limit_and_stay_visible():
         issues = check_file_sizes(root, ["web"], overrides=overrides)
         assert any(i["kind"] == "hard" and i["file"] == "web/toobig.html"
                    for i in issues), issues
+
+
+def test_scope_empty_report_is_inventory_not_a_blocks_commit_claim():
+    """gate-vacuous-01 report arm: on a run whose diff scope evaluated zero
+    files, the size summary must not claim "N over hard limit (blocks commit)"
+    and oversize files must not be labeled "pre-existing; not touched by this
+    diff" — no diff exists to classify them against. This exact green-sounding
+    summary on an empty staged set is what let oversize files land."""
+    import io
+    from contextlib import redirect_stdout
+    issues = [
+        {"file": "src/big.py", "lines": 700, "hard": 500, "soft": 300,
+         "kind": "hard-untouched", "severity": "warning", "reason": None},
+        {"file": "src/soft.py", "lines": 400, "hard": 500, "soft": 300,
+         "kind": "soft", "severity": "warning", "reason": None},
+    ]
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        print_file_size_report(issues, scope_empty=True)
+    out = buf.getvalue()
+    assert "blocks commit" not in out, f"vacuous run claimed a commit verdict: {out}"
+    assert "pre-existing; not touched by this diff" not in out, (
+        f"vacuous run classified files against a nonexistent diff: {out}")
+    assert "INVENTORY" in out, f"scope-empty report missing inventory marker: {out}"
+    assert "scope empty" in out, f"scope-empty summary missing: {out}"
+    # Non-empty scope keeps the honest touched/untouched verdict intact.
+    buf2 = io.StringIO()
+    with redirect_stdout(buf2):
+        print_file_size_report(issues, scope_empty=False)
+    out2 = buf2.getvalue()
+    assert "0 over hard limit (blocks commit)" in out2, out2
+    assert "pre-existing; not touched by this diff" in out2, out2
 
 
 def main() -> int:

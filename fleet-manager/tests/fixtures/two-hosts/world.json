@@ -1,0 +1,141 @@
+{
+  "note": "The Sprint 3 exit world: two test hosts, one pool, one warm runner each, already converged. Hand-written expectations; see tests/test_two_hosts_v1.py.",
+  "state": {
+    "schema": "fleet-manager-desired-state/1",
+    "revision": 7,
+    "repositories": [],
+    "pools": [
+      {
+        "pool_id": "phase1-linux",
+        "revision": 1,
+        "trust_class": "public",
+        "allowed_repositories": [
+          "TheArchitectit/AIGGP-Agentic-Framework"
+        ],
+        "runner_group": null,
+        "required_labels": {
+          "pool": "phase1"
+        },
+        "runtime": "podman",
+        "image_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "architectures": [
+          "x86_64"
+        ],
+        "ephemeral": true,
+        "warm_min": 1,
+        "warm_max": 2,
+        "scale_ceiling": 3,
+        "idle_timeout_seconds": 300,
+        "job_timeout_seconds": 3600,
+        "cleanup_timeout_seconds": 120,
+        "network_profile": "egress-proxy",
+        "filesystem_profile": "ephemeral-root",
+        "secret_profile": "phase1-job-secrets",
+        "update_channel": "stable",
+        "rollback_image_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "maintenance_window": "sun 02:00-04:00",
+        "disruption_budget": {
+          "max_parallel": 1
+        },
+        "owner": "platform",
+        "escalation": "oncall-fleet"
+      }
+    ],
+    "hosts": [
+      {
+        "host_id": "host-a",
+        "architectures": [
+          "x86_64"
+        ],
+        "runtimes": [
+          "podman"
+        ],
+        "labels": {
+          "host": "test-a"
+        },
+        "allowed_pools": [
+          "phase1-linux"
+        ],
+        "slots": 2,
+        "state": "active"
+      },
+      {
+        "host_id": "host-b",
+        "architectures": [
+          "x86_64"
+        ],
+        "runtimes": [
+          "podman"
+        ],
+        "labels": {
+          "host": "test-b"
+        },
+        "allowed_pools": [
+          "phase1-linux"
+        ],
+        "slots": 2,
+        "state": "active"
+      }
+    ],
+    "assignments": [
+      {
+        "assignment_id": "a-1",
+        "request_id": "req-1",
+        "pool_id": "phase1-linux",
+        "host_id": "host-a",
+        "issued_at": "2026-10-24T06:00:00+00:00",
+        "released_at": null
+      },
+      {
+        "assignment_id": "a-2",
+        "request_id": "req-2",
+        "pool_id": "phase1-linux",
+        "host_id": "host-b",
+        "issued_at": "2026-10-24T06:00:00+00:00",
+        "released_at": null
+      }
+    ],
+    "drains": [],
+    "rollouts": []
+  },
+  "observations": [
+    {
+      "host_id": "host-a",
+      "observed_at": "2026-10-24T06:00:00+00:00",
+      "agent_version": "0.1.0",
+      "runners": [
+        {
+          "runner_id": "r-a1",
+          "pool_id": "phase1-linux",
+          "started_at": "2026-10-24T06:00:00+00:00",
+          "job_id": null
+        }
+      ]
+    },
+    {
+      "host_id": "host-b",
+      "observed_at": "2026-10-24T06:00:00+00:00",
+      "agent_version": "0.1.0",
+      "runners": [
+        {
+          "runner_id": "r-b1",
+          "pool_id": "phase1-linux",
+          "started_at": "2026-10-24T06:00:00+00:00",
+          "job_id": null
+        }
+      ]
+    }
+  ],
+  "limits": {
+    "max_drains": 1,
+    "max_replacements": 1,
+    "max_host_mutations": 1
+  },
+  "halted": false,
+  "expect": {
+    "drifts": [],
+    "changes": [],
+    "deferred": [],
+    "converged": true
+  }
+}

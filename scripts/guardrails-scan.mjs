@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// spec: gate-rstest-01
 // DevGate guardrails pattern scanner — language-agnostic.
 // Scans the PARENT project's source files (not DevGate's own directory).
 // Loads .guardrails/prevention-rules/pattern-rules.json and checks all source
@@ -17,7 +18,9 @@ import {
 	lineHasAllow,
 	loadIgnorePatterns,
 	loadSkipDirs,
+	mergeRuleOverlay,
 	projectRootFor,
+	readRulesFile,
 	walk,
 } from "./lib/gate_common.mjs";
 
@@ -51,17 +54,6 @@ const SOURCE_EXTENSIONS = [".ts", ".js", ".py", ".rs", ".go", ".gd", ".java", ".
 // definition in .guardrails/scope.json, loaded by gate_common.loadSkipDirs.
 const SKIP_DIRS = loadSkipDirs({ devgateRoot, projectRoot });
 
-function readRulesFile(path) {
-	if (!existsSync(path)) return [];
-	let data;
-	try {
-		data = JSON.parse(readFileSync(path, "utf-8"));
-	} catch {
-		return [];
-	}
-	return Array.isArray(data.rules) ? data.rules : [];
-}
-
 function loadRules() {
 	let rules;
 	const explicit = process.env.GUARDRAILS_RULES;
@@ -73,14 +65,7 @@ function loadRules() {
 		// "overlay" is the same file; merging it with itself is a no-op, so skip.
 		const overlay = resolve(overlayRulesPath) === resolve(bundledRulesPath) ? [] : readRulesFile(overlayRulesPath);
 		if (overlay.length) {
-			const index = new Map();
-			rules.forEach((r, i) => {
-				if (r.rule_id != null) index.set(r.rule_id, i);
-			});
-			for (const r of overlay) {
-				if (r.rule_id != null && index.has(r.rule_id)) rules[index.get(r.rule_id)] = r;
-				else rules.push(r);
-			}
+			rules = mergeRuleOverlay(rules, overlay);
 		}
 	}
 	return rules.filter(
@@ -89,15 +74,19 @@ function loadRules() {
 }
 
 function ruleAppliesTo(rule, file) {
+	const rel = file.startsWith(projectRoot + "/") ? file.slice(projectRoot.length + 1) : file;
+	// exclude_glob is the rule's boundary-file exemption contract — honored
+	// for every rule shape, with or without file_glob (regression_check.py
+	// rules_for_file agrees; a divergence here made one rule fire in one
+	// scanner and not the other, 2026-10-27).
+	const excludes = rule.exclude_glob;
+	if (Array.isArray(excludes) && excludes.length > 0 && globMatchesAny(excludes, rel, basename(file))) return false;
 	const globs = rule.file_glob;
 	if (!Array.isArray(globs) || globs.length === 0) return true;
-	const rel = file.startsWith(projectRoot + "/") ? file.slice(projectRoot.length + 1) : file;
 	// A bare-extension glob like "*.go" must reach nested files, not just the
 	// project root — without the basename arm, "*.go" anchored to "[^/]*" matches
 	// nothing nested and every glob-scoped rule is silently dead on a real tree.
 	if (!globMatchesAny(globs, rel, basename(file))) return false;
-	const excludes = rule.exclude_glob;
-	if (Array.isArray(excludes) && excludes.length > 0 && globMatchesAny(excludes, rel, basename(file))) return false;
 	return true;
 }
 
@@ -128,6 +117,15 @@ function isTestFile(rel) {
 	if (base.endsWith("_test.go") || base.endsWith("_test.rs") || base.endsWith("_test.py") || base.endsWith("_test.zig")) return true;
 	if (base === "tests.rs" || /_tests\.rs$/.test(base)) return true; // Rust sibling cfg(test) modules
 	if (/^(conftest|test_.*|.*\.test\.|.*\.spec\.)/.test(base)) return true;
+	// Shared test-fixture modules (JS/TS convention `*-test-helpers.ts` /
+	// `*-test-utils.ts`, e.g. vbrainstorm's space-test-helpers.ts and
+	// invite-test-helpers.ts) hold test harness code only — synthetic
+	// Request builders, in-memory DB shims — never production behavior.
+	// Measured 2026-10-27: PREVENT-029 fired on a fixture module's
+	// `new Request(`http://localhost…`)` while the equivalent line in a
+	// `*.test.ts` file was correctly exempt. Test paths carry no production
+	// pattern obligations; the fixture-module naming is part of that.
+	if (/(^|[.-])test[-_]?(helpers|utils)\.(ts|tsx|js|jsx|mjs|cjs)$/i.test(base)) return true;
 	return false;
 }
 

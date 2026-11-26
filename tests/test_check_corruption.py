@@ -13,15 +13,23 @@ Locks the contract:
   * the ratchet grandfathers existing corruption but blocks new;
   * diff scan: a substitution flip FAILS;
   * diff scan: an 11-file whole rewrite FAILS as BULK MUTATION;
-  * diff scan: a normal small edit PASSES.
+  * diff scan: a normal small edit PASSES;
+  * diff scan: a submodule pin bump (gitlink) is NOT a flip and a
+    pin-bump-only diff PASSES - it is a real range with nothing textual
+    to judge, never a vacuous scan.
+  * diff scan: a 100%-similarity rename (pure file move) PASSES for the
+    same reason - the move is a real range with nothing textual to judge,
+    while a rename WITH edits is still judged line-by-line.
 """
 from __future__ import annotations
 
+import io
 import json
 import subprocess
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parent.parent / "scripts" / "check_corruption.py"
@@ -195,6 +203,99 @@ class CorruptionDiff(unittest.TestCase):
         spec.loader.exec_module(cc)
         self.assertEqual(cc.scan_diff("", {}, 30), 1)
 
+    def test_submodule_pin_bump_is_not_a_flip(self):
+        """A gitlink SHA->SHA pin bump is a commit pointer, not text data.
+
+        The measured false positive: bumping the DevGate submodule pin
+        presented as 'Subproject commit <40hex>' vs '<40hex>' - equal length,
+        ~90% characters different - and tripped the substitution-flip rule,
+        so the diff arm could never pass at a pin-bump head. Every DevGate
+        consumer bumps this pin routinely.
+        """
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("cc", str(SCRIPT))
+        cc = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cc)
+        old = "955c6f2a42c0d3c8596183bdd45430657bb040fc"
+        new = "b01d5e1ba3f0e7b007921a1d4b18c9f8b0c381e5"
+        diff = ("diff --git a/.devgate b/.devgate\n"
+                f"index {old[:7]}..{new[:7]} 160000\n"
+                "--- a/.devgate\n"
+                "+++ b/.devgate\n"
+                "@@ -1 +1 @@\n"
+                f"-Subproject commit {old}\n"
+                f"+Subproject commit {new}\n")
+        self.assertEqual(cc.scan_diff(diff, {}, 30), 0)
+        # Mixed change: the pin bump is skipped and a real flip still fails.
+        flip = ("diff --git a/.devgate b/.devgate\n"
+                f"index {old[:7]}..{new[:7]} 160000\n"
+                "--- a/.devgate\n"
+                "+++ b/.devgate\n"
+                "@@ -1 +1 @@\n"
+                f"-Subproject commit {old}\n"
+                f"+Subproject commit {new}\n"
+                "diff --git a/x.md b/x.md\n"
+                "--- a/x.md\n"
+                "+++ b/x.md\n"
+                "@@ -1 +1 @@\n"
+                "-alpha bravo charlie delta echo foxtrot golf\n"
+                "+qwerty uiopas dfghjkl zxcvbnm nm,./ poiuyt\n")
+        self.assertEqual(cc.scan_diff(flip, {}, 30), 1)
+
+    def test_pure_rename_is_not_a_vacuous_range(self):
+        """A 100%-similarity rename is a real range, not an empty one.
+
+        The measured false positive: an openspec archive move (git mv of the
+        change directory, zero content edits) failed corruption-range with
+        "diff scan evaluated zero lines (no vacuous green)". The range was
+        real - four files moved with byte-identical content - but git reports
+        100% renames with no hunks, so the scanner saw nothing and
+        fail-closed. Rename-only diffs pass with a note, exactly like a
+        gitlink pin bump; a truly empty diff still FAILS.
+        """
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("cc", str(SCRIPT))
+        cc = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cc)
+        move = ("diff --git a/old/dir/tasks.md b/new/dir/tasks.md\n"
+                "similarity index 100%\n"
+                "rename from old/dir/tasks.md\n"
+                "rename to new/dir/tasks.md\n")
+        self.assertEqual(cc.scan_diff(move, {}, 30), 0)
+        # Mixed change: the move is accounted for and a real flip still fails.
+        flip = ("diff --git a/old/dir/tasks.md b/new/dir/tasks.md\n"
+                "similarity index 100%\n"
+                "rename from old/dir/tasks.md\n"
+                "rename to new/dir/tasks.md\n"
+                "diff --git a/x.md b/x.md\n"
+                "--- a/x.md\n"
+                "+++ b/x.md\n"
+                "@@ -1 +1 @@\n"
+                "-alpha bravo charlie delta echo foxtrot golf\n"
+                "+qwerty uiopas dfghjkl zxcvbnm nm,./ poiuyt\n")
+        self.assertEqual(cc.scan_diff(flip, {}, 30), 1)
+
+    def test_rename_with_edits_is_still_judged(self):
+        """A rename that also edits text is not covered by the move note.
+
+        git reports this as a rename WITH hunks; the scanner must evaluate
+        those added/removed lines like any other edit.
+        """
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("cc", str(SCRIPT))
+        cc = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cc)
+        edited_move = ("diff --git a/old/x.md b/new/x.md\n"
+                       "similarity index 50%\n"
+                       "rename from old/x.md\n"
+                       "rename to new/x.md\n"
+                       "--- a/old/x.md\n"
+                       "+++ b/new/x.md\n"
+                       "@@ -1 +1 @@\n"
+                       "-alpha bravo charlie delta echo foxtrot golf\n"
+                       "+qwerty uiopas dfghjkl zxcvbnm nm,./ poiuyt\n")
+        self.assertEqual(cc.scan_diff(edited_move, {}, 30), 1)
+
 
 class CorruptionFlipPairing(unittest.TestCase):
     """fw-corruption-01 flip pairing is per -/+ RUN, not per file.
@@ -334,6 +435,113 @@ class CorruptionFlipPairing(unittest.TestCase):
             "+--- qwerty uiopas dfghjkl zxcvbnm nm,./ poiuyt\n"
         )
         self.assertEqual(cc.scan_diff(diff, {}, 30), 1)
+
+    def test_whole_file_rewrite_alignment_artifact_is_not_a_flip(self):
+        # Measured 2026-10-27 on the vbrainstorm invites.ts barrel split (a
+        # 548-line implementation rewritten to a 37-line re-export barrel).
+        # The diff is a whole-file rewrite: no line correspondence exists
+        # between the sides, but SequenceMatcher still emits equal-size
+        # replace blocks from its local alignment, and positional pairing
+        # inside one compared a DELETED comment ("This replaces the Phase-1
+        # FIXTURE_INVITES map…") with an UNRELATED ADDED comment ("Every
+        # public name this module historically exported…") — 78% "changed",
+        # length within 3% — and failed the gate on correct code. A rewrite
+        # asserts no correspondence at all: the mass-rewrite rule judges it
+        # (still warned here — never silent), never flip pairs.
+        cc = self._load()
+        removed = ["// This replaces the Phase-1 FIXTURE_INVITES map; the InviteView response"]
+        removed += [f"// old implementation line {i} carries the moved logic text" for i in range(11)]
+        added = ["// Every public name this module historically exported is re-exported here,"]
+        added += [f"// barrel re-export stub number {i} keeps import sites unchanged" for i in range(11)]
+        diff = ("diff --git a/src/community/invites.ts b/src/community/invites.ts\n"
+                "--- a/src/community/invites.ts\n+++ b/src/community/invites.ts\n"
+                "@@ -1,12 +1,12 @@\n"
+                + "".join(f"-{line}\n" for line in removed)
+                + "".join(f"+{line}\n" for line in added))
+        out = io.StringIO()
+        with redirect_stdout(out):
+            verdict = cc.scan_diff(diff, {}, 30)
+        self.assertEqual(verdict, 0, out.getvalue())
+        self.assertIn("MASS REWRITE", out.getvalue())
+        # Control: the SAME tuned pair outside a rewrite is a 1-to-1 in-place
+        # substitution and must still fail — the fix narrows scope, not
+        # detection (same contract as test_insert_then_substitute_fails_on_the_substitution).
+        small = ("diff --git a/src/community/invites.ts b/src/community/invites.ts\n"
+                 "--- a/src/community/invites.ts\n+++ b/src/community/invites.ts\n"
+                 "@@ -6 +6 @@\n"
+                 f"-{removed[0]}\n+{added[0]}\n")
+        self.assertEqual(cc.scan_diff(small, {}, 30), 1)
+
+
+class CorruptionDiffPathResolution(unittest.TestCase):
+    """Diff headers resolve to the real path on BOTH sides.
+
+    The header parser used to slice ``line[6:]`` — stripping ``--- `` plus two
+    more characters. That works by accident for git's usual ``a/``/``b/``
+    prefixed paths (the prefix is consumed by the slice), but a pure
+    deletion's ``+++ /dev/null`` became ``ev/null``: the deleted file's
+    removed lines were attributed to a nonsense path, so per-file accounting
+    (mass-rewrite counting, allowlist lookup, report lines) named the wrong
+    file. The slice is the 4-char header marker; the optional prefix is
+    stripped separately. Measured shape: any `git rm` hunk in a range.
+    """
+
+    def _load(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("cc", str(SCRIPT))
+        cc = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cc)
+        return cc
+
+    def test_pure_deletion_attributes_to_the_real_path(self):
+        cc = self._load()
+        diff = (
+            "diff --git a/gone.txt b/gone.txt\n"
+            "deleted file mode 100644\n"
+            "index 1234567..0000000\n"
+            "--- a/gone.txt\n"
+            "+++ /dev/null\n"
+            "@@ -1,2 +0,0 @@\n"
+            "-alpha line here\n"
+            "-bravo line here\n"
+        )
+        removed = [(p, t) for p, _ln, t in cc._removed_lines(diff)]
+        self.assertEqual(removed,
+                         [("gone.txt", "alpha line here"),
+                          ("gone.txt", "bravo line here")])
+
+    def test_new_file_addition_resolves_to_the_new_path(self):
+        cc = self._load()
+        diff = (
+            "diff --git a/fresh.txt b/fresh.txt\n"
+            "new file mode 100644\n"
+            "index 0000000..1234567\n"
+            "--- /dev/null\n"
+            "+++ b/fresh.txt\n"
+            "@@ -0,0 +1,2 @@\n"
+            "+alpha line here\n"
+            "+bravo line here\n"
+        )
+        added = [(p, t) for p, _ln, t in cc._added_lines(diff)]
+        self.assertEqual(added,
+                         [("fresh.txt", "alpha line here"),
+                          ("fresh.txt", "bravo line here")])
+
+    def test_pure_deletion_scan_stays_clean(self):
+        # Negative control: resolving the path correctly must not invent a
+        # finding — a deletion replaces nothing.
+        cc = self._load()
+        diff = (
+            "diff --git a/gone.txt b/gone.txt\n"
+            "deleted file mode 100644\n"
+            "index 1234567..0000000\n"
+            "--- a/gone.txt\n"
+            "+++ /dev/null\n"
+            "@@ -1,2 +0,0 @@\n"
+            "-alpha line here\n"
+            "-bravo line here\n"
+        )
+        self.assertEqual(cc.scan_diff(diff, {}, 30), 0)
 
 
 if __name__ == "__main__":

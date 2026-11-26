@@ -1,0 +1,31 @@
+# pre-commit hook contract for the vendored stitcher review (aiggp-08 Stage 4).
+#
+# The hook runs the SAME CLI and the SAME checks as CI, against the working
+# tree (staged + unstaged + untracked), so a local pass and a CI pass are the
+# same verdict for the same change. Parity is proven by
+# scripts/stitcher-local.mjs (--run compares a working tree against a clean
+# worktree at HEAD and classifies any divergence as a defect).
+#
+# The package is not published to a registry, so the hook is `system`: put the
+# CLI on PATH once, from a checkout of this repository -
+#
+#   npm --prefix actions/stitcher-codereview ci
+#   npm --prefix actions/stitcher-codereview run build
+#   npm --prefix actions/stitcher-codereview link      # provides `stitcher-codereview`
+#
+# then reference it from the consumer's .pre-commit-config.yaml:
+#
+#   repos:
+#     - repo: https://github.com/TheArchitectit/AIGGP-Agentic-Framework
+#       rev: <tag>
+#       hooks:
+#         - id: stitcher-codereview
+#           args: [--change, my-change, --base, origin/main, --fail-on, high]
+- id: stitcher-codereview
+  name: stitcher-codereview (spec-aware review)
+  description: Verify the change against its OpenSpec requirements, drift, tasks and evidence links.
+  entry: stitcher-codereview
+  language: system
+  pass_filenames: false
+  require_serial: true
+  stages: [pre-commit]

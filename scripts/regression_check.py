@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# // spec: gate-allwindow-01, rel-target-01
 """
 DevGate Regression Check Tool — language-agnostic.
 Auto-detects the project root and scans whatever source directories exist.
@@ -10,13 +11,15 @@ Usage:
     python scripts/regression_check.py --all         # Check all changes (last tag, else HEAD~20, else root)
     python scripts/regression_check.py --base REF     # Check committed content as diff REF...HEAD
     python scripts/regression_check.py --range A..B   # Check an explicit git revision range (CI)
-    python scripts/regression_check.py --pre-commit   # Exit non-zero if issues found
+    python scripts/regression_check.py --pre-commit   # Exit non-zero if issues found; exit 2 on empty scope
     python scripts/regression_check.py --fail-if-empty # Exit 2 when the scope scanned zero files
 
 Vacuous-green contract: a run that scanned ZERO files prints a NOTHING
 SCANNED notice instead of the clean-pass line — "green" that evaluated no
 inputs is not evidence of a clean tree (see gate-execution-contract
 gate-vacuous-01). --fail-if-empty turns that notice into exit 2 for CI.
+--pre-commit implies --fail-if-empty (the trap: --staged before git add used
+to exit 0 with a green "0 over hard limit" summary on an empty scope).
 
 Environment Variables:
     FAILURE_REGISTRY_PATH: Path to registry file (overrides the bundled+overlay merge)
@@ -59,7 +62,7 @@ from pathlib import Path
 # sibling module (keeps both files under DevGate's own 500-line hard limit).
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import gate_overlay  # noqa: E402
-from gate_common import load_source_dirs  # noqa: E402
+from gate_common import exit_code_for, load_source_dirs  # noqa: E402
 from regression_audit import (  # noqa: E402
     _detect_package_manager,
     check_npm_audit,
@@ -77,6 +80,7 @@ from regression_diff import (  # noqa: E402
     SCANNED_STATUSES,
     SELF_REFERENTIAL,
     check_added_against_registry,
+    check_diff_against_patterns,
     compile_registry_patterns,
     get_added_lines,
     get_changed_files,
@@ -201,45 +205,19 @@ def check_file_against_failures(file_path: str, failures: list[dict]) -> list[di
 
 def rules_for_file(rules: list[dict], file_path: str) -> list[dict]:
     """Scope rules to the file via their optional file_glob (full-path OR
-    basename match); empty/missing glob = every file. Without this, a
-    glob-scoped rule like PREVENT-027 (pattern ".*", file_glob
-    ["Dockerfile"]) fires on every changed file's diff."""
+    basename match); empty/missing glob = every file. exclude_glob is the
+    rule's boundary-file exemption contract (guardrails-scan.mjs
+    `ruleAppliesTo` honors it) — both must, or the scanners disagree."""
     scoped = []
     for rule in rules:
+        excludes = rule.get("exclude_glob") or []
+        if excludes and glob_matches(file_path, excludes):
+            continue
         globs = rule.get("file_glob") or []
-        if globs and not any(
-            fnmatch.fnmatch(file_path, g) or fnmatch.fnmatch(os.path.basename(file_path), g)
-            for g in globs
-        ):
+        if globs and not glob_matches(file_path, globs):
             continue
         scoped.append(rule)
     return scoped
-
-
-def check_diff_against_patterns(diff_content: str, rules: list[dict]) -> list[dict]:
-    violations = []
-    added_lines = []
-    for line in diff_content.split("\n"):
-        if line.startswith("+") and not line.startswith("+++"):
-            added_lines.append(line[1:])
-    added_content = "\n".join(added_lines)
-    for rule in rules:
-        if rule.get("rule_type") != "pattern":
-            continue
-        pattern = rule.get("pattern")
-        if not pattern:
-            continue
-        try:
-            if re.search(pattern, added_content, re.MULTILINE):
-                forbidden = rule.get("forbidden_context")
-                if forbidden and re.search(forbidden, added_content, re.MULTILINE):
-                    continue
-                violations.append({"rule_id": rule.get("rule_id"), "name": rule.get("name"),
-                                  "message": rule.get("message"), "severity": rule.get("severity", "warning"),
-                                  "suggestion": rule.get("suggestion"), "failure_id": rule.get("failure_id")})
-        except re.error:
-            continue
-    return violations
 
 
 ADVISORY_SEVERITIES = ("low", "medium", "warning", "info")
@@ -283,7 +261,7 @@ def run_regression_check(registry_path: Path | None = None, rules_path: Path | N
             file_issues["failures"] = matching_failures
         diff = get_diff_content(run_git_command, file_path, staged=staged, unstaged=unstaged, git_range=git_range, base=base)
         if diff:
-            violations = check_diff_against_patterns(diff, rules_for_file(rules, file_path))
+            violations = check_diff_against_patterns(diff, rules_for_file(rules, file_path), file_path)
             if violations:
                 file_issues["violations"] = violations
         if file_issues["failures"] or file_issues["violations"]:
@@ -351,7 +329,9 @@ def main():
     parser.add_argument("--fail-if-empty", action="store_true",
                         help="exit 2 when the selected scope scanned zero files, "
                              "so CI cannot green-light a run that evaluated nothing")
-    parser.add_argument("--pre-commit", action="store_true")
+    parser.add_argument("--pre-commit", action="store_true",
+                        help="exit non-zero on findings; exit 2 on an empty scope "
+                             "(implies --fail-if-empty — zero inputs must not pass)")
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--no-file-sizes", action="store_true")
     parser.add_argument("--no-audit", action="store_true")
@@ -403,9 +383,11 @@ def main():
 
     size_issues: list[dict] = []
     size_hard_count = 0
+    size_gap_count = 0
     if not args.no_file_sizes:
         size_issues = check_file_sizes(PROJECT_ROOT, SOURCE_DIRS, touched=touched)
         size_hard_count = sum(1 for i in size_issues if i["kind"] == "hard")
+        size_gap_count = sum(1 for i in size_issues if i["kind"] == "scope-gap")
 
     soft_as_hard_count = 0
     soft_as_hard_files: list[dict] = []
@@ -436,6 +418,7 @@ def main():
         print(json.dumps({"issue_count": count, "files_scanned": files_scanned,
                            "vacuous": vacuous,
                            "size_violations_hard": size_hard_count,
+                           "size_gaps": size_gap_count,
                            "soft_as_hard_blocked": soft_as_hard_count,
                            "audit_blocking": audit_blocking, "audit_warnings": audit_warnings,
                            "registry_regressions": len(registry_violations),
@@ -453,6 +436,11 @@ def main():
             print("On a clean checkout, --staged/--unstaged see only uncommitted work.")
             print("Scan committed content with --base <ref> (diff REF...HEAD), "
                   "--range <A..B>, or --all.")
+            if args.fail_if_empty or args.pre_commit:
+                print("--fail-if-empty/--pre-commit: this run exits 2 — git add "
+                      "the change first so the scope is non-empty.")
+            print("Sizes below (if any) are inventory only — nothing is "
+                  "classified touched/untouched.")
             print("!" * 70)
         elif not args.quiet or count > 0:
             print_report(issues, verbose=args.verbose)
@@ -466,7 +454,7 @@ def main():
                 for path in sorted(prose_skipped):
                     print(f"    {path}: {prose_skipped[path]}")
         if size_issues and (not args.quiet or size_hard_count > 0):
-            print_file_size_report(size_issues)
+            print_file_size_report(size_issues, scope_empty=vacuous)
         if not args.no_audit and (not args.quiet or audit_blocking > 0):
             print_npm_audit_report(audit_blocking, audit_warnings, audit_issues)
         if args.soft_as_hard and soft_as_hard_count > 0:
@@ -478,13 +466,14 @@ def main():
                 print(f"    {issue['file']}  ({issue['lines']} lines, soft {issue['soft']})")
             print("=" * 70)
 
-    if args.fail_if_empty and vacuous:
-        sys.exit(2)
     blocking = sum(1 for issue in issues if issue.get("blocking"))
-    if args.pre_commit and (blocking > 0 or size_hard_count > 0 or soft_as_hard_count > 0
-                            or audit_blocking > 0 or registry_violations):
-        sys.exit(1)
-    sys.exit(0)
+    sys.exit(exit_code_for(
+        vacuous=vacuous, fail_if_empty=args.fail_if_empty,
+        pre_commit=args.pre_commit, blocking=blocking,
+        size_hard=size_hard_count, soft_as_hard=soft_as_hard_count,
+        audit_blocking=audit_blocking,
+        registry_regressions=len(registry_violations),
+        size_gaps=size_gap_count))
 
 
 if __name__ == "__main__":

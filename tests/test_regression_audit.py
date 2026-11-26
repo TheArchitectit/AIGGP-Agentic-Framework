@@ -80,6 +80,31 @@ class TestDirectRuntimeVulnClassifiesRuntime(unittest.TestCase):
         self.assertEqual(blocking, 0, "dev-only vuln must not block")
         self.assertEqual(warnings, 1)
 
+    def test_direct_dev_dependency_vuln_is_dev_only(self):
+        # npm marks a directly declared devDependency isDirect=true, exactly
+        # like a runtime dependency. The QA C6 fix keyed on isDirect alone, so
+        # a HIGH advisory in vite (a devDependency) classified RUNTIME and
+        # blocked. Verified live on vbrainstorm 2026-10-26: vite HIGH was
+        # printed as RUNTIME while `npm audit --omit=dev` showed zero high.
+        # A direct dep must consult devDependencies to decide runtime scope.
+        proj = make_npm_project({
+            "package.json": {"dependencies": {"react": "^18.0.0"},
+                             "devDependencies": {"vite": "^5.0.0"}},
+        })
+        audit = {"vulnerabilities": {
+            "vite": {"severity": "high", "isDirect": True,
+                     "effects": [], "fixAvailable": True,
+                     "via": ["GHSA-vite-path-traversal"]},
+        }}
+        with mock.patch.object(ra.subprocess, "run") as run:
+            run.return_value = unittest.mock.Mock(
+                stdout=json.dumps(audit), returncode=0)
+            blocking, warnings, issues = ra.check_npm_audit(proj)
+        self.assertEqual(blocking, 0,
+                         "direct devDependency vuln must not block")
+        self.assertEqual(warnings, 1)
+        self.assertFalse(issues[0]["is_runtime"])
+
 
 class TestAuditFailureHonesty(unittest.TestCase):
     """npm missing / timeout / empty / unparseable used to read as

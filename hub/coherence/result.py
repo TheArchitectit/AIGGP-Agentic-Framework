@@ -1,4 +1,4 @@
-# // spec: coh-dec-01, coh-dec-03, coh-dec-04, coh-dec-05, coh-eval-03
+# // spec: coh-dec-01, coh-dec-03, coh-dec-04, coh-dec-05, coh-eval-03, coh-assert-05
 """Canonical result construction: ledger, finding sort/keys, canonical JSON,
 decision/exit matrix. No timestamps, durations, host identity, or attestation
 fields in the canonical payload.
@@ -63,7 +63,10 @@ def decide(ledger: list, stage: int, error_class: str = None,
     unresolved = [e for e in ledger if e["outcome"] == "UNRESOLVED"]
 
     if blocked is None:
-        blocked = stage in _BLOCK_STAGES and bool(violated or unresolved)
+        blocking_rows = [
+            e for e in (violated + unresolved)
+            if e.get("enforcement", "BLOCK") == "BLOCK"]
+        blocked = stage in _BLOCK_STAGES and bool(blocking_rows)
 
     if blocked:
         return ("FAIL", EXIT_FAIL)

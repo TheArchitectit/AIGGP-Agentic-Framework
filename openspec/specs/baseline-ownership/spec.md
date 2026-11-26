@@ -1,5 +1,7 @@
 # Baseline data ownership
 
+Status: CLOSED (EXERCISED 3)
+
 ## Purpose
 
 Define what may live in a project's guardrails baseline: each repository's baseline records only its own suppressions, so a waiver in one repo can never silence a finding in another.
@@ -62,3 +64,11 @@ here permanently.
 - **THEN** it documents the game tooling as part of this repo and contains
   no instruction to submodule a separate devgate-game-framework
   repository
+
+## Requirement Closure
+
+| Requirement | Status | Implementation | Verification |
+|---|---|---|---|
+| `base-own-01` (Baseline contains only this repo's data) | **EXERCISED** | `scripts/baseline_ownership_check.py`, `scripts/failure_registry_check.py` | `tests/test_baseline_ownership_check.py`, `tests/test_failure_registry_check.py` |
+| `base-write-01` (Project bugs land in the project overlay) | **EXERCISED** | `scripts/log_failure.py` | `tests/test_log_failure.py` |
+| `base-specs-01` (Game-dev gates and specs live in this framework) | **EXERCISED** | `scripts/baseline_ownership_check.py`, `scripts/spec_traceability.py` | `tests/test_spec_traceability.py` |

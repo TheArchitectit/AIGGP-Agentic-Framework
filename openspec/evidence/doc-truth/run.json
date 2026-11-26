@@ -1,0 +1,7 @@
+{
+ "command": "python3 -m pytest -q tests/test_check_version_truth.py::TestVersionTruthGate::test_this_repository_agrees tests/test_check_version_truth.py::TestVersionTruthGate::test_agreeing_repo_passes tests/test_template_supply_chain.py::TestDocTruthAndBehaviorRuleContracts::test_version_and_changelog_agreement tests/test_template_supply_chain.py::TestDocTruthAndBehaviorRuleContracts::test_overlay_and_behavior_rules_contracts",
+ "head": "f40ad6b89f0352f3d3589d1e00e69431fd7d69f1",
+ "ran_at": "2026-11-15T07:24:07Z",
+ "tool": "pytest 9.1.1",
+ "result": "4 passed"
+}

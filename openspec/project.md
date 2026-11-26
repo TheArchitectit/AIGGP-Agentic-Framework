@@ -39,7 +39,8 @@ digest-pinned, evidence-sealed decisions.
   `scripts/spec_traceability.py`.
 - Requirement ID namespaces: `mon-*` (monitor hub), `gate-*`, `base-*`,
   `doc-*`, `pub-*`, `rel-*`, `rule-*`, `scan-*`, `ci-*`, `fleet-*`,
-  `coh-*` (spec-coherence service).
+  `coh-*` (spec-coherence service), `comm-*` (community sub-site
+  capabilities).
 - Exit-code honesty: a gate that evaluated zero inputs must never print the
   clean-pass line (no vacuous green); SKIPPED is stated, never implied green.
 - The failure registry is append-only; specs are the source of truth for gate

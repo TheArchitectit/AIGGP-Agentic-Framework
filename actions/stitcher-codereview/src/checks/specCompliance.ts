@@ -1,5 +1,6 @@
 import type { Diff, Finding, OpenSpecChange, Requirement, ReviewResult } from '../types.js';
 import { keywords } from '../spec/parser.js';
+import { attachCoverageRefs, attachEvidenceRefs, isEvidenceRef } from '../evidenceRef.js';
 
 export type CoverageEntry = ReviewResult['requirementCoverage'][number];
 
@@ -187,7 +188,12 @@ export function findingsForCoverage(change: OpenSpecChange, coverage: CoverageEn
       });
     }
   }
-  return findings;
+  // Every finding cites the evidence record of the requirement verdict it came
+  // from, so review comments and SARIF results can carry a link (Stages 2, 5, 6).
+  return findings.map((f) => {
+    const entry = coverage.find((c) => c.requirementId === f.requirementId);
+    return entry && isEvidenceRef(entry.evidenceRef) ? { ...f, evidenceRef: entry.evidenceRef } : f;
+  });
 }
 
 export function checkSpecCompliance(change: OpenSpecChange, diff: Diff, t: CoverageThresholds = {}): {
@@ -195,22 +201,29 @@ export function checkSpecCompliance(change: OpenSpecChange, diff: Diff, t: Cover
   coverage: CoverageEntry[];
 } {
   if (change.requirements.length === 0) {
+    // "A change declaring no requirements SHALL be flagged" and Fixture B
+    // requires no clean verdict: high severity makes decideVerdict return
+    // CHANGES_REQUESTED instead of a green PASS over an unverifiable change.
     return {
       coverage: [],
-      findings: [
+      findings: attachEvidenceRefs(change.name, [
         {
-          severity: 'medium',
+          severity: 'high',
           category: 'spec-compliance',
           checkId: 'no-delta-specs',
-          message: `Change \`${change.name}\` has no delta specs (no specs/*/spec.md with ADDED/MODIFIED/REMOVED Requirements). Review falls back to general checks only.`,
-          suggestion: 'Run `/opsx:propose` to draft specs, or set skip_specs only for pure chores.'
+          message: `Change \`${change.name}\` declares no requirements (no specs/*/spec.md with ADDED/MODIFIED/REMOVED Requirements). Review falls back to general checks only and cannot return a clean verdict.`,
+          suggestion: 'Run `/opsx:propose` to draft specs; an undeclared change is flagged, not passed.'
         }
-      ]
+      ])
     };
   }
   const coverage: CoverageEntry[] = [];
   for (const req of change.requirements) {
     coverage.push(coverageForRequirement(req, diff, t).entry);
   }
-  return { findings: findingsForCoverage(change, coverage), coverage };
+  const withRefs = attachCoverageRefs(change.name, coverage);
+  return {
+    findings: attachEvidenceRefs(change.name, findingsForCoverage(change, withRefs)),
+    coverage: withRefs
+  };
 }

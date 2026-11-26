@@ -36,7 +36,15 @@ currency signs). It may **narrow** the standard but never disable it:
 - every row needs a `reason`; a malformed row is a hard error (exit 2);
 - the `deny` list always beats `allow`; a codepoint in both refuses to run;
 - `U+00A7` is **denied** so a later edit cannot silently reintroduce the
-  reported defect.
+  reported defect;
+- `strict_zero` rows name path prefixes the ratchet may **not** grandfather —
+  code stays zero-tolerance even when a baseline exists;
+- `ignore` rows exempt content/data fixtures whose bytes are the record
+  itself (e.g. an as-received post-content export that is the import source of
+  record) from the whole check, substitution artifacts included. This is not
+  a general escape hatch: an `ignore` row that covers a `strict_zero` scope is
+  a policy contradiction and refuses to run — content is exemptable, code is
+  not, by construction.
 
 ### Ratchet: `.guardrails/charset-baseline.json`
 

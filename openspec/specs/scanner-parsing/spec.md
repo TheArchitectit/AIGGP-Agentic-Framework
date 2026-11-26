@@ -1,5 +1,7 @@
 # Scanner parsing correctness
 
+Status: CLOSED (EXERCISED 3)
+
 ## Purpose
 
 Pin the correctness of the source scanners' parsers, beginning with Godot scene files: valid inputs are parsed fully, and malformed inputs fail closed rather than silently skipping content.
@@ -55,3 +57,11 @@ directories and SHALL apply TEST_HARD to files matching test naming
 #### Scenario: pytest file over source limit
 - **WHEN** `tests/test_big.py` has 550 lines
 - **THEN** it is evaluated against TEST_HARD (600), not SRC_HARD (500)
+
+## Requirement Closure
+
+| Requirement | Status | Implementation | Verification |
+|---|---|---|---|
+| `gate-tscn-01` (Godot scene parsing) | **EXERCISED** | `scripts/scene_inventory.py` | `tests/test_scene_inventory.py` |
+| `gate-rstest-01` (Rust test-scope exemption) | **EXERCISED** | `scripts/guardrails-scan.mjs` | `tests/test_guardrails_scan_node.py`, `tests/test_guardrails_scan.mjs` |
+| `gate-size-01` (Test file sizing) | **EXERCISED** | `scripts/regression_sizes.py` | `tests/test_regression_sizes.py` |

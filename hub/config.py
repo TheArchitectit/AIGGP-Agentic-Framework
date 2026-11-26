@@ -5,7 +5,7 @@ ALERT_CHANNEL (default github_issue), HEARTBEAT_INTERVAL_SEC (default 300),
 MONITOR_ONLY (default true). Each is flagged for owner confirmation in
 docs/runner-monitor-monitor-hub.md.
 
-// spec: mon-hub-01
+// spec: mon-hub-01, mon-local-01
 """
 
 from __future__ import annotations

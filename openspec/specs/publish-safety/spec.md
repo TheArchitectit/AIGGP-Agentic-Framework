@@ -1,5 +1,7 @@
 # Publish leg safety
 
+Status: CLOSED (EXERCISED 3)
+
 ## Purpose
 
 Make the publish leg of the release pipeline idempotent and safe: exactly-once upload semantics and honest failure behavior.
@@ -48,3 +50,11 @@ sentinel values are exempt.
 #### Scenario: abbreviated SHA
 - **WHEN** an entry's fix_commit is a valid 7-character abbreviation
 - **THEN** the hygiene gate accepts it; a non-existent abbreviation errors
+
+## Requirement Closure
+
+| Requirement | Status | Implementation | Verification |
+|---|---|---|---|
+| `rel-upload-01` (Upload exactly once) | **EXERCISED** | `scripts/deploy.sh` | `tests/test_schema_health_exitcodes.py` |
+| `rel-artifact-01` (No vacuous artifact verify) | **EXERCISED** | `scripts/deploy.sh` | `tests/test_schema_health_exitcodes.py` |
+| `rel-fixcommit-01` (fix_commit verification) | **EXERCISED** | `scripts/failure_registry_check.py` | `tests/test_failure_registry_check.py` |

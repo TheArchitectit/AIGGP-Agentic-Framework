@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# spec: rule-truth-01
+# spec: rule-truth-01, rule-behavior-01
 """rules_check.py — rules-hygiene gate (rule-truth-01, design D7).
 
 An enabled rule with no executing checker is the silent-success shape this

@@ -1,3 +1,4 @@
+# // spec: base-specs-01, rule-marker-01, spec-fmt-01, spec-fmt-02, spec-fmt-03
 """Tests for .devgate/scripts/spec_traceability.py."""
 import json
 import subprocess
@@ -162,6 +163,24 @@ def test_zig_marker_counts_as_coverage(tmp_path):
     assert "router-req-01: covered" in result.stdout
 
 
+def test_tsx_marker_counts_as_coverage(tmp_path):
+    """TSX components are the shipped enforcement surface for UI flows, so a
+    // spec: <id> marker in a .tsx file must satisfy the requirement. Without
+    .tsx in SCAN_EXTS the marker is invisible and the requirement reads
+    UNCOVERED -- coverage that looks asserted in the source but is never counted.
+    TSX uses // comments, so the marker grammar already fits; only the
+    extension allowlist kept it out."""
+    write(tmp_path / "openspec/specs/router/spec.md", SPEC)
+    write(tmp_path / "src/Router.tsx",
+          'export function Router() {\n'
+          '  // spec: router-req-01 -- enforced by the route switch\n'
+          '  return null;\n'
+          '}\n')
+    result = run(tmp_path, "--report")
+    assert result.returncode == 0
+    assert "router-req-01: covered" in result.stdout
+
+
 def test_hash_marker_covers_python_requirement(tmp_path):
     """H6 fix: `# spec: <id>` must count for Python/Ruby/shell sources. The
     `//`-only grammar meant a Python consumer in blocking mode could never
@@ -172,6 +191,42 @@ def test_hash_marker_covers_python_requirement(tmp_path):
     result = run(tmp_path, "--report")
     assert result.returncode == 0
     assert "router-req-01: covered" in result.stdout
+
+
+def test_uppercase_ids_are_discovered_and_covered(tmp_path):
+    """`add-gitlab-forge-support` writes `<!-- id: GLF-01 -->` and covers it
+    with `// spec: GLF-01`. The ID classes were lowercase-only, so all seven
+    of that change package's requirements were discovered as NOTHING: the
+    repo's gate reported 187 requirements where the tree holds 194, and the
+    seven covered ones were invisible to the ratchet — coverage that the code
+    asserts but the gate can never count. Same defect class as the zig/tsx/
+    .sh markers above: a marker the discovery cannot read is uncovered
+    forever (or, worse here, not required at all)."""
+    write(tmp_path / "openspec/changes/add-gitlab-forge-support/specs/forge-parity/spec.md",
+          SPEC.replace("router-req-01", "GLF-01"))
+    write(tmp_path / "hub/forge/__init__.py",
+          "# // spec: GLF-01, GLF-02\n")
+    write(tmp_path / "openspec/changes/add-gitlab-forge-support/specs/forge-parity/spec2.md",
+          SPEC.replace("router-req-01", "GLF-02"))
+    result = run(tmp_path, "--report")
+    assert result.returncode == 0
+    assert "GLF-01: covered" in result.stdout, result.stdout
+    assert "GLF-02: covered" in result.stdout, result.stdout
+    assert "2/2 requirements covered" in result.stdout, result.stdout
+
+
+def test_case_sensitive_ids_stay_distinct(tmp_path):
+    """Accepting both cases must not silently merge two IDs that differ only
+    by case: comparison is exact, so a marker must spell the ID its spec
+    does. Otherwise one marker would cover two requirements and the count
+    would overstate coverage."""
+    write(tmp_path / "openspec/specs/a/spec.md", SPEC.replace("router-req-01", "req-01"))
+    write(tmp_path / "openspec/specs/b/spec.md", SPEC.replace("router-req-01", "REQ-01"))
+    write(tmp_path / "src/a.rs", "// spec: req-01\n")
+    result = run(tmp_path, "--report")
+    assert "req-01: covered" in result.stdout, result.stdout
+    assert "REQ-01: UNCOVERED" in result.stdout, result.stdout
+    assert "1/2 requirements covered" in result.stdout, result.stdout
 
 
 def test_module_constants_are_defined_exactly_once():
@@ -218,3 +273,35 @@ def test_hash_marker_multiple_ids(tmp_path):
     result = run(tmp_path, "--report")
     assert "alpha-req-01: covered" in result.stdout
     assert "beta-req-02: covered" in result.stdout
+
+
+def test_dash_marker_covers_sql_or_lua_requirement(tmp_path):
+    """rule-marker-01: `-- spec: <id>` comment syntax counts as coverage."""
+    write(tmp_path / "openspec/specs/router/spec.md", SPEC)
+    write(tmp_path / "db/schema.sql", "-- spec: router-req-01\nCREATE TABLE t (id INT);\n")
+    result = run(tmp_path, "--report")
+    assert result.returncode == 0
+    assert "router-req-01: covered" in result.stdout
+
+
+def test_bundled_specs_have_traceable_ids_and_no_external_game_framework_pointer():
+    """base-specs-01, spec-fmt-01..03: bundled specs have requirement IDs (no 0/0
+    capabilities), active changes have proposal.md + tasks.md, AGENTS.md
+    documents change-local authority, and no bundled doc directs readers to a
+    separate devgate-game-framework repository."""
+    repo = SCRIPT.parent.parent
+    result = run(repo, "--report")
+    assert result.returncode == 0, result.stdout
+    assert "(0/0)" not in result.stdout, result.stdout
+    readme = (repo / "scripts" / "game-framework-README.md").read_text(encoding="utf-8")
+    assert "submodule add" not in readme or "devgate-game-framework" not in readme
+    agents = (repo / "AGENTS.md").read_text(encoding="utf-8")
+    assert "openspec/changes" in agents and "archive" in agents
+    changes_dir = repo / "openspec" / "changes"
+    if changes_dir.is_dir():
+        for ch in sorted(changes_dir.iterdir()):
+            if not ch.is_dir() or ch.name == "archive":
+                continue
+            assert (ch / "proposal.md").is_file(), f"{ch.name} missing proposal.md"
+            assert (ch / "tasks.md").is_file(), f"{ch.name} missing tasks.md"
+
