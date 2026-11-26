@@ -18,8 +18,8 @@ identifies the owning change and its acceptance tasks.
 
 ## Architecture acceptance
 
-- [ ] DG-23. Qualify monitor single-writer restart and recovery.
-- [ ] DG-24. Bind adopter promotion evidence to immutable artifacts.
+- [ ] Qualify monitor recovery. Exercise the supported single-writer restore and convergence path.
+- [ ] Qualify consumer delivery evidence. Verify existing attestation, approval, and runtime readback for the selected target.
 
 ## Following batch
 
