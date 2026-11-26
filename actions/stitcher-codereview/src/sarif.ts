@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import type { Finding, ReviewResult, Severity } from './types.js';
 import { checkMeta } from './checks/catalog.js';
+import { isEvidenceRef, findingEvidenceRef } from './evidenceRef.js';
 
 function toolVersion(): string {
   try {
@@ -79,7 +80,9 @@ export function toSarif(r: ReviewResult): string {
           verdict: r.verdict,
           change: r.change,
           template: r.template.id,
-          requirementsCovered: `${r.stats.requirementsCovered}/${r.stats.requirementsTotal}`
+          requirementsCovered: `${r.stats.requirementsCovered}/${r.stats.requirementsTotal}`,
+          subjectDigest: r.verification?.fingerprint.touchedHash ?? null,
+          head: r.verification?.fingerprint.head ?? null
         },
         results: r.findings.map((f) => {
           const result: Record<string, unknown> = {
@@ -90,8 +93,10 @@ export function toSarif(r: ReviewResult): string {
             properties: {
               severity: f.severity,
               category: f.category,
+              evidenceRef: isEvidenceRef(f.evidenceRef) ? f.evidenceRef : findingEvidenceRef(r.change, f),
               ...(f.requirementId ? { requirementId: f.requirementId } : {}),
-              ...(f.suggestion ? { suggestion: f.suggestion } : {})
+              ...(f.suggestion ? { suggestion: f.suggestion } : {}),
+              ...(f.tool ? { tool: f.tool } : {})
             }
           };
           if (f.file) {

@@ -23,9 +23,20 @@ changed line whose length is within +/-15% of the original and whose
 character-level difference exceeds 60% is a substitution flip. A file where
 most lines changed at once is reported as a mass rewrite (the ransomware /
 runaway-script shape) and FAILS unless it is on the reviewed allowlist.
+Submodule pointer updates (gitlink, mode 160000) are skipped: a pin bump
+is a commit pointer, not text. A pin-bump-only diff passes with a note.
+100%-similarity renames are the same shape - a move with no textual delta -
+so a rename-only diff also passes with a note (renames WITH edits carry
+hunks and are judged line-by-line).
 
 Fail-closed, non-vacuous: a zero-file scan FAILS; a zero-line diff scan
-FAILS; the ratchet baseline may only decrease.
+FAILS unless it carries gitlink pin bumps or 100% renames; the ratchet
+baseline may only decrease.
+
+The hunk-level diff parser the diff scan is built on (_diff_hunks and the
+replacement pairing) lives in scripts/corruption_diff.py — split out to keep
+both modules under DevGate's own 500-line hard limit (this file stood at 518).
+It is re-exported below so callers and tests keep importing one module.
 
 Exit: 0 clean; 1 violations; 2 usage.
 """
@@ -38,6 +49,12 @@ import subprocess
 import sys
 from difflib import SequenceMatcher
 from pathlib import Path
+
+# Sibling-module bootstrap (the regression_diff.py idiom): make the split-out
+# diff parser importable both when run as a script (its dir is sys.path[0]) and
+# when loaded via importlib by the tests (dir NOT on sys.path).
+if str(Path(__file__).resolve().parent) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 EXIT_OK = 0
 EXIT_VIOLATIONS = 1
@@ -207,120 +224,25 @@ def scan_content(root: Path, gc, skip_dirs, allow: dict[str, str],
     return EXIT_OK
 
 
-def _diff_hunks(diff: str):
-    """Yield ``(path, [(kind, lineno, text), ...])`` once per hunk.
+# The hunk-level diff parser (_GITLINK_META, _diff_hunks and the hunk/line
+# helpers built on it) moved to scripts/corruption_diff.py (500-line cap
+# split); re-exported here so callers and tests keep importing one module.
+from corruption_diff import (  # noqa: E402
+    _GITLINK_META, _added_lines, _diff_hunks, _gitlink_update_count,
+    _removed_lines, _rename_update_count, _replacement_blocks)
 
-    The single diff parser in this gate. ``kind`` is ``+``, ``-`` or a space
-    (context). Header lines are recognised ONLY before the first hunk of a
-    file, so a removed line whose content begins with ``--`` (``--- a note``
-    in Markdown) is data, not a file header.
-
-    Hunks stay separate because the flip judgement is about a place in a file,
-    not about a file: see ``_replacement_blocks``.
-    """
-    path = None
-    old_path = None
-    hunk: list[tuple[str, int, str]] = []
-    old_no = new_no = 0
-    seen_plus = False
-    for line in diff.splitlines():
-        if line.startswith("diff --git "):
-            if hunk and path is not None:
-                yield path, hunk
-            hunk = []
-            path = old_path = None
-            seen_plus = False
-            continue
-        if not seen_plus and not line.startswith("@@"):
-            if line.startswith("--- "):
-                p = line[6:].strip()
-                old_path = p[2:] if p.startswith("a/") else p
-            elif line.startswith("+++ "):
-                p = line[6:].strip()
-                newp = p[2:] if p.startswith("b/") else p
-                path = old_path if newp == "/dev/null" else newp
-                seen_plus = True
-            continue                    # index/new-file-mode/binary metadata
-        seen_plus = True
-        if line.startswith("@@"):
-            if hunk and path is not None:
-                yield path, hunk
-            hunk = []
-            m = re.search(r"-(\d+)(?:,\d+)? \+(\d+)", line)
-            old_no = int(m.group(1)) if m else 0
-            new_no = int(m.group(2)) if m else 0
-        elif line.startswith("\\"):
-            continue                    # "\ No newline at end of file"
-        elif line.startswith("+"):
-            hunk.append(("+", new_no, line[1:]))
-            new_no += 1
-        elif line.startswith("-"):
-            hunk.append(("-", old_no, line[1:]))
-            old_no += 1
-        else:
-            hunk.append((" ", new_no, line[1:]))
-            old_no += 1
-            new_no += 1
-    if hunk and path is not None:
-        yield path, hunk
+# A checksum-manifest line: a fixed-width hex digest, whitespace, then a path.
+# Used to tell "a digest was updated" apart from "content was flipped", which
+# character comparison cannot do on its own (see scan_diff).
+_CHECKSUM_LINE = re.compile(r"^([0-9a-fA-F]{32,128})[ \t]+(\S.*)$")
 
 
-def _added_lines(diff: str):
-    """Yield (path, new_lineno, text) for added lines, hunk-accurate."""
-    for path, hunk in _diff_hunks(diff):
-        for kind, lineno, text in hunk:
-            if kind == "+":
-                yield path, lineno, text
-
-
-def _removed_lines(diff: str):
-    """Yield (path, old_lineno, text) for removed lines, hunk-accurate."""
-    for path, hunk in _diff_hunks(diff):
-        for kind, lineno, text in hunk:
-            if kind == "-":
-                yield path, lineno, text
-
-
-def _replacement_blocks(hunk):
-    """Yield ``(removed_lines, added_lines)`` for each ALIGNED replacement.
-
-    A substitution flip can only exist where a line was actually replaced by a
-    line. Two things are therefore required before two lines may be compared:
-
-    1. They must sit in the same hunk. A pure insertion replaces nothing, so
-       pairing it against lines a later hunk removed invents replacements
-       (measured: a 15-line comment block above one edited line produced three
-       false findings at scripts/check_charset.py:149,151,152).
-    2. They must be ALIGNED to each other. Within one change block git emits
-       every removal then every addition, so a rewritten function is a single
-       run of N removals and M additions; pairing those by index drifts as
-       soon as N != M and compares unrelated lines (measured on
-       scripts/check_corruption.py itself: ``elif line.startswith("@@@"):``
-       was paired with ``path = old_path = None``).
-
-    The alignment is a line-level SequenceMatcher over the hunk's two sides.
-    Only a ``replace`` opcode whose sides have EQUAL length is paired, because
-    a character substitution replaces k lines with k lines in place. A
-    same-length pair is compared index-wise inside that block and nowhere
-    else.
-
-    Named limit: an in-place substitution buried inside a block whose line
-    counts differ is NOT compared, and so is not reported. That is a deliberate
-    false-negative for the false-positive this gate shipped; whole-file
-    rewrites remain covered by the mass-rewrite rule below.
-    """
-    rems = [text for kind, _ln, text in hunk if kind == "-"]
-    adds = [(ln, text) for kind, ln, text in hunk if kind == "+"]
-    if not rems or not adds:
-        return
-    matcher = SequenceMatcher(None, rems, [text for _ln, text in adds],
-                              autojunk=False)
-    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
-        if tag != "replace":
-            continue
-        if (i2 - i1) != (j2 - j1):
-            continue        # unequal sizes: no correspondence to assert
-        yield rems[i1:i2], adds[j1:j2]
+def _checksum_line_parts(line: str) -> tuple[str, str] | tuple[None, None]:
+    """Return (digest, path) if this is a checksum line, else (None, None)."""
+    m = _CHECKSUM_LINE.match(line.strip())
+    if not m:
+        return None, None
+    return m.group(1), m.group(2)
 
 
 def scan_diff(diff: str, allow: dict[str, str], max_report: int,
@@ -328,6 +250,19 @@ def scan_diff(diff: str, allow: dict[str, str], max_report: int,
     added = list(_added_lines(diff))
     removed = list(_removed_lines(diff))
     if not added and not removed:
+        # Pin bumps and 100% renames are real ranges with nothing textual to
+        # judge (the moved bytes are covered by the full-tree content scan);
+        # zero lines with neither means an empty range - vacuous, so FAILS.
+        gitlinks = _gitlink_update_count(diff)
+        if gitlinks:
+            print(f"check-corruption: OK - diff scan: {gitlinks} submodule "
+                  f"pointer update(s) (gitlink) - nothing textual to judge")
+            return EXIT_OK
+        renames = _rename_update_count(diff)
+        if renames:
+            print(f"check-corruption: OK - diff scan: {renames} file move(s) "
+                  f"(100% rename) - nothing textual to judge")
+            return EXIT_OK
         print("check-corruption: FAIL - diff scan evaluated zero lines "
               "(no vacuous green)", file=sys.stderr)
         return EXIT_VIOLATIONS
@@ -347,14 +282,40 @@ def scan_diff(diff: str, allow: dict[str, str], max_report: int,
     for p, _ln, _t in added:
         add_by_file[p] += 1
 
+    # Whole-file rewrites assert no line correspondence (see
+    # _replacement_blocks): their equal-size alignment blocks pair unrelated
+    # lines and invent substitution flips. They are judged by the mass-rewrite
+    # rule below alone (warn by default, fatal under --strict-mass-rewrite,
+    # counted toward BULK MUTATION).
+    rewrite_paths = {
+        p for p in add_by_file
+        if add_by_file[p] >= MASS_REWRITE_MIN_LINES
+        and rem_by_file[p] >= MASS_REWRITE_MIN_LINES
+    }
+
     for path, hunk in _diff_hunks(diff):
-        if path in allow:
+        if path in allow or path in rewrite_paths:
             continue
         for rems, adds in _replacement_blocks(hunk):
             for i in range(min(len(rems), len(adds))):
                 ln, new = adds[i]
                 old = rems[i]
                 if len(old) < 8:
+                    continue
+                # PRECISION, not weakening: a checksum manifest's whole purpose
+                # is that its digest column changes when content changes. A
+                # line shaped "<digest>  <path>" whose PATH is unchanged and
+                # whose digest moved is an updated checksum, not a data flip —
+                # and character comparison cannot tell them apart, because a
+                # hex digest is fixed-length, so a legitimate update lands at
+                # ~60-65% characters changed with 0% length delta. That is
+                # EXACTLY the flip signature. Skip only when BOTH sides carry a
+                # digest AND the path column matches; a digest line whose path
+                # also changed, or a non-digest line, is still a flip. Proved
+                # by negative control both ways.
+                old_d, old_p = _checksum_line_parts(old)
+                new_d, new_p = _checksum_line_parts(new)
+                if old_d and new_d and old_p == new_p:
                     continue
                 ratio = 1.0 - SequenceMatcher(None, old, new).ratio()
                 len_delta = abs(len(new) - len(old)) / max(1, len(old))
@@ -392,9 +353,12 @@ def scan_diff(diff: str, allow: dict[str, str], max_report: int,
 
     for w in warnings[:max_report]:
         print(f"check-corruption: WARNING - {w}")
+    skipped = _gitlink_update_count(diff)
     print(f"check-corruption: OK - diff scan clean "
           f"({len(added)} added / {len(removed)} removed line(s), "
-          f"{bulk_files} whole-file rewrite(s) warned)")
+          f"{bulk_files} whole-file rewrite(s) warned"
+          + (f", {skipped} gitlink pin update(s) skipped" if skipped else "")
+          + ")")
     return EXIT_OK
 
 

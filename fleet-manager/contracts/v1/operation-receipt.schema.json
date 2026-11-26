@@ -1,0 +1,89 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/TheArchitectit/AIGGP-Agentic-Framework/fleet-manager/contracts/v1/operation-receipt.schema.json",
+  "title": "Fleet Manager -> DevGate evidence plane: operation receipt (contract v1)",
+  "description": "Auditable evidence for one control-plane mutation or runner lifecycle transition. Producer: Fleet Manager. Consumer: the core evidence plane. A completed receipt MUST carry an evidence digest (cross-field rule in fleet_manager.contracts); a claim of completion without evidence is not expressible here.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "receipt_id",
+    "issued_at",
+    "subject",
+    "operation",
+    "outcome",
+    "actor"
+  ],
+  "properties": {
+    "contract_version": {
+      "const": 1
+    },
+    "receipt_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "issued_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "subject": {
+      "description": "What the operation was performed on. kind is a closed enum; id is stable within Fleet Manager.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": {
+          "enum": ["host", "runner", "pool", "assignment", "desired_state"]
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    },
+    "operation": {
+      "enum": ["enroll", "assign", "release", "drain", "apply", "revoke"]
+    },
+    "outcome": {
+      "description": "completed: the operation happened and the evidence exists. failed: attempted, did not take effect. rejected: refused before acting.",
+      "enum": ["completed", "failed", "rejected"]
+    },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id"],
+      "properties": {
+        "kind": {
+          "enum": ["system", "operator", "host_agent"]
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      }
+    },
+    "evidence": {
+      "description": "Required when outcome is completed (cross-field rule). digest is the sha256 of the evidence payload; location says where it is addressable.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["digest", "location"],
+      "properties": {
+        "digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "location": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        }
+      }
+    },
+    "detail": {
+      "type": "string",
+      "maxLength": 512
+    }
+  }
+}

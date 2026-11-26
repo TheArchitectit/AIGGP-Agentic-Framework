@@ -13,7 +13,8 @@
     "source_dirs replaces the candidate list entirely; extra_source_dirs",
     "extends it (e.g. add 'web' or 'infra' without forking).",
     "size_overrides raises hard/soft for one file and REQUIRES a non-empty",
-    "reason (same contract as guardrails-allow) \u2014 the finding stays visible."
+    "reason (same contract as guardrails-allow) \u2014 the finding stays visible.",
+    "2026-11-13: extra_source_dirs declares this repository's own four unsized roots (actions, fleet-manager, templates, engines). The size gate walked only the default candidate list and reported each as NOT IN SIZE-GATE SCOPE \u2014 68 files, 11 of them over their hard limit. Measured before the entry: 4 gaps, 0 oversize; after: 0 gaps, 11 pre-existing oversize (warning)."
   ],
   "skip_dirs": [
     ".claude",
@@ -34,5 +35,11 @@
     "vendor",
     "venv",
     "worktrees"
+  ],
+  "extra_source_dirs": [
+    "actions",
+    "fleet-manager",
+    "templates",
+    "engines"
   ]
 }

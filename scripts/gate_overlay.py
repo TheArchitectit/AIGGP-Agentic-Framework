@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# // spec: rule-config-01, rule-fresh-01
 """gate_overlay.py — merge a project's .guardrails/ overlay over DevGate's
 bundled rules/registry, so a game can ADD its own rules without forking the
 baseline.

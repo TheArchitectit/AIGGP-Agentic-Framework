@@ -1,0 +1,84 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "aiggp.session/v1",
+  "title": "aiggp.session/v1 - one session manifest, both sides",
+  "description": "The single statement of shape for a work-session (an agent opening a game repo to edit) and a play-session (the runtime booting a run). Validated by scripts/game_session_start.py with the same Draft-07 subset rules_check.py uses (type, enum, pattern, required, properties, additionalProperties:false, items, minLength, minItems, $ref). Two rules are NOT expressible here and are named in the spec and enforced by the brain: (1) `capture` present implies a non-empty `stream_id` (the static `required` below already refuses the present case; the brain keeps the explicit check because the design names it); (2) `kind: play` under `determinism.enabled: true` requires a non-empty `seed`, which depends on the PROJECT's game-manifest.json, not on this document. A reader of this schema alone must never think validation is complete.",
+  "type": "object",
+  "required": ["schema", "kind", "game", "opened_at", "opened_by"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "type": "string",
+      "enum": ["aiggp.session/v1"]
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["play", "work"]
+    },
+    "game": {
+      "type": "string",
+      "pattern": "^\\S+$"
+    },
+    "phase": {
+      "type": "string",
+      "pattern": "^\\S+$"
+    },
+    "opened_at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+    },
+    "opened_by": {
+      "type": "string",
+      "pattern": "^(runtime|agent):\\S+$"
+    },
+    "scope": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^\\S+$"
+      }
+    },
+    "seed": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scene": {
+      "type": "string",
+      "minLength": 1
+    },
+    "build": {
+      "type": "string",
+      "minLength": 1
+    },
+    "agent": {
+      "type": "object",
+      "required": ["carrier"],
+      "additionalProperties": false,
+      "properties": {
+        "carrier": {
+          "type": "string",
+          "pattern": "^\\S+$"
+        },
+        "session_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "capture": {
+      "type": "object",
+      "required": ["stream_id"],
+      "additionalProperties": false,
+      "properties": {
+        "stream_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "review": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

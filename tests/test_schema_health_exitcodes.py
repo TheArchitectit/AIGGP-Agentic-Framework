@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# // spec: rel-upload-01, rel-artifact-01, rel-target-01
 """Exit-code contract for schema-health-check.mjs and deploy.sh's dispatch.
 
 Regression tests for the 2026-09-27 audit finding: deploy.sh treated the
@@ -46,22 +47,18 @@ def _run_script(script: Path, *args: str) -> subprocess.CompletedProcess:
 
 
 def _configured_copy(tmp: Path, columns: str,
-                     uncomment_adapter: bool = True) -> Path:
+                     adapter: str = "sqlite") -> Path:
     """Copy the script with consumer configuration applied.
 
     Exercises the REAL shipped code with the configuration the header tells
     consumers to apply, rather than re-implementing its logic in the test.
-    uncomment_adapter=False leaves the adapter block commented out — the
-    "DB_ADAPTER selected but no adapter configured" misconfiguration.
+    Adapters are selected by name at runtime (config overlay or DB_ADAPTER);
+    passing a name with no implementation ("oracle") is the "selected but
+    unusable" misconfiguration.
     """
     text = SCHEMA_SCRIPT.read_text(encoding="utf-8")
     text = text.replace(
-        'const DB_ADAPTER = "none";', 'const DB_ADAPTER = "sqlite";')
-    if uncomment_adapter:
-        # Uncomment the sqlite adapter block (the first /*...*/ pair in the
-        # adapters section that contains the DatabaseSync import).
-        text = re.sub(r"/\*\n(// --- SQLite adapter.*?)\n\*/",
-                      r"\1", text, count=1, flags=re.DOTALL)
+        'const DB_ADAPTER = "none";', f'const DB_ADAPTER = "{adapter}";')
     text = re.sub(r"const EXPECTED_COLUMNS = \[.*?\];",
                   f"const EXPECTED_COLUMNS = {columns};",
                   text, count=1, flags=re.DOTALL)
@@ -73,20 +70,33 @@ def _configured_copy(tmp: Path, columns: str,
 class TestExitCodeContract(unittest.TestCase):
     def test_unconfigured_skip_is_exit_2_not_0(self):
         """A skip and a pass must not share an exit code."""
-        proc = _run_script(SCHEMA_SCRIPT)
-        self.assertEqual(proc.returncode, 2,
-                         f"stderr: {proc.stderr}\nstdout: {proc.stdout}")
-        self.assertIn("SKIPPED", proc.stdout)
+        # The UNCONFIGURED path must be BUILT, not assumed: run from a vendored
+        # checkout the script serves the HOST project, whose
+        # .guardrails/schema-health.json is configured — a different skip path
+        # ("Database not found", message on stderr) than the unconfigured one
+        # this test pins (message on stdout). A clone-layout copy with no
+        # config reaches the unconfigured skip wherever this suite runs.
+        with tempfile.TemporaryDirectory() as td:
+            scripts = Path(td) / "gameproj" / "scripts"
+            scripts.mkdir(parents=True)
+            shutil.copy2(SCHEMA_SCRIPT, scripts / SCHEMA_SCRIPT.name)
+            proc = _run_script(scripts / SCHEMA_SCRIPT.name)
+            self.assertEqual(proc.returncode, 2,
+                             f"stderr: {proc.stderr}\nstdout: {proc.stdout}")
+            self.assertIn("SKIPPED", proc.stdout)
+            self.assertIn("No database configured", proc.stdout)
 
     @unittest.skipUnless(SQLITE_OK, "node:sqlite not available in this runtime")
-    def test_adapter_selected_without_block_is_exit_1(self):
+    def test_unusable_adapter_is_exit_1(self):
         with tempfile.TemporaryDirectory() as td:
-            # Adapter block left commented: selected engine, no adapter wired.
+            # Selected engine with no implementation behind the name: unusable
+            # config is exit 1, never a skip (a skip and a failure must not
+            # share an exit code).
             script = _configured_copy(Path(td), '[["t1", "id"]]',
-                                      uncomment_adapter=False)
+                                      adapter="oracle")
             proc = _run_script(script)
             self.assertEqual(proc.returncode, 1)
-            self.assertIn("no adapter is configured", proc.stderr)
+            self.assertIn("unknown adapter", proc.stderr)
 
     @unittest.skipUnless(SQLITE_OK, "node:sqlite not available in this runtime")
     def test_missing_database_is_a_skip_exit_2(self):
@@ -155,6 +165,14 @@ class TestDeployDispatch(unittest.TestCase):
                      ("tag", "-a", "v0.0.1", "-m", "base")):
             subprocess.run(["git", "-C", str(proj), *args],
                            capture_output=True, check=True)
+        # Deploy the change under review: --all scopes to changes since the
+        # last tag, and gate-vacuous-01 refuses an empty scope (exit 2), so a
+        # sandbox with nothing after the tag would abort in the regression
+        # gate before the schema gate under test is ever consulted.
+        (proj / "feature.txt").write_text("the release under review\n")
+        for args in (("add", "."), ("commit", "-qm", "feature")):
+            subprocess.run(["git", "-C", str(proj), *args],
+                           capture_output=True, check=True)
         shim = Path(td.name) / "shim"
         shim.mkdir()
         real_node = shutil.which("node")
@@ -193,6 +211,32 @@ class TestDeployDispatch(unittest.TestCase):
         self.assertNotIn("FAIL: schema health", combined)
         # Later stages (tag push without a remote) may abort the sandbox run;
         # the contract under test is only that the GATE did not stop it.
+
+    def test_empty_artifact_contract_fails_as_misconfigured(self):
+        """rel-artifact-01: when .guardrails/release-artifact-contract.json
+        exists with an empty or missing must_contain, deploy.sh exits 1 naming
+        the contract file as misconfigured."""
+        proj, shim = self._sandbox()
+        contract = proj / ".devgate" / ".guardrails" / "release-artifact-contract.json"
+        contract.write_text('{"artifact_glob": "*.tgz", "must_contain": []}\n',
+                            encoding="utf-8")
+        subprocess.run(["git", "-C", str(proj), "add", "."],
+                       capture_output=True, check=True)
+        subprocess.run(["git", "-C", str(proj), "commit", "-qm", "contract"],
+                       capture_output=True, check=True)
+        remote = proj.parent / "remote.git"
+        subprocess.run(["git", "init", "--bare", "-q", str(remote)],
+                       capture_output=True, check=True)
+        subprocess.run(["git", "-C", str(proj), "remote", "add", "origin", str(remote)],
+                       capture_output=True, check=True)
+        subprocess.run(["git", "-C", str(proj), "push", "-q", "-u", "origin", "main", "--tags"],
+                       capture_output=True, check=True)
+        proc = self._deploy(proj, shim, 2)
+        combined = proc.stdout + proc.stderr
+        self.assertEqual(proc.returncode, 1, combined)
+        self.assertIn("release-artifact-contract.json", combined)
+        self.assertIn("misconfigured", combined)
+
 
 
 if __name__ == "__main__":

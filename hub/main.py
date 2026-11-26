@@ -85,6 +85,19 @@ def main() -> int:
     if args.data_dir:
         config.data_dir = args.data_dir
 
+    # Install shutdown handling before the socket is bound. create_server()
+    # listens as soon as it returns, so a test or systemd can deliver SIGTERM
+    # before a later registration would be installed; the process then dies
+    # by signal instead of honoring the clean exit-0 contract.
+    stop = threading.Event()
+
+    def _shutdown(signum, _frame):
+        print(f"[hub] signal {signum}, shutting down")
+        stop.set()
+
+    signal.signal(signal.SIGTERM, _shutdown)
+    signal.signal(signal.SIGINT, _shutdown)
+
     server = create_server(config)
     state = server.hub_state  # type: ignore[attr-defined]
 
@@ -103,15 +116,6 @@ def main() -> int:
     # GET /services answers an empty map rather than 500s on a fresh volume.
     if not os.path.exists(config.services_path):
         state.services.save()
-
-    stop = threading.Event()
-
-    def _shutdown(signum, _frame):
-        print(f"[hub] signal {signum}, shutting down")
-        stop.set()
-
-    signal.signal(signal.SIGTERM, _shutdown)
-    signal.signal(signal.SIGINT, _shutdown)
 
     poll_thread = None
     if os.environ.get("GITHUB_TOKEN"):

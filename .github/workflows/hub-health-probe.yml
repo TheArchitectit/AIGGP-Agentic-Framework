@@ -38,7 +38,7 @@ permissions:
 
 jobs:
   probe:
-    runs-on: ubuntu-latest
+    runs-on: devgate
     steps:
       - name: Probe hub /health
         env:

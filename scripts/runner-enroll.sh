@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# spec: GLF-11, GLF-12
 # runner-enroll.sh — enroll a DevGate self-hosted runner with the monitor hub.
 #
 # Usage:
@@ -189,6 +190,8 @@ REPO=""
 LABELS="devgate"
 HOST_ALIAS="$(hostname)"
 ADDRESS=""
+FORGE="github"
+RUNNER_IMAGE=""
 INTERVAL=300
 REVOKE_HB_TOKEN=""
 REVOKE_RUNNER=""
@@ -201,6 +204,8 @@ while [[ $# -gt 0 ]]; do
         --labels) LABELS="$2"; shift 2 ;;
         --host-alias) HOST_ALIAS="$2"; shift 2 ;;
         --address) ADDRESS="$2"; shift 2 ;;
+        --forge) FORGE="$2"; shift 2 ;;
+        --runner-image) RUNNER_IMAGE="$2"; shift 2 ;;
         --interval) INTERVAL="$2"; shift 2 ;;
         -h|--help) usage ;;
         -*) die "unknown option: $1" 1 ;;
@@ -216,27 +221,13 @@ done
 
 # --- validate -----------------------------------------------------------------
 
-# Per-runner unit names (coh-int-07): a host may run MULTIPLE spokes, so a
-# second enrollment must never overwrite the first's env file or units.
-# RUNNER_NAME is validated to [A-Za-z0-9._-]+ before this is called, which
-# is also the systemd-unit-safe charset.
-compute_unit_paths() {
-    local name="$1"
-    TICKET_FILE="$HOME/.devgate-heartbeat-${name}.env"
-    TIMER_UNIT="$HOME/.config/systemd/user/devgate-hb-${name}.timer"
-    SERVICE_UNIT="$HOME/.config/systemd/user/devgate-hb-${name}.service"
-    WATCHDOG_TIMER_UNIT="$HOME/.config/systemd/user/devgate-hb-watchdog-${name}.timer"
-    WATCHDOG_SERVICE_UNIT="$HOME/.config/systemd/user/devgate-hb-watchdog-${name}.service"
-    HB_TIMER_NAME="devgate-hb-${name}.timer"
-    WD_TIMER_NAME="devgate-hb-watchdog-${name}.timer"
-}
-
 if [[ "$MODE" == "enroll" ]]; then
     [[ -n "$HUB_URL" ]] || { usage; }
     [[ -n "$ENROLL_TOKEN" ]] || die "enrollment token required" 1
 [[ "$INTERVAL" =~ ^[0-9]+$ && "$INTERVAL" -ge 10 && "$INTERVAL" -le 3600 ]] || die "--interval must be integer 10-3600, got: $INTERVAL" 1
     [[ "$REPO" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || die "--repo must be OWNER/REPO, got: $REPO" 1
     [[ "$HUB_URL" =~ ^https?:// ]] || die "hub URL must start with http(s)://, got: $HUB_URL" 1
+    validate_runner_forge_and_image "$FORGE" "$RUNNER_IMAGE"
     # mon-svcdisco-01: default ADDRESS to the tailnet IPv4; --address
     # overrides. Empty is allowed (discovery reports resolved-but-no-address).
     if [[ -z "$ADDRESS" ]] && command -v tailscale >/dev/null 2>&1; then
@@ -263,24 +254,6 @@ local url="$1" payload="$2"
     curl -sf --connect-timeout 5 --max-time 15 -X POST \
         -H 'Content-Type: application/json' \
         -d "$payload" "$url" 2>&1
-}
-
-# Build the request JSON with python json.dumps — a quote, backslash, or
-# newline in a label must produce a VALID payload and can never break out of
-# the JSON string (the old inline string interpolation could do both).
-# `labels` is comma-split into an array.
-json_payload() {
-    python3 - "$@" <<'PY'
-import json, sys
-obj = {}
-for arg in sys.argv[1:]:
-    key, _, value = arg.partition("=")
-    if key == "labels":
-        obj[key] = [v.strip() for v in value.split(",") if v.strip()]
-    else:
-        obj[key] = value
-print(json.dumps(obj))
-PY
 }
 
 # Print only non-secret fields of a hub response. The enroll response carries
@@ -408,11 +381,11 @@ if [[ "$MODE" == "enroll" ]]; then
 
     # Built by json.dumps (audit hardening): quotes/backslashes stay inside
     # the string — labels and the tailnet address can never break out.
-    PAYLOAD="$(python3 - "$RUNNER_NAME" "$REPO" "$ENROLL_TOKEN" "$LABELS" "$HOST_ALIAS" "$ADDRESS" <<'PY'
+    PAYLOAD="$(python3 - "$RUNNER_NAME" "$REPO" "$ENROLL_TOKEN" "$LABELS" "$HOST_ALIAS" "$ADDRESS" "$FORGE" <<'PY'
 import json, sys
 labels = [x.strip() for x in sys.argv[4].split(",") if x.strip()]
 print(json.dumps({
-    "runner_name": sys.argv[1], "repo": sys.argv[2],
+    "runner_name": sys.argv[1], "repo": sys.argv[2], "forge": sys.argv[7],
     "enrollment_token": sys.argv[3], "labels": labels,
     "host_alias": sys.argv[5], "address": sys.argv[6] or None,
 }))

@@ -101,6 +101,14 @@ class Gate:
         self.bindir = bindir
         self.log = tmp_path / "gitleaks.jsonl"
         self.log.write_text("", encoding="utf-8")
+        # The scope contract is gate configuration, not test scaffolding: the
+        # gate refuses to run without it (fw-scope-01), so every fixture that
+        # expects a scan has one.
+        guards = tmp_path / ".guardrails"
+        guards.mkdir(exist_ok=True)
+        (guards / "scope.json").write_text(
+            (REPO_ROOT / ".guardrails" / "scope.json").read_text(encoding="utf-8"),
+            encoding="utf-8")
         (tmp_path / "src").mkdir(exist_ok=True)
         (tmp_path / "src" / "app.py").write_text("print('hi')\n", encoding="utf-8")
         self.env = {
@@ -290,6 +298,39 @@ def test_a_finding_is_reported_by_location_not_by_value(tmp_path):
         "publishes it to a wider audience than the commit did")
 
 
+def test_the_summarizer_reads_the_report_path_the_scanner_wrote(tmp_path):
+    """FAIL-0eccc000: gitleaks wrote its report to the MSYS-translated path
+    while the python summarizer checked the untranslated spelling and counted
+    0 over real findings. The gate exit contract: 0 is reserved for "the
+    scanner ran over the scope and found nothing" - a green run must prove
+    the summarizer saw the report. Two consumers of one report path: the
+    gitleaks scanner writes it, the python summarizer reads it. A known
+    fixture leak has to surface from that one report; if the summarizer
+    opens any other spelling it counts 0 and the gate says OK, which is
+    exactly the false green the contract forbids."""
+    g = Gate(tmp_path, findings=[FINDING])
+    out = tmp_path / "gate-report.json"
+    res = g.runs("--tree", report=out)
+    text = res.stdout + res.stderr
+    scanner_paths = []
+    for c in g.calls():
+        for i, a in enumerate(c):
+            if a == "--report-path" and i + 1 < len(c):
+                scanner_paths.append(c[i + 1])
+    assert scanner_paths, "the gitleaks scanner was never given --report-path"
+    report = json.loads(out.read_text(encoding="utf-8"))
+    assert res.returncode == 1, (
+        "the python summarizer did not read the report the gitleaks scanner "
+        f"wrote at {scanner_paths} - a fixture leak became a silent 0 "
+        f"(the FAIL-0eccc000 false green): {text}")
+    assert report.get("findings"), (
+        "the python summarizer counted 0 over the report the gitleaks "
+        f"scanner wrote at {scanner_paths}")
+    assert "FINDING" in text, (
+        "the python summarizer counted 0 over the report the gitleaks "
+        "scanner wrote - the fixture leak was not reported")
+
+
 def test_the_written_report_never_carries_the_value(tmp_path):
     """The stub writes the true value into its report; whatever the gate writes
     out for humans must not pass that through."""
@@ -375,6 +416,62 @@ def test_a_malformed_allowlist_is_not_a_pass(tmp_path):
     g.allowlist_raw("{not json")
     res = g.runs("--tree")
     assert res.returncode != 0, "an unparseable allowlist was treated as empty"
+
+
+# --- scope is the contract, not a walk (secret-scan-07) -------------------------
+
+def test_a_working_tree_finding_in_a_skipped_directory_is_out_of_scope(tmp_path):
+    """gitleaks --no-git walks the filesystem, so it reports build artifacts as
+    repository secrets. The case that made this visible: `__pycache__/` bytecode
+    of a test that assembles a credential-shaped value at run time — the compiler
+    constant-folds the assembly into one literal, which is exactly what the
+    source was written to avoid. Every other gate already skips these trees
+    (`.guardrails/scope.json`, fw-scope-01); this one must consume the same
+    contract rather than invent its own."""
+    cache_finding = dict(FINDING, File="__pycache__/test_adapters_v1.cpython-314.pyc",
+                         Commit="", Fingerprint=":__pycache__:github-pat:27")
+    g = Gate(tmp_path, findings=[cache_finding])
+    res = g.runs("--tree")
+    text = res.stdout + res.stderr
+    assert res.returncode == 0, f"an artifact was reported as a repository secret: {text}"
+    assert "out of scope" in text, "the dropped finding was omitted silently"
+    assert "FINDING" not in text, f"a skipped tree still produced a finding: {text}"
+
+
+def test_a_working_tree_finding_in_first_party_source_still_fails(tmp_path):
+    """The exclusion must not mute the gate: a dropped credential file that is
+    not inside a skipped tree has to fail the run."""
+    fresh = dict(FINDING, Commit="", Fingerprint=":src/new.py:github-pat:1")
+    g = Gate(tmp_path, findings=[fresh])
+    res = g.runs("--tree")
+    assert res.returncode == 1, f"a first-party finding did not fail the gate: {res.stdout}"
+    assert "FINDING" in (res.stdout + res.stderr), "the finding was not named"
+
+
+def test_a_committed_finding_in_a_skipped_directory_is_still_reported(tmp_path):
+    """Only working-tree findings are scoped away. A path in a committed tree is
+    repository content even when the tree is normally skipped — a secret that
+    reached history has to stay visible."""
+    committed = dict(FINDING, File="__pycache__/committed.pyc",
+                     Fingerprint="abc123def456:__pycache__:github-pat:27")
+    g = Gate(tmp_path, findings=[committed])
+    res = g.runs("--tree")
+    assert res.returncode == 1, "a committed finding inside a skipped tree vanished"
+    assert "FINDING" in (res.stdout + res.stderr)
+
+
+def test_a_tree_without_a_scope_contract_falls_back_to_the_baseline_and_says_so(tmp_path):
+    """The fleet sweeps repositories this checkout does not own, so the scanned
+    tree may carry no contract. Falling back is right — skipping nothing would
+    be a muted gate in the other direction — but the fallback has to be named:
+    a silent default is how two gates end up walking different trees."""
+    g = Gate(tmp_path, findings=[FINDING])
+    (tmp_path / ".guardrails" / "scope.json").unlink()
+    res = g.runs("--tree")
+    text = res.stdout + res.stderr
+    assert res.returncode == 1, f"the fallback run did not report the finding: {text}"
+    assert "baseline" in text, f"the fallback was silent: {text}"
+    assert "FINDING" in text, "the finding was not named after the fallback"
 
 
 def _main():

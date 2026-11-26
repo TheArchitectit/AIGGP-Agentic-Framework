@@ -1,4 +1,4 @@
-import type { Diff, Finding, Severity } from '../types.js';
+import type { Diff, DiffFile, Finding, Severity } from '../types.js';
 import { isGenerated } from '../checks/scope.js';
 import { runToolChecks } from '../checks/external-tools.js';
 
@@ -95,7 +95,7 @@ function exportIdentifier(line: string): string | null {
 }
 
 /** True when the same export name reappears in the file's added lines. */
-function exportReAdded(file: any, name: string): boolean { // guardrails-allow PREVENT-011: upstream vendored signature; `file` is an already-parsed diff record, not untrusted input
+function exportReAdded(file: DiffFile, name: string): boolean {
   return file.addedLines.some((l: { text: string }) =>
     new RegExp(`export\\s+(?:default\\s+)?(?:async\\s+)?(?:function|const|let|var|class|abstract\\s+class|interface|type|enum)\\s+${name}\\b`).test(l.text) ||
     new RegExp(`export\\s*\\{[^}]*\\b${name}\\b`).test(l.text)

@@ -41,12 +41,22 @@ cross-product platform.
 ## Quick start
 
 ```bash
-# As a submodule (recommended — stays in sync with upstream)
-git submodule add https://github.com/TheArchitectit/AIGGP-Agentic-Framework.git .devgate
-
-# Or clone directly
+# Local tooling checkout (recommended). The path is part of the layout
+# contract: gates resolve the project root as the parent of `.devgate/`.
 git clone https://github.com/TheArchitectit/AIGGP-Agentic-Framework.git .devgate
 ```
+
+`PREVENT-SUB-001` makes this a **local** checkout on purpose. Do **not** run
+`git submodule add` and commit the registration: a `.gitmodules` change naming
+`DevGate-Agentic-Framework` (or `agent-guardrails-template`) is a `critical`
+violation. Keep `.devgate/` out of the consumer repo (gitignore it) and push
+only your own code fixes — the gates stay in sync by re-pulling the checkout,
+not by committing it.
+
+For the operational contract — initializing a registered-but-uninitialized
+submodule, naming every vendored tree in `skip_dirs` before the first gate run,
+and the parent-repo commands that must run from the project root — see
+[docs/SUBMODULE_WIRING.md](docs/SUBMODULE_WIRING.md).
 
 ### What you get
 
@@ -74,10 +84,32 @@ git clone https://github.com/TheArchitectit/AIGGP-Agentic-Framework.git .devgate
 holds the gates listed under [Components](#components), and `hub/` holds the
 runner-monitor and coherence services.
 
+`openspec/INDEX.md` is rendered by `scripts/spec_index.py` from the closure
+cells and `Status:` lines it describes; `--check` runs in CI, so a hand edit is
+a red build rather than a second source of truth. A state transition is not
+established by editing a cell: `scripts/spec_state_gate.py` reconciles the
+edited requirements against rows added to `openspec/state-ledger.jsonl` and
+requires two resolved commits, a marked source change in that window, and a
+sealed evidence bundle for any terminal closure. It is enforced in two places,
+and neither one prevents a transition from reaching `main`:
+
+- **Locally, it blocks.** `scripts/hooks/pre-commit` runs the gate against the
+  staged change before the commit exists. Install it per clone with
+  `git config core.hooksPath scripts/hooks`; `git commit --no-verify` bypasses
+  it, and a clone that never ran the install has no block at all.
+- **In CI, it only reports.** `.github/workflows/spec-state.yml` audits the
+  pushed range on `main` after the ref has moved. A failure there is detection
+  after the fact: the repair is a follow-up commit, never a rewrite of `main`.
+
 ### Run the gates
 
 Scripts auto-detect the project root (the parent of `.devgate/`) and scan source
-files regardless of language or directory structure.
+files regardless of language or directory structure. Prerequisites:
+`.guardrails/scope.json` (scan scope), the fail-closed overlay configs
+(`charset-allowlist.json`, `manifest-joins.json`, `silent-success-allowlist.json`),
+pinned gitleaks on PATH, `typescript@5` for the semantic scan, and a
+pytest-capable `python3` for `run-tests.mjs` — see
+[docs/NEW_REPO_ONBOARDING.md](docs/NEW_REPO_ONBOARDING.md) for shapes and pins.
 
 ```bash
 node .devgate/scripts/guardrails-scan.mjs         # pattern scan, all source types
@@ -92,6 +124,39 @@ bash .devgate/scripts/deploy.sh 1.0.0             # gated publish (npm/cargo/pip
 that exit 2. `--all` is a scheduled drift sweep; use `--base origin/main` for a
 pull-request-style range.
 
+### Open-item gates (wired 2026-11-15)
+
+Six gates, two layers with distinct jobs. The local layer (git hooks) blocks
+in the moment and is bypassable with `--no-verify` **by design**. The
+authoritative record is the push-time CI job: on a repository that accepts
+direct pushes to `main`, it **detects** a violation that has already landed —
+it is never described as blocking, because it cannot block anything.
+
+| Gate | Local hook (blocks in the moment) | Push-time CI (detects after landing) | Release preflight (blocks a release) |
+|---|---|---|---|
+| `scripts/tree_clean_check.py` | pre-commit | — (needs the working tree) | — |
+| `scripts/branch_drift_check.py` | pre-push | — (needs local ref tips) | — |
+| `scripts/open_item_aging_check.py` | pre-commit | yes | — |
+| `scripts/secret_rotation_check.py` | — | yes | yes |
+| `scripts/surface_reach_check.py` | — | yes | — |
+| `scripts/evidence_claim_check.py` | — | yes | yes |
+
+Install the hooks per clone (this is local configuration, not a repo file, and
+it is deliberately not auto-installed on clone):
+
+```bash
+git config core.hooksPath scripts/hooks
+```
+
+Inputs the ledger gates read: `docs/open-items-ledger.md` (dated open rows) plus
+`docs/open-items-triage.jsonl` (one disposition per aged row), and
+`docs/secret-rotation.jsonl` (one rotation record per detection).
+`docs/surfaces.json` declares the surface groups and
+`docs/evidence-claim-allowlist.txt` the declared marker-scan exemptions.
+Every hook and preflight step fails closed on a missing gate script: a missing
+gate is a hard error, never a silent pass. Nothing-scanned (exit 3) is not
+green anywhere in this wiring.
+
 ## Components
 
 | Gate or service | What it does |
@@ -102,9 +167,55 @@ pull-request-style range.
 | `run-tests.mjs` | Per-file process isolation, up to eight workers, serial lanes, flake adjudication, and hang-on-exit detection. |
 | `deploy.sh` | Gated build, test, lint, and publish for npm, cargo, pip, or Go projects. |
 | `schema-health-check.mjs` | Adapter-based SQLite, PostgreSQL, and MySQL schema validation; skips when unconfigured. |
+| `bundle-size-check.mjs` | Per-file build-output budget (vite's chunkSizeWarningLimit, made fatal) from a `.guardrails/bundle-size.json` overlay; fail-closed on empty input. |
 | `findings_to_spec.py` | Converts registry entries and live findings into OpenSpec requirement skeletons. |
 | `hub/` | Shipped runner-fleet monitoring and spec-coherence services. |
 | `tools/oap_produce.py` | Observe-only OAP evidence v2 producer CLI — NDJSON envelopes over stdout for a co-located receiver; no socket, no effect. |
+| `game_session_start.py` | Validates `aiggp.session/v1`, enforces the determinism seed rule, emits kind-filtered, honest-empty advisory blocks, and appends accepted sessions to `.guardrails/sessions.jsonl`. |
+| `engines/godot/game_session_hooks.gd` | Godot adapter for play sessions; wired in the MergeKingdom testbed. A shipped target still needs a consumer-approved Python/runtime path. |
+| `templates/hooks/` | Thin session-start adapters for Claude Code, pi-extension, Codex, OpenCode, and MiMo. The phase-gate matrix (`game-matrix-01..03`) remains planned, not enforced. |
+| `hub/sessions.py` | Defensive session-log ingestion and registry joins. A tested library, not an HTTP route; `hub/server.py` does not expose it. |
+| `fleet-manager/` | Tested value, contract, planning, and reconciliation boundary. It has no live Podman/Docker adapter or executor and is not a shipped fleet manager service. |
+| `open_item_aging_check.py` | Aged open item needs a live triage disposition; an expired deferral fails. Reads an explicit backlog and triage ledger. |
+| `branch_drift_check.py` | A local ref reachable from no advertised remote ref is drift; an archived commit is a recorded decision. |
+| `tree_clean_check.py` | Classifies working-tree entries (committed change, declared generated churn, mode-only churn, real dirt); only real dirt fails by default. |
+| `secret_rotation_check.py` | Scrubbing from `HEAD` is not revocation; an unrevoked detection past its window fails the rotation ledger. |
+| `surface_reach_check.py` | Every declared surface of one artifact must exist and hold identical content. |
+| `evidence_claim_check.py` | `DEFERRED` needs owner, reason, and a future review date; mocks and stubs must point at the real thing or a tracked issue. |
+
+The six open-item gates are implemented and specified but **not wired into
+CI**: where each runs is an owner decision, and a push-time job detects a
+violation that already landed. Their behavior is pinned by
+`tests/test_open_item_gates.py` (30 fixture tests: each gate must fail on its
+failing fixture naming the offending input, pass on its clean fixture, and
+report `3` on empty input), so the evidence is re-runnable even though
+placement is open. The suite also pins determinism: `surface_reach_check.py`
+used to pick its "odd one out" by iterating a set of hashes, so a 1-1 tie
+named a different surface from run to run; identical input must now produce
+identical output. See `openspec/changes/add-open-item-gates/` for the specs
+and the open placement task.
+
+### Releases and documentation
+
+Product changes on `main` must be released, not accumulated behind a green
+version-file check. `scripts/deploy.sh <version>` folds the `Unreleased`
+notes into a dated `CHANGELOG.md` section, updates `VERSION`, commits and
+annotates the release, runs the gates, and pushes the commit and tag. Before
+tagging it regenerates and verifies `CHECKSUMS.sha256` (the shipped artifact
+digests) and checks the staged index for shebang'd files that lost `100755`,
+so neither a stale manifest nor a mode drop can be tagged; CI verifies both
+again on the pushed commit. The
+tag-triggered **Release Published** workflow creates and verifies the GitHub
+Release; **Release Coverage** rejects an untagged `main` HEAD. Generated
+fleet/spec trend-report-only pushes are explicitly skipped, not counted as
+product releases; the skip compares against where `main` was (`HEAD^1`), so a
+merge that brought only those reports is skipped too. `gh release create`
+failure in the deploy pipeline is fatal,
+not a warning followed by a false `PUBLISHED` line.
+
+Keep `README.md` aligned with the shipped behavior in the same slice: a tested
+library, a wired integration, and a deferred runtime are different states and
+must not be described as the same thing.
 
 ### Rules and test evidence
 
@@ -363,6 +474,15 @@ Overlay rules merge by rule ID. Agent-behavior rules belong in skills, including
 the Git safety, secrets, scope, and halt-condition rules listed in
 `templates/skills/`.
 
+This repository vendors the scanners at `scripts/` rather than under `.devgate/`,
+so its own `.guardrails/scope.json` is the winning contract, not a delta over
+one. It carries the full pinned `skip_dirs` list plus `extra_source_dirs` naming
+the four roots the default candidate list does not cover — `actions`,
+`fleet-manager`, `templates`, `engines`. Without those entries the size gate
+reports them as `NOT IN SIZE-GATE SCOPE` and sizes none of their 68 source
+files; with them (v1.3.35) it reports 0 scope gaps. When a new top-level source
+directory is added here, add it to that list in the same commit.
+
 ## CI, runner templates, and agent skills
 
 Seven workflow templates ship in `templates/github-workflows/`: guardrails
@@ -375,6 +495,22 @@ DevGate runs its secret-scanning template on itself and reports findings by rule
 path, line, and commit—never by value. See
 [.github/workflows/ci.yml](.github/workflows/ci.yml) for the reference CI and
 its full test, scanner, traceability, and container-image jobs.
+
+A job that needs a container engine (`podman build`, a digest-pinned
+`podman pull`/`run`) needs a runner that *is not itself a container*: a nested
+rootless podman cannot create a sub-userns inside a containerized runner's own
+userns, so `newuidmap` fails regardless of subuid ranges, added capabilities or
+userns mode. Route those jobs to a dedicated label — this repository uses
+`runs-on: devgate-podman`, a host-level unprivileged runner on the same
+self-hosted machine, with its own rootless podman storage, no sudo and no
+podman socket. Keep every other job on the ordinary fleet label: a single
+engine-capable runner is deliberate, not a pool.
+
+A required CI step must not assume the `gh` CLI exists on a self-hosted runner.
+The lane images ship the actions/runner toolchain and nothing else, so `gh` is
+present only where someone installed it into a running container by hand —
+which is why the release publisher talks to the REST API with `curl` instead,
+and why `secret-fleet.yml` guards its `gh` calls behind `command -v gh`.
 
 Five skills ship in `templates/skills/`: four-laws, scope-validator,
 halt-conditions, production-first, and commit-validator. Agent directions are
@@ -390,6 +526,8 @@ they are not claims that every proposed integration is deployed.
 |---|---|---|
 | Specs validate under the strict delta grammar | `specs` job → `openspec validate --all --strict` | **GREEN** |
 | Strict validation refuses malformed material | `specs` job → `scripts/specs-validate-negative-control.sh` | **GREEN** |
+| `openspec/INDEX.md` is generated, not typed | `specs` job → `python3 scripts/spec_index.py --check` | **GREEN** |
+| A spec-state transition cannot be declared without a ledger row, resolved commits, marked work, and sealed evidence | `scripts/hooks/pre-commit` (local block) + `spec-state` workflow (push-time audit) → `scripts/spec_state_gate.py`, with `scripts/spec-state-validate-negative-control.sh` (ten cases) | **GATE WIRED — pre-commit blocks locally (`--no-verify` bypasses); CI audits after the ref moved, it does not prevent** |
 | The per-file runner discovers this repository's tests | `tests` job → discovered count ≥ 1 | **GREEN** |
 | Scanners resolve the project root without escaping to an ancestor | `tests` job → `tests/test_scanner_root_anchor.mjs` | **GREEN** |
 | A pushed commit cannot carry a credential into `main` | `secrets` job → `scripts/secret-scan.sh` | **GREEN** — [run 36048653103](https://github.com/TheArchitectit/AIGGP-Agentic-Framework/actions/runs/36048653103) |
@@ -399,6 +537,12 @@ they are not claims that every proposed integration is deployed.
 | The frozen OAP vectors are byte-identical to the current code | `tests` job → `tests/test_oap_evidence_vectors.py` | **GREEN** — [run 37354967182](https://github.com/TheArchitectit/AIGGP-Agentic-Framework/actions/runs/37354967182) |
 | Reintroduced unsafe OAP acceptance is killed by a named test | `evaluator-integrity` job → `tests/mutation_battery_oap_acceptance.py` (3/3 killed, negative control survives) | **GREEN** — [run 37354967182](https://github.com/TheArchitectit/AIGGP-Agentic-Framework/actions/runs/37354967182) |
 | No credential-shaped finding is left uncovered by a disposition | `secrets` job → `scripts/secret-scan.sh` (0 uncovered on the pushed range in CI; 0 uncovered / 0 stale on a full-history sweep re-verified locally at `3d92411`) | **GREEN** — [run 37354967182](https://github.com/TheArchitectit/AIGGP-Agentic-Framework/actions/runs/37354967182) |
+| Every aged open item carries a live triage disposition | `open_item_aging_check.py` → `scripts/hooks/pre-commit` (local block) + `open-item-gates` workflow (push-time, **detects**) | **GATE WIRED — measured 2026-11-15: 6 open rows, 3 aged, 3 triaged, rc=0** |
+| A scrubbed secret is not a revoked secret | `secret_rotation_check.py` → `open-item-gates` workflow (push-time, **detects**) + `scripts/release_preflight.sh` (blocks a release) | **GATE WIRED — RED on the 2026-11-15 measurement: 5 fixture-classification rows fail real-secret rules (OI-006)** |
+| A change must reach every declared surface | `surface_reach_check.py` → `open-item-gates` workflow (push-time, **detects**) over `docs/surfaces.json` | **GATE WIRED — measured 2026-11-15: 10 forge-twin groups, 20 surfaces, rc=0** |
+| An unevidenced DEFERRED/MOCK/STUB/TODO marker must carry a followable reference | `evidence_claim_check.py` → `open-item-gates` workflow (push-time, **detects**) + `scripts/release_preflight.sh` (blocks a release) | **GATE WIRED — RED on the 2026-11-15 measurement: 1 finding, `hub/alerts.py:67` (OI-005)** |
+| Unclassified working-tree dirt blinds review | `tree_clean_check.py` → `scripts/hooks/pre-commit` only (needs the working tree; a CI checkout cannot see it) | **GATE WIRED — local block; measured 2026-11-15 on a clean clone rc=0, on the working tree it names the uncommitted change** |
+| A local ref must exist on a remote or be explicitly archived | `branch_drift_check.py` → `scripts/hooks/pre-push` only (needs local ref tips; a CI checkout has none) | **GATE WIRED — local block; measured 2026-11-15: 5 drift refs on this clone (34/7/1/0/0 ahead)** |
 
 ## Proposed integrations and roadmap
 
@@ -464,7 +608,7 @@ evidence v2 signature path must be the same version where tests run and where
 mutations are killed — a skipped provider test cannot kill a mutation.
 
 Strict OpenSpec validation uses the pinned CLI:
-`npm install --no-save --no-audit --no-fund @fission-ai/openspec@1.13.0`
+`npm install --no-save --no-audit --no-fund @fission-ai/openspec@1.14.3`
 then `npx openspec validate --all --strict`.
 
 ## License

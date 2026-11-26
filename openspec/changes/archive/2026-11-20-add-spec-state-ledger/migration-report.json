@@ -1,0 +1,5811 @@
+{
+  "schema": "devgate.spec-state-backfill-report/v1",
+  "generated_at": "2026-11-15T07:31:37Z",
+  "head": "f3abd3cb31ef4f56b7a57feacd91a079b2e36501",
+  "spec_count": 44,
+  "summary": {
+    "exercised_cells": 115,
+    "non_terminal_cells": 0,
+    "accepted": 111,
+    "unproven": 4,
+    "status_line_specs": 72,
+    "status_line_accepted": 4
+  },
+  "candidates": [
+    {
+      "spec": "add-runner-to-fleet",
+      "req": "fleet-add-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "scripts/runner-enroll.sh",
+          "hub/registry.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_template_supply_chain.py"
+        ],
+        "marked_files": [
+          "tests/test_template_supply_chain.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "d743784cebe8ea2a48aa5c21659871902390bac8",
+        "landed_commit": "4f6f3bc6c3d7e9265604a3af5c428e3dafc03ac9",
+        "touched_marked_files": [
+          "tests/test_template_supply_chain.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "adoption-and-policy",
+      "req": "coh-pol-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/plan.py",
+          "hub/coherence/policy.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence_allowlist.py",
+          "tests/test_hub_coherence_antirollback.py",
+          "tests/test_hub_coherence_modes.py"
+        ],
+        "marked_files": [
+          "hub/coherence/plan.py",
+          "hub/coherence/policy.py",
+          "tests/test_hub_coherence_allowlist.py",
+          "tests/test_hub_coherence_antirollback.py",
+          "tests/test_hub_coherence_modes.py",
+          "tests/test_hub_coherence_modes_cli.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "787f35ce42fe8b79bd8edcd7ae4f16b4837f8f51",
+        "landed_commit": "e9fd429cf16a82829191feddd0876d8d4ef9b456",
+        "touched_marked_files": [
+          "hub/coherence/plan.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "adoption-and-policy",
+      "req": "coh-pol-02",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/__main__.py",
+          "hub/coherence/attest_detached.py",
+          "hub/coherence/policy.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence_antirollback.py",
+          "tests/test_hub_coherence_attest.py"
+        ],
+        "marked_files": [
+          "hub/coherence/__main__.py",
+          "hub/coherence/attest_detached.py",
+          "hub/coherence/policy.py",
+          "tests/test_hub_coherence_antirollback.py",
+          "tests/test_hub_coherence_attest.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "ccc974d3eb2f60d104e4c3a9e309bd336bb8f64c",
+        "landed_commit": "53384aca2dbcdb84d9d1d504518f13088829a06e",
+        "touched_marked_files": [
+          "hub/coherence/__main__.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "adoption-and-policy",
+      "req": "coh-pol-03",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/policy.py",
+          "hub/coherence/report.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence_adoption_policy.py",
+          "tests/test_hub_coherence_ladder.py",
+          "tests/test_hub_coherence_report.py"
+        ],
+        "marked_files": [
+          "hub/coherence/policy.py",
+          "hub/coherence/report.py",
+          "tests/test_hub_coherence_adoption_policy.py",
+          "tests/test_hub_coherence_ladder.py",
+          "tests/test_hub_coherence_report.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "a60b479e5bc0fc533f31c08d62a32e5c70066377",
+        "landed_commit": "88b74e9c0e6f1682f8cb2d2a76cc7c67555eb184",
+        "touched_marked_files": [
+          "hub/coherence/policy.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "adoption-and-policy",
+      "req": "coh-pol-04",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/adoption.py",
+          "scripts/ratchet_demo.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/fixtures/coherence/fixtures.py",
+          "tests/test_hub_coherence_adoption_policy.py",
+          "tests/test_hub_coherence_conformance.py"
+        ],
+        "marked_files": [
+          "hub/coherence/adoption.py",
+          "scripts/ratchet_demo.py",
+          "tests/fixtures/coherence/fixtures.py",
+          "tests/test_hub_coherence_adoption_policy.py",
+          "tests/test_hub_coherence_conformance.py",
+          "tests/test_hub_coherence_exitcodes.py",
+          "tests/test_hub_coherence_ladder.py",
+          "tests/test_hub_coherence_modes.py",
+          "tests/test_hub_coherence_modes_cli.py",
+          "tests/test_hub_coherence_schema.py",
+          "tests/test_ratchet_demo.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "d9886a26e4a3a5a93acb7af5aaf04f9bcd85becd",
+        "landed_commit": "25c3ad2f1dfddc44d364b444e988038b8b61b358",
+        "touched_marked_files": [
+          "hub/coherence/adoption.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "adoption-and-policy",
+      "req": "coh-pol-05",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/adoption.py",
+          "hub/coherence/issue.py",
+          "scripts/ratchet_demo.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/fixtures/coherence/fixtures.py",
+          "tests/test_hub_coherence_adoption_policy.py",
+          "tests/test_hub_coherence_conformance.py"
+        ],
+        "marked_files": [
+          "hub/coherence/adoption.py",
+          "hub/coherence/issue.py",
+          "scripts/ratchet_demo.py",
+          "tests/fixtures/coherence/fixtures.py",
+          "tests/test_hub_coherence_adoption_policy.py",
+          "tests/test_hub_coherence_conformance.py",
+          "tests/test_hub_coherence_exitcodes.py",
+          "tests/test_hub_coherence_issue.py",
+          "tests/test_hub_coherence_schema.py",
+          "tests/test_ratchet_demo.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "d9886a26e4a3a5a93acb7af5aaf04f9bcd85becd",
+        "landed_commit": "25c3ad2f1dfddc44d364b444e988038b8b61b358",
+        "touched_marked_files": [
+          "hub/coherence/adoption.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "adoption-and-policy",
+      "req": "coh-pol-06",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/adoption.py",
+          "hub/coherence/report.py",
+          "scripts/ratchet_demo.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/fixtures/coherence/fixtures.py",
+          "tests/test_hub_coherence_conformance.py",
+          "tests/test_hub_coherence_exitcodes.py"
+        ],
+        "marked_files": [
+          "hub/coherence/adoption.py",
+          "hub/coherence/report.py",
+          "scripts/ratchet_demo.py",
+          "tests/fixtures/coherence/fixtures.py",
+          "tests/test_hub_coherence_conformance.py",
+          "tests/test_hub_coherence_exitcodes.py",
+          "tests/test_hub_coherence_ladder.py",
+          "tests/test_hub_coherence_report.py",
+          "tests/test_hub_coherence_schema.py",
+          "tests/test_ratchet_demo.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "d9886a26e4a3a5a93acb7af5aaf04f9bcd85becd",
+        "landed_commit": "25c3ad2f1dfddc44d364b444e988038b8b61b358",
+        "touched_marked_files": [
+          "hub/coherence/adoption.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "adoption-and-policy",
+      "req": "coh-pol-07",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/attest.py",
+          "hub/coherence_view.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence_attest.py",
+          "tests/test_hub_coherence_attestation.py",
+          "tests/test_hub_monitor_coherence.py"
+        ],
+        "marked_files": [
+          "hub/coherence/attest.py",
+          "hub/coherence_view.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "25c3ad2f1dfddc44d364b444e988038b8b61b358",
+        "landed_commit": "5f20fc73b26e9c98dcc1ad07f097bef3c0565c5b",
+        "touched_marked_files": [
+          "hub/coherence/attest.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "assertions-and-evaluators",
+      "req": "coh-assert-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/plan.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence_assertion_schema.py"
+        ],
+        "marked_files": [
+          "hub/coherence/plan.py",
+          "tests/test_hub_coherence_assertion_schema.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "787f35ce42fe8b79bd8edcd7ae4f16b4837f8f51",
+        "landed_commit": "e9fd429cf16a82829191feddd0876d8d4ef9b456",
+        "touched_marked_files": [
+          "hub/coherence/plan.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "assertions-and-evaluators",
+      "req": "coh-assert-02",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/evaluators.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence.py",
+          "tests/test_hub_coherence_traceability.py"
+        ],
+        "marked_files": [
+          "hub/coherence/evaluators.py",
+          "tests/test_hub_coherence.py",
+          "tests/test_hub_coherence_traceability.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "550ed9d5f0888b24c1b8eae91291cbb8418d8f31",
+        "landed_commit": "9cd10c6aa38dc22a10910fa3290d7d95858b37ba",
+        "touched_marked_files": [
+          "hub/coherence/evaluators.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "assertions-and-evaluators",
+      "req": "coh-assert-03",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/evaluators.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence.py",
+          "tests/test_hub_coherence_traceability.py"
+        ],
+        "marked_files": [
+          "hub/coherence/evaluators.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "550ed9d5f0888b24c1b8eae91291cbb8418d8f31",
+        "landed_commit": "9cd10c6aa38dc22a10910fa3290d7d95858b37ba",
+        "touched_marked_files": [
+          "hub/coherence/evaluators.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "assertions-and-evaluators",
+      "req": "coh-assert-04",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/evaluators.py",
+          "hub/coherence/plan.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence_traceability.py"
+        ],
+        "marked_files": [
+          "hub/coherence/evaluators.py",
+          "hub/coherence/plan.py",
+          "tests/test_hub_coherence_traceability.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "550ed9d5f0888b24c1b8eae91291cbb8418d8f31",
+        "landed_commit": "9cd10c6aa38dc22a10910fa3290d7d95858b37ba",
+        "touched_marked_files": [
+          "hub/coherence/evaluators.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "assertions-and-evaluators",
+      "req": "coh-assert-05",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/adoption.py",
+          "hub/coherence/evaluate.py",
+          "hub/coherence/evaluators.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence_3d_slice.py"
+        ],
+        "marked_files": [
+          "hub/coherence/adoption.py",
+          "hub/coherence/evaluate.py",
+          "hub/coherence/evaluators.py",
+          "hub/coherence/result.py",
+          "scripts/world_slice_tool.py",
+          "tests/test_hub_coherence_3d_slice.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "d9886a26e4a3a5a93acb7af5aaf04f9bcd85becd",
+        "landed_commit": "25c3ad2f1dfddc44d364b444e988038b8b61b358",
+        "touched_marked_files": [
+          "hub/coherence/adoption.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "assertions-and-evaluators",
+      "req": "coh-assert-06",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/evaluators.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence.py",
+          "tests/test_hub_coherence_traceability.py"
+        ],
+        "marked_files": [
+          "hub/coherence/evaluators.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "550ed9d5f0888b24c1b8eae91291cbb8418d8f31",
+        "landed_commit": "9cd10c6aa38dc22a10910fa3290d7d95858b37ba",
+        "touched_marked_files": [
+          "hub/coherence/evaluators.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "baseline-ownership",
+      "req": "base-own-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "scripts/baseline_ownership_check.py",
+          "scripts/failure_registry_check.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_baseline_ownership_check.py",
+          "tests/test_failure_registry_check.py"
+        ],
+        "marked_files": [
+          "scripts/baseline_ownership_check.py",
+          "scripts/failure_registry_check.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "25c3ad2f1dfddc44d364b444e988038b8b61b358",
+        "landed_commit": "5f20fc73b26e9c98dcc1ad07f097bef3c0565c5b",
+        "touched_marked_files": [
+          "scripts/baseline_ownership_check.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "baseline-ownership",
+      "req": "base-write-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "scripts/log_failure.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_log_failure.py"
+        ],
+        "marked_files": [
+          "scripts/log_failure.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "7d3ebc5b6f02c224acdb259191116d83b5afd4fb",
+        "landed_commit": "bcdd682f5c1609349d0c93be3c9cf01393fdbc54",
+        "touched_marked_files": [
+          "scripts/log_failure.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "baseline-ownership",
+      "req": "base-specs-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "scripts/baseline_ownership_check.py",
+          "scripts/spec_traceability.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_spec_traceability.py"
+        ],
+        "marked_files": [
+          "scripts/baseline_ownership_check.py",
+          "scripts/spec_traceability.py",
+          "tests/test_spec_traceability.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "25c3ad2f1dfddc44d364b444e988038b8b61b358",
+        "landed_commit": "5f20fc73b26e9c98dcc1ad07f097bef3c0565c5b",
+        "touched_marked_files": [
+          "scripts/baseline_ownership_check.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "canonical-identity",
+      "req": "coh-id-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/canon.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/fixtures/coherence/compute_golden.py",
+          "tests/test_hub_coherence.py",
+          "tests/test_hub_coherence_golden.py"
+        ],
+        "marked_files": [
+          "hub/coherence/canon.py",
+          "openspec/changes/archive/2026-10-01-devgate-spec-coherence-service/s0-independent-audit.md",
+          "openspec/changes/archive/2026-10-01-devgate-spec-coherence-service/s1-freeze-record.md",
+          "tests/fixtures/coherence/compute_golden.py",
+          "tests/test_hub_coherence.py",
+          "tests/test_hub_coherence_golden.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "8549b2cf3915893365052f2b50136f02d5aaa52f",
+        "landed_commit": "895cdfe2284e8db866352127ac84fa16053f200a",
+        "touched_marked_files": [
+          "hub/coherence/canon.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "canonical-identity",
+      "req": "coh-id-02",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/manifest.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence.py",
+          "tests/test_hub_coherence_runtime_mutation.py",
+          "tests/test_hub_coherence_submodule_pin.py"
+        ],
+        "marked_files": [
+          "hub/coherence/manifest.py",
+          "tests/test_hub_coherence.py",
+          "tests/test_hub_coherence_runtime_mutation.py",
+          "tests/test_hub_coherence_submodule_pin.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "d9886a26e4a3a5a93acb7af5aaf04f9bcd85becd",
+        "landed_commit": "25c3ad2f1dfddc44d364b444e988038b8b61b358",
+        "touched_marked_files": [
+          "hub/coherence/manifest.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "canonical-identity",
+      "req": "coh-id-03",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/package.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence_normative.py",
+          "tests/test_hub_coherence.py"
+        ],
+        "marked_files": [
+          "hub/coherence/package.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "a60b479e5bc0fc533f31c08d62a32e5c70066377",
+        "landed_commit": "88b74e9c0e6f1682f8cb2d2a76cc7c67555eb184",
+        "touched_marked_files": [
+          "hub/coherence/package.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "canonical-identity",
+      "req": "coh-id-04",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/container_exec.py",
+          "hub/coherence/launcher.py",
+          "hub/coherence/profiles.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/fixtures/repin.py",
+          "tests/test_coherence_image_identity.py",
+          "tests/test_hub_coherence_container.py"
+        ],
+        "marked_files": [
+          "hub/coherence/container_exec.py",
+          "hub/coherence/launcher.py",
+          "hub/coherence/profiles.py",
+          "tests/fixtures/repin.py",
+          "tests/test_coherence_image_identity.py",
+          "tests/test_hub_coherence_container.py",
+          "tests/test_hub_coherence_launcher.py",
+          "tests/test_repin_operation.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "e9f9a14edc7e2d03ed52846bfc849fe299d0afeb",
+        "landed_commit": "2a7a97dc1fa1abdb26a8b56049251bbc77652fc7",
+        "touched_marked_files": [
+          "hub/coherence/container_exec.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "canonical-identity",
+      "req": "coh-id-05",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/canon.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/fixtures/coherence/compute_golden.py"
+        ],
+        "marked_files": [
+          "hub/coherence/canon.py",
+          "openspec/changes/archive/2026-10-01-devgate-spec-coherence-service/s0-independent-audit.md",
+          "openspec/changes/archive/2026-10-01-devgate-spec-coherence-service/s1-freeze-record.md",
+          "tests/fixtures/coherence/compute_golden.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "8549b2cf3915893365052f2b50136f02d5aaa52f",
+        "landed_commit": "895cdfe2284e8db866352127ac84fa16053f200a",
+        "touched_marked_files": [
+          "hub/coherence/canon.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "ci-template-contract",
+      "req": "ci-run-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "templates/github/workflows/",
+          ".github/workflows/"
+        ],
+        "implementation_absent_at_head": [
+          "templates/github/workflows/"
+        ],
+        "verification": [
+          "tests/test_template_supply_chain.py"
+        ],
+        "marked_files": [
+          "tests/test_template_supply_chain.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "d743784cebe8ea2a48aa5c21659871902390bac8",
+        "landed_commit": "4f6f3bc6c3d7e9265604a3af5c428e3dafc03ac9",
+        "touched_marked_files": [
+          "tests/test_template_supply_chain.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "cited implementation path(s) absent at HEAD: ['templates/github/workflows/']"
+      ]
+    },
+    {
+      "spec": "ci-template-contract",
+      "req": "ci-match-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "templates/github/workflows/",
+          ".github/workflows/"
+        ],
+        "implementation_absent_at_head": [
+          "templates/github/workflows/"
+        ],
+        "verification": [
+          "tests/test_template_supply_chain.py"
+        ],
+        "marked_files": [
+          "tests/test_template_supply_chain.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "d743784cebe8ea2a48aa5c21659871902390bac8",
+        "landed_commit": "4f6f3bc6c3d7e9265604a3af5c428e3dafc03ac9",
+        "touched_marked_files": [
+          "tests/test_template_supply_chain.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "cited implementation path(s) absent at HEAD: ['templates/github/workflows/']"
+      ]
+    },
+    {
+      "spec": "ci-template-contract",
+      "req": "ci-self-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "templates/github/workflows/",
+          ".github/workflows/"
+        ],
+        "implementation_absent_at_head": [
+          "templates/github/workflows/"
+        ],
+        "verification": [
+          "tests/test_template_supply_chain.py"
+        ],
+        "marked_files": [
+          "tests/test_template_supply_chain.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "d743784cebe8ea2a48aa5c21659871902390bac8",
+        "landed_commit": "4f6f3bc6c3d7e9265604a3af5c428e3dafc03ac9",
+        "touched_marked_files": [
+          "tests/test_template_supply_chain.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "cited implementation path(s) absent at HEAD: ['templates/github/workflows/']"
+      ]
+    },
+    {
+      "spec": "coherence-evaluation",
+      "req": "coh-eval-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/canon.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence_conformance.py"
+        ],
+        "marked_files": [
+          "hub/coherence/canon.py",
+          "tests/test_hub_coherence_conformance.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "8549b2cf3915893365052f2b50136f02d5aaa52f",
+        "landed_commit": "895cdfe2284e8db866352127ac84fa16053f200a",
+        "touched_marked_files": [
+          "hub/coherence/canon.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "coherence-evaluation",
+      "req": "coh-eval-02",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/evaluate.py",
+          "hub/coherence/plan.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/fixtures/coherence/fixtures.py",
+          "tests/test_hub_coherence.py",
+          "tests/test_hub_coherence_assertion_schema.py"
+        ],
+        "marked_files": [
+          "hub/coherence/evaluate.py",
+          "hub/coherence/plan.py",
+          "tests/fixtures/coherence/fixtures.py",
+          "tests/test_hub_coherence.py",
+          "tests/test_hub_coherence_assertion_schema.py",
+          "tests/test_hub_coherence_conformance.py",
+          "tests/test_hub_coherence_decision.py",
+          "tests/test_hub_coherence_exitcodes.py",
+          "tests/test_hub_coherence_schema.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "d9886a26e4a3a5a93acb7af5aaf04f9bcd85becd",
+        "landed_commit": "25c3ad2f1dfddc44d364b444e988038b8b61b358",
+        "touched_marked_files": [
+          "hub/coherence/evaluate.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "coherence-evaluation",
+      "req": "coh-eval-03",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/result.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence_adoption_ledger.py"
+        ],
+        "marked_files": [
+          "hub/coherence/result.py",
+          "tests/test_hub_coherence_adoption_ledger.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "d9886a26e4a3a5a93acb7af5aaf04f9bcd85becd",
+        "landed_commit": "25c3ad2f1dfddc44d364b444e988038b8b61b358",
+        "touched_marked_files": [
+          "hub/coherence/result.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "coherence-evaluation",
+      "req": "coh-eval-04",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/evaluators.py",
+          "hub/coherence/plan.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence_allowlist.py",
+          "tests/test_hub_coherence_traceability.py"
+        ],
+        "marked_files": [
+          "hub/coherence/evaluators.py",
+          "hub/coherence/plan.py",
+          "tests/test_hub_coherence_allowlist.py",
+          "tests/test_hub_coherence_traceability.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "550ed9d5f0888b24c1b8eae91291cbb8418d8f31",
+        "landed_commit": "9cd10c6aa38dc22a10910fa3290d7d95858b37ba",
+        "touched_marked_files": [
+          "hub/coherence/evaluators.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "coherence-evaluation",
+      "req": "coh-eval-05",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/adoption.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence_adoption_ledger.py",
+          "tests/test_hub_coherence_adoption_policy.py",
+          "tests/test_hub_coherence_modes.py"
+        ],
+        "marked_files": [
+          "hub/coherence/adoption.py",
+          "tests/test_hub_coherence_adoption_ledger.py",
+          "tests/test_hub_coherence_adoption_policy.py",
+          "tests/test_hub_coherence_modes.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "d9886a26e4a3a5a93acb7af5aaf04f9bcd85becd",
+        "landed_commit": "25c3ad2f1dfddc44d364b444e988038b8b61b358",
+        "touched_marked_files": [
+          "hub/coherence/adoption.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "coherence-evaluation",
+      "req": "coh-eval-06",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/evaluate.py",
+          "hub/coherence/evaluators.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence.py",
+          "tests/test_hub_coherence_traceability.py"
+        ],
+        "marked_files": [
+          "hub/coherence/evaluate.py",
+          "hub/coherence/evaluators.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "d9886a26e4a3a5a93acb7af5aaf04f9bcd85becd",
+        "landed_commit": "25c3ad2f1dfddc44d364b444e988038b8b61b358",
+        "touched_marked_files": [
+          "hub/coherence/evaluate.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "container-runtime",
+      "req": "coh-rt-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/container_exec.py",
+          "hub/coherence/invoke.py",
+          "hub/coherence/launcher.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_coherence_image_identity.py",
+          "tests/test_hub_coherence_container.py",
+          "tests/test_hub_coherence_invoke.py"
+        ],
+        "marked_files": [
+          "hub/coherence/container_exec.py",
+          "hub/coherence/invoke.py",
+          "hub/coherence/launcher.py",
+          "tests/test_coherence_image_identity.py",
+          "tests/test_hub_coherence_container.py",
+          "tests/test_hub_coherence_invoke.py",
+          "tests/test_hub_coherence_launcher.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "e9f9a14edc7e2d03ed52846bfc849fe299d0afeb",
+        "landed_commit": "2a7a97dc1fa1abdb26a8b56049251bbc77652fc7",
+        "touched_marked_files": [
+          "hub/coherence/container_exec.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "container-runtime",
+      "req": "coh-rt-02",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/container_exec.py",
+          "hub/coherence/launcher.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence_container.py",
+          "tests/test_hub_coherence_launcher.py"
+        ],
+        "marked_files": [
+          "hub/coherence/container_exec.py",
+          "hub/coherence/launcher.py",
+          "tests/test_hub_coherence_container.py",
+          "tests/test_hub_coherence_launcher.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "e9f9a14edc7e2d03ed52846bfc849fe299d0afeb",
+        "landed_commit": "2a7a97dc1fa1abdb26a8b56049251bbc77652fc7",
+        "touched_marked_files": [
+          "hub/coherence/container_exec.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "container-runtime",
+      "req": "coh-rt-03",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/evaluate.py",
+          "hub/coherence/evaluators.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence_runtime.py"
+        ],
+        "marked_files": [
+          "hub/coherence/evaluate.py",
+          "hub/coherence/evaluators.py",
+          "tests/test_hub_coherence_runtime.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "d9886a26e4a3a5a93acb7af5aaf04f9bcd85becd",
+        "landed_commit": "25c3ad2f1dfddc44d364b444e988038b8b61b358",
+        "touched_marked_files": [
+          "hub/coherence/evaluate.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "container-runtime",
+      "req": "coh-rt-04",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/evidence.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence_runtime.py"
+        ],
+        "marked_files": [
+          "hub/coherence/evidence.py",
+          "tests/test_hub_coherence_runtime.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "ec001e3faecfa4b30e774d77c133b3c72c7ef814",
+        "landed_commit": "9c46180b9f2d547c82a7c8c69629fcfed944f979",
+        "touched_marked_files": [
+          "hub/coherence/evidence.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "container-runtime",
+      "req": "coh-rt-05",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/container_exec.py",
+          "hub/coherence/evaluate.py",
+          "hub/coherence/launcher.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence_container.py",
+          "tests/test_hub_coherence_launcher.py"
+        ],
+        "marked_files": [
+          "hub/coherence/container_exec.py",
+          "hub/coherence/evaluate.py",
+          "hub/coherence/launcher.py",
+          "tests/test_hub_coherence_container.py",
+          "tests/test_hub_coherence_launcher.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "e9f9a14edc7e2d03ed52846bfc849fe299d0afeb",
+        "landed_commit": "2a7a97dc1fa1abdb26a8b56049251bbc77652fc7",
+        "touched_marked_files": [
+          "hub/coherence/container_exec.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "container-runtime",
+      "req": "coh-rt-06",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/evaluate.py",
+          "hub/coherence/plan.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence_allowlist.py",
+          "tests/test_hub_coherence_assertion_schema.py",
+          "tests/test_hub_coherence_compat.py"
+        ],
+        "marked_files": [
+          "hub/coherence/evaluate.py",
+          "hub/coherence/plan.py",
+          "tests/test_hub_coherence_allowlist.py",
+          "tests/test_hub_coherence_assertion_schema.py",
+          "tests/test_hub_coherence_compat.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "d9886a26e4a3a5a93acb7af5aaf04f9bcd85becd",
+        "landed_commit": "25c3ad2f1dfddc44d364b444e988038b8b61b358",
+        "touched_marked_files": [
+          "hub/coherence/evaluate.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "container-runtime",
+      "req": "coh-rt-07",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/container_exec.py",
+          "hub/coherence/evidence.py",
+          "hub/coherence/launcher.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence_container.py",
+          "tests/test_hub_coherence_launcher.py",
+          "tests/test_hub_coherence_runtime.py"
+        ],
+        "marked_files": [
+          "hub/coherence/container_exec.py",
+          "hub/coherence/evidence.py",
+          "hub/coherence/launcher.py",
+          "tests/test_hub_coherence_container.py",
+          "tests/test_hub_coherence_launcher.py",
+          "tests/test_hub_coherence_runtime.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "e9f9a14edc7e2d03ed52846bfc849fe299d0afeb",
+        "landed_commit": "2a7a97dc1fa1abdb26a8b56049251bbc77652fc7",
+        "touched_marked_files": [
+          "hub/coherence/container_exec.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "decision-contract",
+      "req": "coh-dec-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/__main__.py",
+          "hub/coherence/result.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence.py",
+          "tests/test_hub_coherence_decision.py"
+        ],
+        "marked_files": [
+          "hub/coherence/__main__.py",
+          "hub/coherence/result.py",
+          "tests/test_hub_coherence.py",
+          "tests/test_hub_coherence_decision.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "ccc974d3eb2f60d104e4c3a9e309bd336bb8f64c",
+        "landed_commit": "53384aca2dbcdb84d9d1d504518f13088829a06e",
+        "touched_marked_files": [
+          "hub/coherence/__main__.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "decision-contract",
+      "req": "coh-dec-02",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/__main__.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence_exitcodes.py",
+          "tests/test_hub_coherence_decision.py"
+        ],
+        "marked_files": [
+          "hub/coherence/__main__.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "ccc974d3eb2f60d104e4c3a9e309bd336bb8f64c",
+        "landed_commit": "53384aca2dbcdb84d9d1d504518f13088829a06e",
+        "touched_marked_files": [
+          "hub/coherence/__main__.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "decision-contract",
+      "req": "coh-dec-03",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/result.py",
+          "hub/coherence/schemacheck.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence_decision.py",
+          "tests/test_hub_coherence.py"
+        ],
+        "marked_files": [
+          "hub/coherence/result.py",
+          "hub/coherence/schemacheck.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "d9886a26e4a3a5a93acb7af5aaf04f9bcd85becd",
+        "landed_commit": "25c3ad2f1dfddc44d364b444e988038b8b61b358",
+        "touched_marked_files": [
+          "hub/coherence/result.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "decision-contract",
+      "req": "coh-dec-04",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/__main__.py",
+          "hub/coherence/container_exec.py",
+          "hub/coherence/result.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/fixtures/coherence/fixtures.py",
+          "tests/test_hub_coherence.py",
+          "tests/test_hub_coherence_conformance.py"
+        ],
+        "marked_files": [
+          "hub/coherence/__main__.py",
+          "hub/coherence/container_exec.py",
+          "hub/coherence/result.py",
+          "tests/fixtures/coherence/fixtures.py",
+          "tests/test_hub_coherence.py",
+          "tests/test_hub_coherence_conformance.py",
+          "tests/test_hub_coherence_container.py",
+          "tests/test_hub_coherence_decision.py",
+          "tests/test_hub_coherence_exitcodes.py",
+          "tests/test_hub_coherence_ladder.py",
+          "tests/test_hub_coherence_schema.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "ccc974d3eb2f60d104e4c3a9e309bd336bb8f64c",
+        "landed_commit": "53384aca2dbcdb84d9d1d504518f13088829a06e",
+        "touched_marked_files": [
+          "hub/coherence/__main__.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "decision-contract",
+      "req": "coh-dec-05",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/result.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence_decision.py",
+          "tests/test_hub_coherence.py"
+        ],
+        "marked_files": [
+          "hub/coherence/result.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "d9886a26e4a3a5a93acb7af5aaf04f9bcd85becd",
+        "landed_commit": "25c3ad2f1dfddc44d364b444e988038b8b61b358",
+        "touched_marked_files": [
+          "hub/coherence/result.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "enrollment-and-alerting",
+      "req": "mon-enroll-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/registry.py",
+          "hub/tokens.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_registry.py",
+          "tests/test_hub_enroll_heartbeat.py"
+        ],
+        "marked_files": [
+          "hub/registry.py",
+          "hub/tokens.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "a5a94dd454287655b050b3cc273b028712109f82",
+        "landed_commit": "2a6b024632c30ee178c2a7b0421b2bb702c7bc2f",
+        "touched_marked_files": [
+          "hub/registry.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "enrollment-and-alerting",
+      "req": "mon-alert-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/alerts.py",
+          "scripts/hub_alert.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_alerts.py",
+          "tests/test_hub_alert.py"
+        ],
+        "marked_files": [
+          "hub/alerts.py",
+          "scripts/hub_alert.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "2312cebf03a385c77a5351def19b337159015add",
+        "landed_commit": "726e065be5a9c9d9594a0ffb76381ffdedf075ca",
+        "touched_marked_files": [
+          "hub/alerts.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "enrollment-and-alerting",
+      "req": "mon-monitor-hub-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/main.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_main.py",
+          "tests/test_hub_services.py"
+        ],
+        "marked_files": [
+          "hub/main.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "bfb7e9992906fbb35964cb9d4345116d62ac2bdb",
+        "landed_commit": "fefdd36df0e7349560e985a99bbfdfaa91273c8e",
+        "touched_marked_files": [
+          "hub/main.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "evaluation-context",
+      "req": "coh-ctx-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/context.py",
+          "hub/coherence/issue.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence_issue.py"
+        ],
+        "marked_files": [
+          "hub/coherence/context.py",
+          "hub/coherence/issue.py",
+          "tests/test_hub_coherence_issue.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "252bbe076a5e1370a5e9a51eae36e82df9b0a3df",
+        "landed_commit": "725dd1ef4c66749959dd49c5f7a37cc27b97132d",
+        "touched_marked_files": [
+          "hub/coherence/context.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "evaluation-context",
+      "req": "coh-ctx-02",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/context.py",
+          "hub/coherence/issue.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence_issue.py",
+          "tests/test_hub_coherence_modes.py",
+          "tests/test_hub_coherence_modes_cli.py"
+        ],
+        "marked_files": [
+          "hub/coherence/context.py",
+          "hub/coherence/issue.py",
+          "tests/test_hub_coherence_issue.py",
+          "tests/test_hub_coherence_modes.py",
+          "tests/test_hub_coherence_modes_cli.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "252bbe076a5e1370a5e9a51eae36e82df9b0a3df",
+        "landed_commit": "725dd1ef4c66749959dd49c5f7a37cc27b97132d",
+        "touched_marked_files": [
+          "hub/coherence/context.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "evaluation-context",
+      "req": "coh-ctx-03",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/context.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence_conformance.py",
+          "tests/test_hub_coherence_exitcodes.py",
+          "tests/test_hub_coherence_schema.py"
+        ],
+        "marked_files": [
+          "hub/coherence/context.py",
+          "tests/test_hub_coherence_conformance.py",
+          "tests/test_hub_coherence_exitcodes.py",
+          "tests/test_hub_coherence_schema.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "252bbe076a5e1370a5e9a51eae36e82df9b0a3df",
+        "landed_commit": "725dd1ef4c66749959dd49c5f7a37cc27b97132d",
+        "touched_marked_files": [
+          "hub/coherence/context.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "evaluation-context",
+      "req": "coh-ctx-04",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/evaluate.py",
+          "hub/coherence/evaluators.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence_runtime.py"
+        ],
+        "marked_files": [
+          "hub/coherence/evaluate.py",
+          "hub/coherence/evaluators.py",
+          "tests/test_hub_coherence_runtime.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "d9886a26e4a3a5a93acb7af5aaf04f9bcd85becd",
+        "landed_commit": "25c3ad2f1dfddc44d364b444e988038b8b61b358",
+        "touched_marked_files": [
+          "hub/coherence/evaluate.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "evaluation-context",
+      "req": "coh-ctx-05",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/cache.py",
+          "hub/coherence/store.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence_cache.py",
+          "tests/test_hub_coherence_store.py"
+        ],
+        "marked_files": [
+          "hub/coherence/cache.py",
+          "hub/coherence/store.py",
+          "tests/test_hub_coherence_cache.py",
+          "tests/test_hub_coherence_store.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "a60b479e5bc0fc533f31c08d62a32e5c70066377",
+        "landed_commit": "88b74e9c0e6f1682f8cb2d2a76cc7c67555eb184",
+        "touched_marked_files": [
+          "hub/coherence/cache.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "evidence-and-attestation",
+      "req": "coh-ev-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/__main__.py",
+          "hub/coherence/attest.py",
+          "hub/coherence/attest_detached.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence_attest.py",
+          "tests/test_hub_coherence_attestation.py",
+          "tests/test_hub_coherence_evidence.py"
+        ],
+        "marked_files": [
+          "hub/coherence/__main__.py",
+          "hub/coherence/attest.py",
+          "hub/coherence/attest_detached.py",
+          "tests/test_hub_coherence_attest.py",
+          "tests/test_hub_coherence_attestation.py",
+          "tests/test_hub_coherence_evidence.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "ccc974d3eb2f60d104e4c3a9e309bd336bb8f64c",
+        "landed_commit": "53384aca2dbcdb84d9d1d504518f13088829a06e",
+        "touched_marked_files": [
+          "hub/coherence/__main__.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "evidence-and-attestation",
+      "req": "coh-ev-02",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/evidence.py",
+          "hub/coherence/store.py",
+          "hub/coherence/verification.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence_evidence.py",
+          "tests/test_hub_coherence_store.py"
+        ],
+        "marked_files": [
+          "hub/coherence/evidence.py",
+          "hub/coherence/store.py",
+          "hub/coherence/verification.py",
+          "tests/test_hub_coherence_evidence.py",
+          "tests/test_hub_coherence_store.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "ec001e3faecfa4b30e774d77c133b3c72c7ef814",
+        "landed_commit": "9c46180b9f2d547c82a7c8c69629fcfed944f979",
+        "touched_marked_files": [
+          "hub/coherence/evidence.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "evidence-and-attestation",
+      "req": "coh-ev-03",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/evidence.py",
+          "hub/coherence/verification.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence_evidence.py"
+        ],
+        "marked_files": [
+          "hub/coherence/evidence.py",
+          "hub/coherence/verification.py",
+          "tests/test_hub_coherence_evidence.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "ec001e3faecfa4b30e774d77c133b3c72c7ef814",
+        "landed_commit": "9c46180b9f2d547c82a7c8c69629fcfed944f979",
+        "touched_marked_files": [
+          "hub/coherence/evidence.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "evidence-and-attestation",
+      "req": "coh-ev-04",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/retention.py",
+          "hub/coherence/store.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence_retention.py",
+          "tests/test_hub_coherence_store.py"
+        ],
+        "marked_files": [
+          "hub/coherence/retention.py",
+          "hub/coherence/store.py",
+          "tests/test_hub_coherence_retention.py",
+          "tests/test_hub_coherence_store.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "a60b479e5bc0fc533f31c08d62a32e5c70066377",
+        "landed_commit": "88b74e9c0e6f1682f8cb2d2a76cc7c67555eb184",
+        "touched_marked_files": [
+          "hub/coherence/retention.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "evidence-and-attestation",
+      "req": "coh-ev-05",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/__main__.py",
+          "hub/coherence/attest.py",
+          "hub/coherence/attest_base.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/fixtures/coherence/fixtures.py",
+          "tests/test_hub_coherence_attest.py",
+          "tests/test_hub_coherence_attestation.py"
+        ],
+        "marked_files": [
+          "hub/coherence/__main__.py",
+          "hub/coherence/attest.py",
+          "hub/coherence/attest_base.py",
+          "hub/coherence/attest_detached.py",
+          "hub/coherence/cli_verify.py",
+          "tests/fixtures/coherence/fixtures.py",
+          "tests/test_hub_coherence_attest.py",
+          "tests/test_hub_coherence_attestation.py",
+          "tests/test_hub_coherence_verify_cli.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "ccc974d3eb2f60d104e4c3a9e309bd336bb8f64c",
+        "landed_commit": "53384aca2dbcdb84d9d1d504518f13088829a06e",
+        "touched_marked_files": [
+          "hub/coherence/__main__.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "evidence-and-attestation",
+      "req": "coh-ev-06",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/evidence.py",
+          "hub/coherence/verification.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence_evidence.py",
+          "tests/test_evidence_integrity.py"
+        ],
+        "marked_files": [
+          "hub/coherence/evidence.py",
+          "hub/coherence/verification.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "ec001e3faecfa4b30e774d77c133b3c72c7ef814",
+        "landed_commit": "9c46180b9f2d547c82a7c8c69629fcfed944f979",
+        "touched_marked_files": [
+          "hub/coherence/evidence.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "evidence-and-attestation",
+      "req": "coh-ev-07",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/package.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence_normative.py",
+          "tests/test_hub_coherence.py"
+        ],
+        "marked_files": [
+          "hub/coherence/package.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "a60b479e5bc0fc533f31c08d62a32e5c70066377",
+        "landed_commit": "88b74e9c0e6f1682f8cb2d2a76cc7c67555eb184",
+        "touched_marked_files": [
+          "hub/coherence/package.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "framework-ci",
+      "req": "fw-ci-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          ".github/workflows/",
+          "scripts/"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_template_supply_chain.py"
+        ],
+        "marked_files": [
+          "tests/test_template_supply_chain.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "d743784cebe8ea2a48aa5c21659871902390bac8",
+        "landed_commit": "4f6f3bc6c3d7e9265604a3af5c428e3dafc03ac9",
+        "touched_marked_files": [
+          "tests/test_template_supply_chain.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "framework-ci",
+      "req": "fw-ci-02",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          ".github/workflows/",
+          "scripts/"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_template_supply_chain.py"
+        ],
+        "marked_files": [
+          "tests/test_template_supply_chain.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "d743784cebe8ea2a48aa5c21659871902390bac8",
+        "landed_commit": "4f6f3bc6c3d7e9265604a3af5c428e3dafc03ac9",
+        "touched_marked_files": [
+          "tests/test_template_supply_chain.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "framework-ci",
+      "req": "fw-ci-03",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          ".github/workflows/",
+          "scripts/"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_template_supply_chain.py"
+        ],
+        "marked_files": [
+          "tests/test_template_supply_chain.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "d743784cebe8ea2a48aa5c21659871902390bac8",
+        "landed_commit": "4f6f3bc6c3d7e9265604a3af5c428e3dafc03ac9",
+        "touched_marked_files": [
+          "tests/test_template_supply_chain.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "game-regression",
+      "req": "game-reg-04",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "scripts/log_failure.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_log_failure.py"
+        ],
+        "marked_files": [
+          "scripts/log_failure.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "7d3ebc5b6f02c224acdb259191116d83b5afd4fb",
+        "landed_commit": "bcdd682f5c1609349d0c93be3c9cf01393fdbc54",
+        "touched_marked_files": [
+          "scripts/log_failure.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "game-regression",
+      "req": "game-reg-05",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "scripts/game_regression.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_game_regression.py"
+        ],
+        "marked_files": [
+          "scripts/game_regression.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "5bafa54ccc00db851830f96dbb2acc09b3f75504",
+        "landed_commit": "d743784cebe8ea2a48aa5c21659871902390bac8",
+        "touched_marked_files": [
+          "scripts/game_regression.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "game-regression",
+      "req": "game-reg-06",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "scripts/log_failure.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_log_failure.py"
+        ],
+        "marked_files": [
+          "scripts/log_failure.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "7d3ebc5b6f02c224acdb259191116d83b5afd4fb",
+        "landed_commit": "bcdd682f5c1609349d0c93be3c9cf01393fdbc54",
+        "touched_marked_files": [
+          "scripts/log_failure.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "game-regression",
+      "req": "game-reg-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "scripts/game_regression.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_game_regression.py"
+        ],
+        "marked_files": [
+          "scripts/game_regression.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "5bafa54ccc00db851830f96dbb2acc09b3f75504",
+        "landed_commit": "d743784cebe8ea2a48aa5c21659871902390bac8",
+        "touched_marked_files": [
+          "scripts/game_regression.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "game-regression",
+      "req": "game-reg-02",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "scripts/game_regression.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_game_regression.py"
+        ],
+        "marked_files": [
+          "scripts/game_regression.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "5bafa54ccc00db851830f96dbb2acc09b3f75504",
+        "landed_commit": "d743784cebe8ea2a48aa5c21659871902390bac8",
+        "touched_marked_files": [
+          "scripts/game_regression.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "game-regression",
+      "req": "game-reg-03",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "scripts/game_regression.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_game_regression.py"
+        ],
+        "marked_files": [
+          "scripts/game_regression.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "5bafa54ccc00db851830f96dbb2acc09b3f75504",
+        "landed_commit": "d743784cebe8ea2a48aa5c21659871902390bac8",
+        "touched_marked_files": [
+          "scripts/game_regression.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "gate-configuration-contract",
+      "req": "rule-config-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "scripts/gate_overlay.py",
+          "scripts/schema-health-check.mjs",
+          "scripts/silent-success-scan.sh"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_gate_overlay.py",
+          "tests/test_silent_success_overlay.py",
+          "tests/test_silent_success_gate.py"
+        ],
+        "marked_files": [
+          "scripts/gate_overlay.py",
+          "scripts/schema-health-check.mjs",
+          "scripts/silent-success-scan.sh"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "25c3ad2f1dfddc44d364b444e988038b8b61b358",
+        "landed_commit": "5f20fc73b26e9c98dcc1ad07f097bef3c0565c5b",
+        "touched_marked_files": [
+          "scripts/gate_overlay.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "gate-configuration-contract",
+      "req": "rule-fresh-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "scripts/gate_overlay.py",
+          "scripts/silent-success-scan.sh"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_gate_overlay.py",
+          "tests/test_silent_success_overlay.py",
+          "tests/test_silent_success_gate.py"
+        ],
+        "marked_files": [
+          "scripts/gate_overlay.py",
+          "scripts/silent-success-scan.sh"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "25c3ad2f1dfddc44d364b444e988038b8b61b358",
+        "landed_commit": "5f20fc73b26e9c98dcc1ad07f097bef3c0565c5b",
+        "touched_marked_files": [
+          "scripts/gate_overlay.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "gate-execution-contract",
+      "req": "gate-root-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "scripts/gate_common.py",
+          "scripts/lib/project_root.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_gate_common.py",
+          "tests/test_python_root_anchor.py"
+        ],
+        "marked_files": [
+          "scripts/gate_common.py",
+          "scripts/lib/project_root.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "25c3ad2f1dfddc44d364b444e988038b8b61b358",
+        "landed_commit": "5f20fc73b26e9c98dcc1ad07f097bef3c0565c5b",
+        "touched_marked_files": [
+          "scripts/gate_common.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "gate-execution-contract",
+      "req": "gate-vacuous-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "scripts/lib/test-runner-select.mjs"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_run_tests_runner.mjs"
+        ],
+        "marked_files": [
+          "scripts/lib/test-runner-select.mjs",
+          "tests/test_run_tests_runner.mjs"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "f40ad6b89f0352f3d3589d1e00e69431fd7d69f1",
+        "landed_commit": "3f25b6de3b34323734569d72b305e96d81fdd6f4",
+        "touched_marked_files": [
+          "scripts/lib/test-runner-select.mjs"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "gate-execution-contract",
+      "req": "gate-allwindow-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "scripts/regression_check.py",
+          "scripts/regression_diff.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_regression_check.py"
+        ],
+        "marked_files": [
+          "scripts/regression_check.py",
+          "scripts/regression_diff.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "25c3ad2f1dfddc44d364b444e988038b8b61b358",
+        "landed_commit": "5f20fc73b26e9c98dcc1ad07f097bef3c0565c5b",
+        "touched_marked_files": [
+          "scripts/regression_check.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "hub-architecture",
+      "req": "mon-hub-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/config.py",
+          "hub/main.py",
+          "hub/server.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_config_and_deadcode.py",
+          "tests/test_hub_main.py",
+          "tests/test_hub_services.py"
+        ],
+        "marked_files": [
+          "hub/config.py",
+          "hub/main.py",
+          "hub/request_limits.py",
+          "hub/server.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "25c3ad2f1dfddc44d364b444e988038b8b61b358",
+        "landed_commit": "5f20fc73b26e9c98dcc1ad07f097bef3c0565c5b",
+        "touched_marked_files": [
+          "hub/config.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "hub-architecture",
+      "req": "mon-channels-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/github_client.py",
+          "hub/monitor.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_monitor.py",
+          "tests/test_hub_monitor_default_deny.py"
+        ],
+        "marked_files": [
+          "hub/github_client.py",
+          "hub/monitor.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "0f9f9b66f1e010e9c7e7ca360bddc24a9f5a6a67",
+        "landed_commit": "863681470eefd5d3322dd0eb17e4b30094671b4f",
+        "touched_marked_files": [
+          "hub/github_client.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "hub-architecture",
+      "req": "mon-registry-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/registry.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_registry_schema.py"
+        ],
+        "marked_files": [
+          "hub/registry.py",
+          "tests/test_hub_registry_schema.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "a5a94dd454287655b050b3cc273b028712109f82",
+        "landed_commit": "2a6b024632c30ee178c2a7b0421b2bb702c7bc2f",
+        "touched_marked_files": [
+          "hub/registry.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "hub-architecture",
+      "req": "mon-deadman-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/server.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_server_smoke.py",
+          "tests/test_hub_watchdog.py"
+        ],
+        "marked_files": [
+          "hub/server.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "a5a94dd454287655b050b3cc273b028712109f82",
+        "landed_commit": "2a6b024632c30ee178c2a7b0421b2bb702c7bc2f",
+        "touched_marked_files": [
+          "hub/server.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "hub-architecture",
+      "req": "mon-local-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/config.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_config_and_deadcode.py"
+        ],
+        "marked_files": [
+          "hub/config.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "25c3ad2f1dfddc44d364b444e988038b8b61b358",
+        "landed_commit": "5f20fc73b26e9c98dcc1ad07f097bef3c0565c5b",
+        "touched_marked_files": [
+          "hub/config.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "integrations",
+      "req": "coh-int-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/invoke.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_coherence_local_wrapper.py",
+          "tests/test_coherence_workflow_template.py",
+          "tests/test_hub_coherence_invoke.py"
+        ],
+        "marked_files": [
+          "hub/coherence/invoke.py",
+          "scripts/coherence-local",
+          "tests/test_coherence_local_wrapper.py",
+          "tests/test_coherence_workflow_template.py",
+          "tests/test_hub_coherence_invoke.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "a60b479e5bc0fc533f31c08d62a32e5c70066377",
+        "landed_commit": "88b74e9c0e6f1682f8cb2d2a76cc7c67555eb184",
+        "touched_marked_files": [
+          "hub/coherence/invoke.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "integrations",
+      "req": "coh-int-02",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence_view.py",
+          "hub/monitor.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_monitor_coherence.py",
+          "tests/test_hub_coherence.py",
+          "tests/test_hub_monitor.py"
+        ],
+        "marked_files": [
+          "hub/coherence_view.py",
+          "hub/monitor.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "25c3ad2f1dfddc44d364b444e988038b8b61b358",
+        "landed_commit": "5f20fc73b26e9c98dcc1ad07f097bef3c0565c5b",
+        "touched_marked_files": [
+          "hub/coherence_view.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "integrations",
+      "req": "coh-int-03",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "scripts/world_slice_tool.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence_3d_slice.py"
+        ],
+        "marked_files": [
+          "scripts/world_slice_tool.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "bcdd682f5c1609349d0c93be3c9cf01393fdbc54",
+        "landed_commit": "3bc716d93f4d4c9a4848ff87306a1a7fe0fb2df3",
+        "touched_marked_files": [
+          "scripts/world_slice_tool.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "integrations",
+      "req": "coh-int-04",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/oap_evidence.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_oap_evidence_schema.py",
+          "tests/test_oap_evidence_signature.py"
+        ],
+        "marked_files": [
+          "hub/coherence/oap_evidence.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "25c3ad2f1dfddc44d364b444e988038b8b61b358",
+        "landed_commit": "5f20fc73b26e9c98dcc1ad07f097bef3c0565c5b",
+        "touched_marked_files": [
+          "hub/coherence/oap_evidence.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "integrations",
+      "req": "coh-int-05",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/invoke.py",
+          "hub/coherence_view.py",
+          "hub/monitor.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_coherence_local_wrapper.py",
+          "tests/test_hub_coherence_invoke.py",
+          "tests/test_hub_monitor_default_deny.py"
+        ],
+        "marked_files": [
+          "hub/coherence/invoke.py",
+          "hub/coherence_view.py",
+          "hub/monitor.py",
+          "scripts/coherence-local",
+          "tests/test_coherence_local_wrapper.py",
+          "tests/test_hub_coherence_invoke.py",
+          "tests/test_hub_monitor_default_deny.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "a60b479e5bc0fc533f31c08d62a32e5c70066377",
+        "landed_commit": "88b74e9c0e6f1682f8cb2d2a76cc7c67555eb184",
+        "touched_marked_files": [
+          "hub/coherence/invoke.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "integrations",
+      "req": "coh-int-06",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence_view.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_coherence_workflow_template.py"
+        ],
+        "marked_files": [
+          "hub/coherence_view.py",
+          "tests/test_coherence_workflow_template.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "25c3ad2f1dfddc44d364b444e988038b8b61b358",
+        "landed_commit": "5f20fc73b26e9c98dcc1ad07f097bef3c0565c5b",
+        "touched_marked_files": [
+          "hub/coherence_view.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "integrations",
+      "req": "coh-int-07",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence_view.py",
+          "hub/monitor.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_runbook_claims.py"
+        ],
+        "marked_files": [
+          "hub/coherence_view.py",
+          "hub/monitor.py",
+          "tests/test_runbook_claims.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "25c3ad2f1dfddc44d364b444e988038b8b61b358",
+        "landed_commit": "5f20fc73b26e9c98dcc1ad07f097bef3c0565c5b",
+        "touched_marked_files": [
+          "hub/coherence_view.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "package-resolution",
+      "req": "coh-pkg-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/package.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence_normative.py",
+          "tests/test_hub_coherence.py"
+        ],
+        "marked_files": [
+          "hub/coherence/package.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "a60b479e5bc0fc533f31c08d62a32e5c70066377",
+        "landed_commit": "88b74e9c0e6f1682f8cb2d2a76cc7c67555eb184",
+        "touched_marked_files": [
+          "hub/coherence/package.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "package-resolution",
+      "req": "coh-pkg-02",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/__main__.py",
+          "hub/coherence/package.py",
+          "hub/coherence/schemacheck.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence_exitcodes.py",
+          "tests/test_hub_coherence_decision.py",
+          "tests/test_hub_coherence_normative.py"
+        ],
+        "marked_files": [
+          "hub/coherence/__main__.py",
+          "hub/coherence/package.py",
+          "hub/coherence/schemacheck.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "ccc974d3eb2f60d104e4c3a9e309bd336bb8f64c",
+        "landed_commit": "53384aca2dbcdb84d9d1d504518f13088829a06e",
+        "touched_marked_files": [
+          "hub/coherence/__main__.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "package-resolution",
+      "req": "coh-pkg-03",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/package.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence_normative.py"
+        ],
+        "marked_files": [
+          "hub/coherence/package.py",
+          "tests/test_hub_coherence_normative.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "a60b479e5bc0fc533f31c08d62a32e5c70066377",
+        "landed_commit": "88b74e9c0e6f1682f8cb2d2a76cc7c67555eb184",
+        "touched_marked_files": [
+          "hub/coherence/package.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "package-resolution",
+      "req": "coh-pkg-04",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/package.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence_normative.py",
+          "tests/test_hub_coherence.py"
+        ],
+        "marked_files": [
+          "hub/coherence/package.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "a60b479e5bc0fc533f31c08d62a32e5c70066377",
+        "landed_commit": "88b74e9c0e6f1682f8cb2d2a76cc7c67555eb184",
+        "touched_marked_files": [
+          "hub/coherence/package.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "package-resolution",
+      "req": "coh-pkg-05",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/package.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence_normative.py",
+          "tests/test_hub_coherence.py"
+        ],
+        "marked_files": [
+          "hub/coherence/package.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "a60b479e5bc0fc533f31c08d62a32e5c70066377",
+        "landed_commit": "88b74e9c0e6f1682f8cb2d2a76cc7c67555eb184",
+        "touched_marked_files": [
+          "hub/coherence/package.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "publish-safety",
+      "req": "rel-upload-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "scripts/deploy.sh"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_schema_health_exitcodes.py"
+        ],
+        "marked_files": [
+          "scripts/deploy.sh",
+          "tests/test_schema_health_exitcodes.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "f85129deb1a895c254f1976b0b5f52caa3407c4b",
+        "landed_commit": "d0d9868c30c093cd394fed8ee3efbab3f53b6dce",
+        "touched_marked_files": [
+          "scripts/deploy.sh"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "publish-safety",
+      "req": "rel-artifact-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "scripts/deploy.sh"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_schema_health_exitcodes.py"
+        ],
+        "marked_files": [
+          "scripts/deploy.sh",
+          "tests/test_schema_health_exitcodes.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "f85129deb1a895c254f1976b0b5f52caa3407c4b",
+        "landed_commit": "d0d9868c30c093cd394fed8ee3efbab3f53b6dce",
+        "touched_marked_files": [
+          "scripts/deploy.sh"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "publish-safety",
+      "req": "rel-fixcommit-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "scripts/failure_registry_check.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_failure_registry_check.py"
+        ],
+        "marked_files": [
+          "scripts/failure_registry_check.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "25c3ad2f1dfddc44d364b444e988038b8b61b358",
+        "landed_commit": "5f20fc73b26e9c98dcc1ad07f097bef3c0565c5b",
+        "touched_marked_files": [
+          "scripts/failure_registry_check.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "release-gate-targeting",
+      "req": "rel-target-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "scripts/deploy.sh",
+          "scripts/regression_check.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_schema_health_exitcodes.py"
+        ],
+        "marked_files": [
+          "scripts/deploy.sh",
+          "scripts/regression_check.py",
+          "tests/test_schema_health_exitcodes.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "f85129deb1a895c254f1976b0b5f52caa3407c4b",
+        "landed_commit": "d0d9868c30c093cd394fed8ee3efbab3f53b6dce",
+        "touched_marked_files": [
+          "scripts/deploy.sh"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "release-gate-targeting",
+      "req": "rel-audit-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "scripts/regression_audit.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_regression_audit.py"
+        ],
+        "marked_files": [
+          "scripts/regression_audit.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "25c3ad2f1dfddc44d364b444e988038b8b61b358",
+        "landed_commit": "5f20fc73b26e9c98dcc1ad07f097bef3c0565c5b",
+        "touched_marked_files": [
+          "scripts/regression_audit.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "rule-coverage-truth",
+      "req": "rule-truth-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "scripts/rules_check.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_rule_scoping.py"
+        ],
+        "marked_files": [
+          "scripts/rules_check.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "25c3ad2f1dfddc44d364b444e988038b8b61b358",
+        "landed_commit": "5f20fc73b26e9c98dcc1ad07f097bef3c0565c5b",
+        "touched_marked_files": [
+          "scripts/rules_check.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "rule-coverage-truth",
+      "req": "rule-behavior-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "scripts/rules_check.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_template_supply_chain.py"
+        ],
+        "marked_files": [
+          "scripts/rules_check.py",
+          "tests/test_template_supply_chain.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "25c3ad2f1dfddc44d364b444e988038b8b61b358",
+        "landed_commit": "5f20fc73b26e9c98dcc1ad07f097bef3c0565c5b",
+        "touched_marked_files": [
+          "scripts/rules_check.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "rule-coverage-truth",
+      "req": "rule-marker-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "scripts/findings_to_spec.py",
+          "scripts/lib/spec_discovery.py",
+          "scripts/spec_traceability.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_spec_traceability.py"
+        ],
+        "marked_files": [
+          "scripts/findings_to_spec.py",
+          "scripts/lib/spec_discovery.py",
+          "scripts/spec_traceability.py",
+          "tests/test_spec_traceability.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "fc4d2915f8a9578be2794a4f6aa181226ab83775",
+        "landed_commit": "f84cfc87eec4187a0bfc6c28be3c6ed3358d0b87",
+        "touched_marked_files": [
+          "scripts/findings_to_spec.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "runner-monitoring",
+      "req": "mon-online-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/monitor.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/fixtures/runner_spoke.py"
+        ],
+        "marked_files": [
+          "hub/monitor.py",
+          "tests/fixtures/runner_spoke.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "bf3a8b5b1df6bcbb336f7fe1380e94c8f575fcd1",
+        "landed_commit": "a43cfb649e1e07144090511cd741ffabd583ef29",
+        "touched_marked_files": [
+          "hub/monitor.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "runner-monitoring",
+      "req": "mon-queue-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/monitor.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_monitor.py",
+          "tests/test_hub_monitor_default_deny.py"
+        ],
+        "marked_files": [
+          "hub/monitor.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "bf3a8b5b1df6bcbb336f7fe1380e94c8f575fcd1",
+        "landed_commit": "a43cfb649e1e07144090511cd741ffabd583ef29",
+        "touched_marked_files": [
+          "hub/monitor.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "runner-monitoring",
+      "req": "mon-gates-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/monitor.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_monitor.py",
+          "tests/test_hub_monitor_default_deny.py"
+        ],
+        "marked_files": [
+          "hub/monitor.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "bf3a8b5b1df6bcbb336f7fe1380e94c8f575fcd1",
+        "landed_commit": "a43cfb649e1e07144090511cd741ffabd583ef29",
+        "touched_marked_files": [
+          "hub/monitor.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "runner-monitoring",
+      "req": "mon-drift-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/monitor.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_monitor.py",
+          "tests/test_hub_monitor_default_deny.py"
+        ],
+        "marked_files": [
+          "hub/monitor.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "bf3a8b5b1df6bcbb336f7fe1380e94c8f575fcd1",
+        "landed_commit": "a43cfb649e1e07144090511cd741ffabd583ef29",
+        "touched_marked_files": [
+          "hub/monitor.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "scanner-parsing",
+      "req": "gate-tscn-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "scripts/scene_inventory.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_scene_inventory.py"
+        ],
+        "marked_files": [
+          "scripts/scene_inventory.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "25c3ad2f1dfddc44d364b444e988038b8b61b358",
+        "landed_commit": "5f20fc73b26e9c98dcc1ad07f097bef3c0565c5b",
+        "touched_marked_files": [
+          "scripts/scene_inventory.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "scanner-parsing",
+      "req": "gate-rstest-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "scripts/guardrails-scan.mjs"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_guardrails_scan_node.py",
+          "tests/test_guardrails_scan.mjs"
+        ],
+        "marked_files": [
+          "scripts/guardrails-scan.mjs"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "25c3ad2f1dfddc44d364b444e988038b8b61b358",
+        "landed_commit": "5f20fc73b26e9c98dcc1ad07f097bef3c0565c5b",
+        "touched_marked_files": [
+          "scripts/guardrails-scan.mjs"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "scanner-parsing",
+      "req": "gate-size-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "scripts/regression_sizes.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_regression_sizes.py"
+        ],
+        "marked_files": [
+          "scripts/regression_sizes.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "b2dfaddfaabcc24c105863b8132c9ceef5382dcf",
+        "landed_commit": "0cb5ee9ba29164afa4c6b512c101b513e2574b0d",
+        "touched_marked_files": [
+          "scripts/regression_sizes.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "security-boundaries",
+      "req": "coh-sec-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/context.py",
+          "hub/coherence/manifest.py",
+          "hub/coherence/store.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_gate_containment.py",
+          "tests/test_hub_coherence_containment.py"
+        ],
+        "marked_files": [
+          "hub/coherence/context.py",
+          "hub/coherence/manifest.py",
+          "hub/coherence/store.py",
+          "scripts/check_manifest_join.py",
+          "scripts/findings_to_spec.py",
+          "scripts/gate_common.py",
+          "scripts/regression_corpus.py",
+          "scripts/spec-fleet-classify.py",
+          "tests/test_gate_containment.py",
+          "tests/test_hub_coherence_containment.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "252bbe076a5e1370a5e9a51eae36e82df9b0a3df",
+        "landed_commit": "725dd1ef4c66749959dd49c5f7a37cc27b97132d",
+        "touched_marked_files": [
+          "hub/coherence/context.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "security-boundaries",
+      "req": "mon-sec-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/server.py",
+          "hub/tokens.py",
+          "hub/schema/runners.schema.json"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_hardening.py"
+        ],
+        "marked_files": [
+          "tests/test_hub_hardening.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "0346fd89cb376b590e92d62e62c699f1fa3def64",
+        "landed_commit": "756c1d7bb4b32e977e511e4b630a82cb55d30a3a",
+        "touched_marked_files": [
+          "tests/test_hub_hardening.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "security-boundaries",
+      "req": "mon-sec-02",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/server.py",
+          "hub/tokens.py",
+          "hub/schema/runners.schema.json"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_registry_schema.py",
+          "tests/test_template_supply_chain.py"
+        ],
+        "marked_files": [
+          "tests/test_hub_registry_schema.py",
+          "tests/test_template_supply_chain.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "f5433b51e658c6080d5b4ec2fc2a755fdc507db9",
+        "landed_commit": "3fe7633dc507804fd6eee37ec2b26a1a7f7fb3a9",
+        "touched_marked_files": [
+          "tests/test_hub_registry_schema.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "security-boundaries",
+      "req": "ci-sec-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "templates/github/workflows/",
+          ".github/workflows/"
+        ],
+        "implementation_absent_at_head": [
+          "templates/github/workflows/"
+        ],
+        "verification": [
+          "tests/test_template_supply_chain.py"
+        ],
+        "marked_files": [
+          "tests/test_template_supply_chain.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "d743784cebe8ea2a48aa5c21659871902390bac8",
+        "landed_commit": "4f6f3bc6c3d7e9265604a3af5c428e3dafc03ac9",
+        "touched_marked_files": [
+          "tests/test_template_supply_chain.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "cited implementation path(s) absent at HEAD: ['templates/github/workflows/']"
+      ]
+    },
+    {
+      "spec": "spec-platform",
+      "req": "spec-fmt-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "scripts/lib/spec_discovery.py",
+          "scripts/migrate_spec_format.py",
+          "scripts/spec_traceability.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_spec_traceability.py"
+        ],
+        "marked_files": [
+          "scripts/lib/spec_discovery.py",
+          "scripts/migrate_spec_format.py",
+          "scripts/spec_traceability.py",
+          "scripts/specs-validate-negative-control.sh",
+          "tests/test_spec_traceability.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "fc4d2915f8a9578be2794a4f6aa181226ab83775",
+        "landed_commit": "f84cfc87eec4187a0bfc6c28be3c6ed3358d0b87",
+        "touched_marked_files": [
+          "scripts/lib/spec_discovery.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "spec-platform",
+      "req": "spec-fmt-02",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "scripts/spec_traceability.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_spec_traceability.py"
+        ],
+        "marked_files": [
+          "scripts/spec_traceability.py",
+          "tests/test_spec_traceability.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "25c3ad2f1dfddc44d364b444e988038b8b61b358",
+        "landed_commit": "5f20fc73b26e9c98dcc1ad07f097bef3c0565c5b",
+        "touched_marked_files": [
+          "scripts/spec_traceability.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "spec-platform",
+      "req": "spec-fmt-03",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "scripts/spec_traceability.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_spec_traceability.py"
+        ],
+        "marked_files": [
+          "scripts/spec_traceability.py",
+          "tests/test_spec_traceability.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "25c3ad2f1dfddc44d364b444e988038b8b61b358",
+        "landed_commit": "5f20fc73b26e9c98dcc1ad07f097bef3c0565c5b",
+        "touched_marked_files": [
+          "scripts/spec_traceability.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "subjects-3d",
+      "req": "coh-3d-01",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/manifest.py",
+          "scripts/world_slice_tool.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence_3d_slice.py"
+        ],
+        "marked_files": [
+          "hub/coherence/manifest.py",
+          "scripts/world_slice_tool.py",
+          "tests/test_hub_coherence_3d_slice.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "d9886a26e4a3a5a93acb7af5aaf04f9bcd85becd",
+        "landed_commit": "25c3ad2f1dfddc44d364b444e988038b8b61b358",
+        "touched_marked_files": [
+          "hub/coherence/manifest.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "subjects-3d",
+      "req": "coh-3d-02",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/evaluators.py",
+          "scripts/world_slice_tool.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence_3d_slice.py"
+        ],
+        "marked_files": [
+          "hub/coherence/evaluators.py",
+          "scripts/world_slice_tool.py",
+          "tests/test_hub_coherence_3d_slice.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "550ed9d5f0888b24c1b8eae91291cbb8418d8f31",
+        "landed_commit": "9cd10c6aa38dc22a10910fa3290d7d95858b37ba",
+        "touched_marked_files": [
+          "hub/coherence/evaluators.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "subjects-3d",
+      "req": "coh-3d-03",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/evaluators.py",
+          "scripts/world_slice_tool.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence_3d_slice.py"
+        ],
+        "marked_files": [
+          "hub/coherence/evaluators.py",
+          "scripts/world_slice_tool.py",
+          "tests/test_hub_coherence_3d_slice.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "550ed9d5f0888b24c1b8eae91291cbb8418d8f31",
+        "landed_commit": "9cd10c6aa38dc22a10910fa3290d7d95858b37ba",
+        "touched_marked_files": [
+          "hub/coherence/evaluators.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "subjects-3d",
+      "req": "coh-3d-04",
+      "cell": "EXERCISED",
+      "source": "closure-cell",
+      "citations": {
+        "implementation": [
+          "hub/coherence/evaluators.py",
+          "hub/coherence/manifest.py",
+          "scripts/world_slice_tool.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [
+          "tests/test_hub_coherence_3d_slice.py"
+        ],
+        "marked_files": [
+          "hub/coherence/evaluators.py",
+          "hub/coherence/manifest.py",
+          "scripts/world_slice_tool.py",
+          "tests/test_hub_coherence_3d_slice.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "550ed9d5f0888b24c1b8eae91291cbb8418d8f31",
+        "landed_commit": "9cd10c6aa38dc22a10910fa3290d7d95858b37ba",
+        "touched_marked_files": [
+          "hub/coherence/evaluators.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    }
+  ],
+  "status_line_specs": [
+    {
+      "spec": "doc-truth",
+      "req": "doc-version-01",
+      "status": "Closed (2 of 2 requirements terminal 2026-11-03). `doc-version-01`:",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [
+          "scripts/deploy.sh",
+          "scripts/check_version_truth.py",
+          ".guardrails/"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "scripts/check_version_truth.py",
+          "scripts/deploy.sh",
+          "tests/test_check_version_truth.py",
+          "tests/test_template_supply_chain.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "d743784cebe8ea2a48aa5c21659871902390bac8",
+        "landed_commit": "4f6f3bc6c3d7e9265604a3af5c428e3dafc03ac9",
+        "touched_marked_files": [
+          "scripts/check_version_truth.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "doc-truth",
+      "req": "doc-overlay-01",
+      "status": "Closed (2 of 2 requirements terminal 2026-11-03). `doc-version-01`:",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [
+          "scripts/deploy.sh",
+          "scripts/check_version_truth.py",
+          ".guardrails/"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "tests/test_template_supply_chain.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "d743784cebe8ea2a48aa5c21659871902390bac8",
+        "landed_commit": "4f6f3bc6c3d7e9265604a3af5c428e3dafc03ac9",
+        "touched_marked_files": [
+          "tests/test_template_supply_chain.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "fleet-manager-adapter-contract",
+      "req": "fleet-007-01",
+      "status": "CLOSED (EXERCISED 4)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/fleet_manager/__init__.py",
+          "fleet-manager/fleet_manager/adapters.py",
+          "fleet-manager/tests/test_adapters_v1.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "bcbb1e8391f1f53b21a13052b21dc888c853211f",
+        "landed_commit": "bcbfc369b3fb440b66c4d26000cdbf521d3d66bb",
+        "touched_marked_files": [
+          "fleet-manager/fleet_manager/__init__.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-adapter-contract",
+      "req": "fleet-007-02",
+      "status": "CLOSED (EXERCISED 4)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/fleet_manager/__init__.py",
+          "fleet-manager/fleet_manager/adapters.py",
+          "fleet-manager/tests/test_adapters_v1.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "bcbb1e8391f1f53b21a13052b21dc888c853211f",
+        "landed_commit": "bcbfc369b3fb440b66c4d26000cdbf521d3d66bb",
+        "touched_marked_files": [
+          "fleet-manager/fleet_manager/__init__.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-adapter-contract",
+      "req": "fleet-007-03",
+      "status": "CLOSED (EXERCISED 4)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/fleet_manager/__init__.py",
+          "fleet-manager/fleet_manager/adapters.py",
+          "fleet-manager/tests/test_adapters_v1.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "bcbb1e8391f1f53b21a13052b21dc888c853211f",
+        "landed_commit": "bcbfc369b3fb440b66c4d26000cdbf521d3d66bb",
+        "touched_marked_files": [
+          "fleet-manager/fleet_manager/__init__.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-adapter-contract",
+      "req": "fleet-007-04",
+      "status": "CLOSED (EXERCISED 4)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/fleet_manager/__init__.py",
+          "fleet-manager/fleet_manager/adapters.py",
+          "fleet-manager/tests/test_adapters_v1.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "bcbb1e8391f1f53b21a13052b21dc888c853211f",
+        "landed_commit": "bcbfc369b3fb440b66c4d26000cdbf521d3d66bb",
+        "touched_marked_files": [
+          "fleet-manager/fleet_manager/__init__.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-agent-channel",
+      "req": "fleet-004-01",
+      "status": "CLOSED (EXERCISED 5)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/fleet_manager/__init__.py",
+          "fleet-manager/fleet_manager/channel.py",
+          "fleet-manager/tests/test_channel_v1.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "bcbb1e8391f1f53b21a13052b21dc888c853211f",
+        "landed_commit": "bcbfc369b3fb440b66c4d26000cdbf521d3d66bb",
+        "touched_marked_files": [
+          "fleet-manager/fleet_manager/__init__.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-agent-channel",
+      "req": "fleet-004-02",
+      "status": "CLOSED (EXERCISED 5)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/fleet_manager/__init__.py",
+          "fleet-manager/fleet_manager/channel.py",
+          "fleet-manager/tests/test_channel_v1.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "bcbb1e8391f1f53b21a13052b21dc888c853211f",
+        "landed_commit": "bcbfc369b3fb440b66c4d26000cdbf521d3d66bb",
+        "touched_marked_files": [
+          "fleet-manager/fleet_manager/__init__.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-agent-channel",
+      "req": "fleet-004-03",
+      "status": "CLOSED (EXERCISED 5)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/fleet_manager/__init__.py",
+          "fleet-manager/fleet_manager/channel.py",
+          "fleet-manager/tests/test_channel_v1.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "bcbb1e8391f1f53b21a13052b21dc888c853211f",
+        "landed_commit": "bcbfc369b3fb440b66c4d26000cdbf521d3d66bb",
+        "touched_marked_files": [
+          "fleet-manager/fleet_manager/__init__.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-agent-channel",
+      "req": "fleet-004-04",
+      "status": "CLOSED (EXERCISED 5)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/fleet_manager/__init__.py",
+          "fleet-manager/fleet_manager/channel.py",
+          "fleet-manager/tests/test_channel_v1.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "bcbb1e8391f1f53b21a13052b21dc888c853211f",
+        "landed_commit": "bcbfc369b3fb440b66c4d26000cdbf521d3d66bb",
+        "touched_marked_files": [
+          "fleet-manager/fleet_manager/__init__.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-agent-channel",
+      "req": "fleet-004-05",
+      "status": "CLOSED (EXERCISED 5)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/fleet_manager/__init__.py",
+          "fleet-manager/fleet_manager/channel.py",
+          "fleet-manager/tests/test_channel_v1.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "bcbb1e8391f1f53b21a13052b21dc888c853211f",
+        "landed_commit": "bcbfc369b3fb440b66c4d26000cdbf521d3d66bb",
+        "touched_marked_files": [
+          "fleet-manager/fleet_manager/__init__.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-agent-operations",
+      "req": "fleet-005-01",
+      "status": "CLOSED (EXERCISED 5)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/fleet_manager/__init__.py",
+          "fleet-manager/fleet_manager/operations.py",
+          "fleet-manager/tests/test_operations_v1.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "bcbb1e8391f1f53b21a13052b21dc888c853211f",
+        "landed_commit": "bcbfc369b3fb440b66c4d26000cdbf521d3d66bb",
+        "touched_marked_files": [
+          "fleet-manager/fleet_manager/__init__.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-agent-operations",
+      "req": "fleet-005-02",
+      "status": "CLOSED (EXERCISED 5)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/fleet_manager/__init__.py",
+          "fleet-manager/fleet_manager/operations.py",
+          "fleet-manager/tests/test_operations_v1.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "bcbb1e8391f1f53b21a13052b21dc888c853211f",
+        "landed_commit": "bcbfc369b3fb440b66c4d26000cdbf521d3d66bb",
+        "touched_marked_files": [
+          "fleet-manager/fleet_manager/__init__.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-agent-operations",
+      "req": "fleet-005-03",
+      "status": "CLOSED (EXERCISED 5)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/fleet_manager/__init__.py",
+          "fleet-manager/fleet_manager/operations.py",
+          "fleet-manager/tests/test_operations_v1.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "bcbb1e8391f1f53b21a13052b21dc888c853211f",
+        "landed_commit": "bcbfc369b3fb440b66c4d26000cdbf521d3d66bb",
+        "touched_marked_files": [
+          "fleet-manager/fleet_manager/__init__.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-agent-operations",
+      "req": "fleet-005-04",
+      "status": "CLOSED (EXERCISED 5)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/fleet_manager/__init__.py",
+          "fleet-manager/fleet_manager/operations.py",
+          "fleet-manager/tests/test_operations_v1.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "bcbb1e8391f1f53b21a13052b21dc888c853211f",
+        "landed_commit": "bcbfc369b3fb440b66c4d26000cdbf521d3d66bb",
+        "touched_marked_files": [
+          "fleet-manager/fleet_manager/__init__.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-agent-operations",
+      "req": "fleet-005-05",
+      "status": "CLOSED (EXERCISED 5)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/fleet_manager/__init__.py",
+          "fleet-manager/fleet_manager/operations.py",
+          "fleet-manager/tests/test_operations_v1.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "bcbb1e8391f1f53b21a13052b21dc888c853211f",
+        "landed_commit": "bcbfc369b3fb440b66c4d26000cdbf521d3d66bb",
+        "touched_marked_files": [
+          "fleet-manager/fleet_manager/__init__.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-boundary",
+      "req": "repo-002-01",
+      "status": "CLOSED (EXERCISED 4)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "docs/qa/2026-10-24-fleet-manager-extraction-rehearsal.md",
+          "openspec/changes/archive/2026-11-06-add-fleet-manager-extraction-rehearsal/design.md",
+          "scripts/check_boundary.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "6e7c2ca520fb5a6cb1d197283341a28a55da08e0",
+        "landed_commit": "12df6c4890ee3cf768ca9745ce9877706f54685d",
+        "touched_marked_files": [
+          "docs/qa/2026-10-24-fleet-manager-extraction-rehearsal.md"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-boundary",
+      "req": "repo-002-02",
+      "status": "CLOSED (EXERCISED 4)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "scripts/check_boundary.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "f7bf16b607f569411639ea43003310eea51d88b3",
+        "landed_commit": "6e7c2ca520fb5a6cb1d197283341a28a55da08e0",
+        "touched_marked_files": [
+          "scripts/check_boundary.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-boundary",
+      "req": "repo-002-03",
+      "status": "CLOSED (EXERCISED 4)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "scripts/check_boundary.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "f7bf16b607f569411639ea43003310eea51d88b3",
+        "landed_commit": "6e7c2ca520fb5a6cb1d197283341a28a55da08e0",
+        "touched_marked_files": [
+          "scripts/check_boundary.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-boundary",
+      "req": "repo-002-04",
+      "status": "CLOSED (EXERCISED 4)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "scripts/check_boundary.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "f7bf16b607f569411639ea43003310eea51d88b3",
+        "landed_commit": "6e7c2ca520fb5a6cb1d197283341a28a55da08e0",
+        "touched_marked_files": [
+          "scripts/check_boundary.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-contracts",
+      "req": "repo-003-01",
+      "status": "CLOSED (EXERCISED 6)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "docs/qa/2026-10-24-fleet-manager-contracts-v1.md",
+          "fleet-manager/fleet_manager/__init__.py",
+          "fleet-manager/fleet_manager/contracts.py",
+          "fleet-manager/tests/test_contracts_v1.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "0229fbf8f5831f5e0a317b9523fe31908f38ab01",
+        "landed_commit": "10ce67e824db766683b1b76a8444d8e57109df24",
+        "touched_marked_files": [
+          "docs/qa/2026-10-24-fleet-manager-contracts-v1.md"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-contracts",
+      "req": "repo-003-02",
+      "status": "CLOSED (EXERCISED 6)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/fleet_manager/contracts.py",
+          "fleet-manager/tests/test_contracts_v1.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "0229fbf8f5831f5e0a317b9523fe31908f38ab01",
+        "landed_commit": "10ce67e824db766683b1b76a8444d8e57109df24",
+        "touched_marked_files": [
+          "fleet-manager/fleet_manager/contracts.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-contracts",
+      "req": "repo-004-01",
+      "status": "CLOSED (EXERCISED 6)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/fleet_manager/contracts.py",
+          "fleet-manager/tests/test_contracts_v1.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "0229fbf8f5831f5e0a317b9523fe31908f38ab01",
+        "landed_commit": "10ce67e824db766683b1b76a8444d8e57109df24",
+        "touched_marked_files": [
+          "fleet-manager/fleet_manager/contracts.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-contracts",
+      "req": "repo-004-02",
+      "status": "CLOSED (EXERCISED 6)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/fleet_manager/contracts.py",
+          "fleet-manager/tests/test_contracts_v1.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "0229fbf8f5831f5e0a317b9523fe31908f38ab01",
+        "landed_commit": "10ce67e824db766683b1b76a8444d8e57109df24",
+        "touched_marked_files": [
+          "fleet-manager/fleet_manager/contracts.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-contracts",
+      "req": "repo-004-03",
+      "status": "CLOSED (EXERCISED 6)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/fleet_manager/contracts.py",
+          "fleet-manager/tests/test_contracts_v1.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "0229fbf8f5831f5e0a317b9523fe31908f38ab01",
+        "landed_commit": "10ce67e824db766683b1b76a8444d8e57109df24",
+        "touched_marked_files": [
+          "fleet-manager/fleet_manager/contracts.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-contracts",
+      "req": "repo-004-04",
+      "status": "CLOSED (EXERCISED 6)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/fleet_manager/contracts.py",
+          "fleet-manager/tests/test_contracts_v1.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "0229fbf8f5831f5e0a317b9523fe31908f38ab01",
+        "landed_commit": "10ce67e824db766683b1b76a8444d8e57109df24",
+        "touched_marked_files": [
+          "fleet-manager/fleet_manager/contracts.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-domain",
+      "req": "fleet-001-01",
+      "status": "CLOSED (EXERCISED 5)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/fleet_manager/__init__.py",
+          "fleet-manager/fleet_manager/model.py",
+          "fleet-manager/fleet_manager/observation.py",
+          "fleet-manager/tests/test_model_v1.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "bcbb1e8391f1f53b21a13052b21dc888c853211f",
+        "landed_commit": "bcbfc369b3fb440b66c4d26000cdbf521d3d66bb",
+        "touched_marked_files": [
+          "fleet-manager/fleet_manager/__init__.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-domain",
+      "req": "fleet-001-02",
+      "status": "CLOSED (EXERCISED 5)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/fleet_manager/__init__.py",
+          "fleet-manager/fleet_manager/documents.py",
+          "fleet-manager/fleet_manager/model.py",
+          "fleet-manager/tests/test_model_v1.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "bcbb1e8391f1f53b21a13052b21dc888c853211f",
+        "landed_commit": "bcbfc369b3fb440b66c4d26000cdbf521d3d66bb",
+        "touched_marked_files": [
+          "fleet-manager/fleet_manager/__init__.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-domain",
+      "req": "fleet-001-03",
+      "status": "CLOSED (EXERCISED 5)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/fleet_manager/__init__.py",
+          "fleet-manager/fleet_manager/documents.py",
+          "fleet-manager/tests/test_model_v1.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "bcbb1e8391f1f53b21a13052b21dc888c853211f",
+        "landed_commit": "bcbfc369b3fb440b66c4d26000cdbf521d3d66bb",
+        "touched_marked_files": [
+          "fleet-manager/fleet_manager/__init__.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-domain",
+      "req": "fleet-001-04",
+      "status": "CLOSED (EXERCISED 5)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/fleet_manager/model.py",
+          "fleet-manager/tests/test_model_v1.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "b5c5d9fa8d00e736564f2b506c1c854b6cbdfa89",
+        "landed_commit": "40cf0f377ec618b211ee6d25e7c68beb97c013e5",
+        "touched_marked_files": [
+          "fleet-manager/fleet_manager/model.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-domain",
+      "req": "fleet-001-05",
+      "status": "CLOSED (EXERCISED 5)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/fleet_manager/model.py",
+          "fleet-manager/tests/test_model_v1.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "b5c5d9fa8d00e736564f2b506c1c854b6cbdfa89",
+        "landed_commit": "40cf0f377ec618b211ee6d25e7c68beb97c013e5",
+        "touched_marked_files": [
+          "fleet-manager/fleet_manager/model.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-extraction",
+      "req": "repo-005-01",
+      "status": "CLOSED (EXERCISED 3)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/scripts/extraction_rehearsal.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "10ce67e824db766683b1b76a8444d8e57109df24",
+        "landed_commit": "f7bf16b607f569411639ea43003310eea51d88b3",
+        "touched_marked_files": [
+          "fleet-manager/scripts/extraction_rehearsal.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-extraction",
+      "req": "repo-005-02",
+      "status": "CLOSED (EXERCISED 3)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/scripts/extraction_rehearsal.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "10ce67e824db766683b1b76a8444d8e57109df24",
+        "landed_commit": "f7bf16b607f569411639ea43003310eea51d88b3",
+        "touched_marked_files": [
+          "fleet-manager/scripts/extraction_rehearsal.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-extraction",
+      "req": "repo-005-03",
+      "status": "CLOSED (EXERCISED 3)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "scripts/check_boundary.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "f7bf16b607f569411639ea43003310eea51d88b3",
+        "landed_commit": "6e7c2ca520fb5a6cb1d197283341a28a55da08e0",
+        "touched_marked_files": [
+          "scripts/check_boundary.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-job-lifecycle",
+      "req": "fleet-008-01",
+      "status": "CLOSED (EXERCISED 5)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/fleet_manager/lifecycle.py",
+          "fleet-manager/tests/test_lifecycle_v1.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "bcbb1e8391f1f53b21a13052b21dc888c853211f",
+        "landed_commit": "bcbfc369b3fb440b66c4d26000cdbf521d3d66bb",
+        "touched_marked_files": [
+          "fleet-manager/fleet_manager/lifecycle.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-job-lifecycle",
+      "req": "fleet-008-02",
+      "status": "CLOSED (EXERCISED 5)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/fleet_manager/lifecycle.py",
+          "fleet-manager/tests/test_lifecycle_v1.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "bcbb1e8391f1f53b21a13052b21dc888c853211f",
+        "landed_commit": "bcbfc369b3fb440b66c4d26000cdbf521d3d66bb",
+        "touched_marked_files": [
+          "fleet-manager/fleet_manager/lifecycle.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-job-lifecycle",
+      "req": "fleet-008-03",
+      "status": "CLOSED (EXERCISED 5)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/fleet_manager/lifecycle.py",
+          "fleet-manager/tests/test_lifecycle_v1.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "bcbb1e8391f1f53b21a13052b21dc888c853211f",
+        "landed_commit": "bcbfc369b3fb440b66c4d26000cdbf521d3d66bb",
+        "touched_marked_files": [
+          "fleet-manager/fleet_manager/lifecycle.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-job-lifecycle",
+      "req": "fleet-008-04",
+      "status": "CLOSED (EXERCISED 5)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/fleet_manager/lifecycle.py",
+          "fleet-manager/tests/test_adapters_v1.py",
+          "fleet-manager/tests/test_lifecycle_v1.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "bcbb1e8391f1f53b21a13052b21dc888c853211f",
+        "landed_commit": "bcbfc369b3fb440b66c4d26000cdbf521d3d66bb",
+        "touched_marked_files": [
+          "fleet-manager/fleet_manager/lifecycle.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-job-lifecycle",
+      "req": "fleet-008-05",
+      "status": "CLOSED (EXERCISED 5)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/fleet_manager/lifecycle.py",
+          "fleet-manager/tests/test_lifecycle_v1.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "bcbb1e8391f1f53b21a13052b21dc888c853211f",
+        "landed_commit": "bcbfc369b3fb440b66c4d26000cdbf521d3d66bb",
+        "touched_marked_files": [
+          "fleet-manager/fleet_manager/lifecycle.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-plan",
+      "req": "fleet-002-01",
+      "status": "CLOSED (EXERCISED 4)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/fleet_manager/__init__.py",
+          "fleet-manager/fleet_manager/plan.py",
+          "fleet-manager/tests/test_plan_apply_v1.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "bcbb1e8391f1f53b21a13052b21dc888c853211f",
+        "landed_commit": "bcbfc369b3fb440b66c4d26000cdbf521d3d66bb",
+        "touched_marked_files": [
+          "fleet-manager/fleet_manager/__init__.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-plan",
+      "req": "fleet-002-02",
+      "status": "CLOSED (EXERCISED 4)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/fleet_manager/__init__.py",
+          "fleet-manager/fleet_manager/apply.py",
+          "fleet-manager/fleet_manager/auth.py",
+          "fleet-manager/tests/test_plan_apply_v1.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "bcbb1e8391f1f53b21a13052b21dc888c853211f",
+        "landed_commit": "bcbfc369b3fb440b66c4d26000cdbf521d3d66bb",
+        "touched_marked_files": [
+          "fleet-manager/fleet_manager/__init__.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-plan",
+      "req": "fleet-002-03",
+      "status": "CLOSED (EXERCISED 4)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/fleet_manager/__init__.py",
+          "fleet-manager/fleet_manager/apply.py",
+          "fleet-manager/fleet_manager/audit.py",
+          "fleet-manager/tests/test_plan_apply_v1.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "bcbb1e8391f1f53b21a13052b21dc888c853211f",
+        "landed_commit": "bcbfc369b3fb440b66c4d26000cdbf521d3d66bb",
+        "touched_marked_files": [
+          "fleet-manager/fleet_manager/__init__.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-plan",
+      "req": "fleet-002-04",
+      "status": "CLOSED (EXERCISED 4)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/fleet_manager/__init__.py",
+          "fleet-manager/fleet_manager/apply.py",
+          "fleet-manager/tests/test_plan_apply_v1.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "bcbb1e8391f1f53b21a13052b21dc888c853211f",
+        "landed_commit": "bcbfc369b3fb440b66c4d26000cdbf521d3d66bb",
+        "touched_marked_files": [
+          "fleet-manager/fleet_manager/__init__.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-reconciliation",
+      "req": "fleet-003-01",
+      "status": "CLOSED (EXERCISED 4)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/fleet_manager/__init__.py",
+          "fleet-manager/fleet_manager/reconcile.py",
+          "fleet-manager/tests/test_reconcile_v1.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "bcbb1e8391f1f53b21a13052b21dc888c853211f",
+        "landed_commit": "bcbfc369b3fb440b66c4d26000cdbf521d3d66bb",
+        "touched_marked_files": [
+          "fleet-manager/fleet_manager/__init__.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-reconciliation",
+      "req": "fleet-003-02",
+      "status": "CLOSED (EXERCISED 4)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/fleet_manager/__init__.py",
+          "fleet-manager/fleet_manager/reconcile.py",
+          "fleet-manager/tests/test_reconcile_v1.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "bcbb1e8391f1f53b21a13052b21dc888c853211f",
+        "landed_commit": "bcbfc369b3fb440b66c4d26000cdbf521d3d66bb",
+        "touched_marked_files": [
+          "fleet-manager/fleet_manager/__init__.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-reconciliation",
+      "req": "fleet-003-03",
+      "status": "CLOSED (EXERCISED 4)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/fleet_manager/__init__.py",
+          "fleet-manager/fleet_manager/reconcile.py",
+          "fleet-manager/tests/test_reconcile_v1.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "bcbb1e8391f1f53b21a13052b21dc888c853211f",
+        "landed_commit": "bcbfc369b3fb440b66c4d26000cdbf521d3d66bb",
+        "touched_marked_files": [
+          "fleet-manager/fleet_manager/__init__.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-reconciliation",
+      "req": "fleet-003-04",
+      "status": "CLOSED (EXERCISED 4)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/fleet_manager/__init__.py",
+          "fleet-manager/fleet_manager/reconcile.py",
+          "fleet-manager/tests/test_reconcile_v1.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "bcbb1e8391f1f53b21a13052b21dc888c853211f",
+        "landed_commit": "bcbfc369b3fb440b66c4d26000cdbf521d3d66bb",
+        "touched_marked_files": [
+          "fleet-manager/fleet_manager/__init__.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-signed-state",
+      "req": "fleet-006-01",
+      "status": "CLOSED (EXERCISED 4)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/fleet_manager/__init__.py",
+          "fleet-manager/fleet_manager/state.py",
+          "fleet-manager/tests/test_state_v1.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "bcbb1e8391f1f53b21a13052b21dc888c853211f",
+        "landed_commit": "bcbfc369b3fb440b66c4d26000cdbf521d3d66bb",
+        "touched_marked_files": [
+          "fleet-manager/fleet_manager/__init__.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-signed-state",
+      "req": "fleet-006-02",
+      "status": "CLOSED (EXERCISED 4)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/fleet_manager/__init__.py",
+          "fleet-manager/fleet_manager/state.py",
+          "fleet-manager/tests/test_state_v1.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "bcbb1e8391f1f53b21a13052b21dc888c853211f",
+        "landed_commit": "bcbfc369b3fb440b66c4d26000cdbf521d3d66bb",
+        "touched_marked_files": [
+          "fleet-manager/fleet_manager/__init__.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-signed-state",
+      "req": "fleet-006-03",
+      "status": "CLOSED (EXERCISED 4)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/fleet_manager/__init__.py",
+          "fleet-manager/fleet_manager/state.py",
+          "fleet-manager/tests/test_state_v1.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "bcbb1e8391f1f53b21a13052b21dc888c853211f",
+        "landed_commit": "bcbfc369b3fb440b66c4d26000cdbf521d3d66bb",
+        "touched_marked_files": [
+          "fleet-manager/fleet_manager/__init__.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "fleet-manager-signed-state",
+      "req": "fleet-006-04",
+      "status": "CLOSED (EXERCISED 4)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "fleet-manager/fleet_manager/__init__.py",
+          "fleet-manager/fleet_manager/state.py",
+          "fleet-manager/tests/test_two_hosts_v1.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "bcbb1e8391f1f53b21a13052b21dc888c853211f",
+        "landed_commit": "bcbfc369b3fb440b66c4d26000cdbf521d3d66bb",
+        "touched_marked_files": [
+          "fleet-manager/fleet_manager/__init__.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "game-session-start",
+      "req": "session-01",
+      "status": "CLOSED (EXERCISED 6)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "engines/godot/game_session_hooks.gd",
+          "hub/sessions.py",
+          "scripts/game_session_start.py",
+          "templates/hooks/claude-code/session-start.sh",
+          "templates/hooks/codex/session-start.sh",
+          "templates/hooks/mimo/session-start.sh",
+          "templates/hooks/opencode/session-start.mjs",
+          "templates/hooks/pi-extension/session-init.ts",
+          "tests/test_game_session_start.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "e2abdca2b3cdc725c74bec042f213f284576e80f",
+        "landed_commit": "d9886a26e4a3a5a93acb7af5aaf04f9bcd85becd",
+        "touched_marked_files": [
+          "engines/godot/game_session_hooks.gd"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "game-session-start",
+      "req": "session-02",
+      "status": "CLOSED (EXERCISED 6)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "engines/godot/game_session_hooks.gd",
+          "scripts/game_session_start.py",
+          "templates/hooks/claude-code/session-start.sh",
+          "templates/hooks/codex/session-start.sh",
+          "templates/hooks/mimo/session-start.sh",
+          "templates/hooks/opencode/session-start.mjs",
+          "templates/hooks/pi-extension/session-init.ts",
+          "tests/test_game_session_start.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "e2abdca2b3cdc725c74bec042f213f284576e80f",
+        "landed_commit": "d9886a26e4a3a5a93acb7af5aaf04f9bcd85becd",
+        "touched_marked_files": [
+          "engines/godot/game_session_hooks.gd"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "game-session-start",
+      "req": "session-03",
+      "status": "CLOSED (EXERCISED 6)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "engines/godot/game_session_hooks.gd",
+          "scripts/game_session_start.py",
+          "templates/hooks/claude-code/session-start.sh",
+          "templates/hooks/codex/session-start.sh",
+          "templates/hooks/mimo/session-start.sh",
+          "templates/hooks/opencode/session-start.mjs",
+          "templates/hooks/pi-extension/session-init.ts",
+          "tests/test_game_session_start.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "e2abdca2b3cdc725c74bec042f213f284576e80f",
+        "landed_commit": "d9886a26e4a3a5a93acb7af5aaf04f9bcd85becd",
+        "touched_marked_files": [
+          "engines/godot/game_session_hooks.gd"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "game-session-start",
+      "req": "session-04",
+      "status": "CLOSED (EXERCISED 6)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "engines/godot/game_session_hooks.gd",
+          "hub/sessions.py",
+          "scripts/game_session_start.py",
+          "templates/hooks/claude-code/session-start.sh",
+          "templates/hooks/codex/session-start.sh",
+          "templates/hooks/mimo/session-start.sh",
+          "templates/hooks/opencode/session-start.mjs",
+          "templates/hooks/pi-extension/session-init.ts",
+          "tests/test_game_session_start.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "e2abdca2b3cdc725c74bec042f213f284576e80f",
+        "landed_commit": "d9886a26e4a3a5a93acb7af5aaf04f9bcd85becd",
+        "touched_marked_files": [
+          "engines/godot/game_session_hooks.gd"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "game-session-start",
+      "req": "session-05",
+      "status": "CLOSED (EXERCISED 6)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "hub/sessions.py",
+          "scripts/game_session_start.py",
+          "tests/test_game_session_start.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "e2abdca2b3cdc725c74bec042f213f284576e80f",
+        "landed_commit": "d9886a26e4a3a5a93acb7af5aaf04f9bcd85becd",
+        "touched_marked_files": [
+          "hub/sessions.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "game-session-start",
+      "req": "session-06",
+      "status": "CLOSED (EXERCISED 6)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "engines/godot/game_session_hooks.gd",
+          "scripts/game_session_start.py",
+          "templates/hooks/claude-code/session-start.sh",
+          "templates/hooks/codex/session-start.sh",
+          "templates/hooks/mimo/session-start.sh",
+          "templates/hooks/opencode/session-start.mjs",
+          "templates/hooks/pi-extension/session-init.ts",
+          "tests/test_game_session_start.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "e2abdca2b3cdc725c74bec042f213f284576e80f",
+        "landed_commit": "d9886a26e4a3a5a93acb7af5aaf04f9bcd85becd",
+        "touched_marked_files": [
+          "engines/godot/game_session_hooks.gd"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "game-type-phase-matrix",
+      "req": "game-matrix-01",
+      "status": "DEFERRED** \u2014 NOT IMPLEMENTED, and the deferral is the owner's",
+      "terminal_word": false,
+      "source": "status-line",
+      "citations": {
+        "implementation": [
+          "scripts/game-framework-README.md"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [],
+        "commits": [
+          {
+            "sha": "5bafa54",
+            "resolves": true
+          },
+          {
+            "sha": "9c46180",
+            "resolves": true
+          }
+        ]
+      },
+      "window": null,
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no file at HEAD carries 'spec: game-matrix-01'"
+      ]
+    },
+    {
+      "spec": "game-type-phase-matrix",
+      "req": "game-matrix-02",
+      "status": "DEFERRED** \u2014 NOT IMPLEMENTED, and the deferral is the owner's",
+      "terminal_word": false,
+      "source": "status-line",
+      "citations": {
+        "implementation": [
+          "scripts/game-framework-README.md"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [],
+        "commits": [
+          {
+            "sha": "5bafa54",
+            "resolves": true
+          },
+          {
+            "sha": "9c46180",
+            "resolves": true
+          }
+        ]
+      },
+      "window": null,
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no file at HEAD carries 'spec: game-matrix-02'"
+      ]
+    },
+    {
+      "spec": "game-type-phase-matrix",
+      "req": "game-matrix-03",
+      "status": "DEFERRED** \u2014 NOT IMPLEMENTED, and the deferral is the owner's",
+      "terminal_word": false,
+      "source": "status-line",
+      "citations": {
+        "implementation": [
+          "scripts/game-framework-README.md"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [],
+        "commits": [
+          {
+            "sha": "5bafa54",
+            "resolves": true
+          },
+          {
+            "sha": "9c46180",
+            "resolves": true
+          }
+        ]
+      },
+      "window": null,
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no file at HEAD carries 'spec: game-matrix-03'"
+      ]
+    },
+    {
+      "spec": "per-screen-tracking",
+      "req": "screen-inv-01",
+      "status": "Closed (2 of 2 requirements terminal 2026-10-19). `screen-inv-01`:",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [
+          "scripts/scene_inventory.py",
+          "src/",
+          "scenes/",
+          "tests/test_scene_inventory.py",
+          "$Panel/Btn.pressed.connect(f)",
+          "@onready var btn = $Panel/Btn"
+        ],
+        "implementation_absent_at_head": [
+          "src/",
+          "scenes/",
+          "$Panel/Btn.pressed.connect(f)",
+          "@onready var btn = $Panel/Btn"
+        ],
+        "verification": [],
+        "marked_files": [
+          "scripts/scene_inventory.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "25c3ad2f1dfddc44d364b444e988038b8b61b358",
+        "landed_commit": "5f20fc73b26e9c98dcc1ad07f097bef3c0565c5b",
+        "touched_marked_files": [
+          "scripts/scene_inventory.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "per-screen-tracking",
+      "req": "screen-inv-02",
+      "status": "Closed (2 of 2 requirements terminal 2026-10-19). `screen-inv-01`:",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [
+          "scripts/scene_inventory.py",
+          "src/",
+          "scenes/",
+          "tests/test_scene_inventory.py",
+          "$Panel/Btn.pressed.connect(f)",
+          "@onready var btn = $Panel/Btn"
+        ],
+        "implementation_absent_at_head": [
+          "src/",
+          "scenes/",
+          "$Panel/Btn.pressed.connect(f)",
+          "@onready var btn = $Panel/Btn"
+        ],
+        "verification": [],
+        "marked_files": [
+          "scripts/scene_inventory.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "25c3ad2f1dfddc44d364b444e988038b8b61b358",
+        "landed_commit": "5f20fc73b26e9c98dcc1ad07f097bef3c0565c5b",
+        "touched_marked_files": [
+          "scripts/scene_inventory.py"
+        ]
+      },
+      "verdict": "ACCEPTED",
+      "reasons": []
+    },
+    {
+      "spec": "runner-toolchain-requests",
+      "req": "mon-tc-01",
+      "status": "CLOSED (EXERCISED 6)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "hub/registry_observations.py",
+          "hub/toolchain_evidence.py",
+          "hub/toolchain_requests.py",
+          "hub/toolchain_store.py",
+          "scripts/lib/toolchain_probe.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "a5a94dd454287655b050b3cc273b028712109f82",
+        "landed_commit": "2a6b024632c30ee178c2a7b0421b2bb702c7bc2f",
+        "touched_marked_files": [
+          "hub/registry_observations.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "runner-toolchain-requests",
+      "req": "mon-tc-02",
+      "status": "CLOSED (EXERCISED 6)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "hub/registry_observations.py",
+          "hub/toolchain_api.py",
+          "hub/toolchain_queue_read.py",
+          "hub/toolchain_registry.py",
+          "hub/toolchain_requests.py",
+          "hub/toolchain_store.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "a5a94dd454287655b050b3cc273b028712109f82",
+        "landed_commit": "2a6b024632c30ee178c2a7b0421b2bb702c7bc2f",
+        "touched_marked_files": [
+          "hub/registry_observations.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "runner-toolchain-requests",
+      "req": "mon-tc-03",
+      "status": "CLOSED (EXERCISED 6)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "hub/toolchain_api.py",
+          "hub/toolchain_creds.py",
+          "hub/toolchain_evidence.py",
+          "hub/toolchain_registry.py",
+          "hub/toolchain_transitions.py",
+          "tests/test_hub_operator_auth.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "251baf5e2c5bb83b5b46b75b9463f203b6ea4d62",
+        "landed_commit": "019f6a37f5fc4af3e53e631700da7fd496c7c8a8",
+        "touched_marked_files": [
+          "hub/toolchain_api.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "runner-toolchain-requests",
+      "req": "mon-tc-04",
+      "status": "CLOSED (EXERCISED 6)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "hub/toolchain_api.py",
+          "hub/toolchain_creds.py",
+          "hub/toolchain_evidence.py",
+          "hub/toolchain_registry.py",
+          "hub/toolchain_transitions.py",
+          "tests/test_hub_operator_auth.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "251baf5e2c5bb83b5b46b75b9463f203b6ea4d62",
+        "landed_commit": "019f6a37f5fc4af3e53e631700da7fd496c7c8a8",
+        "touched_marked_files": [
+          "hub/toolchain_api.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "runner-toolchain-requests",
+      "req": "mon-tc-05",
+      "status": "CLOSED (EXERCISED 6)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "hub/toolchain_api.py",
+          "hub/toolchain_evidence.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "251baf5e2c5bb83b5b46b75b9463f203b6ea4d62",
+        "landed_commit": "019f6a37f5fc4af3e53e631700da7fd496c7c8a8",
+        "touched_marked_files": [
+          "hub/toolchain_api.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "runner-toolchain-requests",
+      "req": "mon-tc-06",
+      "status": "CLOSED (EXERCISED 6)",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "hub/registry_observations.py",
+          "hub/toolchain_evidence.py",
+          "hub/toolchain_requests.py",
+          "hub/toolchain_store.py"
+        ],
+        "commits": []
+      },
+      "window": {
+        "opened_commit": "a5a94dd454287655b050b3cc273b028712109f82",
+        "landed_commit": "2a6b024632c30ee178c2a7b0421b2bb702c7bc2f",
+        "touched_marked_files": [
+          "hub/registry_observations.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "no implementation path is cited"
+      ]
+    },
+    {
+      "spec": "zig-opengl-engine",
+      "req": "zig-engine-01",
+      "status": "Implemented (4 of 4 requirements shipped + marked 2026-10-14). Adds",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [
+          "scripts/scene_inventory.py",
+          "scripts/game_regression.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "scripts/scene_inventory.py"
+        ],
+        "commits": [
+          {
+            "sha": "4b69262",
+            "resolves": false
+          }
+        ]
+      },
+      "window": {
+        "opened_commit": "25c3ad2f1dfddc44d364b444e988038b8b61b358",
+        "landed_commit": "5f20fc73b26e9c98dcc1ad07f097bef3c0565c5b",
+        "touched_marked_files": [
+          "scripts/scene_inventory.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "cited commit 4b69262 does not resolve in reachable history"
+      ]
+    },
+    {
+      "spec": "zig-opengl-engine",
+      "req": "zig-ui-inv-01",
+      "status": "Implemented (4 of 4 requirements shipped + marked 2026-10-14). Adds",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [
+          "scripts/scene_inventory.py",
+          "scripts/game_regression.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "scripts/scene_inventory.py"
+        ],
+        "commits": [
+          {
+            "sha": "4b69262",
+            "resolves": false
+          }
+        ]
+      },
+      "window": {
+        "opened_commit": "25c3ad2f1dfddc44d364b444e988038b8b61b358",
+        "landed_commit": "5f20fc73b26e9c98dcc1ad07f097bef3c0565c5b",
+        "touched_marked_files": [
+          "scripts/scene_inventory.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "cited commit 4b69262 does not resolve in reachable history"
+      ]
+    },
+    {
+      "spec": "zig-opengl-engine",
+      "req": "zig-scope-01",
+      "status": "Implemented (4 of 4 requirements shipped + marked 2026-10-14). Adds",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [
+          "scripts/scene_inventory.py",
+          "scripts/game_regression.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "scripts/game_regression.py"
+        ],
+        "commits": [
+          {
+            "sha": "4b69262",
+            "resolves": false
+          }
+        ]
+      },
+      "window": {
+        "opened_commit": "5bafa54ccc00db851830f96dbb2acc09b3f75504",
+        "landed_commit": "d743784cebe8ea2a48aa5c21659871902390bac8",
+        "touched_marked_files": [
+          "scripts/game_regression.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "cited commit 4b69262 does not resolve in reachable history"
+      ]
+    },
+    {
+      "spec": "zig-opengl-engine",
+      "req": "zig-regress-01",
+      "status": "Implemented (4 of 4 requirements shipped + marked 2026-10-14). Adds",
+      "terminal_word": true,
+      "source": "status-line",
+      "citations": {
+        "implementation": [
+          "scripts/scene_inventory.py",
+          "scripts/game_regression.py"
+        ],
+        "implementation_absent_at_head": [],
+        "verification": [],
+        "marked_files": [
+          "scripts/game_regression.py"
+        ],
+        "commits": [
+          {
+            "sha": "4b69262",
+            "resolves": false
+          }
+        ]
+      },
+      "window": {
+        "opened_commit": "5bafa54ccc00db851830f96dbb2acc09b3f75504",
+        "landed_commit": "d743784cebe8ea2a48aa5c21659871902390bac8",
+        "touched_marked_files": [
+          "scripts/game_regression.py"
+        ]
+      },
+      "verdict": "UNPROVEN",
+      "reasons": [
+        "cited commit 4b69262 does not resolve in reachable history"
+      ]
+    }
+  ]
+}

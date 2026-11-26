@@ -53,6 +53,18 @@ export const CHECK_META: Record<string, { title: string; description: string }> 
     title: 'Task progress',
     description: 'Checked vs total tasks.md items.'
   },
+  'trace-orphan-commit': {
+    title: 'Commit with no covering task',
+    description: 'A commit changes behavior files but maps to no task in tasks.md.'
+  },
+  'trace-orphan-task': {
+    title: 'Task with no implementing commit',
+    description: 'A task is marked complete but no commit in the range implements it.'
+  },
+  'trace-commits-unavailable': {
+    title: 'Commit mapping unavailable',
+    description: 'The base range or git history was not resolvable, so only the task side of traceability ran.'
+  },
   // correctness
   'todo-marker': { title: 'Leftover TODO marker', description: 'TODO/FIXME/HACK added; resolve or file an issue.' },
   'console-output': { title: 'Console debug output', description: 'console.* added; use the project logger.' },

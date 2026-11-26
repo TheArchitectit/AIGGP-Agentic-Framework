@@ -92,7 +92,7 @@ export function keywords(text: string): Set<string> {
   const words = text
     .toLowerCase()
     .replace(/[^a-z0-9_\-/ ]/g, ' ')
-    .split(/[\s/_\-]+/)
+    .split(/[\s/_-]+/)
     .filter((w) => w.length > 2 && !stop.has(w));
   return new Set(words);
 }

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# // spec: gate-size-01
 """regression_sizes.py — file-size limits + severity formatting.
 
 Helper module for scripts/regression_check.py, split out to keep every file
@@ -40,13 +41,23 @@ SRC_HARD = 500
 TEST_HARD = 600
 
 # Source file extensions to check (language-agnostic)
+#
+# The gate-vacuous-01 shape, twice: `.sh` (FAIL-8f9249ca) and `.html` were each
+# absent while the gate reported "0 over hard limit". `.mjs`, `.cjs` and `.css`
+# were the same gap one generation later: at 2026-11-10 that was 18 tracked
+# files here, including every `.mjs` gate entry point and seven of their tests,
+# so the framework's own scanners had never been sized.
+#
+# `.mjs` and `.test.mjs`/`.spec.mjs` MUST land together. Adding `.mjs` alone
+# would judge `tests/test_*.mjs` at SRC_HARD while its `.py` sibling gets
+# TEST_HARD -- the FAIL-8f9249ca inconsistency, re-introduced.
 SOURCE_EXTENSIONS = (".ts", ".tsx", ".py", ".rs", ".go", ".gd", ".java", ".kt",
                      ".rb", ".php", ".js", ".jsx", ".swift", ".c", ".cpp", ".h", ".cs",
-                     ".sh", ".zig", ".html")
+                     ".sh", ".zig", ".html", ".mjs", ".cjs", ".css")
 
 # Test-file extensions for the PREFIX convention ("test_*.py" / "test_*.sh").
 # A tuple because the convention is about naming, not about Python.
-TEST_PREFIX_EXTENSIONS = (".py", ".sh", ".zig")
+TEST_PREFIX_EXTENSIONS = (".py", ".sh", ".zig", ".mjs")
 
 
 def format_severity(severity: str) -> str:
@@ -82,7 +93,12 @@ def _classify_file(rel_path: str,
                                  # tuple. Without it a Zig test file is judged at
                                  # SRC_HARD -- the FAIL-8f9249ca inconsistency,
                                  # one language later.
-                                 "_test.zig"))
+                                 "_test.zig",
+                                 # ES-module tests. Same class again: the moment
+                                 # `.mjs` joined SOURCE_EXTENSIONS, every
+                                 # `tests/test_*.mjs` would have been judged at
+                                 # SRC_HARD without these two suffixes.
+                                 ".test.mjs", ".spec.mjs"))
     # The test naming convention is a PREFIX ("test_*.py", "test_*.sh") —
     # endswith() can never express it, and a glob passed to endswith() is a
     # dead literal that silently classified every pytest file as source
@@ -183,8 +199,11 @@ def check_scope_coverage(repo_root: Path, source_dirs: list[str]) -> list[dict]:
     This is the class fix for the directory-scope gap: a new source root
     (``web/``, ``infra/``, …) must not hide from the size gate just because
     nobody remembered to add it to the candidate list. Returns one
-    ``kind='scope-gap'`` warning per uncovered directory. Submodule checkouts
-    (a directory containing ``.git``) are first-party-exempt by definition.
+    ``kind='scope-gap'`` ERROR per uncovered directory — a gap means the walk
+    never entered part of the tree, so "0 over hard limit" from a scoped-out
+    tree is a lie (WARNING until 2026-11-15; that blind spot already reddened
+    main once). Submodule checkouts (a directory containing ``.git``) are
+    first-party-exempt by definition.
     """
     covered = {d.replace(os.sep, "/") for d in source_dirs}
     if "." in covered:
@@ -210,11 +229,15 @@ def check_scope_coverage(repo_root: Path, source_dirs: list[str]) -> list[dict]:
                     count += 1
         if count:
             gaps.append({"file": f"{p.name}/", "lines": count, "soft": None,
-                         "hard": None, "severity": "warning", "kind": "scope-gap"})
+                         "hard": None, "severity": "error", "kind": "scope-gap"})
     return gaps
 
 
-def print_file_size_report(size_issues: list[dict]) -> None:
+def print_file_size_report(size_issues: list[dict], scope_empty: bool = False) -> None:
+    """Report file sizes. `scope_empty` marks a run whose diff scope evaluated
+    zero files: the listing below is then size INVENTORY only — no file can be
+    classified touched/untouched against a diff that does not exist, and the
+    summary must not claim a "(blocks commit)" verdict (gate-vacuous-01)."""
     if not size_issues:
         print("✓ All source files within soft/hard line limits")
         return
@@ -226,13 +249,18 @@ def print_file_size_report(size_issues: list[dict]) -> None:
     print("\n" + "=" * 70)
     print("FILE-SIZE CHECK")
     print("=" * 70)
+    if scope_empty:
+        print("NOTE: scope evaluated zero files — size INVENTORY only. No diff")
+        print("was evaluated, so nothing below is classified touched/untouched")
+        print("and this is NOT a verdict on any change.")
     for issue in size_issues:
         severity = format_severity(issue["severity"])
         if issue["kind"] == "hard":
             tag = "OVER HARD LIMIT"
             limit = issue["hard"]
         elif issue["kind"] == "hard-untouched":
-            tag = "over hard limit (pre-existing; not touched by this diff)"
+            tag = ("over hard limit (not classified — scope empty)" if scope_empty
+                   else "over hard limit (pre-existing; not touched by this diff)")
             limit = issue["hard"]
         elif issue["kind"] == "overridden":
             tag = f"over default limit (override: {issue.get('reason', '')})"
@@ -247,9 +275,14 @@ def print_file_size_report(size_issues: list[dict]) -> None:
         print(f"  {severity}  {issue['file']}  ({issue['lines']} lines, "
               f"limit {limit})  {tag}")
     print("-" * 70)
-    print(f"  {hard_count} over hard limit (blocks commit), "
-          f"{untouched_count} pre-existing oversize (warning), "
-          f"{soft_count} over soft limit (warning), "
-          f"{over_count} reasoned overrides (warning), "
-          f"{gap_count} scope gaps (warning)")
+    if scope_empty:
+        print(f"  scope empty: no files classified against a diff "
+              f"(inventory: {untouched_count} oversize, {soft_count} soft, "
+              f"{over_count} overrides, {gap_count} gaps)")
+    else:
+        print(f"  {hard_count} over hard limit (blocks commit), "
+              f"{untouched_count} pre-existing oversize (warning), "
+              f"{soft_count} over soft limit (warning), "
+              f"{over_count} reasoned overrides (warning), "
+              f"{gap_count} scope gaps (ERROR; blocks commit)")
     print("=" * 70)

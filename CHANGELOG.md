@@ -7,16 +7,1436 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-> **Version-truth statement (doc-truth closure, 2026-10-13):** `VERSION` reads
-> `1.3.0` and this Unreleased section carries post-1.3.0 work; the newest git tag
-> remains `v1.2.0`. No release has been cut since 1.3.0's changelog entry
-> (2026-09-23) — the version artifact and the tag intentionally disagree until the
-> next tagged release, at which point Unreleased is folded into the new tag. This
-> statement is the recorded intent for doc-truth (`doc-version-01`); no retroactive
-> tag was cut.
+### Fixed
+
+- Preserved Unicode script names and rejected unresolved index duplicates in
+  release checksum inventory (DG-17).
+- Reconciled and verified all 160 release checksum entries in hosted CI (DG-13).
+- Scoped evidence-claim exclusions and verified the hosted detector (DG-14).
+- Made the hermetic forge parity corpus portable across Windows and POSIX
+  fixtures (DG-15).
+- Rejected malformed and duplicate release checksum records (DG-16).
+- Provisioned pinned DevGate for ten GitLab mirrors in clean consumers
+  (DG-11).
+- Recorded the owner disposition for optional live GitLab acceptance
+  (OI-001 through OI-003).
+- Reconciled eight published requirement IDs and checked heading and marker
+  agreement with the pinned OpenSpec CLI in CI (DG-01).
+- Restored direct execution of the drift template test and enforced its
+  executable Git index mode (DG-12).
+
+## [1.3.52] - 2026-11-20
+
+### Changed
+
+- **The art-creation-contract change archived; its 12 requirements are
+  live.** `add-art-creation-contract` moves to
+  `openspec/changes/archive/` and `specs/art-creation-contract/spec.md`
+  opens as a new capability with a written Purpose. The scanner
+  (`scripts/art_creation_scan.py` — 60-case selftest plus 4 exit-contract
+  checks) and eight failure-registry entries remain the enforcement sites;
+  `art-evolve-01` stays deliberately uncovered as a process obligation on a
+  human. `openspec validate --all --strict` is 57/57; traceability reads
+  236/250 with the ratchet floor at 236. The generated spec index was
+  regenerated — it had been left behind by the previous archive batch as
+  well as this one.
+
+## [1.3.51] - 2026-11-20
+
+### Changed
+
+- **Four OpenSpec packages archived and their spec deltas applied.**
+  `2026-11-18-fleet-app-auto-enroll`, `add-open-item-gates`,
+  `add-spec-state-ledger` and `aiggp-08-stitcher-proof-parity` move to
+  `openspec/changes/archive/`, contributing 52 requirements to the live
+  specs. The nine stitcher stages keep their fixtures and negative
+  controls in the archive. New capabilities ship with written Purpose
+  sections rather than the archiver's placeholder. `openspec validate
+  --all --strict` is 57/57.
+
+## [1.3.50] - 2026-11-18
 
 ### Fixed
 
+- **Hub shutdown handlers install before the listening socket.** A SIGTERM
+  arriving in the window between `create_server()` and handler registration
+  killed the process by signal instead of the documented clean exit 0. The
+  handlers now register first; hub main and hardening tests pass.
+
+## [1.3.49] - 2026-11-18
+
+### Added
+
+- **Automatic fleet App enrollment.** `TheArchitectit` is a user account, so
+  repositories have no organization secret to inherit. `fleet-app-enroll.yml`
+  reconciles `DEVGATE_SWEEP_APP_ID` and the sealed
+  `DEVGATE_SWEEP_APP_PRIVATE_KEY` across every installation repository: it
+  creates missing values, updates a stale App ID, never overwrites an existing
+  secret unless `--rotate`, and defaults manual dispatches to dry-run. A
+  nightly run covers repositories created after today.
+
+## [1.3.48] - 2026-11-18
+
+### Fixed
+
+- **The private-repo positive control now works from inside the Actions
+  checkout.** Clearing the checkout's persisted workflow-token
+  `http.extraheader` is required because it overrides the App's askpass
+  credential. The override is passed as an argv `-c …=`: the equivalent
+  `GIT_CONFIG_KEY_n` environment form was measured not to override it.
+- **The control's environment reaches git.** Explanatory comments no longer
+  sit between the continued `VAR=…` assignments and the command, which had
+  detached them and made git fall back to a terminal password prompt.
+- **The declaration no longer depends on the runner image shipping `gh`.**
+  The workflow installs gh 2.83.1 with the release's published SHA256, adds it
+  to `GITHUB_PATH` for later steps, and verifies it by absolute path within
+  the install step. Verified live on run 44365287915: 24 declared, 24 scanned,
+  zero `unscannable`; the four formerly inaccessible private repos all report
+  their actual spec state instead.
+
+## [1.3.47] - 2026-11-18
+
+### Added
+
+- **Fleet CI authenticates with the program's GitHub App** instead of the
+  shared user identity. Each workflow fails closed when the App id is set
+  without its key, mints an installation token through a SHA-pinned
+  `actions/create-github-app-token`, and prints which token mode it is
+  spending, so a silent fall back to the throttled 5,000/hour user budget is
+  visible rather than discovered months later.
+- **A positive control before the spec fleet walk** proves the App can read a
+  private fleet repo (`ls-remote` with the same askpass mechanism the walk
+  uses) and fails there, by name, instead of letting four repos red the
+  nightly as `unscannable`.
+
+### Fixed
+
+- **The spec fleet sweep now reaches the curated private repos.** The four
+  nightly `unscannable` entries were never an App installation gap: the
+  declaration listed them under the collaborator's owner account and the walk
+  cloned anonymously. Those entries now name the `TheArchitectit` copies
+  (same content, and the owner the App installation covers), and the walk can
+  clone authenticated via `GIT_ASKPASS` with `SPEC_FLEET_CLONE_TOKEN`. The
+  token never reaches git's argv, the committed report, or a log, and a
+  failed clone's captured stderr is redacted. Only curated include-file
+  entries are re-admitted when the App reports them private — the generated
+  owner-scope private repos stay dropped, so the nightly budget does not
+  change shape.
+
+### Changed
+
+- **GitLab forge support records its live half as dormant conditions**, not
+  pending work: the owner decided GitLab is an option on top of GitHub, not a
+  swap, and that fixture proof is enough for the option to ship. The hermetic
+  adapter, templates, parity drill and discovery gate remain landed and green.
+
+
+## [1.3.46] - 2026-11-18
+
+### Changed
+
+- **Automated spec and fleet sweeps** recorded for 2026-11-17 and 2026-11-18
+  under `docs/qa/spec-sweeps/` and `docs/qa/fleet-sweeps/`.
+
+
+## [1.3.45] - 2026-11-16
+
+### Fixed
+
+- **The size gate now treats a scope gap as an error, not a warning.** A scope
+  gap means the gate is not looking at part of the tree, so "0 over hard limit"
+  from a walk that never entered the tree is a lie — that blind spot has
+  already reddened a main branch once. Proved in both directions: planting an
+  unlisted source root reds with `1 scope gaps (ERROR; blocks commit)`,
+  removing it greens. Also named for anyone running the toolkit's own tests:
+  `python3 tests/test_gate_common.py` is a silent no-op with no `__main__`
+  runner — run it under pytest.
+
+### Changed
+
+- **Automated spec and fleet sweeps** recorded for 2026-11-16 under
+  `docs/qa/spec-sweeps/` and `docs/qa/fleet-sweeps/`.
+
+
+## [1.3.44] - 2026-11-15
+
+### Fixed
+
+- **The corpus pin was host-dependent while claiming not to be.** The parity
+  drill hashed an absolute checkout path inside the digest it uses to pin its
+  seeded corpus, under a docstring that said it was independent of host. The
+  pin therefore only matched on the machine that generated it: the same commit
+  produced one digest here and a different one in CI, reddening GLF-01/03
+  while everything passed locally. `{scripts}` is now a placeholder like
+  `{python}` and `{root}`, and the digest is verified identical from two
+  different checkout paths.
+- **A checksum update no longer reads as data corruption.** The corruption
+  gate pairs lines and calls a same-length, high-character-change pair a
+  substitution flip. A checksum manifest is fixed-length hex digests, so a
+  legitimate digest update lands exactly on that signature. It now skips a
+  pair only when both sides are checksum lines and the path column is
+  unchanged — proved in both directions, including that a digest line whose
+  path also changed is still red.
+
+
+## [1.3.43] - 2026-11-15
+
+### Added
+
+- **The art scanner has now been run against a live title** (`add-art-creation-contract`
+  3.1). The designated gate testbed is a real Godot title with real art and no
+  art contract, which is the failure classes the proposal describes. A manifest
+  was written into the title declaring its actual state, because the contract's
+  design is that the title supplies its own manifest. The scan reports two
+  contract failures — no provenance ledger, and a target with no rendered-frame
+  capture — and passes the stage-consumer requirement once the consumer names a
+  real file. A third finding was manufactured by naming a path that never
+  existed; it was caught and removed before anything was claimed. Non-vacuity
+  is controlled: the scanner's own selftest is green and it explicitly refuses
+  a zero-input run.
+
+### Changed
+
+- **GitLab is an option on top of GitHub, not a swap** (`add-gitlab-forge-support`).
+  Owner decision: *"we are just adding git lab as a option not swaping to it"*,
+  and the fixture is enough — no live instance is required for the option to
+  ship. GitHub remains the main forge and nothing about it changes. GitLab is
+  recorded supported, tested against a fixture, not proven live. The
+  instance-dependent boxes are owner-deferred, not blocked.
+- **The hooks-or-webhooks ambiguity is resolved as both**, with distinct jobs:
+  git hooks on the machine catch mistakes before they leave (bypassable by
+  design), and push-time CI is the authoritative record — it *detects* rather
+  than blocks, because this repository accepts direct pushes to `main`.
+
+## [1.3.42] - 2026-11-14
+
+### Changed
+
+- **`aiggp-08` is authorized work, not imported reference material** (decision 5
+  of the 2026-11-14 owner decision handoff). Own the vendored
+  `actions/stitcher-codereview/`, wire the seven present stages, build
+  the two absent ones, with evidence riding the GitHub adapter first and GitLab
+  second. The `measurement-2026-11-13` record stands; every "Shipped in
+  `9c46180`" claim is retired, and the only surviving occurrences of that hash
+  in the tree are the corrections themselves.
+- The package's Q12.1 entry step is recorded as **unperformable in this clone**:
+  the parity branch `07aadb05` is not present (`git cat-file -t` finds no such
+  object), so nothing is reconciled and each stage is re-implemented from
+  current main. If the bundle is restored, the reconcile becomes real again and
+  stages built before it must be re-checked against it.
+
+## [1.3.41] - 2026-11-14
+
+### Added
+
+- **Spec-state gate wired on both sides** (owner decision 2026-11-14, Gate 3 of
+  `add-spec-state-ledger`). `scripts/hooks/pre-commit` blocks a commit whose
+  staged spec-state edit and `openspec/state-ledger.jsonl` row disagree;
+  `.github/workflows/spec-state.yml` audits the pushed range on `main` and is
+  worded as detection after the fact, never prevention. `git commit
+  --no-verify` bypasses the hook by design, and `core.hooksPath` is per-clone
+  configuration (`git config core.hooksPath scripts/hooks`), so the CI audit is
+  the only layer an author cannot skip — and it only reports. README restated
+  where it had said the gate was "a check you run, not yet a hook that blocks".
+
+## [1.3.40] - 2026-11-14
+
+### Changed
+
+- **Traceability ratchet raised from 228 to 235 covered requirements** — the
+  floor now equals what the tree actually covers (`235/241` at `6296b2c`; the
+  six uncovered ids are `game-matrix-01..03`, `art-evolve-01`,
+  `spec-state-08` and `spec-state-09`, all advisory). The gate has been printing
+  "coverage grew above the floor — raise it with `--update-ratchet`" since the
+  `add-art-creation-contract` registry wiring landed, and the raise was held
+  back only so it did not ride in a release whose subject was the art
+  contract. With that release shipped, the headroom it preserved has no
+  change in flight to protect: the remaining AIGGP work is owner-blocked
+  (gate placement, stitcher wiring, forge support, open-item gates). The
+  ratchet is what turns "we happened to cover it" into "a regression that
+  uncovers it reds the gate", so it is set at the measured value rather than
+  left where it was when the corpus was 199 requirements.
+
+## [1.3.39] - 2026-11-14
+
+### Fixed
+
+- **`add-art-creation-contract` re-audited (5.3): APPROVE, and the one real
+  gap the audit found is now covered.** The independent audit ran
+  read-only over the tree with all mutations in `/tmp` copies; its six nits
+  were all documentation accuracy except one. The zero-input rule — "a
+  zero-input run is not a green run" — was pinned only through `report()`, so
+  a regression in `main()`'s `find_manifest` -> `report` wiring would have
+  read green. `scripts/test_art_creation_scan.py` now drives the CLI twice
+  more: an empty root must exit 3 with both zero-input lines, and a named but
+  absent `--config` must exit 2 rather than 3. Both were proven able to fail
+  on a `/tmp` copy (`return 3` -> `return 0` reds `not-applicable`; removing
+  the `if args.config` branch reds `manifest-missing-explicit`). The suite
+  reports `60 cases, 4 exit-contract checks`.
+- **tasks.md's evidence corrected against the tree**: the fixture suite's
+  line count (381 -> 426), the traceability figures rebound to the commits
+  they were read at (`195/199` at `43a9bdb`, `235/241` at `cb2644c`, ratchet
+  floors 184 and 228), the published-count pair (the exit code catches the
+  boolean and float cases because they compare equal to the derived count;
+  the message assertion is what catches the string), the "seven cite
+  `43a9bdb`" count (six, plus the done check's `616f26f` and the doc
+  commit), and the `brief_ref` rule narrowed to what `check_brief` enforces
+  — a presence check, with a whitespace ref failing closed as a version
+  mismatch.
+
+## [1.3.38] - 2026-11-14
+
+### Added
+
+- **`add-art-creation-contract` 4.1 / 4.2 — the art contract now has a
+  registry-backed extension path.** Eight observed art failure classes are
+  appended to `.guardrails/failure-registry.jsonl` through
+  `scripts/log_failure.py` (never by hand), one entry per class, and every
+  `prevention_rule` names the `art-*` requirement that would have prevented it:
+
+  | Class | Prevention rule | Entry |
+  | --- | --- | --- |
+  | no shared language | `art-brief-01, art-brief-02` | `FAIL-0e705936` |
+  | unversioned bytes | `art-bytes-01` | `FAIL-920d00bd` |
+  | a stage with no reader | `art-stage-01` | `FAIL-64935b0d` |
+  | done meant "file written" | `art-done-01` | `FAIL-2ba50210` |
+  | the target draws nothing | `art-draw-01` | `FAIL-49fe7808` |
+  | quantity for quality | `art-qty-01` | `FAIL-3830b455` |
+  | a score on the wrong question | `art-accept-01, art-accept-02` | `FAIL-bb25c017` |
+  | method written after the mess | `art-evolve-01` | `FAIL-d91fd88e` |
+
+  Seven cite `43a9bdb` (the done check cites `616f26f`) as the commit that
+  made the class checkable; the eighth cites the commit that documents the
+  path. `scripts/failure_registry_check.py` exits 0 over all 58 entries.
+- **`docs/ART-CONTRACT-EXTENSION.md`** — the path from a class to a covering
+  requirement, end to end: log with `log_failure.py` (append-only, class not
+  title — this repo is public, the registry rules, empty
+  `regression_pattern`), decide coverage by grepping the `art-` requirement
+  ids, extend the spec delta when nothing covers it, put the `# spec:` marker
+  on the enforcing function (never above a module docstring), add the negative
+  control first, then run the five verification commands. Process obligations
+  on a human are recorded as deliberately uncovered rather than papered over
+  with a marker, as `art-evolve-01` itself is.
+
+  The package's own CHANGELOG entry still belongs at archive time (5.4); this
+  one covers the registry wiring and the extension path only. Boxes 3.1 (live
+  title outside this repo), 5.3 (independent re-audit) and 5.4 stay open.
+
+## [1.3.37] - 2026-11-14
+
+### Changed
+
+- **`aiggp-08` re-measured at `690488a`, and its nine "Shipped in `9c46180`"
+  claims replaced with what the tree shows.** `9c46180` is the
+  GitLab-forge commit and touches none of `actions/stitcher-codereview`; every
+  named file either arrived in the `c9d1194` vendoring of upstream v0.4.1 or
+  has never existed here (`.pre-commit-hooks.yaml`,
+  `scripts/stitcher-local.mjs`, `src/verdict.ts`,
+  `tests/test_stitcher_proof_parity.mjs` — `git log --all` is empty for all
+  four). Measured per stage: 7 present (5 fully, 2 partial), 2 absent, 0
+  wired, 0 tested in-tree, 0 of Fixtures A–H. New
+  `measurement-2026-11-13.md` carries the commands; the nine boxes stay open
+  because wiring, fixtures and the evidence adapter are owner decisions, not
+  missing code. Also recorded: `ef0a8ca` closed the size-gate blind spot, so
+  the 558-line `serve.ts` is now a visible pre-existing oversize warning, and
+  the upstream fork carries the 26-file test suite this repo never vendored.
+
+## [1.3.36] - 2026-11-13
+
+### Added
+
+- **`scripts/spec_state_gate.py` — a spec-state transition now needs a ledger
+  row, two resolved commits, work at the declared location, and sealed
+  evidence.** `openspec/INDEX.md` said "Generated, not typed" and nothing
+  generated it, so `Status: CLOSED` and every closure cell were assertions a
+  person typed. The gate diffs the spec tree between a base and `HEAD`,
+  reconciles the changed requirements against rows added to
+  `openspec/state-ledger.jsonl` in the same range, and fails both ways — a
+  changed cell with no row ("a transition without authority") and a row with
+  no state edit ("a row with no state edit"). A terminal row must name two
+  distinct commits in strict ancestry order with `landed_commit` an ancestor
+  of `HEAD`, the `opened..landed` diff must touch a file that carries
+  `spec: <req-id>` and still exists at `HEAD`, and the row must pin a sealed
+  `evidence-manifest` digest that `scripts/evidence-validate.py` accepts with a
+  `passed` record for every test it names. Exit codes are frozen: `0` pass,
+  `1` violation, `2` usage/config, `3` nothing scanned — a zero-spec scan is a
+  failure, never a green pass.
+- **`scripts/spec-state-validate-negative-control.sh` — the gate is proven
+  able to fail.** Ten cases staged in a throwaway repository: cell without row,
+  row without cell, identical bounding commits, non-ancestor landing commit,
+  empty marker window, digest mismatch, test recorded as skipped,
+  `Status: CLOSED` with a `WIRED` requirement, zero-spec scan, unresolvable
+  revision, and an unknown row field. Every case asserts the gate's own words,
+  because a nonzero exit alone would also be satisfied by a crash or a
+  mis-staged probe.
+- **`scripts/spec_index.py` — `openspec/INDEX.md` is now actually generated,**
+  with `--check` wired into CI. It reproduces the committed rollup exactly
+  (`44 specs — CLOSED 43 · DEFERRED 1 · PARTIAL 0 · OPEN 0 · UNKNOWN 0`); the
+  file's one data change is the DEFERRED row's evidence cell, which was prose
+  the generator cannot derive. `fleet-manager-plan` and
+  `fleet-manager-extraction` had curated titles in the index that their specs
+  did not, so their spec headings were corrected rather than the index losing
+  them.
+
+### Fixed
+
+- **The `v1` ledger schema gained `evidence_digest` before it was frozen.**
+  `scripts/evidence-validate.py` requires `--expected`, and a manifest cannot
+  vouch for itself — computing the expected value from the bundle and handing
+  it back would make the manifest-tamper check vacuous, the self-certified
+  claim the tree already refuses. The row is the only non-circular anchor, so
+  the schema, its rejection rule, and the design section that explains it were
+  amended together.
+
+## [1.3.35] - 2026-11-13
+
+### Fixed
+
+- **The size gate walked four of this repository's own source roots out of
+  scope.** `.guardrails/scope.json` declared no `extra_source_dirs`, so
+  `scripts/regression_check.py` walked only the default candidate list and
+  reported `actions/` (31 source files), `fleet-manager/` (26), `templates/`
+  (6) and `engines/` (5) as `NOT IN SIZE-GATE SCOPE` — 68 source files never
+  sized. Eleven are over their hard limit today and were invisible: seven
+  source (`fleet_manager/channel.py` 754, `reconcile.py` 732, `model.py` 663,
+  `lifecycle.py` 643, `adapters.py` 626, `operations.py` 538,
+  `actions/stitcher-codereview/src/serve.ts` 558) and four tests
+  (`test_adapters_v1.py` 766, `test_lifecycle_v1.py` 761,
+  `test_operations_v1.py` 714, `test_channel_v1.py` 635). The overlay now
+  declares the four roots; the gate reports **0 scope gaps, 0 over hard limit
+  (nothing touched yet), 11 pre-existing oversize (warning)**. The debt is
+  visible from now on and blocks the next edit of each file, which is the
+  point — it was not a budget before, it was a blind spot. Same shape as the
+  2026-10-11 `web/` gap (FAIL-8f9249ca): a scope declaration drifting from its
+  intent, green because it never looked.
+
+## [1.3.34] - 2026-11-13
+
+### Fixed
+
+- **`tests/test_open_item_gates.py` lost its exec bit in 1.3.33, and CI went
+  red on it.** The module carries a `#!` line, so the index mode must be
+  `100755`; editing it in 1.3.33 and staging it with a plain `git add` recorded
+  `100644`, because this host has `core.fileMode=false` and git did not carry
+  the working-tree bit into the index. Two independent checks caught it —
+  `tests/test_fw_guards.py::TestExecBitCheck::test_real_tree_passes` and the
+  `Exec-bit integrity` step — and both failed for the same reason. The local
+  `check_exec_bits.py` run before that commit passed only because it ran before
+  the file was staged. Fixed with `chmod +x` on the worktree **and**
+  `git update-index --chmod=+x`: the index fix alone is undone by the next
+  `git add` of a still-644 file, which is exactly how v1.3.33 dropped it.
+
+### Added
+
+- **`scripts/deploy.sh` now runs a release-artifact preflight before it tags.**
+  `scripts/release_preflight.sh` regenerates and stages `CHECKSUMS.sha256`,
+  then checks the index — immediately after `git add -A` — for shebang'd files
+  that lost `100755`, so both failures land before the tag exists instead of
+  on CI after the push. Verified by planting each violation: `git
+  update-index --chmod=-x` on a shebang'd test exits 1 naming the file, and a
+  corrupted digest makes the manifest verify fail; restoring both returns 0.
+
+- **`CHECKSUMS.sha256` is generated on the tag path and verified in CI.**
+  The manifest was documented as "generated at tag time", but nothing on the
+  tag path generated it: it shipped stale from 2026-11-01 to 2026-11-13, and a
+  consumer following its own `verify` line found 38 digests that disagreed
+  with the tree and 18 shipped scripts the manifest did not list at all.
+  `deploy.sh` now regenerates and verifies it before the release commit, and
+  the `DevGate gates on DevGate` job runs `gen-checksums.py verify`, so a
+  drifted manifest fails here rather than at the consumer. This release's
+  manifest is regenerated: 146 scripts, all matching.
+
+## [1.3.33] - 2026-11-13
+
+### Fixed
+
+- **`surface_reach_check.py` no longer names a different "odd one out" from
+  run to run.** It picked the majority hash with
+  `max(counts, key=counts.get)` over `set(hashes.values())`, so when two
+  surfaces disagreed 1-1 there was no majority and the answer followed hash
+  randomisation: the same pair named `ui-a.tsx` in one process and `ui-b.tsx`
+  in the next. Found by the fixture suite from 1.3.31, but only when the whole
+  suite ran — in isolation the ordering happened to be stable, which is why the
+  first pass missed it. The most common hash now wins with ties broken by the
+  hash value, and the reported paths are sorted, so identical input produces
+  identical output. `tests/test_open_item_gates.py` grew to 30 tests: the
+  divergence case now uses a two-agreeing-one-drifts group where the majority
+  is unambiguous, and a separate case runs a 1-1 tie twice and requires
+  byte-identical output.
+
+## [1.3.32] - 2026-11-13
+
+### Fixed
+
+- **The size-scope mutation battery's anchors were stale, and main was red.**
+  `tests/mutation_battery_size_scope.py` pointed S1, S2 and N1 at text that
+  `scripts/regression_sizes.py` no longer contains: the extension tuple grew
+  `.mjs`, `.cjs` and `.css` (the MJS-500 rule) and `TEST_PREFIX_EXTENSIONS`
+  grew `.mjs`, so three anchors matched zero times. The harness did the right
+  thing — it reported `ANCHOR`/stale rather than counting a phantom kill — but
+  only CI runs the batteries, so `main` carried a failing
+  `The evaluator itself is attacked (fw-*)` job from `73f93043` onward.
+  Re-pointed all three; the battery now reports 4/4 mutations killed, with each
+  kill attributed to a named test, and 1/1 negative control surviving.
+  Re-pointing does not weaken the checks: the same three tests that killed the
+  mutations before still do (`test_oversize_shell_script_is_flagged_at_src_hard`,
+  `test_a_shell_test_file_is_judged_at_the_test_limit`, and the negative control
+  that must change no outcome).
+
+## [1.3.31] - 2026-11-13
+
+### Added
+
+- **The six open-item gates now have re-runnable fixtures (`add-open-item-gates`
+  2.9 / 4.3).** The package shipped `branch_drift`, `evidence_claim`,
+  `open_item_aging`, `secret_rotation`, `surface_reach` and `tree_clean`, and
+  recorded their evidence as a demonstration performed during authoring —
+  nothing in the tree could repeat it, so the claim was unverifiable by anyone
+  after the fact. `tests/test_open_item_gates.py` drives all six through their
+  real CLIs against synthetic fixtures (29 tests): the failing fixture must
+  exit `1` **and name the offending input**, the clean fixture must exit `0`,
+  and the empty input must exit `3`. Non-vacuity is measured per gate: forcing
+  each script's verdict return to `EXIT_OK` turns that gate's tests red, and
+  restoring them returns 29/29.
+
+### Fixed
+
+- **`--json` is now machine-readable on the clean path.** `branch_drift_check`,
+  `evidence_claim_check` and `tree_clean_check` printed their human `OK:` line
+  after the JSON document, so `json.loads(stdout)` failed only when the gate
+  found nothing — the worst place for machine output to break. `--json` now
+  emits the document and nothing else on every path.
+
+## [1.3.30] - 2026-11-13
+
+### Fixed
+
+- **Two gate scope lists in this repo's own tooling no longer narrow the tree
+  silently.** Landed from `docs/qa/2026-11-10-size-and-charset-scope-blind-spots.md`,
+  which had been stranded in a stale clone since 2026-11-10; all four findings
+  reproduced on `main` before any edit.
+
+  - **`regression_sizes.py` now sizes `.mjs`, `.cjs` and `.css`.** They were
+    absent from `SOURCE_EXTENSIONS`, so the framework's own gate entry points
+    and seven of their tests had never been sized while the gate printed
+    "All source files within soft/hard line limits". `.mjs` and
+    `.test.mjs`/`.spec.mjs` land together, as the QA record requires: three
+    `tests/*.mjs` files are over 500 lines and would have been judged at
+    `SRC_HARD` instead of `TEST_HARD` the moment `.mjs` joined the scope.
+  - **`check_charset.py` now reads untracked files.** Its file list came from
+    `git ls-files`, so a newly written file was invisible until staged: a
+    downstream `openspec/project.md` with U+2248 and U+00B1 passed two local
+    gate runs and went red on commit. The scan now takes `git ls-files
+    --cached --others --exclude-standard`, the success line reports
+    "N tracked + M untracked", and the zero-file failure names the scope it
+    examined. Baseline generation stays tracked-only, so `--write-baseline`
+    cannot grandfather debt in an uncommitted file.
+- **`HANDOFF-AIGGP-Agentic-Framework.md`'s spec census was 13 specs stale.** It
+  said 31 capability specs / 25 archived / 2 open behind a "Current census
+  (2026-10-20)" lead-in while `openspec/specs/` held 44 and the index said 43
+  CLOSED + 1 DEFERRED. Now dated 2026-11-13 with live numbers, and the
+  spec/archive name overlap is re-measured at zero (it claimed exactly one).
+
+## [1.3.29] - 2026-11-13
+
+### Fixed
+
+- **The nightly Drift Scan no longer reds on the morning after a release.**
+  `regression_check.py --all` resolves its window as `last-tag..HEAD`, so on the
+  first nightly run after a tag HEAD *is* that tag and the window holds zero
+  files; `--pre-commit` then exits 2 with "NOTHING SCANNED". The 2026-11-13 run
+  on `v1.3.28` failed exactly this way — a red that says nothing about the tree.
+  The job now anchors on the last tag reachable from `HEAD^`: identical to
+  `--all` whenever HEAD is untagged (that tag is still an ancestor), and widened
+  to the release's own commits when HEAD is the tag. `--pre-commit` is retained,
+  so a window that is empty for any other reason still fails instead of passing
+  vacuously, and the job summary now records the window it scanned.
+
+## [1.3.28] - 2026-11-13
+
+### Added
+
+- **The two automated 2026-11-13 fleet and spec sweep records now sit beneath
+  the v1.3.27 release on `main`** (`docs/qa/fleet-sweeps/2026-11-13.json`,
+  `docs/qa/spec-sweeps/2026-11-13.json`). Record-only: findings, advisory notes
+  and per-repo counts; no gate logic changed.
+
+## [1.3.27] - 2026-11-13
+
+### Fixed
+
+- **The `add-gitlab-forge-support` task ledger no longer claims completions
+  the tree does not evidence.** Commit `9c46180` ticked all six sprints in the
+  same commit that landed the code. A 2026-11-13 audit re-marked Sprint 0 (no
+  self-hosted GitLab instance documented or reachable — still blocked on the
+  operator), Sprint 3 (fleet declaration walk not extended; no
+  undeclared-instance guard), Sprint 4 (the parity drill decides pass/fail
+  from fixture flags, so it cannot detect a real divergence) and Sprint 5 (no
+  monitoring, docs, or external-instance guide) as open, stating the evidence
+  for each. Sprint 1's runner standard and Sprint 2's mirror check stand as
+  complete. Documentation only; no gate or runtime behaviour changed.
+
+## [1.3.26] - 2026-11-13
+
+### Added
+
+- **The daily external-audit digest records now live on `main`.**
+  `docs/qa/audit-digest/` carries the one-record-per-digest-day notes that had
+  accumulated on the `chore/external-audit` branch. Documentation only; no gate
+  or runtime behaviour changed.
+
+## [1.3.25] - 2026-11-13
+
+### Added
+
+- **Six open-item gates, one per recurring deficiency family** — `scripts/
+  open_item_aging_check.py`, `branch_drift_check.py`, `tree_clean_check.py`,
+  `secret_rotation_check.py`, `surface_reach_check.py`, and
+  `evidence_claim_check.py`, each with its own capability spec
+  (`openspec/changes/add-open-item-gates/specs/`, 26 requirement IDs) and
+  `// spec:` markers. Every gate reuses DevGate's nothing-scanned contract
+  (exit 3, never a bare green) and the frozen exit codes 0/1/2/3. **Not wired
+  into CI**: enforcement placement is an owner decision, recorded as the open
+  task in the change's `tasks.md`.
+- **A specification-only proposal binding spec state transitions to commits and
+  evidence** — `openspec/changes/add-spec-state-ledger/` (proposal, design,
+  9-requirement delta, tasks). It proposes an append-only
+  `openspec/state-ledger.jsonl`, a diff-driven gate, and a generated index. No
+  gate, hook, or ledger is implemented by the package, and no existing spec is
+  reclassified.
+
+### Changed
+
+- **Traceability ratchet floor raised from 202 to 228** after the six gates
+  covered their 26 requirement IDs; the nine ledger IDs remain advisory because
+  that package is specification-only. Removing a marker now fails the gate.
+
+## [1.3.24] - 2026-11-13
+
+### Fixed
+
+- **The coherence evaluator's marker grammar had drifted from the gate's in
+  three more ways than the ID case — and each reads covered work as UNMARKED.**
+  `hub/coherence/evaluators.py` duplicates the marker grammar deliberately (the
+  hub ships without `scripts/`), and its comment claims the two are "kept in
+  lockstep"; they were not: the ID class was lowercase-only (so `// spec:
+  GLF-01` covered nothing here), the `--` prefix was missing (SQL/Lua markers),
+  and the extension list stopped at `.zig` while the gate also scans `.tsx`,
+  `.gd`, `.sql` and `.lua`. All three now match `scripts/lib/spec_discovery.py`,
+  and a new test pins the two grammars to each other structurally (same IDs on
+  six sample markers, same extension and skip sets) so a fourth drift fails in
+  the suite instead of producing false `unmarked-requirement` findings. Two
+  behavior tests cover the capitalised ID and the `.sql`/`.tsx` surfaces. This
+  does not change any result on this repository or the benchmark corpus (no
+  `-- spec:` markers exist in the tree), only on subjects that use them.
+
+## [1.3.23] - 2026-11-13
+
+### Fixed
+
+- **A requirement ID written with capitals was invisible to the traceability
+  gate — seven requirements and their coverage did not exist as far as the gate
+  was concerned.** `openspec/changes/add-gitlab-forge-support/` writes
+  `<!-- id: GLF-01 -->` … `GLF-13` and covers them with `// spec: GLF-…` markers
+  in `hub/forge/__init__.py`, `hub/forge/instance.py` and
+  `tests/test_gitlab_forge_support.py`. The shared discovery
+  (`scripts/lib/spec_discovery.py`, used by both `spec_traceability.py` and
+  `spec_gap_scan.py`) matched IDs with a lowercase-only class, so the gate read
+  199 requirements where the tree holds 206 and 195 covered where 202 are
+  covered and marked — the ratchet was guarding a number that excluded a whole
+  change package. All three ID regexes now accept `[A-Za-z0-9-]`; comparison
+  stays exact (case-sensitive), so `REQ-01` and `req-01` remain two
+  requirements, and a marker must spell the ID its spec does. `findings_to_spec.py`
+  reads existing IDs with the same widened class so it can no longer append a
+  duplicate of an existing capitalised requirement (the IDs it *generates*
+  remain lowercase kebab-case). After the fix the gate reports **202/206
+  covered**, and its ratchet floor moves 184 → 202 — the old floor had also
+  drifted 11 below the then-current 195, which the advisory note had been
+  printing without failing. Two regression tests pin both halves: a
+  capitalised ID is discovered and covered, and IDs differing only by case stay
+  distinct.
+
+## [1.3.22] - 2026-11-13
+
+### Fixed
+
+- **Two internal documentation links that resolved to nothing now resolve.**
+  Found by running the guardrails-template's `scripts/check-doc-links.sh` over
+  this tree (AIGGP has no link gate of its own). `docs/NEW_REPO_ONBOARDING.md`
+  linked `docs/SUBMODULE_WIRING.md` from inside `docs/`, so it pointed at
+  `docs/docs/SUBMODULE_WIRING.md` — a broken anchor on GitHub and locally; it is
+  now `./SUBMODULE_WIRING.md`. The vendored `actions/stitcher-codereview/README.md`
+  inherited upstream's `docs/ROADMAP.md`, which is not vendored here, so it now
+  links to upstream's file and says why; `NOTICE.md` records the edit alongside
+  the existing local modifications. Re-run after the fix: **153 internal links
+  across 514 Markdown files resolve**.
+
+## [1.3.21] - 2026-11-13
+
+### Fixed
+
+- **The release publisher no longer needs the `gh` CLI.** `Release Published`
+  failed on `v1.3.20` with `gh: command not found` (exit 127): the lane images
+  ship the actions/runner toolchain and nothing else, so `gh` exists only where
+  someone installed it into a running container by hand — the base `devgate`
+  runner had it, the spares of the same lane did not, which is why the identical
+  job passed for `v1.3.19` and failed for `v1.3.20`. The step now talks to the
+  REST API with `curl` (`GET`/`POST /repos/{repo}/releases`), creates the
+  release only on a 404, treats an existing release as evidence, and verifies by
+  reading it back — tag matches, not a draft, non-empty changelog body. Exercised
+  locally against the real `v1.3.20` release end to end before pushing. The
+  README gains the rule this is an instance of: a required CI step must not
+  assume `gh` on a self-hosted runner (or must gate on `command -v gh`).
+
+## [1.3.20] - 2026-11-13
+
+### Changed
+
+- **The runner standard no longer presents "podman inside the runner
+  container" as a working default.** Shape (a) of *the evaluator image on a
+  runner host* said to give the runner image podman and back its store with a
+  named volume. That does not work for a stock rootless runner: the runner is
+  uid 1001 inside its own userns, and starting a container inside it needs a
+  second subordinate mapping, which the setuid helpers refuse —
+  `newuidmap: write to uid_map failed: Operation not permitted` — whatever the
+  subuid range, added capabilities, `--userns` mode or storage driver. Measured
+  across eight configurations on 2026-11-13. The shape now carries that
+  limitation and a one-command probe (`podman run --rm alpine:3 true` inside
+  the runner container, exit 0 required) instead of asserting it works, and a
+  new shape (c) covers the honest alternative: a host-level runner under its
+  own unprivileged user, with a dedicated label, carrying only the jobs that
+  need an engine.
+
+### Fixed
+
+- **`add-a-runner.md` warns that the restored credential snapshot is reused,
+  not validated.** GitHub expires the registration of a runner that has not
+  connected recently, and a scaler-stopped spare never connects — but the
+  entrypoint restores `.runner`/`.credentials`/`.credentials_rsaparams`
+  whenever they exist, so an expired registration comes back on every start and
+  the unit restart-loops forever while still reading as `offline` rather than
+  `gone` at the API. Measured: 36 spare units across 18 lanes, one restart
+  counter past 33,000, and no alert anywhere. The section now carries the
+  re-register procedure, including the two traps that cost time — the drop-in
+  needs the `RUNNER_TOKEN=` key, not a bare token, and registration must use
+  the repo's canonical name — plus the credential-snapshot deletion that has to
+  happen before the restart.
+
+## [1.3.19] - 2026-11-13
+
+### Changed
+
+- **`ci.yml` runs on the self-hosted fleet for every event, including PRs.**
+  The owner's routing decision is that all CI work executes on our own
+  hardware, so the workflows no longer rely on GitHub-hosted capacity. Every
+  job in the one workflow that declares `pull_request` carries the job-level
+  fork guard
+  (`github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository`),
+  which GitHub evaluates *before* a runner is assigned, so a fork PR's jobs are
+  skipped rather than dispatched onto the private pool. `container-publish`
+  keeps its publish policy as the second conjunct. `hub-health-probe.yml`, the
+  last silently hosted job, moved to `devgate`. The guard is pinned, not
+  asserted: `tests/test_fork_guard.py` requires it as the leading clause of
+  every job and evaluates it against push, dispatch, same-repo-PR and fork-PR
+  payloads, and `tests/mutation_battery_fork_guard.py` mutates the file four
+  ways (guard deleted, operator inverted, guard demoted behind the job's own
+  condition, `pull_request_target` substituted) with each mutation killed.
+
+### Fixed
+
+- **The two container-engine jobs run on UCS03 again, on a runner that has an
+  engine.** Routing every job to `devgate` broke `container-image` ("podman:
+  command not found", exit 127) and `container-publish` ("podman unavailable —
+  the identity registry could not be evaluated", exit 1): the lane runners are
+  themselves rootless containers, and a nested rootless podman cannot create a
+  sub-userns inside the runner's own userns — `newuidmap` refuses to write
+  `uid_map` no matter how the subuid ranges, capabilities or userns mode are
+  set. Both jobs now carry `runs-on: devgate-podman`, a host-level,
+  unprivileged runner on ucs03 under a dedicated user with its own rootless
+  podman storage — no sudo, no podman socket, unable to reach the fleet's
+  runner containers or the hub. Still self-hosted, still on UCS03, fork guard
+  and publish policy unchanged. Verified green on run `43337938388`.
+
+### Added
+
+- **README documents the `devgate-podman` label**, so a consumer that needs
+  `podman build` or a digest-pinned pull does not repeat the investigation or
+  move the job back to a hosted runner.
+
+## [1.3.18] - 2026-11-12
+
+### Fixed
+
+- **`Release Coverage` can see merge commits.** Its reports-only exemption
+  listed changed files with `git diff-tree --no-commit-id --name-only -r HEAD`,
+  which returns nothing for a merge without `-m`, so a merge that brought only
+  `docs/qa/fleet-sweeps/*` and `docs/qa/spec-sweeps/*` never reached the
+  exemption and fell through to `::error::HEAD is not release <tag>`. Observed
+  2026-11-12 on `af0f102`, when `deploy.sh`'s push was rejected by concurrent
+  automated sweep writers and the release had to land as a merge. The
+  exemption now diffs against `HEAD^1` (where `main` was), which is the right
+  question on a merge and identical on an ordinary commit. Verified against
+  the real history, not asserted: `af0f102` classifies as `SKIPPED (not a
+  product release)`, the release commit `6a9d7d0` still falls through to the
+  HEAD-must-be-the-tag check, and the sweep-only commits are unchanged.
+
+## [1.3.17] - 2026-11-12
+
+### Added
+
+- **`PREVENT-SUB-001` blocks tooling submodules from being committed into a
+  consumer repo.** A change to `.gitmodules` that names
+  `DevGate-Agentic-Framework` or `agent-guardrails-template` is a `critical`
+  pattern violation. The tooling checkout is local-only: run the gates from
+  `.devgate/` on disk and push only the consumer's own code fixes. Measured
+  non-vacuous through the real `regression_check.py` path — a planted
+  `.gitmodules` entry fires `CRITICAL`, and an unrelated submodule name does
+  not.
+
+### Changed
+
+- **The wiring docs describe the contract the rule enforces, not the one it
+  forbids.** `README.md`'s quick start, `docs/SUBMODULE_WIRING.md`,
+  `docs/NEW_REPO_ONBOARDING.md`, and `templates/runner/add-a-runner.md` told
+  consumers to run `git submodule add … .devgate` and commit the registration,
+  which is exactly what `PREVENT-SUB-001` now rejects. They now describe an
+  untracked local checkout at `.devgate/` (the `root-anchor-01` path is
+  unchanged — the gates still resolve the project root as the parent of
+  `.devgate/`), state that `.gitmodules` must not name this repository, and
+  tell CI/runner workflows to clone the tooling themselves instead of
+  following a submodule URL. The `skip_dirs`, secrets-before-first-run, and
+  gate-sanity sections are unchanged and still apply.
+
+## [1.3.16] - 2026-11-09
+
+### Changed
+
+- **The hub runbook now carries the build-and-verify procedure the 2026-11-08
+  incident needed, not only the warning.** `docs/runner-monitor-monitor-hub.md`
+  Sec. 1 gives the `git archive` build (with a `hub/services.py` presence check
+  that fails the build if the tree is incomplete) and the canary-before-promote
+  sequence: new image on an alternate loopback port, a *copied* volume, the
+  full `/health` + `/services` + per-service resolution check, then promotion
+  by tag swap with the previous image kept as a rollback tag. It also states
+  why a bare `podman run` is not the deployed hub — the quadlet's env
+  (`HUB_MONITOR_ONLY`, enrollment and GitHub tokens) and the `/data` volume are
+  what make a canary a canary. Sec. 7 adds resolving the services CI depends on
+  (`resolved: true`), reading `uptime_sec` to prove the answering process is
+  the one that started, and judging a restart by `ActiveEnterTimestamp` /
+  container `StartedAt` because the unit is `Restart=always` and a manual
+  restart can produce two stop/start pairs in one minute.
+
+## [1.3.15] - 2026-11-09
+
+### Fixed
+
+- **CI's test lane was collecting `scripts/test_art_creation_scan.py` as a
+  crash, not running it.** The file is a fixture suite with a `selftest()`
+  entry point and no `test_*` function, so `pytest` collected zero tests and
+  exited 5, which `scripts/run-tests.mjs` reports as `crashed, code 5`. CI's
+  `Test suite (Python + Node)` job has been red on every push since `43a9bdb`
+  (2026-11-07) while all 60 cases in the suite passed. A `test_fixture_suite()`
+  wrapper now calls the same `selftest()`, so the file runs standalone and
+  under pytest; measured with the repo's own runner and the pinned `tsx`
+  present: `2389 passed, 0 failed across 153 files` (without `tsx` the suite
+  fails one local-only adapter case, which CI installs).
+- **The hub documentation added on 2026-11-09 tripped the charset gate.**
+  Section signs written into `CHANGELOG.md` and `docs/runbooks/hub-outage.md`
+  are non-ASCII; they now read `Sec. 1` / `Sec. 7`. `check_charset.py --repo .`
+  is back to `OK - 954 text file(s) within baseline`.
+
+## [1.3.14] - 2026-11-09
+
+### Changed
+
+- **`hub/server.py` and `hub/registry.py` are back under the 500-line hard
+  limit.** `28db04b` (Windows-spoke enrollment, 2026-11-08) took them to 508 and
+  512, which makes `scripts/deploy.sh`'s release gate — `regression_check.py
+  --all --pre-commit`, the mode its own docstring reserves for release gates —
+  refuse to ship anything on this repo, and left main unreleasable. Two pure
+  moves, no behaviour change: the boundary's exception types and per-field caps
+  went to `hub/request_limits.py`, and the four gap-report / lane-profile /
+  coverage writes went to `hub/registry_observations.py` as
+  `ObservationsMixin`, which `Registry` inherits first. Both modules re-export
+  every moved name (`hub.server.FIELD_CAPS`, `hub.registry.scan_state_unknown`,
+  …), the methods resolve at the same MRO position, and `_now_iso` moved with
+  the methods that stamp it. Measured: 482 / 439 lines, `regression_check.py
+  --all --pre-commit` now reports **0 over hard limit** (was 2), 1887 passed +
+  566 subtests plus the pinned-`tsx` adapter test, and both mutation batteries
+  that target these files still kill every mutant
+  (`mutation_battery_scan_report` 18/18, `mutation_battery_image_state` 42/42).
+
+- **The hub runbook no longer lets a stale checkout be deployed silently, and
+  it verifies `/services` as well as `/health`.** `Containerfile` does
+  `COPY hub/ ./hub/`, so the build context *is* the hub that ships — nothing at
+  run time compares the image to the repo. On 2026-11-08 a `devgate-hub:local`
+  image was built on ucs03 from a checkout 268 commits behind, which predated
+  `hub/services.py`; the deployed hub answered `/health` **200** and
+  `/services` **404**, heartbeat ingestion stopped, and CI jobs that resolve
+  endpoints from the fleet failed the next day while every liveness check stayed
+  green. `docs/runner-monitor-monitor-hub.md` Sec. 1 now requires the build to run
+  from a checkout equal to `origin/main` and refuses otherwise (the stale
+  `AIGGP-Agentic-Framework` path in that step was also corrected), and Sec. 7
+  verifies both endpoints with the reason a missing route hides behind a green
+  `/health`. `templates/runner-monitor/Containerfile` carries the same warning
+  at its build command. The automated probes still check `/health` only; that
+  gap and the `--require-services` proposal are recorded in Sec. 7 rather than
+  changed here, because every spoke runs the watchdog against one hub URL and
+  the kept-as-rollback dell-u2 hub predates the route.
+
+### Fixed
+
+- **`tests/test_semantic_scan.mjs` provisions its parser where it says it does.**
+  `ensureTypescript()` ran `npm install` with only `cwd` set, which resolves
+  against an *ancestor* `node_modules` and reports "up to date" **without**
+  creating `repoRoot/node_modules`. On a consumer checkout that already installs
+  `typescript` at its repo root — a gates job does exactly that —
+  `linkParser` then symlinked a path that never existed, the scanner failed
+  closed on a tooling error, and every assertion in the file was measuring that
+  error instead of the overlay merge. The install now uses `--prefix repoRoot`
+  and the helper verifies `lib/typescript.js` (not merely `package.json`) is
+  present before returning, throwing rather than handing a dangling path to the
+  fixtures. Measured both layouts after the fix: `ALL TESTS PASSED`, exit 0,
+  parser landed under the framework root even with `typescript` already
+  installed at the ancestor.
+
+- **The three scope-list checks build the layout they claim to verify.**
+  `test_source_dirs_include_{test_directories,the_directory_the_shell_scripts_live_in,web_and_infra}`
+  asserted against `SOURCE_DIRS` resolved from the *live* checkout — green only
+  when the framework is checked out standalone (CI), red whenever it is vendored
+  as `<host>/.devgate` with a consumer's documented `source_dirs: ["."]` overlay,
+  which is exactly the layout every consumer runs. Each now pins both halves of
+  its contract against a built submodule-layout tree: the name is on
+  `DEFAULT_SOURCE_DIR_CANDIDATES`, and a project that has the directory gets it
+  walked. Same fixture shape as `tests/test_gate_common.py:_scope_layout`. The
+  `scripts/` case additionally stops demanding that the surrounding repository
+  *have* a `scripts/` directory — a fact about the host, not the contract.
+  Full pytest in both layouts: 1943 passed, 7 skipped, 0 failed.
+
+- **`scripts/art_check_outcome.py`, `scripts/art_checks.py`, and
+  `scripts/test_art_creation_scan.py` carry the exec bit.** All three are
+  shebang'd and were committed `100644`, so `check_exec_bits` (fw-prov-01) and
+  `test_fw_guards.py::TestExecBitCheck::test_real_tree_passes` were red at HEAD
+  in every layout. Index modes set to `100755`; the gate now reports
+  `138 shebang'd file(s), all 100755 in the index`.
+
+## [1.3.13] - 2026-11-06
+
+### Fixed
+- `scripts/deploy.sh` folded `[Unreleased]` into a new dated heading without
+  moving the body, so the notes stayed above it and the release published
+  empty. The fold now carries the body down and refuses an empty
+  `[Unreleased]`. Both the bug and the guard responded to v1.3.11 and v1.3.12.
+
+## [1.3.12] - 2026-11-06
+
+## [1.3.11] - 2026-11-06
+
+### Changed
+- The tracker's four "DONE - awaiting routing" packages left
+  `devgate-open-changes`. One carried residue and is now a change package
+  here: `aiggp-08-stitcher-proof-parity`, reopened un-checked after measuring
+  that none of its claimed files exist in this repo's history.
+  Strict validation 46 passed, 0 failed; traceability 184/187 unchanged.
+
+### Removed
+- `openspec/changes/spec-audit-rollout/`, added and withdrawn the same day.
+  It was an older snapshot of trees this repo already carries — measured at
+  408 vs 497 lines for `scripts/spec-fleet-classify.py`, 121 vs 163 for
+  `spec-fleet-walk.sh`, 199 vs 301 and 54 vs 143 for the two test files, with
+  no copy of `.github/workflows/spec-fleet.yml` (307 lines here) — and it
+  carried a hardcoded `/mnt/data/git/...` fallback the live copy does not.
+  The tracker's own record had already ruled it should be retired rather than
+  landed; it now sits back in `devgate-open-changes/` as staging, untracked.
+
+## [1.3.10] - 2026-11-06
+
+### Changed
+- OpenSpec: archived the 13 complete change packages (11 fleet-manager
+  packages, game-session-start, runner-toolchain-requests). Their deltas are
+  now published as 13 new specs (44 total), each with a written Purpose and
+  a `Status: CLOSED` line. `add-gitlab-forge-support` remains an open change.
+  Strict validation: 45 passed, 0 failed; traceability 184/187 unchanged.
+
+## [1.3.9] - 2026-11-05
+
+### Fixed
+
+- **The SGR-16 D3 record is corrected: its verdict-aggregator test is necessary
+  but not sufficient, and two of 26 keys were justified on evidence the test
+  never established.** The test correctly separates *aggregation* from
+  *exemption* — MergeKingdom, rad-gateway, OpenRawFlow and NemoClaw classify as
+  they did and those stand. It does not ask whether the check being softened
+  **works**. Re-measured from the workflow text and by running the commands:
+  `radredeye` `guardrails.yml:61` was "documented signal job", but its
+  `cargo build -p radredeye-webxr` cannot resolve a workspace-excluded crate
+  (`Cargo.toml:3` `exclude = ["crates/radredeye-webxr"]`) and the job has never
+  compiled anything — the key exempts a failure, not a signal. `pi-ithacus`
+  `secret-validation.yml:27` was "layered, enforced fallback", but the
+  Trufflehog step has no `id:`, nothing in the file reads any step outcome, and
+  the "fallback" is a different, weaker scanner — a verified secret found by
+  trufflehog does not fail the job. Counts move from "25 justify / 1 baseline"
+  to **"23 justify / 1 baseline / 2 owner."** A third row is annotated rather
+  than moved: `pi-ithacus` `regression-guard.yml:35`'s key is sound aggregation,
+  but the gate it reports on passes `--soft-as-hard` flags `regression_check.py`
+  does not define and exits 2 on argument parsing — the job is unconditionally
+  red and has evaluated no regression rule. "Justify" now means the key's shape
+  is right **and** the thing it softens works; it is not a claim that the gate is
+  effective. No workflow, gate script, or allowlist was touched — D3-a/b/c are
+  named for owner call. Standing caveat recorded with the method: GitHub reports
+  a `continue-on-error` step **or job** as `success` on non-zero exit, so a
+  green Actions UI is not evidence a check passed.
+
+## [1.3.8] - 2026-11-05
+
+### Fixed
+
+- **The D4 record overstated E1.** It called the `photography-website` `.env`
+  JWT "not a dead credential" and a "live" token. What was actually measured is
+  that the token is **unexpired** (`exp` 2035-12-21). Whether the issuer still
+  accepts it — signing secret rotated, or revoked server-side — was never
+  established, and on a security claim that distinction matters. Now stated
+  precisely, with the instruction to treat it as live until the issuer says
+  otherwise. The action is unchanged: revoke or rotate now.
+
+## [1.3.7] - 2026-11-05
+
+### Fixed
+
+- **The D4 record's method caveat still cited the pre-retraction count.** It
+  said "the 143 that classed out" while the section heading correctly says 144.
+  In a record whose whole point is careful counting, a stale number is a defect,
+  so the clause is rewritten to name the thing it was actually about — that
+  every other location was read with its surrounding lines and this one alone
+  was not. No count changes, no disposition changes, no coverage change.
+
+## [1.3.6] - 2026-11-05
+
+### Fixed
+
+- **The D4 triage record is corrected: one escalation is retracted and one is
+  upgraded.** `1.3.5` said "two findings are escalated." One of those two was
+  wrong. `missioncontrol` `docs/GITHUB_APP_CONFIG_IN_D1.md:25` is documentation
+  prose quoting what a PEM header looks like — an SQL comment, zero base64 body
+  lines, and an explicit `…full_private_key…` elision in the adjacent JSON
+  example. It is a doc example, not a leak, and it is now classified with the
+  other false positives. The other escalation is worse than recorded: the
+  `photography-website` `.env` JWT is **HS256, issued 2025-12-20, expires
+  2035-12-21, still valid** — a live ten-year bearer token in git history that
+  needs revocation now, not a disposition entry. Counts move from
+  "2 escalated / 143 classed out" to **"1 escalated / 144 classed out."** A
+  method caveat is recorded with the retraction: a one-line shape probe cannot
+  distinguish a quoted PEM header from a real one, and every escalation must be
+  confirmed against surrounding context and, where consequential, by decoding
+  structure. No allowlist entry, no exclusion, no coverage change.
+
+## [1.3.5] - 2026-11-05
+
+### Added
+
+- **The Secret Fleet D4 findings triage is recorded, and two findings are
+  escalated instead of dispositioned.** The backlog is not one number:
+  `findings` counts allowlisted locations too, `uncovered` is what exits
+  non-zero, and `states.findings` (55) is the actionable population. Of 504,052
+  reported locations, 502,513 are one upstream fork and roughly 1,326 are ours.
+  The 145 high-severity locations were each opened and classified by shape —
+  never by value — and 143 class out as documentation examples, vendored
+  sources, or test fixtures. Two do not: a tracked `.env` and a PEM block in
+  docs, both historical and both recoverable from git history. They need
+  rotation and verification before any disposition entry, so this pass wrote
+  none. No allowlist entry, no exclusion, no coverage change.
+
+## [1.3.4] - 2026-11-05
+
+### Added
+
+- **The SGR-16 D3 disposition is recorded, and no `continue-on-error` key was
+  converted.** Every one of the 26 actionable advisory keys across 9 repos is
+  now justified or baselined against measured evidence, not a green run. The
+  method is a verdict-aggregator test: a key sitting under a fail-closed
+  aggregator is an *aggregation* mechanism, and converting it would destroy the
+  matrix while adding no coverage. Result — 25 justify, 1 baseline (LobsterWars
+  Pattern Scan, re-measured at exactly 13 violations), 0 convert. Three
+  secondary gaps are named and left for owner call rather than silently fixed.
+
+## [1.3.3] - 2026-11-05
+
+### Fixed
+
+- **The pi carrier test no longer loses its TypeScript runtime between runner
+  invocations.** CI supplies the pinned `tsx` binary from an isolated tool
+  directory rather than the repository's unsaved `node_modules`, which the
+  semantic-scanner fixture's root install mutates. Two consecutive complete
+  runner invocations are the validation target, not only a single pytest pass.
+
+## [1.3.2] - 2026-11-05
+
+### Fixed
+
+- **The GitHub Release publisher accepts dated changelog headings.** The v1.3.1
+  tag workflow showed its note parser requiring `## [version]` while the release
+  pipeline correctly writes `## [version] - YYYY-MM-DD`. It now accepts either,
+  and an exact-workflow simulation covers annotation, note boundaries,
+  create/verify, idempotence, and refusal of empty notes.
+
+## [1.3.1] - 2026-11-05
+
+### Fixed
+
+- **Tag publication explicitly fetches the annotated tag object.** Run
+  `41958060877` rejected v1.3.0 with "v1.3.0 is not annotated" because
+  `actions/checkout` had resolved its local ref straight to a commit. The
+  publisher now refuses a flattened ref, then fetches the actual tag so the
+  annotation check remains real rather than removed.
+
+## [1.3.0] - 2026-11-05
+
+> **Version rule (doc-version-01):** `VERSION` always equals the newest `v*`
+> git tag, `CHANGELOG.md` documents exactly those tags, and the release
+> pipeline (`scripts/deploy.sh`) writes `VERSION` and folds this `[Unreleased]`
+> section into the new dated heading in one step. The agreement is enforced in
+> CI by `scripts/check_version_truth.py`. The notes formerly staged under a
+> `1.3.0` heading (2026-09-23) were never tagged and remain Unreleased work.
+
+### Added
+
+- **`add-game-session-start` Sec. 5 (steps 2-5) - Godot hook, carrier adapters, red-eye join, hub session ingestion, and gap-report producer.**
+  - `scripts/spec_gap_scan.py --write-report`: atomically writes `<root>/.guardrails/spec-gap-report.json` (and is wired into `templates/github-workflows/specs.yml`) so `game_session_start.py` reads the default report path without ever invoking the scanner (`session-05`).
+  - `engines/godot/game_session_hooks.gd` + `scripts/scene_inventory.py --write-report` + `scripts/game_session_start.py --scene-report`: play-side Godot runtime adapter that evaluates screen inventory, invokes the brain, refuses the play-session on exit `2`/`1`, and opt-in wires `radredeye_capture` when `capture.stream_id` is declared (`5.1`).
+  - `templates/hooks/{claude-code/session-start.sh,pi-extension/session-init.ts,codex/session-start.sh,opencode/session-start.mjs,mimo/session-start.sh}` + `scripts/init.mjs --carriers`: thin 3-step carrier adapters with zero business logic (`5.2`).
+  - `docs/REDEYE-SESSION-CONTRACT.md` + `scripts/log_failure.py --seed --stream-id`: documents the `stream_id` single-owner rule and `seed` (run identity) vs `ReviewLine.seed` (frame pixel hash), and surfaces `[seed=... stream=...]` on session-start registry hits (`5.3`).
+  - `hub/sessions.py` + `tests/test_hub_sessions.py`: defensive ingestion of `.guardrails/sessions.jsonl` with quarantine of malformed rows, `unknown` state when absent/unreadable, and `join_with_registry` joining sessions to failure-registry rows on `stream_id` / `seed` (`5.4`).
+
+### Fixed
+
+- **The scheduled drift scan no longer runs 2026-09-15 scanners.** Its pinning
+  workflow now uses `8c2d0a9`, carrying the later prose and scanner contract
+  fixes. `FAIL-47bc725d`'s `if path in allow:` adhesion was also retired: that
+  one-line regex matched the corruption fix's unrelated bulk-rewrite allowlist
+  and made `--all` red on pre-fix history. The executable corruption tests keep
+  both legs: a whole-file rewrite is not a flip, while the same edited pair
+  outside a rewrite still fails.
+- **Scheduled trend reports survive a competing report push.** The spec and
+  secret sweep workflows now retry a non-fast-forward push with a bounded
+  fetch/rebase sequence, preserving both reports instead of losing one trend
+  line or force-pushing over the other.
+- **Unreleased `main` work now fails loudly.** `Release Coverage` requires HEAD
+  to be an annotated `VERSION`-matching tag with changelog notes; the
+  tag-triggered `Release Published` workflow creates and verifies the GitHub
+  Release. Generated fleet/spec report-only pushes have a named skip. Deploy
+  can no longer print `PUBLISHED` after a failed GitHub Release creation.
+- **The pi-extension carrier now has executable accept and refusal evidence.**
+  A pinned `tsx@4.23.15` runtime exercises the real TypeScript adapter; a missing
+  runtime fails the test instead of silently skipping the only untested carrier.
+- **The session-start design no longer contradicts its completed rollout.**
+  Its old step-1-only exclusion list now records delivered integrations and
+  remaining boundaries: the Android runtime path and hub HTTP route are not
+  supplied, while `game-matrix-01..03` remains deferred.
+- **README status distinguishes delivered libraries from runtime products.**
+  Game-session adapters and ingestion are documented with their integration
+  boundaries; fleet-manager's tested contracts/planning are not presented as a
+  live executor; the phase matrix remains explicitly planned.
+
+- **A runtime-capability check skips loudly instead of measuring the runtime.**
+  `test_schema_health_config.mjs`'s cold-install path needs `node:sqlite`
+  (Node 22.5+); the fleet's minimum runtime is Node 20 (ci.yml), where the
+  gate correctly fails loud ("adapter not usable", exit 1) for an engine that
+  cannot load — so check 4b asserted a skip the gate rightly refuses to give
+  and the suite went red on the fleet (run 40564317112: 2310 passed, 1 failed,
+  this file). The check now probes `node:sqlite` at load and skips LOUDLY when
+  the runtime cannot provide it — the same honesty guard
+  `tests/test_schema_health_exitcodes.py` already uses (`SQLITE_OK`) — and is
+  never reported as passed on a runtime that never ran it.
+- **Layout-asserting tests build the layout they claim to verify.** The four
+  standalone-layout checks (log_failure default registry, detect-host-ci CLI
+  ×2, schema-health unconfigured skip) ran the LIVE scripts against the live
+  checkout and asserted clone-layout behavior — green only when the framework
+  is checked out standalone (CI), red whenever it is vendored as
+  `<host>/.devgate`, which is exactly the layout every consumer runs. Each
+  now copies the script into a real clone-layout tree (`<tmp>/gameproj/scripts/`,
+  a root NOT named `.devgate`) and asserts there; the schema-health case also
+  pins the unconfigured skip's message on stdout, because the vendored run
+  took a different skip path (host's configured DB absent — message on stderr)
+  than the unconfigured one its name promises. Full pytest suite now green in
+  both layouts (1890 passed, 0 failed).
+- **A spawned test engine always runs top-level — the runner scrubs
+  `NODE_TEST_CONTEXT` from its children's env.** Measured 2026-10-27 on
+  v26.11.1: when run-tests.mjs itself executes under `node --test` (its own
+  fixture suite is run that way), the outer runner marks the test file with
+  `NODE_TEST_CONTEXT`, the fixture spawns run-tests.mjs with that marker still
+  in its env, and every nested `node --test` treats its invocation as
+  recursive — "run() is being called recursively within a test file. skipping
+  running files." — evaluates ZERO tests, prints no TAP and exits 0. The
+  root-anchor green-exit checks died on it (2 of 15 red only under
+  `node --test`, green direct). `childTestEnv()` (lib/test-runner-select.mjs)
+  deletes the marker before spawning any engine (node, vitest, pytest, cargo);
+  pinned by `test_run_tests_runner.mjs` ("children run top-level even when the
+  runner sits under node --test").
+- **A run that executed ZERO tests fails closed instead of passing.**
+  `node --test` on a file with no tests and vitest with a non-matching filter
+  both print a `1..0` plan and exit 0 — under a naive verdict that reads as
+  ✓ 0 pass / 0 fail, the gate-vacuous-01 shape. `isEmptyRun()` (lib/
+  test-runner-select.mjs) names the state (skips count as evidence; todo-only
+  fails closed), and run-tests.mjs refuses it in the verdict ("(ran zero tests
+  — vacuous, not a pass)") and in solo flake adjudication alike.
+- **A consumer whose package.json declares vitest runs its suffix-style JS/TS
+  on vitest, not `node --test`.** Measured 2026-10-27 on the vbrainstorm
+  consumer: every vitest file crashed before a single test ran with
+  `ERR_MODULE_NOT_FOUND` on its extensionless TS imports ("Cannot find module
+  '.../src/community/media'") — `node --test` loads the file but does not do
+  TypeScript module resolution. The TS discovery arm existed but could not run
+  the dominant TS layout (Decision 8: fix the written-but-broken arm, don't
+  delete it). `selectJsRunner()` delegates suffix-style files to the local
+  vitest binary (`run --reporter=tap --root <projectRoot> <relative-filter>`;
+  the filter MUST be relative — an absolute path matches nothing and hits the
+  1..0 trap), keeps prefix-style `test_*.mjs` on `node --test` (vitest's
+  default include does not collect it), and keeps every file on `node --test`
+  when vitest is not declared. Real consumer: 17/17 vitest files green.
+- **`get_changed_files` counts metadata-only and deletion-only diffs as real
+  scope.** Measured 2026-10-27 on the fleet (AIGGP run 40562221604, the
+  exec-bit fix `88c3223`): the CI regression check printed "NOTHING SCANNED —
+  the selected scope contains 0 changed files" and `--fail-if-empty` exited 2
+  on a push that changed a real file's mode. The scope reader parsed only
+  `+++ ` diff headers, but git emits NO `---`/`+++` pair at all for a pure
+  mode change (`old mode`/`new mode` only), and a pure deletion's only `+++`
+  target is `/dev/null` — so both read as empty scope. `get_changed_files`
+  now also takes the b-side path from each `diff --git a/<old> b/<new>`
+  header (post-image name, same rename semantics, deduped against the `+++`
+  parse), so a path the diff NAMES is in scope. The vacuous-empty failure for
+  genuinely empty ranges is untouched. `tests/test_regression_scope.py`
+  grows 5 → 12 checks: FakeGit cases for mode-only / pure deletion / content
+  / rename / mixed blobs, plus a real-git exec-bit + `git rm` round trip —
+  the exact fleet shape.
+- **`_collect_git_scope` fails loud instead of silently emptying the
+  staged/unstaged scope.** The staged and unstaged arms did `if rc == 0:
+  append` while the docstring promised fail-loud (gate-vacuous-01): a lock
+  contended or corrupt index (rc 128) dropped the blob and the run scanned
+  ZERO files with a green report — the same vacuous-empty shape as the
+  mode-only parse bug above. rc 0/1 are data (matching `_diff_or_raise`);
+  anything else now raises. Pinned by
+  `TestGetChangedFilesScope::test_unreadable_staged_scope_raises_not_swallows`.
+- **Corruption-gate diff headers resolve to the real path on both sides.**
+  The header parser sliced `line[6:]` — stripping `--- ` plus two more
+  characters — which works by accident for git's `a/`/`b/` prefixed paths but
+  turned a pure deletion's `+++ /dev/null` into `ev/null`: a deleted file's
+  removed lines were attributed to a nonsense path in per-file accounting
+  (mass-rewrite counting, allowlist lookup, report lines). The slice is the
+  4-char header marker and the optional prefix is stripped separately;
+  `tests/test_check_corruption.py` grows
+  `CorruptionDiffPathResolution` (3 checks: deletion path, new-file path,
+  deletion scan stays clean).
+- **The 500-line hard cap's own violators are split, not squeezed.**
+  `check_corruption.py` stood at 518 (a touched hard oversize blocks) and
+  `regression_diff.py` at 496 (4 lines of headroom). The hunk-level diff
+  parser moves to `scripts/corruption_diff.py` (check_corruption 518 → 398)
+  and the prevention-pattern contract to `scripts/regression_patterns.py`
+  (regression_diff 496 → 410); both originals re-export the moved helpers so
+  every importer and the importlib-based tests keep one module. Pinned by
+  `tests/test_python_root_anchor.py` `_PY_DEPS` (the synthetic repo must
+  carry the full sibling-import chain).
+- **`check_diff_against_patterns` honors the shared scanner contract
+  (comment lines + test-code scope).** Measured 2026-10-27 on the vbrainstorm
+  community-acceptance tree: the prevention-pattern checker treated full-line
+  comments as code — doc prose reading "D5): any non-banned member …" and
+  "model by Space type\"): any visitor may enroll" matched PREVENT-011 /
+  PREVENT-VB-001's `:\\s*any` as if it were a TypeScript `any` type — and it
+  applied blocking rules to test code, so synthetic in-process route fixtures
+  (``new Request(`http://localhost${path}`)``, Request `origin:
+  "http://localhost"` options) hard-failed CI's `--pre-commit` mode with
+  PREVENT-029 CRITICAL on `*.test.ts` files that `guardrails-scan.mjs`
+  correctly exempted. The same diff passed one scanner and failed the other —
+  FAIL-9231181d's "identical semantics intended for every scanner" contract
+  broken two ways. `check_diff_against_patterns` now skips full-comment lines
+  unless the rule opts in via `scan_comments` (exactly guardrails's comment
+  contract; trailing inline comments still scan their code portion), and skips
+  blocking rules (severity != "warning") on test files — warning-severity rules
+  stay advisory everywhere, matching guardrails. `tests/test_diff_pattern_allow.py`
+  grows 5 → 7 checks pinning both exclusions and their controls (code-line hits
+  still fire, `scan_comments: true` still opts a marker rule back in, production
+  paths still block).
+
+- **Whole-file rewrites no longer feed flip pairing in `check_corruption`.**
+  Measured 2026-10-27: vbrainstorm's `invites.ts` stability-barrel rewrite
+  (9.13) reported `substitution flip (78% of characters changed, length within
+  3%)` by pairing the old file's first comment ("This replaces the Phase-1
+  FIXTURE_INVITES map; the InviteView response") with the barrel's first
+  comment ("Every public name this module historically exported is re-exported
+  here,") — SequenceMatcher alignment across a whole-file rewrite invents
+  comment-to-comment pairs that share no content. The detector's own coverage
+  model already judges rewrites via the mass-rewrite rule (≥8 add AND ≥8 rem
+  per file; ≥10 files = BULK MUTATION), which reported the same rewrite as an
+  intentional mass rewrite. Files that cross the mass-rewrite threshold are
+  now excluded from flip pairing and judged by that rule alone;
+  1↔1 edits of the same comment pair still fail flip (control test), and
+  `tests/test_check_corruption.py` pins both legs.
+
+- **`*-test-helpers.ts` / `*-test-utils.ts` are test code in both scanners.**
+  Shared fixture modules (vbrainstorm's `space-test-helpers.ts`,
+  `invite-test-helpers.ts`) hold harness-only code — synthetic Request
+  builders, in-memory DB shims — but neither scanner's test-file classifier
+  recognized the naming, so `guardrails-scan.mjs` fired PREVENT-029 CRITICAL on
+  a fixture module's synthetic `new Request(\`http://localhost…\`)` while the
+  identical line in a `*.test.ts` file was exempt. `isTestFile` (Node) and
+  `_is_test_file` (Python) now match `(^|[.-])test[-_]?(helpers|utils)\.(ts|tsx|js|jsx|mjs|cjs)$`,
+  keeping blocking-rule exemptions consistent for the fixture-module
+  convention. `test_guardrails_scan.mjs` case 19 pins fixture/test silent +
+  production blocking for the same line.
+
+- **Pattern-rule `exclude_glob` honored by both scanners.** The Python
+  `regression_check.py rules_for_file` applied a rule's `file_glob` but never
+  its `exclude_glob`, and `guardrails-scan.mjs ruleAppliesTo` only read
+  `exclude_glob` when `file_glob` was also set. So a boundary-file exemption
+  could silence one scanner and not the other: vbrainstorm's PREVENT-029
+  overlay exempts `src/lib/**` (documented boundary layer — JSON-LD URL
+  literals in `postSeo.ts` are data, not network calls), which
+  guardrails-scan honored and regression_check flagged CRITICAL on
+  2026-10-27. Both now honor `exclude_glob` for every rule shape via the
+  shared `glob_matches` contract; `tests/test_rule_scoping.py` (new) locks
+  the Python side and `test_guardrails_scan.mjs` case 12b the Node side.
+
+- **stitcher-codereview lint surface clean (5 errors removed).** Four
+  `no-useless-escape` hits (`checks/drift.ts:62`, `checks/tests.ts:48,60`,
+  `spec/parser.ts:95`) were `\-` inside character classes where a literal
+  trailing `-` is the same set — verified equivalent over a 22-char alphabet
+  plus split/replace samples. `templates/types.ts:98` typed its `file`
+  parameter as `any` behind a PREVENT-011 allow comment; it is a parsed diff
+  record, so it now takes the module's own `DiffFile` and the allow comment is
+  gone. `npm run build` (tsc) EXIT 0 after the change; the package's `npm test`
+  (vitest) finds no shipped test files — behavior evidence is the regex
+  equivalence check and the clean build, not a suite run.
+
+- **SEMANTIC-005 no longer demands dependencies the React lint forbids.**
+  Measured on vbrainstorm (2026-10-27, community-acceptance-fixes warning
+  sweep): the rule required module-scope bindings (ES imports, top-level
+  declarations) and host builtins (`encodeURIComponent`) in every `useEffect`
+  dependency array — the exact names `react-hooks/exhaustive-deps` rejects as
+  "unnecessary dependencies … Outer scope values like 'X' aren't valid
+  dependencies because mutating them doesn't re-render". Listing one silenced
+  SEMANTIC-005 but fired the React lint; omitting it did the reverse, so no
+  array could win on both gates — the contradiction the rule's own header
+  already disclaims ("module plumbing" is exempt). Three exemptions close it:
+  `moduleScopeNames(sourceFile)` treats every module-scope binding as the
+  module plumbing it is (name-based, no scope walk — a rare component-local
+  shadowing false negative is the accepted trade, matching the header
+  philosophy); `EFFECT_GLOBALS` now spells the frozen ECMA-262 /
+  web-platform builtins (`encodeURI*`, `decodeURI*`, `atob`/`btoa`, `URL`,
+  `URLSearchParams`, `TextEncoder`/`TextDecoder`, `AbortController`/
+  `AbortSignal`, `structuredClone`, `queueMicrotask`, `performance`, `crypto`,
+  observer constructors `MutationObserver`/`IntersectionObserver`/
+  `ResizeObserver`, and the media constructors `Audio`/`MediaMetadata` —
+  `new Audio()` in AudioContext.tsx on vbrainstorm 2026-10-27 tripped the same
+  class); and free-identifier gathering now skips type-position identifiers
+  (`e: MessageEvent`, `querySelector<HTMLIFrameElement>`) — erased at compile
+  time, so a callback never reads them, and demanding one produced another
+  dependency the React lint forbids.
+  Component-scope values the callback reads stay required. The independent
+  audit's differential matrix (16 cases, pre/post-fix scanners, 2026-10-27)
+  then caught four residues where that last claim leaked, all now closed:
+  binding patterns collected property keys and default-initializer names as
+  bindings (`{ apiBase: API_BASE }` exempted a local `apiBase`; `{ a = helper() }`
+  exempted a local `helper`) — `bindingIdentifiers` now walks binding TARGETS
+  only; `declare global` registered its marker name `global` as a module
+  binding (exempting a local `global`) — ambient `global` is declaration
+  merging, not a binding; and `class X extends Base` / `extends makeBase()`
+  were treated as type positions because `ExpressionWithTypeArguments` is a
+  TypeNode — heritage EXPRESSIONS evaluate at runtime and are reads again,
+  while their `<T>` arguments stay exempt. Fixture coverage:
+  module-scope exempt, component-scope omitted local still flagged, the
+  ChatPane-shaped session effect green on the eslint-legal array, the
+  VerifyEmail-shaped host-builtin effect green (including the
+  Audio/MediaMetadata media constructors), type-position identifiers green,
+  binding-target/declare-global/heritage residues green, and the
+  no-dependency-array branch unchanged. `test_semantic_scan.mjs`
+  grew 11 → 25 checks.
+- **`--pre-commit` no longer green-lights an empty scope (gate-vacuous-01).**
+  `--staged --pre-commit` run before `git add` scanned zero files, printed a
+  NOTHING SCANNED banner followed by a green `0 over hard limit (blocks
+  commit)` summary, labeled every oversize file "pre-existing; not touched by
+  this diff", and exited 0 — exactly the run that let 500+-line files land in
+  vbrainstorm while the gate read clean. `--pre-commit` now implies
+  `--fail-if-empty` (empty scope → exit 2, vacuous wins over other counts),
+  the verdict logic is one shared primitive (`gate_common.exit_code_for`),
+  and on an empty scope the file-size report is explicitly inventory-only:
+  no "(blocks commit)" claim and no touched/untouched classification against
+  a diff that does not exist. Without the fail-loud flags a vacuous run stays
+  a notice (exit 0), preserving the force-push-with-no-changes case.
+- **PREVENT-026/029 no longer fire on standard Cloudflare Workers shapes.**
+  Measured on vbrainstorm (community-subsite 3.1, which adds a Durable Object
+  WebSocket endpoint): 4 false positives, 0 true positives. `fetch(request:
+  Request)` type signatures are skipped by the `(?!\s*:)` lookahead; binding
+  proxies — `env.ASSETS.fetch(request)` and DO namespace forwards carrying
+  `idFromName` — join `forbidden_context`; and `new WebSocketPair()` (the
+  socket-accept primitive, not a network call) no longer matches `new
+  WebSocket`. Genuine SSRF shapes (`fetch(userUrl)`, `fetch(request.url)`) and
+  real `new WebSocket(` clients still fire. Per-repo transport-boundary files
+  (a DO `fetch` entrypoint) remain the job of each repo's `.guardrails`
+  `exclude_glob`, the mechanism the rule's own suggestion prescribes.
+- **`game_regression.py` reported the checks as the bugs (60 → 0 on
+  MergeKingdom).** Its Godot table matched single lines, so it could not see a
+  guard written on the next one: `preload("…tscn")` on a constant counted as an
+  unchecked scene load, `var file := FileAccess.open(...)` followed by
+  `if file == null:` counted as save corruption, and `SCRIPT_ERROR` matched
+  `push_error(` / `assert(` — the recommended handling and a deliberate guard.
+  Measured on MergeKingdom (`--all --pre-commit`): 60 issues, 0 real — 3 preload
+  constants, 13 checked opens (7 `== null`, 6 Godot truthiness `if file:`), 43
+  `push_error(...)` call sites. A rule may now be `(regex, guard, window)` and
+  stays silent when one of the next `window` lines matches `guard`; whole-line
+  comments are never scanned (the gate was reporting its own docstrings); and
+  `SCRIPT_ERROR` is retired with the measurement recorded. After the change the
+  same run reported one genuine hit — an unchecked `FileAccess.open` in
+  `ad_manager.gd`, now fixed in MergeKingdom — and then 0. `test_game_regression`
+  grew from 13 to 20 tests, one per false-positive shape plus a bounded-window
+  negative control.
+- **`scene_inventory.py` now sees code-side button wiring (`screen-inv-01`).**
+  The Godot scanner read `.tscn` connection blocks only, so a UI wired the way
+  Godot's editor and docs produce — `btn.pressed.connect(...)` in `_ready()`,
+  or an `@onready var btn = $Panel/Btn` followed by that call — reported every
+  button as orphaned. Measured on MergeKingdom: 4 scenes / 8 correctly wired
+  buttons failed the gate, and the same run's orphans also hid five real
+  defects (three popups whose `@onready` paths named nodes their scenes do not
+  contain, aborting `_ready()` before the UI was built). The gate resolves the
+  root node's Script ext_resource and counts the connections that script makes;
+  a script wiring a different node leaves the orphan, and a commented-out
+  `connect()` is not a handler (both negative controls pinned). 8 → 15 tests;
+  `tests/test_scene_inventory.py` and the spec's scenario set now state the
+  code-wiring contract.
+- **`base-own-01`'s other two named file classes were measured, not assumed.**
+  The requirement names prevention rules and openspec specs as well as the
+  registry and allowlist. The rule files carry no repository paths, but four of
+  their `note` fields asserted another project's state as current:
+  `go_return_nil_after_ignored_error` and `python_pass_todo_body` claimed
+  "existing occurrences allowlisted in silent-success-allowlist.json" (false —
+  the bundled file is empty by contract, and the 1,725 entries removed on
+  2026-10-25 were all the *Go* family, so the Python claim never held), and both
+  Zig families ended "Ships disabled like every family here" (false — 4 of 11
+  families ship enabled, and this tree contains no `.zig` file). All four notes
+  now state their family's shipped state and point a consumer at its own
+  overlay; zero provenance tags remain in the bundled rule files. Openspec
+  specs were checked the same way: every foreign-repository mention outside the
+  archive is provenance, which `base-specs-01` permits, and no bundled spec
+  claims a path of this repository that does not exist.
+  `scripts/baseline_ownership_check.py` also gained a third clause: an entry
+  whose family is **declared but disabled** is a finding, because a disabled
+  family never evaluates a file and such an entry suppresses nothing while
+  counting as coverage. `tests/test_baseline_ownership_check.py` 14 → 16.
+- **The bundled silent-success allowlist had 1,727 foreign entries again, and
+  nothing noticed.** `beedec1` (2026-09-19, QA H3) emptied
+  `.guardrails/silent-success-allowlist.json` and wrote the "empty by design"
+  note; `16ce30e` (2026-09-20) wrote a pre-decontamination copy back over it
+  while retiring two `internal/admin/bootstrap.go` markers — removing 2 entries
+  from 1,727 and restoring the other 1,725 — and `b3f951b`, `eeb2884` and
+  `239e30b` edited that restored copy afterwards (`239e30b` recorded it as
+  "verified intact (1727 entries)"). Every one of the 1,727 names a path absent
+  from this tree (`internal/` 1454, `tests/` 225, `go/` 40, `cmd/` 8):
+  `baseline-ownership` / `base-own-01` states that a bundled baseline entry may
+  reference only this repository's paths. The file is empty again, and two
+  gates now keep it that way: the new `scripts/baseline_ownership_check.py`
+  fails on any bundled allowlist entry whose `file` does not exist or whose
+  `family` the bundled rules do not declare (run in CI's gates job), and
+  `scripts/silent-success-scan.sh` merges a `<project>/.guardrails/
+  silent-success-allowlist.json` overlay into the baseline so a consumer's
+  entries have a correct home — the contract the note had already described but
+  the scanner did not implement.
 - **Size-gate directory scope covered `web`/`infra`.** The walk roots were a
   hardcoded candidate list that omitted `web` and `infra`, so
   `web/render3d.js` (1470) and `web/index.html` (685) sat past SRC_HARD while
@@ -29,6 +1449,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   enter — the class fix, not just the instance.
 
 ### Added
+
+- **bundle-size-check: the build-output budget gate.**
+  `scripts/bundle-size-check.mjs` measures built assets against a per-file
+  budget from the consumer's `.guardrails/bundle-size.json` overlay (never by
+  editing the submodule) - the build-output counterpart of the source line
+  limits in `regression_sizes.py`. `max_kb` is KiB (bytes/1024), the same
+  unit vite uses for `chunkSizeWarningLimit`, so the warning becomes fatal
+  without changing its number. Exit contract matches `schema-health-check`:
+  `0` ran and passed, `1` failed / config unusable / configured but missing
+  or empty input, `2` loud skip when unconfigured - and a configured run with
+  nothing measurable FAILS rather than passing vacuously. `tests/test_bundle_size_check.mjs`
+  locks the contract (skip vs pass, fail-closed empty input, bytes/1024
+  comparison, invalid config). Reusable CI template:
+  `templates/github-workflows/bundle-size-check.yml` (self-contained,
+  BUILD_CMD / DIST_DIR / MAX_KB placeholders, file-size-check idiom).
+- **gameSessionStart, step 1: the session brain.** `scripts/game_session_start.py`
+  validates one `aiggp.session/v1` manifest (schema:
+  `.guardrails/prevention-rules/session-manifest.schema.json`), applies the one
+  hard rule (a `play` session under `determinism.enabled: true` must carry a
+  seed; absent means off, and `determinism.enabled` is now documented in
+  `scripts/game-framework-README.md`), prints a kind-filtered advisory block,
+  and appends accepted sessions to `.guardrails/sessions.jsonl`. The work-side
+  block carries `worst-tracked gaps: N` read from the gap scanner's own JSON
+  report - the brain never rescans, and a missing or foreign report reads
+  `unknown`, never `0`. Exit codes are `0` accepted / `2` refused a known
+  session / `1` cannot say, the inverse of the secret-scan family; the contrast
+  is stated in the spec (session-06), not unified. Adapters and the Godot hook
+  are later rollout steps and are stated as out of scope. Spec:
+  `openspec/changes/add-game-session-start/`. Tests:
+  `tests/test_game_session_start.py` (37).
 
 - **Reasoned size overrides.** scope.json `size_overrides`
   (`{"web/render3d.js": {"hard": 1600, "reason": "..."}}`) raises one file's
@@ -489,7 +1939,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   requirement IDs in the <!-- id: --> format" instead of reporting both as
   "no specs found under openspec/specs/".
 
-## [1.3.0] - 2026-09-23
+*The notes below (Highlights through Added (gates)) were staged for the
+never-cut 1.3.0 release (2026-09-23); they are Unreleased work (doc-version-01).*
 
 ### Highlights
 

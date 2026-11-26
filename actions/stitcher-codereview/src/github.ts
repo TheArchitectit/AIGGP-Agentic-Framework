@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Diff, Finding, ReviewResult } from './types.js';
-import { VcsProvider, MrContext, InlineComment, PostOptions, VcsRunner, ghRunner, decodeMarker } from './vcs.js';
+import { VcsProvider, MrContext, InlineComment, PostOptions, VcsRunner, ghRunner, decodeMarker, assertEvidenceLinked } from './vcs.js';
 
 export class GitHubProvider implements VcsProvider {
   readonly name = 'github' as const;
@@ -109,6 +109,8 @@ export class GitHubProvider implements VcsProvider {
   }
 
   async postReview(ctx: MrContext, opts: PostOptions): Promise<{ reviewId?: string }> {
+    // Refusal happens before the runner is touched: no evidence link, no post.
+    assertEvidenceLinked(opts.comments);
     const run = opts.run ?? ghRunner();
     const payload: Record<string, unknown> = {
       body: opts.body,

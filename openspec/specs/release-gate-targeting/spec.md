@@ -1,5 +1,7 @@
 # Release gate targeting and audit classification
 
+Status: CLOSED (EXERCISED 2)
+
 ## Purpose
 
 Ensure release gates evaluate the project actually being deployed, and that audit findings are classified against that project rather than DevGate's own submodule state.
@@ -42,3 +44,10 @@ dependency; otherwise it SHALL warn.
 #### Scenario: dev-only path
 - **WHEN** the vulnerable package is reachable only through devDependencies
 - **THEN** the audit reports a warning and does not block
+
+## Requirement Closure
+
+| Requirement | Status | Implementation | Verification |
+|---|---|---|---|
+| `rel-target-01` (Gates evaluate the project being deployed) | **EXERCISED** | `scripts/deploy.sh`, `scripts/regression_check.py` | `tests/test_schema_health_exitcodes.py` |
+| `rel-audit-01` (Runtime vulnerability classification) | **EXERCISED** | `scripts/regression_audit.py` | `tests/test_regression_audit.py` |

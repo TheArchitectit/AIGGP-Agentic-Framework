@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Diff, Finding, ReviewResult } from './types.js';
-import { VcsProvider, MrContext, InlineComment, PostOptions, VcsRunner, glabRunner, decodeMarker } from './vcs.js';
+import { VcsProvider, MrContext, InlineComment, PostOptions, VcsRunner, glabRunner, decodeMarker, assertEvidenceLinked } from './vcs.js';
 
 export class GitLabProvider implements VcsProvider {
   readonly name = 'gitlab' as const;
@@ -144,6 +144,8 @@ export class GitLabProvider implements VcsProvider {
   }
 
   async postReview(ctx: MrContext, opts: PostOptions): Promise<{ reviewId?: string }> {
+    // Same refusal contract as GitHub, before any note is written.
+    assertEvidenceLinked(opts.comments);
     const run = opts.run ?? glabRunner();
     const projectId = await this.resolveProjectId(ctx, run);
     const dir = await mkdtemp(join(tmpdir(), 'stitcher-'));

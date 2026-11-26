@@ -1,0 +1,814 @@
+{
+  "declared": 22,
+  "gaps_top": [],
+  "gaps_top_omitted": 0,
+  "invalid": [
+    {
+      "gaps": 0,
+      "has_openspec": true,
+      "name": "DevGate-Agentic-Framework",
+      "provenance": {
+        "drift": [],
+        "escaping": [],
+        "fault": false,
+        "templates": {},
+        "unknown": [],
+        "unlocked": []
+      },
+      "provenance_findings": false,
+      "provenance_red": false,
+      "reason": "\u2717 spec/game-regression\n  \u2717 [ERROR] file: Spec must have a Purpose section. Missing required sections",
+      "red": false,
+      "state": "invalid",
+      "strict_reason": "\u2717 spec/game-regression\n  \u2717 [ERROR] file: Spec must have a Purpose section. Missing required sections",
+      "strict_state": "invalid",
+      "tiered": false,
+      "url": "https://github.com/drwhofan2k18-pixel/DevGate-Agentic-Framework"
+    },
+    {
+      "gaps": 0,
+      "has_openspec": true,
+      "name": "dflash2-glm5.3-flash",
+      "provenance": {
+        "drift": [],
+        "escaping": [],
+        "fault": false,
+        "templates": {},
+        "unknown": [],
+        "unlocked": []
+      },
+      "provenance_findings": false,
+      "provenance_red": false,
+      "reason": "\u2717 change/add-dflash2-support\n  \u26a0 [WARNING] conversion/spec.md: ADDED \"REQ-CONV-1 GGUF conversion of ",
+      "red": false,
+      "state": "invalid",
+      "strict_reason": "\u2717 change/add-dflash2-support\n  \u26a0 [WARNING] conversion/spec.md: ADDED \"REQ-CONV-1 GGUF conversion of ",
+      "strict_state": "invalid",
+      "tiered": false,
+      "url": "https://github.com/TheArchitectit/dflash2-glm5.3-flash"
+    },
+    {
+      "gaps": 0,
+      "has_openspec": true,
+      "name": "radreportgenerator",
+      "provenance": {
+        "drift": [],
+        "escaping": [],
+        "fault": false,
+        "templates": {},
+        "unknown": [],
+        "unlocked": []
+      },
+      "provenance_findings": false,
+      "provenance_red": false,
+      "reason": "\u2717 spec/build-packaging\n  \u2717 [ERROR] requirements.3.scenarios: Requirement must have at least one scen",
+      "red": false,
+      "state": "invalid",
+      "strict_reason": "\u2717 spec/build-packaging\n  \u2717 [ERROR] requirements.3.scenarios: Requirement must have at least one scen",
+      "strict_state": "invalid",
+      "tiered": false,
+      "url": "https://github.com/TheArchitectit/radreportgenerator"
+    },
+    {
+      "gaps": 0,
+      "has_openspec": true,
+      "name": "zombie-hero-match",
+      "provenance": {
+        "drift": [],
+        "escaping": [],
+        "fault": false,
+        "templates": {},
+        "unknown": [],
+        "unlocked": []
+      },
+      "provenance_findings": false,
+      "provenance_red": false,
+      "reason": "\u2717 change/zombie-hero-match\n  \u26a0 [WARNING] match3-combat/spec.md: Section \"## Requirements\" is not car",
+      "red": false,
+      "state": "invalid",
+      "strict_reason": "\u2717 change/zombie-hero-match\n  \u26a0 [WARNING] match3-combat/spec.md: Section \"## Requirements\" is not car",
+      "strict_state": "invalid",
+      "tiered": false,
+      "url": "https://github.com/drwhofan2k18-pixel/zombie-hero-match"
+    }
+  ],
+  "invalid_omitted": 0,
+  "lock_provenance": {
+    "drift": [],
+    "fault": false,
+    "templates": {
+      "openspec-design": {
+        "name": "openspec-design",
+        "pin_source": "https://raw.githubusercontent.com/Fission-AI/OpenSpec/v1.14.3/schemas/spec-driven/templates/design.md",
+        "pin_source_hash": "6ccc87f5017fb190e69e8759dd4e20d5ac3320cc4dabf152708bf8f2aa5205f8",
+        "pinned": "6ccc87f5017fb190e69e8759dd4e20d5ac3320cc4dabf152708bf8f2aa5205f8",
+        "source": "https://raw.githubusercontent.com/Fission-AI/OpenSpec/main/schemas/spec-driven/templates/design.md",
+        "status": "not-vendored",
+        "upstream_hash": "6ccc87f5017fb190e69e8759dd4e20d5ac3320cc4dabf152708bf8f2aa5205f8"
+      },
+      "openspec-proposal": {
+        "name": "openspec-proposal",
+        "pin_source": "https://raw.githubusercontent.com/Fission-AI/OpenSpec/v1.14.3/schemas/spec-driven/templates/proposal.md",
+        "pin_source_hash": "0dd70e35db5c696ba8ac3cc3a53e2d6561865c1e4e7d49db5a1eaa3e4a6ad86e",
+        "pinned": "0dd70e35db5c696ba8ac3cc3a53e2d6561865c1e4e7d49db5a1eaa3e4a6ad86e",
+        "source": "https://raw.githubusercontent.com/Fission-AI/OpenSpec/main/schemas/spec-driven/templates/proposal.md",
+        "status": "not-vendored",
+        "upstream_hash": "0dd70e35db5c696ba8ac3cc3a53e2d6561865c1e4e7d49db5a1eaa3e4a6ad86e"
+      },
+      "openspec-spec": {
+        "name": "openspec-spec",
+        "pin_source": "https://raw.githubusercontent.com/Fission-AI/OpenSpec/v1.14.3/schemas/spec-driven/templates/spec.md",
+        "pin_source_hash": "1cccfb573f031c6352bed2a879b7035ff710bc909112fc23d10bdcfcdd8d4318",
+        "pinned": "1cccfb573f031c6352bed2a879b7035ff710bc909112fc23d10bdcfcdd8d4318",
+        "source": "https://raw.githubusercontent.com/Fission-AI/OpenSpec/main/schemas/spec-driven/templates/spec.md",
+        "status": "not-vendored",
+        "upstream_hash": "1cccfb573f031c6352bed2a879b7035ff710bc909112fc23d10bdcfcdd8d4318"
+      },
+      "openspec-tasks": {
+        "name": "openspec-tasks",
+        "pin_source": "https://raw.githubusercontent.com/Fission-AI/OpenSpec/v1.14.3/schemas/spec-driven/templates/tasks.md",
+        "pin_source_hash": "fa67d99fb4a93b12d702f89ea83e1838219d1cad1c90a4192c402278001cd30e",
+        "pinned": "fa67d99fb4a93b12d702f89ea83e1838219d1cad1c90a4192c402278001cd30e",
+        "source": "https://raw.githubusercontent.com/Fission-AI/OpenSpec/main/schemas/spec-driven/templates/tasks.md",
+        "status": "not-vendored",
+        "upstream_hash": "fa67d99fb4a93b12d702f89ea83e1838219d1cad1c90a4192c402278001cd30e"
+      }
+    },
+    "unknown": [],
+    "unlocked": []
+  },
+  "repos": [
+    {
+      "gaps": 0,
+      "has_openspec": true,
+      "name": "DevGate-Agentic-Framework",
+      "provenance": {
+        "drift": [],
+        "escaping": [],
+        "fault": false,
+        "templates": {},
+        "unknown": [],
+        "unlocked": []
+      },
+      "provenance_findings": false,
+      "provenance_red": false,
+      "reason": "\u2717 spec/game-regression\n  \u2717 [ERROR] file: Spec must have a Purpose section. Missing required sections",
+      "red": false,
+      "state": "invalid",
+      "strict_reason": "\u2717 spec/game-regression\n  \u2717 [ERROR] file: Spec must have a Purpose section. Missing required sections",
+      "strict_state": "invalid",
+      "tiered": false,
+      "url": "https://github.com/drwhofan2k18-pixel/DevGate-Agentic-Framework"
+    },
+    {
+      "gaps": 0,
+      "has_openspec": false,
+      "name": "pi-ithacus-agent-framework",
+      "provenance": {
+        "drift": [],
+        "escaping": [],
+        "fault": false,
+        "templates": {},
+        "unknown": [],
+        "unlocked": []
+      },
+      "provenance_findings": false,
+      "provenance_red": false,
+      "reason": "no openspec material",
+      "red": false,
+      "state": "unspaced",
+      "strict_reason": "",
+      "strict_state": null,
+      "tiered": false,
+      "url": "https://github.com/drwhofan2k18-pixel/pi-ithacus-agent-framework"
+    },
+    {
+      "name": "rad-gateway",
+      "reason": "Command '['git', 'clone', '--depth', '1', 'https://github.com/drwhofan2k18-pixel/rad-gateway', '/_wo",
+      "state": "unscannable",
+      "url": "https://github.com/drwhofan2k18-pixel/rad-gateway"
+    },
+    {
+      "name": "radcode",
+      "reason": "Command '['git', 'clone', '--depth', '1', 'https://github.com/drwhofan2k18-pixel/radcode', '/_work/_",
+      "state": "unscannable",
+      "url": "https://github.com/drwhofan2k18-pixel/radcode"
+    },
+    {
+      "name": "RADICAL-CODE",
+      "reason": "Command '['git', 'clone', '--depth', '1', 'https://github.com/drwhofan2k18-pixel/RADICAL-CODE', '/_w",
+      "state": "unscannable",
+      "url": "https://github.com/drwhofan2k18-pixel/RADICAL-CODE"
+    },
+    {
+      "name": "stitcher-codereview",
+      "reason": "Command '['git', 'clone', '--depth', '1', 'https://github.com/drwhofan2k18-pixel/stitcher-codereview",
+      "state": "unscannable",
+      "url": "https://github.com/drwhofan2k18-pixel/stitcher-codereview"
+    },
+    {
+      "gaps": 0,
+      "has_openspec": true,
+      "name": "zombie-hero-match",
+      "provenance": {
+        "drift": [],
+        "escaping": [],
+        "fault": false,
+        "templates": {},
+        "unknown": [],
+        "unlocked": []
+      },
+      "provenance_findings": false,
+      "provenance_red": false,
+      "reason": "\u2717 change/zombie-hero-match\n  \u26a0 [WARNING] match3-combat/spec.md: Section \"## Requirements\" is not car",
+      "red": false,
+      "state": "invalid",
+      "strict_reason": "\u2717 change/zombie-hero-match\n  \u26a0 [WARNING] match3-combat/spec.md: Section \"## Requirements\" is not car",
+      "strict_state": "invalid",
+      "tiered": false,
+      "url": "https://github.com/drwhofan2k18-pixel/zombie-hero-match"
+    },
+    {
+      "gaps": 0,
+      "has_openspec": true,
+      "name": "agent-guardrails-template",
+      "provenance": {
+        "drift": [],
+        "escaping": [],
+        "fault": false,
+        "templates": {},
+        "unknown": [],
+        "unlocked": []
+      },
+      "provenance_findings": false,
+      "provenance_red": false,
+      "reason": "",
+      "red": false,
+      "state": "spaced",
+      "strict_reason": "",
+      "strict_state": "ok",
+      "tiered": false,
+      "url": "https://github.com/TheArchitectit/agent-guardrails-template"
+    },
+    {
+      "gaps": 0,
+      "has_openspec": true,
+      "name": "AIGGP-Agentic-Framework",
+      "provenance": {
+        "drift": [],
+        "escaping": [],
+        "fault": false,
+        "templates": {},
+        "unknown": [],
+        "unlocked": []
+      },
+      "provenance_findings": false,
+      "provenance_red": false,
+      "reason": "",
+      "red": false,
+      "state": "spaced",
+      "strict_reason": "",
+      "strict_state": "ok",
+      "tiered": true,
+      "url": "https://github.com/TheArchitectit/AIGGP-Agentic-Framework"
+    },
+    {
+      "gaps": 0,
+      "has_openspec": false,
+      "name": "claw-code",
+      "provenance": {
+        "drift": [],
+        "escaping": [],
+        "fault": false,
+        "templates": {},
+        "unknown": [],
+        "unlocked": []
+      },
+      "provenance_findings": false,
+      "provenance_red": false,
+      "reason": "no openspec material",
+      "red": false,
+      "state": "unspaced",
+      "strict_reason": "",
+      "strict_state": null,
+      "tiered": false,
+      "url": "https://github.com/TheArchitectit/claw-code"
+    },
+    {
+      "gaps": 0,
+      "has_openspec": true,
+      "name": "dflash2-glm5.3-flash",
+      "provenance": {
+        "drift": [],
+        "escaping": [],
+        "fault": false,
+        "templates": {},
+        "unknown": [],
+        "unlocked": []
+      },
+      "provenance_findings": false,
+      "provenance_red": false,
+      "reason": "\u2717 change/add-dflash2-support\n  \u26a0 [WARNING] conversion/spec.md: ADDED \"REQ-CONV-1 GGUF conversion of ",
+      "red": false,
+      "state": "invalid",
+      "strict_reason": "\u2717 change/add-dflash2-support\n  \u26a0 [WARNING] conversion/spec.md: ADDED \"REQ-CONV-1 GGUF conversion of ",
+      "strict_state": "invalid",
+      "tiered": false,
+      "url": "https://github.com/TheArchitectit/dflash2-glm5.3-flash"
+    },
+    {
+      "gaps": 0,
+      "has_openspec": true,
+      "name": "EPIC-MN",
+      "provenance": {
+        "drift": [],
+        "escaping": [],
+        "fault": false,
+        "templates": {},
+        "unknown": [],
+        "unlocked": []
+      },
+      "provenance_findings": false,
+      "provenance_red": false,
+      "reason": "",
+      "red": false,
+      "state": "spaced",
+      "strict_reason": "",
+      "strict_state": "ok",
+      "tiered": false,
+      "url": "https://github.com/TheArchitectit/EPIC-MN"
+    },
+    {
+      "gaps": 0,
+      "has_openspec": false,
+      "name": "NemoClaw",
+      "provenance": {
+        "drift": [],
+        "escaping": [],
+        "fault": false,
+        "templates": {},
+        "unknown": [],
+        "unlocked": []
+      },
+      "provenance_findings": false,
+      "provenance_red": false,
+      "reason": "no openspec material",
+      "red": false,
+      "state": "unspaced",
+      "strict_reason": "",
+      "strict_state": null,
+      "tiered": false,
+      "url": "https://github.com/TheArchitectit/NemoClaw"
+    },
+    {
+      "gaps": 0,
+      "has_openspec": false,
+      "name": "openclaw",
+      "provenance": {
+        "drift": [],
+        "escaping": [],
+        "fault": false,
+        "templates": {},
+        "unknown": [],
+        "unlocked": []
+      },
+      "provenance_findings": false,
+      "provenance_red": false,
+      "reason": "no openspec material",
+      "red": false,
+      "state": "unspaced",
+      "strict_reason": "",
+      "strict_state": null,
+      "tiered": false,
+      "url": "https://github.com/TheArchitectit/openclaw"
+    },
+    {
+      "gaps": 0,
+      "has_openspec": false,
+      "name": "pi-ithacus-agent-framework",
+      "provenance": {
+        "drift": [],
+        "escaping": [],
+        "fault": false,
+        "templates": {},
+        "unknown": [],
+        "unlocked": []
+      },
+      "provenance_findings": false,
+      "provenance_red": false,
+      "reason": "no openspec material",
+      "red": false,
+      "state": "unspaced",
+      "strict_reason": "",
+      "strict_state": null,
+      "tiered": false,
+      "url": "https://github.com/TheArchitectit/pi-ithacus-agent-framework"
+    },
+    {
+      "gaps": 0,
+      "has_openspec": false,
+      "name": "pi-mega-compact",
+      "provenance": {
+        "drift": [],
+        "escaping": [],
+        "fault": false,
+        "templates": {},
+        "unknown": [],
+        "unlocked": []
+      },
+      "provenance_findings": false,
+      "provenance_red": false,
+      "reason": "no openspec material",
+      "red": false,
+      "state": "unspaced",
+      "strict_reason": "",
+      "strict_state": null,
+      "tiered": false,
+      "url": "https://github.com/TheArchitectit/pi-mega-compact"
+    },
+    {
+      "gaps": 0,
+      "has_openspec": false,
+      "name": "pi-setup",
+      "provenance": {
+        "drift": [],
+        "escaping": [],
+        "fault": false,
+        "templates": {},
+        "unknown": [],
+        "unlocked": []
+      },
+      "provenance_findings": false,
+      "provenance_red": false,
+      "reason": "no openspec material",
+      "red": false,
+      "state": "unspaced",
+      "strict_reason": "",
+      "strict_state": null,
+      "tiered": false,
+      "url": "https://github.com/TheArchitectit/pi-setup"
+    },
+    {
+      "gaps": 0,
+      "has_openspec": false,
+      "name": "plexus",
+      "provenance": {
+        "drift": [],
+        "escaping": [],
+        "fault": false,
+        "templates": {},
+        "unknown": [],
+        "unlocked": []
+      },
+      "provenance_findings": false,
+      "provenance_red": false,
+      "reason": "no openspec material",
+      "red": false,
+      "state": "unspaced",
+      "strict_reason": "",
+      "strict_state": null,
+      "tiered": false,
+      "url": "https://github.com/TheArchitectit/plexus"
+    },
+    {
+      "gaps": 0,
+      "has_openspec": false,
+      "name": "radicaltrainingplatform",
+      "provenance": {
+        "drift": [],
+        "escaping": [],
+        "fault": false,
+        "templates": {},
+        "unknown": [],
+        "unlocked": []
+      },
+      "provenance_findings": false,
+      "provenance_red": false,
+      "reason": "no openspec material",
+      "red": false,
+      "state": "unspaced",
+      "strict_reason": "",
+      "strict_state": null,
+      "tiered": false,
+      "url": "https://github.com/TheArchitectit/radicaltrainingplatform"
+    },
+    {
+      "gaps": 0,
+      "has_openspec": false,
+      "name": "radimagetovisio",
+      "provenance": {
+        "drift": [],
+        "escaping": [],
+        "fault": false,
+        "templates": {},
+        "unknown": [],
+        "unlocked": []
+      },
+      "provenance_findings": false,
+      "provenance_red": false,
+      "reason": "no openspec material",
+      "red": false,
+      "state": "unspaced",
+      "strict_reason": "",
+      "strict_state": null,
+      "tiered": false,
+      "url": "https://github.com/TheArchitectit/radimagetovisio"
+    },
+    {
+      "gaps": 0,
+      "has_openspec": true,
+      "name": "radreportgenerator",
+      "provenance": {
+        "drift": [],
+        "escaping": [],
+        "fault": false,
+        "templates": {},
+        "unknown": [],
+        "unlocked": []
+      },
+      "provenance_findings": false,
+      "provenance_red": false,
+      "reason": "\u2717 spec/build-packaging\n  \u2717 [ERROR] requirements.3.scenarios: Requirement must have at least one scen",
+      "red": false,
+      "state": "invalid",
+      "strict_reason": "\u2717 spec/build-packaging\n  \u2717 [ERROR] requirements.3.scenarios: Requirement must have at least one scen",
+      "strict_state": "invalid",
+      "tiered": false,
+      "url": "https://github.com/TheArchitectit/radreportgenerator"
+    },
+    {
+      "gaps": 0,
+      "has_openspec": false,
+      "name": "smallcode",
+      "provenance": {
+        "drift": [],
+        "escaping": [],
+        "fault": false,
+        "templates": {},
+        "unknown": [],
+        "unlocked": []
+      },
+      "provenance_findings": false,
+      "provenance_red": false,
+      "reason": "no openspec material",
+      "red": false,
+      "state": "unspaced",
+      "strict_reason": "",
+      "strict_state": null,
+      "tiered": false,
+      "url": "https://github.com/TheArchitectit/smallcode"
+    }
+  ],
+  "scanned": 22,
+  "states": {
+    "invalid": 4,
+    "spaced": 3,
+    "unscannable": 4,
+    "unspaced": 11
+  },
+  "unspaced": [
+    {
+      "gaps": 0,
+      "has_openspec": false,
+      "name": "NemoClaw",
+      "provenance": {
+        "drift": [],
+        "escaping": [],
+        "fault": false,
+        "templates": {},
+        "unknown": [],
+        "unlocked": []
+      },
+      "provenance_findings": false,
+      "provenance_red": false,
+      "reason": "no openspec material",
+      "red": false,
+      "state": "unspaced",
+      "strict_reason": "",
+      "strict_state": null,
+      "tiered": false,
+      "url": "https://github.com/TheArchitectit/NemoClaw"
+    },
+    {
+      "gaps": 0,
+      "has_openspec": false,
+      "name": "claw-code",
+      "provenance": {
+        "drift": [],
+        "escaping": [],
+        "fault": false,
+        "templates": {},
+        "unknown": [],
+        "unlocked": []
+      },
+      "provenance_findings": false,
+      "provenance_red": false,
+      "reason": "no openspec material",
+      "red": false,
+      "state": "unspaced",
+      "strict_reason": "",
+      "strict_state": null,
+      "tiered": false,
+      "url": "https://github.com/TheArchitectit/claw-code"
+    },
+    {
+      "gaps": 0,
+      "has_openspec": false,
+      "name": "openclaw",
+      "provenance": {
+        "drift": [],
+        "escaping": [],
+        "fault": false,
+        "templates": {},
+        "unknown": [],
+        "unlocked": []
+      },
+      "provenance_findings": false,
+      "provenance_red": false,
+      "reason": "no openspec material",
+      "red": false,
+      "state": "unspaced",
+      "strict_reason": "",
+      "strict_state": null,
+      "tiered": false,
+      "url": "https://github.com/TheArchitectit/openclaw"
+    },
+    {
+      "gaps": 0,
+      "has_openspec": false,
+      "name": "pi-ithacus-agent-framework",
+      "provenance": {
+        "drift": [],
+        "escaping": [],
+        "fault": false,
+        "templates": {},
+        "unknown": [],
+        "unlocked": []
+      },
+      "provenance_findings": false,
+      "provenance_red": false,
+      "reason": "no openspec material",
+      "red": false,
+      "state": "unspaced",
+      "strict_reason": "",
+      "strict_state": null,
+      "tiered": false,
+      "url": "https://github.com/drwhofan2k18-pixel/pi-ithacus-agent-framework"
+    },
+    {
+      "gaps": 0,
+      "has_openspec": false,
+      "name": "pi-ithacus-agent-framework",
+      "provenance": {
+        "drift": [],
+        "escaping": [],
+        "fault": false,
+        "templates": {},
+        "unknown": [],
+        "unlocked": []
+      },
+      "provenance_findings": false,
+      "provenance_red": false,
+      "reason": "no openspec material",
+      "red": false,
+      "state": "unspaced",
+      "strict_reason": "",
+      "strict_state": null,
+      "tiered": false,
+      "url": "https://github.com/TheArchitectit/pi-ithacus-agent-framework"
+    },
+    {
+      "gaps": 0,
+      "has_openspec": false,
+      "name": "pi-mega-compact",
+      "provenance": {
+        "drift": [],
+        "escaping": [],
+        "fault": false,
+        "templates": {},
+        "unknown": [],
+        "unlocked": []
+      },
+      "provenance_findings": false,
+      "provenance_red": false,
+      "reason": "no openspec material",
+      "red": false,
+      "state": "unspaced",
+      "strict_reason": "",
+      "strict_state": null,
+      "tiered": false,
+      "url": "https://github.com/TheArchitectit/pi-mega-compact"
+    },
+    {
+      "gaps": 0,
+      "has_openspec": false,
+      "name": "pi-setup",
+      "provenance": {
+        "drift": [],
+        "escaping": [],
+        "fault": false,
+        "templates": {},
+        "unknown": [],
+        "unlocked": []
+      },
+      "provenance_findings": false,
+      "provenance_red": false,
+      "reason": "no openspec material",
+      "red": false,
+      "state": "unspaced",
+      "strict_reason": "",
+      "strict_state": null,
+      "tiered": false,
+      "url": "https://github.com/TheArchitectit/pi-setup"
+    },
+    {
+      "gaps": 0,
+      "has_openspec": false,
+      "name": "plexus",
+      "provenance": {
+        "drift": [],
+        "escaping": [],
+        "fault": false,
+        "templates": {},
+        "unknown": [],
+        "unlocked": []
+      },
+      "provenance_findings": false,
+      "provenance_red": false,
+      "reason": "no openspec material",
+      "red": false,
+      "state": "unspaced",
+      "strict_reason": "",
+      "strict_state": null,
+      "tiered": false,
+      "url": "https://github.com/TheArchitectit/plexus"
+    },
+    {
+      "gaps": 0,
+      "has_openspec": false,
+      "name": "radicaltrainingplatform",
+      "provenance": {
+        "drift": [],
+        "escaping": [],
+        "fault": false,
+        "templates": {},
+        "unknown": [],
+        "unlocked": []
+      },
+      "provenance_findings": false,
+      "provenance_red": false,
+      "reason": "no openspec material",
+      "red": false,
+      "state": "unspaced",
+      "strict_reason": "",
+      "strict_state": null,
+      "tiered": false,
+      "url": "https://github.com/TheArchitectit/radicaltrainingplatform"
+    },
+    {
+      "gaps": 0,
+      "has_openspec": false,
+      "name": "radimagetovisio",
+      "provenance": {
+        "drift": [],
+        "escaping": [],
+        "fault": false,
+        "templates": {},
+        "unknown": [],
+        "unlocked": []
+      },
+      "provenance_findings": false,
+      "provenance_red": false,
+      "reason": "no openspec material",
+      "red": false,
+      "state": "unspaced",
+      "strict_reason": "",
+      "strict_state": null,
+      "tiered": false,
+      "url": "https://github.com/TheArchitectit/radimagetovisio"
+    },
+    {
+      "gaps": 0,
+      "has_openspec": false,
+      "name": "smallcode",
+      "provenance": {
+        "drift": [],
+        "escaping": [],
+        "fault": false,
+        "templates": {},
+        "unknown": [],
+        "unlocked": []
+      },
+      "provenance_findings": false,
+      "provenance_red": false,
+      "reason": "no openspec material",
+      "red": false,
+      "state": "unspaced",
+      "strict_reason": "",
+      "strict_state": null,
+      "tiered": false,
+      "url": "https://github.com/TheArchitectit/smallcode"
+    }
+  ],
+  "unspaced_omitted": 0
+}

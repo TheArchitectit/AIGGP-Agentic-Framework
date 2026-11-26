@@ -1,4 +1,4 @@
-# // spec: coh-ev-02, coh-ev-03, coh-ev-06, coh-rt-07, coh-rt-04
+# // spec: coh-ev-02, coh-ev-03, coh-ev-06, coh-rt-07, coh-rt-04, GLF-02
 """Evidence bundle: minimum-disclosure capture, redaction, sealing, manifest
 digest. Every artifact is written atomically: fsync to a same-directory temp
 file, then rename onto the canonical path (coh-rt-07 — a canonical path never
@@ -69,7 +69,7 @@ def redact_values(obj, values: list):
 
 
 def seal(findings: list, output_dir: str, redact: list = None,
-         retention_by_aid: dict = None) -> str:
+         retention_by_aid: dict = None, forge: str = None) -> str:
     """Seal evidence for each finding; return the evidence manifest digest.
 
     Minimum disclosure (coh-ev-06): evidence stores only the assertion id,
@@ -131,7 +131,11 @@ def seal(findings: list, output_dir: str, redact: list = None,
         })
         f["evidence_refs"] = [rel]
 
+    if forge is not None and forge not in ("github", "gitlab"):
+        raise EvidenceError(f"unsupported-forge:{forge!r}")
     manifest = {"api_version": "devgate.spec-coherence.evidence/v1", "objects": objects}
+    if forge is not None:
+        manifest["forge"] = forge
     manifest_digest = canon.digest_obj("evidence-manifest/v1", manifest)
     # The manifest write is inside the bounded path too (r3-indep item 1):
     # with zero findings — the common fully-PASS shape — this was the ONLY
@@ -156,6 +160,8 @@ def verify(output_dir: str, expected_manifest_digest: str) -> bool:
     except (OSError, json.JSONDecodeError, UnicodeDecodeError):
         return False
     if not isinstance(manifest, dict):
+        return False
+    if "forge" in manifest and manifest["forge"] not in ("github", "gitlab"):
         return False
     objects = manifest.get("objects")  # guardrails-allow FAIL-fw-ev01: .get + isinstance is the fail-closed shape check, not the crash
     if not isinstance(objects, list):

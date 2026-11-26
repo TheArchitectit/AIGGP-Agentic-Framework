@@ -42,6 +42,13 @@ sys.path.insert(0, str(REPO_ROOT))
 # "identifier" and now means "token".
 _LOCATION_FIELDS = ("rule", "path", "line", "commit")
 
+# Template-provenance drift (SGA-21 / SGR-11): the deduped drift issue must
+# name the template and BOTH hashes, never merely count them. Same by-name
+# rule as locations — only these fields survive out of a drift entry. The
+# hashes are truncated to 12 hex chars, the shape the SGR-06 drift alert uses.
+_DRIFT_FIELDS = ("template", "kind", "pinned", "upstream", "actual", "version")
+_DRIFT_HASH_LEN = 12
+
 # Upper bound on locations quoted into one issue body. Measured on the first
 # live fleet sweep: 478,452 locations produced a comment GitHub rejected with
 # HTTP 422, which dropped the dedupe marker — every subsequent night would
@@ -99,6 +106,37 @@ def extract_summary(report: dict) -> tuple[str, int, int, list[dict]]:
     return summary, uncovered_total, scanned, safe
 
 
+def _drift_line(d: dict) -> str | None:
+    """One template-drift entry as body text, quoted by field name only.
+
+    A key outside _DRIFT_FIELDS is dropped without comment — the same
+    contract as locations[], and for the same reason: a planted `Secret`
+    in a drift entry must not survive into an issue body. Hashes are
+    truncated to _DRIFT_HASH_LEN so the line stays bounded even if a
+    caller hands in a long digest.
+    """
+    if not isinstance(d, dict):
+        return None
+    kept = {k: d[k] for k in _DRIFT_FIELDS if k in d}
+    if not kept:
+        return None
+
+    def short(v: object) -> str:
+        s = str(v)
+        if len(s) > _DRIFT_HASH_LEN and all(c in "0123456789abcdefABCDEF" for c in s):
+            return s[:_DRIFT_HASH_LEN]
+        return s[:REASON_MAX_CHARS]
+
+    template = short(kept.get("template", "?"))
+    kind = short(kept.get("kind", "?"))
+    pinned = short(kept.get("pinned", "?")) if "pinned" in kept else "?"
+    other = kept.get("upstream", kept.get("actual")) if "upstream" in kept or "actual" in kept else None
+    other_s = short(other) if other is not None else "?"
+    version = kept.get("version")
+    ver = f"  (pin {short(version)})" if version is not None else ""
+    return f"{template}  {kind}  {pinned} → {other_s}{ver}"
+
+
 def detail_from_report(report: dict) -> str:
     summary, _uncovered, _scanned, locations = extract_summary(report)
     lines = [summary, ""]
@@ -134,8 +172,41 @@ def detail_from_report(report: dict) -> str:
         if len(holes) > MAX_BODY_UNSCANNED:
             lines.append(f"  … {len(holes) - MAX_BODY_UNSCANNED} more: "
                          "see this run's secret-fleet-report artifact")
-    # The body is counts, locations, and unscanned names. It is never a copy
-    # of the report, and never a field that could carry a value.
+    # SGA-21 / SGR-11: the deduped drift issue. Lock-level drift is one
+    # finding per sweep (upstream moved); per-tree drift/unlocked is one
+    # finding per repo. Either way the body NAMES the template and both
+    # hashes — "drift=4" cannot be dispositioned.
+    drift_lines: list[str] = []
+    lp = report.get("lock_provenance")
+    if isinstance(lp, dict):
+        for d in lp.get("drift") or []:
+            line = _drift_line(d)
+            if line:
+                drift_lines.append(f"  {line}")
+    for entry in report.get("repos") or []:
+        if not isinstance(entry, dict):
+            continue
+        prov = entry.get("provenance")
+        if not isinstance(prov, dict):
+            continue
+        who = str(entry.get("name", "?"))[:REASON_MAX_CHARS]
+        for d in prov.get("drift") or []:
+            line = _drift_line(d)
+            if line:
+                drift_lines.append(f"  {who}: {line}")
+        for name in prov.get("unlocked") or []:
+            drift_lines.append(f"  {who}: unlocked {str(name)[:REASON_MAX_CHARS]}")
+    if drift_lines:
+        lines.append("")
+        lines.append("template drift (template, kind, hashes, pin version):")
+        shown_d = drift_lines[:MAX_BODY_LOCATIONS]
+        lines.extend(shown_d)
+        if len(drift_lines) > len(shown_d):
+            lines.append(f"  … {len(drift_lines) - len(shown_d)} more: "
+                         "see this run's report artifact")
+    # The body is counts, locations, unscanned names, and template drift.
+    # It is never a copy of the report, and never a field that could carry
+    # a value.
     return "\n".join(lines)
 
 

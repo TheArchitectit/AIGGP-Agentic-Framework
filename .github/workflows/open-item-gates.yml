@@ -1,0 +1,107 @@
+name: Open-item gates (detects after push)
+
+# Push-time CI for the four open-item gates that can see their inputs in a
+# clean checkout (placement decision 2026-11-15, owner-delegated):
+#
+#   scripts/open_item_aging_check.py   docs/open-items-ledger.md + triage
+#   scripts/secret_rotation_check.py   docs/secret-rotation.jsonl
+#   scripts/surface_reach_check.py     docs/surfaces.json
+#   scripts/evidence_claim_check.py    --allow docs/evidence-claim-allowlist.txt
+#
+# HONESTY, stated where nobody can miss it: on this repository a push to main
+# has already happened when these jobs run. This workflow DETECTS a violation
+# that has already landed. It does not block anything — it never has, and the
+# workflow name says so. `git commit --no-verify` / `git push --no-verify`
+# bypass the local hooks (scripts/hooks/), and nothing bypasses this record.
+#
+# The two gates that cannot run here are local-only BY DESIGN, because their
+# inputs do not exist in an actions/checkout:
+#   scripts/tree_clean_check.py    needs the working tree   -> pre-commit hook
+#   scripts/branch_drift_check.py  needs local ref tips     -> pre-push hook
+#
+# Nothing-scanned (exit 3) FAILS these jobs on purpose: a gate that scanned
+# nothing is not a green measurement, and "0 findings" over "0 inputs" is how a
+# gate goes silently vacuous. Exit 0 is the only green.
+#
+# Runner targeting: the UCS03 fleet lane (`devgate`), same as ci.yml. No
+# GitHub-hosted fallback exists for this repository.
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: open-item-gates-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  open-item-gates:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    name: Open-item gates (detects; does not block a push)
+    runs-on: devgate
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+
+      # Each step: run the gate, print its real output and exit code, and fail
+      # the step on any non-zero (including 3, nothing-scanned). Later steps use
+      # `if: always()` so one run records every gate's verdict, not just the
+      # first red one.
+      - name: open_item_aging_check (detects an aged item with no live disposition)
+        id: open_item_aging
+        run: |
+          set +e
+          python3 scripts/open_item_aging_check.py docs/open-items-ledger.md --triage docs/open-items-triage.jsonl > /tmp/gate-open-item-aging.log 2>&1
+          rc=$?
+          cat /tmp/gate-open-item-aging.log
+          echo "exit code: $rc"
+          exit $rc
+
+      - name: secret_rotation_check (detects a scrubbed-but-unrevoked detection)
+        id: secret_rotation
+        if: always()
+        run: |
+          set +e
+          python3 scripts/secret_rotation_check.py docs/secret-rotation.jsonl > /tmp/gate-secret-rotation.log 2>&1
+          rc=$?
+          cat /tmp/gate-secret-rotation.log
+          echo "exit code: $rc"
+          exit $rc
+
+      - name: surface_reach_check (detects a change that did not reach every declared surface)
+        id: surface_reach
+        if: always()
+        run: |
+          set +e
+          python3 scripts/surface_reach_check.py docs/surfaces.json > /tmp/gate-surface-reach.log 2>&1
+          rc=$?
+          cat /tmp/gate-surface-reach.log
+          echo "exit code: $rc"
+          exit $rc
+
+      - name: evidence_claim_check (detects an unevidenced DEFERRED/MOCK/STUB/TODO marker)
+        id: evidence_claim
+        if: always()
+        run: |
+          set +e
+          python3 scripts/evidence_claim_check.py --root . --allow docs/evidence-claim-allowlist.txt > /tmp/gate-evidence-claim.log 2>&1
+          rc=$?
+          cat /tmp/gate-evidence-claim.log
+          echo "exit code: $rc"
+          exit $rc
+
+      - name: Verdict summary
+        if: always()
+        run: |
+          echo "open_item_aging   ${{ steps.open_item_aging.outcome }}"
+          echo "secret_rotation   ${{ steps.secret_rotation.outcome }}"
+          echo "surface_reach     ${{ steps.surface_reach.outcome }}"
+          echo "evidence_claim    ${{ steps.evidence_claim.outcome }}"
+          echo "These gates DETECT violations that have already landed on this"
+          echo "branch. They do not block a push. Local hooks block in the moment"
+          echo "(scripts/hooks/, install: git config core.hooksPath scripts/hooks)."

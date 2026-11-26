@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# spec: fw-ci-05, fw-ci-06, fw-ci-07
 """gen-checksums.py — release-artifact checksums with a verify mode (R12).
 
 Generates sha256 checksums for every shipped script (the gate surface a
@@ -12,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import re
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -22,14 +24,44 @@ EXIT_OK, EXIT_MISMATCH, EXIT_USAGE = 0, 1, 2
 
 
 def tracked_scripts(repo: Path) -> list[str]:
-    r = subprocess.run(["git", "ls-files", "scripts/", "hub/"], cwd=str(repo),
-                       capture_output=True, text=True, encoding="utf-8", errors="replace")
+    r = subprocess.run(["git", "ls-files", "-z", "--", "scripts/", "hub/"], cwd=str(repo),
+                       capture_output=True)
     if r.returncode != 0:
         print(f"gen-checksums: git ls-files failed: {r.stderr}", file=sys.stderr)
         sys.exit(EXIT_USAGE)
-    return sorted(l for l in r.stdout.splitlines()
-                  if l.endswith((".py", ".mjs", ".sh")) or "/" not in l
-                  and "." in Path(l).name)
+    raw_paths = r.stdout.split(b"\0")
+    if raw_paths[-1] != b"":
+        print("gen-checksums: FAIL - git ls-files returned an unterminated path record",
+              file=sys.stderr)
+        sys.exit(EXIT_USAGE)
+    files = []
+    seen = set()
+    for raw in raw_paths[:-1]:
+        if not raw:
+            continue
+        name = raw.rsplit(b"/", 1)[-1]
+        if not (raw.endswith((b".py", b".mjs", b".sh")) or b"/" not in raw and b"." in name):
+            continue
+        try:
+            rel = raw.decode("utf-8", errors="strict")
+        except UnicodeDecodeError:
+            print(f"gen-checksums: FAIL - supported script path is not UTF-8: {raw!r}",
+                  file=sys.stderr)
+            sys.exit(EXIT_USAGE)
+        # The verifier uses str.splitlines() for the manifest format, so reject
+        # every separator it recognizes, not just CR and LF.
+        line_separators = "\n\r\v\f\x1c\x1d\x1e\x85\u2028\u2029"
+        if any(ch in rel for ch in line_separators) or "\\" in rel:
+            print(f"gen-checksums: FAIL - supported script path cannot be represented in manifest: {rel!r}",
+                  file=sys.stderr)
+            sys.exit(EXIT_USAGE)
+        if raw in seen:
+            print(f"gen-checksums: FAIL - duplicate supported path in Git index (unmerged index): {rel!r}",
+                  file=sys.stderr)
+            sys.exit(EXIT_USAGE)
+        seen.add(raw)
+        files.append(rel)
+    return sorted(files)
 
 
 def digest(path: Path) -> str:
@@ -74,11 +106,17 @@ def main() -> int:
         if not line or line.startswith("#"):
             continue
         parts = line.split(None, 1)
-        if len(parts) != 2 or not parts[1].startswith(("scripts/", "hub/")):
+        if (len(parts) != 2 or not parts[1].startswith(("scripts/", "hub/"))
+                or re.fullmatch(r"[0-9a-fA-F]{64}", parts[0]) is None):
             print(f"gen-checksums: FAIL — malformed manifest line: {line[:60]}",
                   file=sys.stderr)
             return EXIT_MISMATCH
-        recorded[parts[1].strip()] = parts[0]
+        rel = parts[1].strip()
+        if rel in recorded:
+            print(f"gen-checksums: FAIL — duplicate manifest path: {rel}",
+                  file=sys.stderr)
+            return EXIT_MISMATCH
+        recorded[rel] = parts[0].lower()
     current = {rel: digest(repo / rel) for rel in files}
 
     problems = []

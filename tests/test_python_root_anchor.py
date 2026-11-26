@@ -51,6 +51,7 @@ _PY_DEPS = [
     "gate_common.py",
     "regression_audit.py",
     "regression_diff.py",
+    "regression_patterns.py",
     "regression_sizes.py",
 ]
 

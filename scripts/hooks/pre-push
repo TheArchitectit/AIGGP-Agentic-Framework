@@ -1,0 +1,127 @@
+#!/usr/bin/env bash
+# // spec: bd-01, bd-02, bd-03, bd-04
+#
+# Local pre-push hook — branch_drift_check.py, per the 2026-11-15 placement
+# decision (owner: "you make the call for hooks or web hooks"). This is the
+# fast local layer: it blocks in the moment, on a developer machine, where the
+# inputs are visible — local ref tips versus what the remote advertises.
+# `git push --no-verify` bypasses this hook BY DESIGN. The authoritative record
+# is the push-time CI job (`.github/workflows/open-item-gates.yml`), which runs
+# on a clean checkout and is not bypassable; on a repository that accepts direct
+# pushes to `main`, that job DETECTS a violation that already landed — it never
+# blocks one. branch_drift cannot run there at all: an actions/checkout has no
+# local ref tips to compare, which is exactly why it lives here.
+#
+# Commit-moment semantics: a ref being pushed right now is the push in flight,
+# not drift — before the push its tip is on no remote by definition. The gate
+# runs unmodified and we exclude the in-flight refs (git passes them on stdin:
+# `<local ref> <local oid> <remote ref> <remote oid>` per push) from its verdict.
+# Everything else the gate names is standing drift: local-only work that has
+# survived every previous push. The remedies are the gate's own: push the ref,
+# or tag `archive/<name>-<date>` to declare it deliberately parked.
+#
+# FAIL CLOSED: a missing gate script is a hard error, never a silent pass.
+# Exit codes: 0 allow, 1 block. Anything unexpected blocks (fail closed).
+
+set -uo pipefail
+
+repo="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 1
+cd "$repo" || exit 1
+
+gate="scripts/branch_drift_check.py"
+[ -f "$gate" ] || {
+    echo "pre-push: FAIL CLOSED — required gate script missing: $gate" >&2
+    echo "pre-push: a missing gate is a hard error, never a silent pass." >&2
+    exit 1
+}
+
+# Capture the push in flight from stdin before anything else consumes it.
+push_lines="$(cat)"
+
+# Capture stdout (the --json document, and nothing else by contract) separately
+# from stderr (the human FAIL text): merging them corrupts the JSON document.
+# The FAIL text is shown only on a blocking path — if every drift ref is in
+# this push, the gate's unfiltered FAIL line would misdescribe the moment we
+# just accepted.
+bd_json="$(mktemp)"; bd_err="$(mktemp)"
+python3 "$gate" --root "$repo" --max-depth 0 --json >"$bd_json" 2>"$bd_err"
+bd_rc=$?
+bd_out="$(cat "$bd_json")"
+bd_err_txt="$(cat "$bd_err")"
+rm -f "$bd_json" "$bd_err"
+
+case "$bd_rc" in
+    0)
+        printf '%s\n' "$bd_out"
+        exit 0
+        ;;
+    1)
+        filtered="$(python3 - "$bd_out" "$push_lines" <<'PY'
+import json, sys
+doc = json.loads(sys.argv[1])
+push_lines = sys.argv[2]
+if doc.get("unreachable"):
+    # ls-remote failed: every local tip would read as drift against an empty
+    # advertised set. That is a network/config error, not a drift finding.
+    print("branch_drift: FAIL CLOSED — the remote was unreachable, so no ref tip "
+          "could be verified (exit 3 semantics: nothing actually compared)")
+    sys.exit(3)
+in_flight = set()
+for line in push_lines.splitlines():
+    parts = line.split()
+    if len(parts) != 4:
+        continue
+    local_ref, local_oid = parts[0], parts[1]
+    short = local_ref
+    for prefix in ("refs/heads/", "refs/tags/"):
+        if short.startswith(prefix):
+            short = short[len(prefix):]
+    in_flight.add(short)
+    if set(local_oid) != {"0"}:  # a delete carries an all-zero oid
+        in_flight.add(local_oid[:12])
+remaining = []
+for r in doc.get("results", []):
+    for d in r.get("drift", []):
+        if d["ref"] in in_flight or d.get("sha", "") in in_flight:
+            continue  # this push lands it
+        remaining.append("{:<44} {}  {} ahead".format(
+            d["ref"], d.get("sha", "?"), d.get("ahead", "?")))
+if remaining:
+    print("branch_drift: local ref(s) on no remote, not part of this push:")
+    for x in remaining[:20]:
+        print("  " + x)
+    if len(remaining) > 20:
+        print("  ... and {} more".format(len(remaining) - 20))
+    print("Push them, or tag archive/<name>-<date> to declare them deliberately parked.")
+    sys.exit(1)
+sys.exit(0)
+PY
+)"
+        filt_rc=$?
+        if [ "$filt_rc" -ne 0 ]; then
+            printf '%s\n' "$bd_err_txt" >&2
+            printf '%s\n' "$filtered" >&2
+            cat >&2 <<'EOF'
+
+pre-push: BLOCKED by branch_drift_check.py (local block; `git push --no-verify`
+bypasses this hook — by design). The push-time CI job cannot see local ref tips
+and does not judge this; it DETECTS the other gate families after a push lands.
+EOF
+            exit 1
+        fi
+        printf '%s\n' "$filtered"
+        exit 0
+        ;;
+    3)
+        printf '%s\n' "$bd_err_txt" >&2
+        printf '%s\n' "$bd_out" >&2
+        echo "pre-push: FAIL CLOSED — branch_drift_check found no repository to scan (exit 3); nothing-scanned is not a pass" >&2
+        exit 1
+        ;;
+    *)
+        printf '%s\n' "$bd_err_txt" >&2
+        printf '%s\n' "$bd_out" >&2
+        echo "pre-push: branch_drift_check exited $bd_rc (usage/config error, or the remote was unreachable) — blocking; fail closed" >&2
+        exit 1
+        ;;
+esac

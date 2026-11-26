@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# spec: coh-sec-01, rule-marker-01
 """findings_to_spec.py — turn gate findings into openspec requirement skeletons.
 
 The loop the gates feed:
@@ -17,7 +18,10 @@ traceability gate parses:
     #### Scenario: ...
     - **WHEN** ... - **THEN** ...
 
-Ids are kebab-case [a-z0-9-]+ to match REQ_ID in spec_traceability.py.
+Ids this tool *generates* are kebab-case [a-z0-9-]+. The reader below accepts
+any case so an existing requirement (`GLF-01`) is never duplicated by a
+newly appended one; the ID class is the same one scripts/lib/spec_discovery.py
+uses for the traceability gate.
 Re-running is idempotent: existing spec.md files are NEVER overwritten —
 only findings that have no requirement yet are appended (matched by their
 provenance line), so hand edits survive and the tool is safe to run in a loop.
@@ -45,6 +49,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import gate_overlay  # noqa: E402
+from gate_common import contained_path  # noqa: E402
 
 # Same layout contract as guardrails-scan.mjs: the project root is the directory
 # CONTAINING .devgate/ — but standalone, DevGate is its own project.
@@ -136,8 +141,8 @@ def render_requirement(f: dict, req_id: str) -> str:
         "",
         f"> Implement, then mark the enforcing source with a spec marker:"
         f" `// spec: {req_id}` in C-family/JS files, `# spec: {req_id}` in"
-        "> Python/Ruby/shell — both count — so spec_traceability.py counts"
-        "> it covered.",
+        f" Python/Ruby/shell, or `-- spec: {req_id}` in SQL/Lua — all"
+        "> count — so spec_traceability.py counts it covered.",
         "",
     ]
     return "\n".join(body) + "\n"
@@ -157,7 +162,7 @@ def existing_state(spec_path: Path) -> tuple[set[str], set[tuple[str, str]]]:
     if not spec_path.exists():
         return set(), set()
     text = spec_path.read_text(encoding="utf-8")
-    ids = set(re.findall(r"<!--\s*id:\s*([a-z0-9-]+)\s*-->", text))
+    ids = set(re.findall(r"<!--\s*id:\s*([A-Za-z0-9-]+)\s*-->", text))
     covered = {(m[0], m[1]) for m in ORIGIN_LINE.findall(text)}
     return ids, covered
 
@@ -202,7 +207,17 @@ def main() -> int:
 
     total_new = 0
     for cap, fs in sorted(by_cap.items()):
-        spec_dir = root / "openspec" / "specs" / cap
+        # The capability becomes a directory this tool CREATES and APPENDS to,
+        # and it comes from `--capability` or from a finding's `category`
+        # (i.e. from scanner output — scanned content, coh-sec-01). Contain it
+        # before the existence check, the mkdir, and the append: `../escaped`
+        # would otherwise write a spec file outside the repository.
+        spec_dir, cap_err = contained_path(root, f"openspec/specs/{cap}")
+        if cap_err:
+            print(f"findings-to-spec: FAIL - capability {cap!r} is not a "
+                  f"contained directory name ({cap_err}); nothing written",
+                  file=sys.stderr)
+            return 2
         spec_path = spec_dir / "spec.md"
         have_ids, covered = existing_state(spec_path)
         # Stable ordering: registry-backed first, then scan; by source id.

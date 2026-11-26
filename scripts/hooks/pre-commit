@@ -1,0 +1,265 @@
+#!/usr/bin/env bash
+# // spec: spec-state-01, spec-state-02, spec-state-03, spec-state-04, spec-state-05, spec-state-06
+#
+# Local pre-commit hook. Two families run here, per the 2026-11-15 placement
+# decision (owner: "you make the call for hooks or web hooks"):
+#
+#   1. Open-item gates (fast local layer):
+#        scripts/tree_clean_check.py       — every commit
+#        scripts/open_item_aging_check.py  — every commit
+#   2. Spec-state pre-commit block (Gate 3.2), unchanged below.
+#
+# What this hook is, stated so nobody overclaims it:
+#
+#   * It BLOCKS a bad commit in the moment — locally, on a developer machine,
+#     where its inputs (working tree, local refs) are visible.
+#   * `git commit --no-verify` bypasses this hook entirely. That is BY DESIGN,
+#     not a hole we pretend is closed. The authoritative record is the push-time
+#     CI job in `.github/workflows/open-item-gates.yml`, which runs on a clean
+#     checkout and is not bypassable. On a repository that accepts direct pushes
+#     to `main`, that CI job DETECTS a violation after it has already landed —
+#     it never blocks one.
+#   * Placement rationale (do not move these without re-reading it):
+#     tree_clean_check needs the working tree and branch_drift_check needs
+#     local ref tips, so neither can see its inputs in a CI checkout; both are
+#     local-hook-only. open_item_aging_check reads files a checkout contains,
+#     so it runs here AND in CI.
+#   * FAIL CLOSED: a missing gate script is a hard error, never a silent pass.
+#     A gate exit of 2 (usage/config) or 3 (nothing scanned) is also a hard
+#     error here — "nothing scanned" is not a green measurement.
+#
+# Install per clone (core.hooksPath is local configuration, not a repo file):
+#
+#     git config core.hooksPath scripts/hooks
+#
+# This hook deliberately does NOT auto-install on clone.
+#
+# Exit codes: 0 allow, 1 block. Anything unexpected blocks (fail closed).
+
+set -uo pipefail
+
+repo="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 1
+cd "$repo" || exit 1
+
+# ---------------------------------------------------------------------------
+# Open-item gates — decision 2026-11-15: tree_clean and open_item_aging at
+# pre-commit. Fail closed on a missing script.
+# ---------------------------------------------------------------------------
+
+fail_closed_missing() {
+    echo "pre-commit: FAIL CLOSED — required gate script missing: $1" >&2
+    echo "pre-commit: a missing gate is a hard error, never a silent pass." >&2
+    exit 1
+}
+
+# --- tree_clean_check.py ------------------------------------------------------
+# The gate classifies every working-tree entry as generated vs real and fails
+# on real dirt (tc-01). At the commit moment the staged set IS the change being
+# committed — tc-01 exempts "a committed change" — so entries that are fully
+# staged and have no unstaged remainder are the commit in flight, not dirt.
+# Everything else (unstaged modifications, untracked files) is exactly the
+# standing-dirt family this gate exists for: it blinds review and hides
+# unpushed work. We run the gate unmodified and apply the commit-moment filter
+# to its JSON verdict; the classification stays the gate's.
+[ -f "scripts/tree_clean_check.py" ] || fail_closed_missing "scripts/tree_clean_check.py"
+
+# Capture stdout (the --json document, and nothing else by contract) separately
+# from stderr (the human FAIL text): merging them once corrupted the JSON and
+# the filter crashed into a fail-closed block for the wrong reason. The FAIL
+# text is shown only on a blocking path — if the commit-moment filter allows
+# (every real entry is the staged commit in flight), the gate's unfiltered
+# FAIL line would misdescribe the moment we just accepted.
+tc_json="$(mktemp)"; tc_err="$(mktemp)"
+python3 scripts/tree_clean_check.py --root "$repo" --max-depth 0 --json >"$tc_json" 2>"$tc_err"
+tc_rc=$?
+tc_out="$(cat "$tc_json")"
+tc_err_txt="$(cat "$tc_err")"
+rm -f "$tc_json" "$tc_err"
+case "$tc_rc" in
+    0) printf '%s\n' "$tc_out" ;;
+    1)
+        filtered="$(python3 - "$tc_out" <<'PY'
+import json, subprocess, sys
+doc = json.loads(sys.argv[1])
+staged = set(subprocess.run(["git", "diff", "--cached", "--name-only"],
+                            capture_output=True, text=True).stdout.splitlines())
+unstaged = set(subprocess.run(["git", "diff", "--name-only"],
+                              capture_output=True, text=True).stdout.splitlines())
+untracked = set(subprocess.run(["git", "ls-files", "--others", "--exclude-standard"],
+                               capture_output=True, text=True).stdout.splitlines())
+offenders = []
+for r in doc.get("results", []):
+    for e in r.get("real", []):
+        p = e["path"]
+        in_flight = p in staged and p not in unstaged and p not in untracked
+        if not in_flight:
+            offenders.append("{:<3} {}".format(e["status"], p))
+if offenders:
+    print("tree_clean: unclassified working-tree dirt beyond the commit in flight:")
+    for o in offenders[:20]:
+        print("  " + o)
+    if len(offenders) > 20:
+        print("  ... and {} more".format(len(offenders) - 20))
+    print("Commit the real work, add generated paths to .gitignore, or remove them.")
+    sys.exit(1)
+# Every real entry is the staged commit in flight: allow, but name the classes.
+for r in doc.get("results", []):
+    if r.get("generated"):
+        print("tree_clean: {} generated entry/entries in {} "
+              "(reported, not failed - .gitignore is the remedy)".format(
+                  r["generated"], r["repo"]))
+    if r.get("mode_only"):
+        print("tree_clean: {} file-mode-only entry/entries "
+              "(core.fileMode=false or .gitattributes is the remedy, not deletion)".format(
+                  r["mode_only"]))
+sys.exit(0)
+PY
+)"
+        filt_rc=$?
+        if [ "$filt_rc" -ne 0 ]; then
+            printf '%s\n' "$tc_err_txt" >&2
+            printf '%s\n' "$filtered" >&2
+            cat >&2 <<'EOF'
+
+pre-commit: BLOCKED by tree_clean_check.py (local block; `git commit --no-verify`
+bypasses this hook and the push-time CI job DETECTS the state after it lands).
+EOF
+            exit 1
+        fi
+        printf '%s\n' "$filtered"
+        ;;
+    3)
+        printf '%s\n' "$tc_err_txt" >&2
+        printf '%s\n' "$tc_out" >&2
+        echo "pre-commit: FAIL CLOSED — tree_clean_check found no repository to scan (exit 3); nothing-scanned is not a pass" >&2
+        exit 1
+        ;;
+    *)
+        printf '%s\n' "$tc_err_txt" >&2
+        printf '%s\n' "$tc_out" >&2
+        echo "pre-commit: tree_clean_check exited $tc_rc (usage/config error) — blocking; fail closed" >&2
+        exit 1
+        ;;
+esac
+
+# --- open_item_aging_check.py -------------------------------------------------
+# Inputs are the decided paths: the aging backlog and its triage ledger. An
+# aged open row with no live disposition blocks the commit, named individually.
+[ -f "scripts/open_item_aging_check.py" ] || fail_closed_missing "scripts/open_item_aging_check.py"
+[ -f "docs/open-items-ledger.md" ] || fail_closed_missing "docs/open-items-ledger.md (decided backlog input)"
+[ -f "docs/open-items-triage.jsonl" ] || fail_closed_missing "docs/open-items-triage.jsonl (decided triage input)"
+
+oia_out="$(python3 scripts/open_item_aging_check.py docs/open-items-ledger.md --triage docs/open-items-triage.jsonl 2>&1)"
+oia_rc=$?
+case "$oia_rc" in
+    0) printf '%s\n' "$oia_out" ;;
+    1)
+        printf '%s\n' "$oia_out" >&2
+        cat >&2 <<'EOF'
+
+pre-commit: BLOCKED by open_item_aging_check.py — every aged open item needs a
+live triage disposition (fixed | deferred with review_by + reason | not-actionable)
+in docs/open-items-triage.jsonl. Local block; `git commit --no-verify` bypasses
+it and the push-time CI job DETECTS the violation after it lands.
+EOF
+        exit 1
+        ;;
+    3)
+        printf '%s\n' "$oia_out" >&2
+        echo "pre-commit: FAIL CLOSED — open_item_aging parsed zero open rows (exit 3); an empty backlog is not a pass" >&2
+        exit 1
+        ;;
+    *)
+        printf '%s\n' "$oia_out" >&2
+        echo "pre-commit: open_item_aging_check exited $oia_rc (usage/config error) — blocking; fail closed" >&2
+        exit 1
+        ;;
+esac
+
+# ---------------------------------------------------------------------------
+# Spec-state pre-commit block (Gate 3.2). Owner decision 2026-11-14: enforce
+# BOTH — this hook is the local block, `.github/workflows/spec-state.yml` is the
+# audit trail.
+#
+# What this hook can and cannot do, stated so nobody overclaims it:
+#
+#   * It BLOCKS a commit whose staged state edits a published spec without the
+#     matching ledger row, or appends a row with no state edit — the gate's
+#     check 1, which is fully decidable before the commit exists.
+#   * It also blocks any other violation the gate can decide against commits
+#     that already exist (digest, ancestry, marker, partial closure).
+#   * It CANNOT verify a row that names the commit being created: the SHA does
+#     not exist yet. The workflow's commit-pair rule therefore makes the row
+#     name an earlier, already-resolved commit — the work commit — while this
+#     commit carries the state edit and the row. That shape passes here.
+#   * `git commit --no-verify` bypasses this hook entirely. That is a known,
+#     documented bypass, not a hole we pretend is closed: the push-time
+#     workflow on `main` then reports the transition, after the fact.
+# ---------------------------------------------------------------------------
+
+gate="scripts/spec_state_gate.py"
+ledger="openspec/state-ledger.jsonl"
+
+[ -f "$gate" ] || exit 0   # gate absent: not this repository's business
+
+# Published specs and the ledger are the only inputs to the gate. A staged
+# change package (openspec/changes/...) is deliberately not gated: its deltas
+# are in flight, and a transition is a property of a published spec.
+staged="$(git diff --cached --name-only --diff-filter=ACMR 2>/dev/null)" || exit 1
+if ! printf '%s\n' "$staged" | grep -qE '^(openspec/specs/[^/]+/spec\.md|'"$ledger"')$'; then
+    exit 0
+fi
+
+# The prospective commit: the index as a tree, hung off HEAD as its parent.
+# It is a dangling object (no branch names it); git gc collects it, and it
+# never moves a ref. Its only purpose is to give the gate a revision that
+# carries the staged content and resolves as a commit.
+if ! git rev-parse --verify -q HEAD >/dev/null; then
+    echo "spec-state: no HEAD yet (first commit) — nothing to reconcile"
+    exit 0
+fi
+tree="$(git write-tree)" || { echo "spec-state: cannot read the index"; exit 1; }
+prospective="$(
+    GIT_AUTHOR_NAME="spec-state hook" GIT_AUTHOR_EMAIL="spec-state@localhost" \
+    GIT_COMMITTER_NAME="spec-state hook" GIT_COMMITTER_EMAIL="spec-state@localhost" \
+    git commit-tree "$tree" -p HEAD -m "spec-state pre-commit probe" 2>/dev/null
+)" || { echo "spec-state: cannot build the prospective commit"; exit 1; }
+
+out="$(python3 "$gate" --base HEAD --head "$prospective" 2>&1)"
+rc=$?
+
+case "$rc" in
+    0)
+        printf '%s\n' "$out"
+        exit 0
+        ;;
+    3)
+        # Nothing scanned: the staged change touches spec files or the ledger
+        # but moves no requirement state and adds no row. There is nothing to
+        # reconcile here; the push-time workflow remains the audit trail.
+        printf '%s\n' "$out"
+        exit 0
+        ;;
+    1)
+        printf '%s\n' "$out" >&2
+        cat >&2 <<'EOF'
+
+spec-state: BLOCKED by the pre-commit hook.
+
+A spec-state transition needs the published spec edit and the matching row in
+openspec/state-ledger.jsonl in the SAME staged change, with two resolved,
+distinct commits in ancestry order, a file carrying `spec: <req-id>` in that
+window, and a sealed evidence bundle for a terminal closure.
+
+Fix the reported violation. `git commit --no-verify` bypasses this hook, and
+the push-time workflow on main will then report the transition after the fact
+— it does not prevent it.
+EOF
+        exit 1
+        ;;
+    *)
+        printf '%s\n' "$out" >&2
+        echo "spec-state: gate exited $rc (usage/configuration error) — blocking; fail closed" >&2
+        exit 1
+        ;;
+esac

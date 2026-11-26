@@ -1,5 +1,7 @@
 # Spec platform
 
+Status: CLOSED (EXERCISED 3)
+
 ## Purpose
 
 The OpenSpec tree is one source of truth read by two tools: the OpenSpec CLI
@@ -53,3 +55,11 @@ own design notes, so main-spec/change-delta divergence is never read as drift.
 - **WHEN** a successor change depends on an unarchived predecessor
 - **THEN** the dependency and the publication order are recorded in both
   proposals (DEP-style entries)
+
+## Requirement Closure
+
+| Requirement | Status | Implementation | Verification |
+|---|---|---|---|
+| `spec-fmt-01` (Main specs are CLI-valid and marker-parseable) | **EXERCISED** | `scripts/lib/spec_discovery.py`, `scripts/migrate_spec_format.py`, `scripts/spec_traceability.py` | `tests/test_spec_traceability.py` |
+| `spec-fmt-02` (Completed changes are archived) | **EXERCISED** | `scripts/spec_traceability.py` | `tests/test_spec_traceability.py` |
+| `spec-fmt-03` (Change-local authority policy is documented) | **EXERCISED** | `scripts/spec_traceability.py` | `tests/test_spec_traceability.py` |

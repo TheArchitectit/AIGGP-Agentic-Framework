@@ -3,6 +3,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Diff, Finding, ReviewResult } from './types.js';
+import { bodyHasEvidenceLink, isEvidenceRef } from './evidenceRef.js';
 
 /** Generic PR/MR context parsed from CI env. */
 export interface MrContext {
@@ -98,6 +99,35 @@ export interface VcsProvider {
 }
 
 /**
+ * Raised when a provider is asked to post a comment that carries no evidence
+ * link. The requirement is a refusal, not a warning: "A comment without an
+ * evidence link SHALL NOT be posted" (reviewer-surfaces spec).
+ */
+export class MissingEvidenceError extends Error {
+  constructor(keys: string[]) {
+    super(
+      `refusing to post ${keys.length} review comment(s) without an evidence link ` +
+        `(${keys.slice(0, 3).join(', ')}); each comment must reference a coh-ev-* record`
+    );
+    this.name = 'MissingEvidenceError';
+  }
+}
+
+/** Enforce the refusal at the provider boundary, before any API call. */
+export function assertEvidenceLinked(comments: InlineComment[]): void {
+  const unlinked = comments.filter((c) => !bodyHasEvidenceLink(c.body)).map((c) => `${c.path}:${c.line}`);
+  if (unlinked.length > 0) throw new MissingEvidenceError(unlinked);
+}
+
+/** Render the evidence link appended to an inline comment. */
+export function evidenceLink(f: Finding, baseUrl?: string): string | null {
+  if (!isEvidenceRef(f.evidenceRef)) return null;
+  const ref = f.evidenceRef;
+  if (!baseUrl) return `\n\nEvidence: \`${ref}\``;
+  return `\n\nEvidence: [${ref}](${baseUrl.replace(/\/+$/, '')}/${ref})`;
+}
+
+/**
  * Build a walkthrough body: verdict + stats + body-only findings + stale count.
  */
 export function buildReviewBody(result: ReviewResult, bodyOnly: Finding[], staleCount: number): string {
@@ -117,6 +147,7 @@ export function buildReviewBody(result: ReviewResult, bodyOnly: Finding[], stale
       const req = f.requirementId ? ` [req: ${f.requirementId}]` : '';
       lines.push(`- **[${f.category}]**${req} ${f.message}${loc}`);
       if (f.suggestion) lines.push(`  - 💡 ${f.suggestion}`);
+      if (isEvidenceRef(f.evidenceRef)) lines.push(`  - Evidence: \`${f.evidenceRef}\``);
     }
   }
   return lines.join('\n');
@@ -127,9 +158,11 @@ export function buildReviewBody(result: ReviewResult, bodyOnly: Finding[], stale
  * body-only remainder. A finding with a `line` that is not an added line in
  * the diff (e.g. a removed line) cannot anchor an inline comment.
  */
-export function partitionInline(result: ReviewResult, diff: Diff): {
+export function partitionInline(result: ReviewResult, diff: Diff, opts: { evidenceBaseUrl?: string } = {}): {
   comments: InlineComment[];
   bodyOnly: Finding[];
+  /** Findings deliberately not posted because they carry no evidence link. */
+  unlinked: Finding[];
 } {
   const addedByPath = new Map<string, Set<number>>();
   for (const f of diff.files) {
@@ -137,8 +170,16 @@ export function partitionInline(result: ReviewResult, diff: Diff): {
   }
   const comments: InlineComment[] = [];
   const bodyOnly: Finding[] = [];
+  const unlinked: Finding[] = [];
   const seen = new Set<string>();
   for (const f of result.findings) {
+    const link = evidenceLink(f, opts.evidenceBaseUrl);
+    if (!link) {
+      // No evidence record, no comment: the finding stays in the machine
+      // output but is never posted to a forge surface.
+      unlinked.push(f);
+      continue;
+    }
     const anchorable = f.file !== undefined && f.line !== undefined && addedByPath.get(f.file)?.has(f.line) === true;
     if (!anchorable) {
       bodyOnly.push(f);
@@ -154,10 +195,11 @@ export function partitionInline(result: ReviewResult, diff: Diff): {
       body:
         `${encodeMarker(key)}\n**${f.severity}** ${sanitizeInlineText(f.message)}` +
         `${f.requirementId ? ` — [req: ${sanitizeInlineText(f.requirementId)}]` : ''}` +
-        `${f.suggestion ? `\n\n💡 ${sanitizeInlineText(f.suggestion)}` : ''}`
+        `${f.suggestion ? `\n\n💡 ${sanitizeInlineText(f.suggestion)}` : ''}` +
+        link
     });
   }
-  return { comments, bodyOnly };
+  return { comments, bodyOnly, unlinked };
 }
 
 /** Default runner using `gh` CLI (GitHub). */

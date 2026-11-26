@@ -1,0 +1,472 @@
+# spec-fleet.yml — nightly spec-spacing intake walk (SGA-10..14)
+#
+# Sibling of secret-fleet.yml (different scan, different failure semantics,
+# different reviewer reflex — SGA-10 is explicit that they are NOT merged).
+# Walks the SAME declaration files (fleet-sweep-include.txt / -exclude.txt +
+# generated owner-scope list), runs the gap scanner per repository, classifies
+# each into spaced / gaps / invalid / unspaced / unscannable, commits a capped
+# trend report to docs/qa/spec-sweeps/, and alerts via hub_alert.py --key
+# spec_fleet_sweep (deduped, repos named in body — SGA-12/13).
+#
+# Schedule: '47 4' to stagger clone load against secret-fleet's '17 4'.
+name: Spec Fleet Sweep
+
+on:
+  schedule:
+    - cron: '47 4 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  sweep:
+    name: Spec fleet sweep
+    runs-on: devgate
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      # --- Fleet GitHub App token: canonical shape, docs/GITHUB-APP-TOKEN.md ---
+      # This workflow is the highest-calling one in the fleet: the declaration
+      # generator lists the owner scope, and the visibility probe asks GitHub
+      # about every declared repo, including repos this repository cannot see
+      # with `github.token` (1,000 req/h, this repository only). Measured
+      # 2026-11-18: `gh api rate_limit` read 0/5000 remaining on the user
+      # identity, which is the budget this path exists to stop spending.
+      # 1. Fail closed and named when half the pair is configured.
+      - name: Check the App credential pair (fail closed, named)
+        id: app-cred
+        env:
+          APP_ID: ${{ vars.DEVGATE_SWEEP_APP_ID }}
+          APP_KEY: ${{ secrets.DEVGATE_SWEEP_APP_PRIVATE_KEY }}
+        run: |
+          set -eu
+          if [ -n "$APP_ID" ] && [ -z "$APP_KEY" ]; then
+            echo "::error::vars.DEVGATE_SWEEP_APP_ID is set but secrets.DEVGATE_SWEEP_APP_PRIVATE_KEY is missing."
+            echo "::error::Failing closed: a configured App never falls through to a wider identity."
+            exit 1
+          fi
+          echo "[auth] app id variable: $([ -n "$APP_ID" ] && echo set || echo unset)"
+
+      # 2. Mint the installation token; skipped only when the variable is unset.
+      - name: Mint the fleet App token
+        id: app-token
+        if: ${{ vars.DEVGATE_SWEEP_APP_ID != '' }}
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+        with:
+          app-id: ${{ vars.DEVGATE_SWEEP_APP_ID }}
+          private-key: ${{ secrets.DEVGATE_SWEEP_APP_PRIVATE_KEY }}
+          owner: TheArchitectit   # owner scope: the generator and the visibility probe read other fleet repos
+
+      # 3. Resolve the mode once, announce it, publish one token for call sites.
+      - name: Resolve and announce the token mode
+        id: auth
+        env:
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
+          WORKFLOW_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          if [ -n "$APP_TOKEN" ]; then
+            MODE=app
+            TOKEN="$APP_TOKEN"
+            echo "[auth] token mode: app — program GitHub App installation, 5,000 req/h (separate from the user budget)"
+          else
+            MODE=workflow
+            TOKEN="$WORKFLOW_TOKEN"
+            echo "::warning::[auth] token mode: workflow — vars.DEVGATE_SWEEP_APP_ID is unset on this repository. Falling back to github.token: 1,000 req/h, scoped to this repository only."
+          fi
+          [ -z "$APP_TOKEN" ] || echo "::add-mask::$APP_TOKEN"
+          printf 'token=%s\n' "$TOKEN" >> "$GITHUB_OUTPUT"
+          printf 'token_mode=%s\n' "$MODE" >> "$GITHUB_OUTPUT"
+
+      # 4. Positive control: the curated private fleet entries below can only
+      #    be cloned if the App installation actually covers them. Prove that
+      #    with the same askpass shape the walk uses, and fail HERE, by name,
+      #    rather than letting four repos red the nightly as `unscannable`.
+      #    The token is an env value, never git argv; the askpass helper reads
+      #    it from its environment and the error path redacts it again.
+      - name: Positive control — the App can read a private fleet repo
+        if: ${{ steps.auth.outputs.token_mode == 'app' }}
+        env:
+          CLONE_TOKEN: ${{ steps.auth.outputs.token }}
+        run: |
+          set -eu
+          if [ -z "$CLONE_TOKEN" ]; then
+            echo "::error::positive control: token mode is app but the minted token is empty."
+            exit 1
+          fi
+          echo "::add-mask::$CLONE_TOKEN"
+          askpass="$RUNNER_TEMP/spec-fleet-askpass.sh"
+          cat > "$askpass" <<'ASKPASS'
+          #!/bin/sh
+          case "$1" in
+            Username*) printf '%s\n' "x-access-token" ;;
+            *) printf '%s\n' "${SPEC_FLEET_ASKPASS_TOKEN:-}" ;;
+          esac
+          ASKPASS
+          chmod 700 "$askpass"
+          # The checkout above leaves its own workflow-token extraheader in
+          # this repo's local git config, and that header beats the askpass
+          # App token (measured on AI02: rc=128 inside such a checkout, rc=0
+          # outside it). Clear it as argv; the GIT_CONFIG_KEY_n env form does
+          # NOT override it — also measured.
+          #
+          # These comments must stay OUTSIDE the command below. An earlier
+          # revision put them between the `VAR=… \` assignments and `git`,
+          # which detaches the assignments from the command: reproduced in
+          # bash, the env never reaches git, askpass is never consulted, and
+          # the failure becomes "could not read Password … No such device".
+          if ! err="$(SPEC_FLEET_ASKPASS_TOKEN="$CLONE_TOKEN" \
+                 GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 \
+                 git -c credential.username=x-access-token -c credential.helper= \
+                   -c http.https://github.com/.extraheader= \
+                   ls-remote --heads https://github.com/TheArchitectit/rad-gateway 2>&1)"; then
+            printf '%s\n' "${err//$CLONE_TOKEN/***}" | tail -5
+            echo "::error::positive control failed: the App token cannot read the private fleet repo TheArchitectit/rad-gateway. The curated private entries would scan unscannable and red every night. Check installation 101651861's repository access."
+            exit 1
+          fi
+          echo "[auth] positive control: TheArchitectit/rad-gateway is readable with the App token"
+
+      # The devgate runner image ships a node20 whose own npm is broken
+      # (`Cannot find module '../lib/cli.js'` from bin/npm) — measured on the
+      # first dispatch of this workflow, 2026-10-24. setup-node installs a
+      # clean tool-cache node+npm, which is why ci.yml can run npm at all.
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "20"
+
+      # Without the validator every openspec-material repo classifies
+      # `unscannable`, which the red step treats as a census failure — so a
+      # runner with no tooling would alert every night about its own missing
+      # dependency. Pinned to the same version the lock and templates/specs.yml
+      # use, and handed to the classifier explicitly (SPEC_AUDIT_OPENSPEC_BIN)
+      # rather than relying on PATH.
+      - name: Install the pinned openspec CLI
+        env:
+          OPENSPEC_PACKAGE: "@fission-ai/openspec@1.14.3"
+        run: npm install --no-save --no-audit --no-fund "$OPENSPEC_PACKAGE"
+
+      # Not every devgate runner image carries `gh`: run 44361911555 died here
+      # with "[secret-scan-declared] gh is not on PATH and no --snapshot was
+      # given" while the identical workflow had just succeeded on a sibling
+      # runner. The declaration generator AND the visibility probe below both
+      # shell out to gh, so depending on which runner picks the job up is not
+      # an option. Pinned version + SHA256 from the release's own
+      # gh_2.83.1_checksums.txt, verified locally before wiring this in.
+      - name: Install the pinned GitHub CLI (declaration and probe need gh)
+        run: |
+          set -eu
+          VERSION=2.83.1
+          SHA256=1c5252d4ce3db07b51c01ff0b909583da6364ff3fdc06d0c2e75e62dc0380a34
+          URL="https://github.com/cli/cli/releases/download/v${VERSION}/gh_${VERSION}_linux_amd64.tar.gz"
+          curl -sSL -o "$RUNNER_TEMP/gh.tar.gz" "$URL"
+          echo "${SHA256}  $RUNNER_TEMP/gh.tar.gz" | sha256sum -c -
+          tar xzf "$RUNNER_TEMP/gh.tar.gz" -C "$RUNNER_TEMP"
+          install -m 0755 "$RUNNER_TEMP/gh_${VERSION}_linux_amd64/bin/gh" "$RUNNER_TEMP/gh"
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
+          # GITHUB_PATH only affects LATER steps. Calling `gh` here failed
+          # with exit 127 on run 44362458145 even though the binary and its
+          # checksum were good; verify by absolute path within this step.
+          "$RUNNER_TEMP/gh" version
+
+      - name: Generate the declaration (reuse secret-scan-declared.sh)
+        id: generate
+        env:
+          # The generator runs `gh repo list` for owner-scope discovery
+          # (SGA-10: a new repo is noticed the night it appears). Without the
+          # token it exits 2 — measured on dispatch 40062752087. The App token
+          # is owner-scoped, which is what the discovery and the per-repo
+          # visibility probe below both need; see the mode line this step prints.
+          GH_TOKEN: ${{ steps.auth.outputs.token }}
+          TOKEN_MODE: ${{ steps.auth.outputs.token_mode }}
+        run: |
+          set -eu
+          echo "[auth] this step spends the $TOKEN_MODE budget"
+          bash scripts/secret-scan-declared.sh --out "$RUNNER_TEMP/declared.raw.txt"
+          # A private repo cannot be read by an UNAUTHENTICATED clone, so as a
+          # generated owner-scope entry it can only ever read `unscannable` —
+          # and unscannable is a RED (SGA-12). Generated private repos stay
+          # dropped HERE and named HERE, never silently.
+          #
+          # The curated exceptions in fleet-sweep-include.txt are different:
+          # they are the deliberately listed repos, and in `app` token mode the
+          # walk clones them with the App installation token (see the positive
+          # control above and scripts/spec-fleet-walk.sh). So in app mode a
+          # dropped-as-private entry that also appears in the include file is
+          # re-admitted, and the re-admission is printed by name. In workflow
+          # token mode nothing is re-admitted: that token cannot read another
+          # owner's private repos, and re-admitting would only move the red.
+          python3 - "$RUNNER_TEMP/declared.raw.txt" "$RUNNER_TEMP/declared.txt" "fleet-sweep-include.txt" <<'PY'
+          import json, os, re, subprocess, sys
+          from pathlib import Path
+          raw, out, include_path = Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3])
+          token_mode = os.environ.get("TOKEN_MODE", "workflow")
+          lines = raw.read_text(encoding="utf-8").splitlines()
+          def visibility(full):
+              """True if GitHub says the repo is private, False if public, None
+              if it cannot be read (404/401 — indistinguishable from deleted)."""
+              try:
+                  res = subprocess.run(
+                      ["gh", "api", f"repos/{full}", "--jq", ".private"],
+                      capture_output=True, text=True, timeout=60)
+              except Exception:  # noqa: BLE001
+                  return None
+              if res.returncode != 0:
+                  return None
+              return (res.stdout or "").strip() == "true"
+          def norm(u):
+              u = (u or "").strip().rstrip("/")
+              if u.endswith(".git"):
+                  u = u[:-4]
+              return u.lower()
+          # The curated set is exactly the include file's code tokens. Only a
+          # URL that a human wrote there can be re-admitted as private.
+          curated = set()
+          if include_path.is_file():
+              for line in include_path.read_text(encoding="utf-8").splitlines():
+                  code = line.split("#", 1)[0].strip()
+                  if code:
+                      curated.add(norm(code))
+          seen_full = []
+          for line in lines:
+              m = re.match(r"https://github\.com/([^/]+)/([^/]+?)/?$", line.strip())
+              if m and f"{m.group(1)}/{m.group(2)}" not in seen_full:
+                  seen_full.append(f"{m.group(1)}/{m.group(2)}")
+          private = {full for full in seen_full if visibility(full) is True}
+          # A repo the API cannot read at all is NOT dropped: 404/401 is
+          # exactly how a deleted repo answers too, and SGA-12 requires that
+          # one to red and name itself. Only a repo GitHub positively reports
+          # as private is dropped — unless it is a curated include entry and
+          # the App token can read it.
+          kept, dropped, readmitted, seen = [], set(), set(), set()
+          for line in lines:
+              m = re.match(r"https://github\.com/([^/]+)/([^/]+?)/?$", line.strip())
+              full = f"{m.group(1)}/{m.group(2)}" if m else None
+              if full and full in private:
+                  if token_mode == "app" and norm(line) in curated:
+                      readmitted.add(full)
+                  else:
+                      dropped.add(full)
+                      continue
+              # the generator can list the same repo twice (two discovery
+              # paths); a duplicate scan double-counts the trend line.
+              if line.strip() in seen:
+                  continue
+              seen.add(line.strip())
+              kept.append(line)
+          out.write_text("\n".join(kept) + ("\n" if kept else ""), encoding="utf-8")
+          if readmitted:
+              print(f"[declaration] re-admitted {len(readmitted)} curated private repo(s) with the App token: {sorted(readmitted)}")
+          print(f"[declaration] dropped {len(dropped)} private repo(s), unreadable unauthenticated: {sorted(dropped)}")
+          PY
+          echo "count=$(wc -l < "$RUNNER_TEMP/declared.txt")" >> "$GITHUB_OUTPUT"
+
+      - name: Run the walk
+        id: walk
+        env:
+          DECLARED: ${{ runner.temp }}/declared.txt
+          TIER: spec-audit-tier.txt
+          LOCK: spec-templates.lock.json
+          SPEC_AUDIT_OPENSPEC_BIN: ${{ github.workspace }}/node_modules/.bin/openspec
+          # Opt-in authenticated clone, app mode only. In workflow mode another
+          # owner's private repos are unreadable either way; an empty value
+          # keeps the walk on its unauthenticated path.
+          SPEC_FLEET_CLONE_TOKEN: ${{ steps.auth.outputs.token_mode == 'app' && steps.auth.outputs.token || '' }}
+        run: |
+          set +e
+          [ -z "${SPEC_FLEET_CLONE_TOKEN:-}" ] || echo "::add-mask::$SPEC_FLEET_CLONE_TOKEN"
+          mkdir -p "$RUNNER_TEMP/spec-work"
+          bash scripts/spec-fleet-walk.sh \
+            --declared "$DECLARED" \
+            --report "$RUNNER_TEMP/spec-report.json" \
+            --work "$RUNNER_TEMP/spec-work" \
+            --tier-file "$TIER" \
+            --lock-file "$LOCK"
+          rc=$?
+          set -e
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          echo "[walk] exit $rc"
+          exit 0
+
+      - name: Redacted report artifact
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: spec-fleet-report
+          path: ${{ runner.temp }}/spec-report.json
+          retention-days: 90
+
+      - name: Commit the report (trend line in git)
+        if: always()
+        run: |
+          set -eu
+          [ -f "$RUNNER_TEMP/spec-report.json" ] || { echo "no report"; exit 0; }
+          python3 - "$RUNNER_TEMP/spec-report.json" "$RUNNER_TEMP/committed-spec-report.json" <<'TRIM'
+          import json, sys
+          doc = json.load(open(sys.argv[1], encoding="utf-8"))
+          CAP = 50
+          for r in doc.get("repos", []):
+              # trim per-repo reasons already capped at 100 chars; keep full
+              pass
+          json.dump(doc, open(sys.argv[2], "w", encoding="utf-8"),
+                    indent=2, sort_keys=True)
+          TRIM
+          mkdir -p docs/qa/spec-sweeps
+          DATE="$(date -u +%F)"
+          cp "$RUNNER_TEMP/committed-spec-report.json" "docs/qa/spec-sweeps/${DATE}.json"
+          git config user.name "devgate-spec-sweep[bot]"
+          git config user.email "devgate-spec-sweep[bot]@users.noreply.github.com"
+          git add docs/qa/spec-sweeps/
+          if git diff --cached --quiet; then
+            echo "nothing new to commit"
+          else
+            git commit -m "spec sweep ${DATE} (automated)"
+            # Secret and spec sweeps write different reports but share main.
+            # A rejected non-FF push is a publish race, not a scan failure:
+            # fetch and rebase the report commit, then retry. Conflicts abort
+            # loudly; no automated force-push or winner-takes-all overwrite.
+            pushed=0
+            for attempt in 1 2 3; do
+              if git push origin "HEAD:refs/heads/${GITHUB_REF_NAME}"; then
+                pushed=1
+                break
+              fi
+              [ "$attempt" -lt 3 ] || break
+              git fetch --no-tags origin "${GITHUB_REF_NAME}"
+              git rebase FETCH_HEAD
+            done
+            [ "$pushed" = 1 ]
+          fi
+
+      # SGA-21 / SGR-11: template-drift findings are routed to their own
+      # deduped issue REGARDLESS of the sweep's red/green verdict. A red
+      # night (an unscannable repo, say) must not silently swallow the drift
+      # findings — the two channels are independent by design: spec_fleet_sweep
+      # is the nightly verdict, spec_template_drift is the drift issue.
+      - name: Route template-drift findings
+        if: always()
+        env:
+          # Always-run step: if the resolver never ran, the identity really is
+          # the workflow token, and the printed mode says so.
+          GH_TOKEN: ${{ steps.auth.outputs.token || github.token }}
+          TOKEN_MODE: ${{ steps.auth.outputs.token_mode || 'workflow' }}
+          REPORT: ${{ runner.temp }}/spec-report.json
+        run: |
+          set -eu
+          echo "[auth] this step spends the $TOKEN_MODE budget"
+          if [ ! -f "$REPORT" ]; then
+            echo "no report — no drift findings to route"
+            exit 0
+          fi
+          python3 - "$REPORT" <<'PY'
+          import json, subprocess, sys
+          doc = json.load(open(sys.argv[1], encoding="utf-8"))
+          findings = []
+          lp = doc.get("lock_provenance", {}) or {}
+          if lp.get("drift"):
+              findings.append("lock: " + ", ".join(
+                  d["template"] for d in lp["drift"]))
+          for r in doc.get("repos", []):
+              prov = r.get("provenance", {}) or {}
+              if prov.get("drift") or prov.get("unlocked"):
+                  findings.append(r.get("name"))
+          if not findings:
+              print("no template-drift findings")
+              raise SystemExit(0)
+          print("PROVENANCE FINDINGS (deduped drift issue, not red):", findings)
+          res = subprocess.run(
+              [sys.executable, "scripts/hub_alert.py",
+               "--key", "spec_template_drift", "--report", sys.argv[1]],
+              capture_output=True, text=True)
+          if res.returncode != 0:
+              # A finding is not a red, and neither is an alert that could
+              # not be raised — but it must not be silent.
+              print("drift issue could not be raised:",
+                    (res.stderr or res.stdout or "no output")[:300],
+                    file=sys.stderr)
+          else:
+              print("drift issue raised or deduped (key spec_template_drift)")
+          PY
+
+      - name: Fail loudly and route
+        if: always()
+        env:
+          # Always-run step; same honest fallback as the drift step above.
+          GH_TOKEN: ${{ steps.auth.outputs.token || github.token }}
+          TOKEN_MODE: ${{ steps.auth.outputs.token_mode || 'workflow' }}
+          REPORT: ${{ runner.temp }}/spec-report.json
+        run: |
+          set -eu
+          echo "[auth] this step spends the $TOKEN_MODE budget"
+          if [ ! -f "$REPORT" ]; then
+            python3 scripts/hub_alert.py --key spec_fleet_sweep \
+              --detail "spec-fleet walk produced no report: nothing was measured" || true
+            exit 1
+          fi
+          rc=0
+          python3 - "$REPORT" <<'PY' || rc=$?
+          import json, sys
+          doc = json.load(open(sys.argv[1], encoding="utf-8"))
+          states = doc.get("states", {})
+          repos = doc.get("repos", [])
+          # SGA-11: unspaced never red.
+          # invalid reds only for tiered repos.
+          red_invalid = [r for r in repos
+                         if r.get("state") == "invalid" and r.get("tiered")]
+          unscannable = [r for r in repos if r.get("state") == "unscannable"]
+          if red_invalid or unscannable:
+              # build a detail naming repos
+              names = [r.get("name") for r in (red_invalid + unscannable)]
+              print("RED:", names)
+              sys.exit(1)
+          print("spec fleet: green (unspaced is informational)")
+          PY
+          # `set -eu` would abort at the failing heredoc above before `rc` was
+          # read, so the alert on the next line never ran. Measured 2026-10-24
+          # on run 40062808349: the step reded naming five unscannable repos
+          # and issue #35 received no comment at all. The `|| rc=$?` above is
+          # what keeps the alert reachable.
+          if [ "$rc" -ne 0 ]; then
+            python3 scripts/hub_alert.py --key spec_fleet_sweep --report "$REPORT" || true
+            exit 1
+          fi
+          # Provenance (SGA-20..22): a FAULT -- unreadable lock, a pin that no
+          # longer matches its own pin_source, or an unreachable upstream --
+          # reds. Drift and unlocked copies are findings routed to the deduped
+          # drift issue (SGA-21 / SGR-11), not a nightly red: upstream moves
+          # whenever Fission-AI edits a template, and reding that every time
+          # is the SGR-10 muted-gate failure this package exists to avoid.
+          rc=0
+          python3 - "$REPORT" <<'PY' || rc=$?
+          import json, sys
+          doc = json.load(open(sys.argv[1], encoding="utf-8"))
+          faults, findings = [], []
+          # Lock-level: pin integrity + upstream drift, once per sweep.
+          lp = doc.get("lock_provenance", {}) or {}
+          if lp.get("fault") or (lp.get("unknown") or []):
+              faults.append("lock: " + (lp.get("reason") or "fault"))
+          if lp.get("drift"):
+              findings.append("lock: " + ", ".join(
+                  d["template"] for d in lp["drift"]))
+          # Per-tree: local drift and unlocked copies.
+          for r in doc.get("repos", []):
+              prov = r.get("provenance", {}) or {}
+              name = r.get("name")
+              if prov.get("fault") or (prov.get("unknown") or []):
+                  faults.append(name)
+              if prov.get("drift") or prov.get("unlocked"):
+                  findings.append(name)
+          if findings:
+              print("PROVENANCE FINDINGS (routed by the drift step above):",
+                    findings)
+          if faults:
+              print("PROVENANCE FAULT RED:", faults)
+              sys.exit(1)
+          print("provenance: no fault")
+          PY
+          if [ "$rc" -ne 0 ]; then
+            python3 scripts/hub_alert.py --key spec_fleet_sweep --report "$REPORT" || true
+            exit 1
+          fi

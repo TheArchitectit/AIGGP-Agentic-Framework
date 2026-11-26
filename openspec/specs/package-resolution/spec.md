@@ -1,5 +1,7 @@
 # Package Resolution
 
+Status: CLOSED (EXERCISED 5)
+
 ## Purpose
 
 The rules by which an OpenSpec package becomes the resolved subject of evaluation: explicit resolution rather than implicit-anything, structural validity gates, a normative boundary fencing what the evaluation is authorized to consider, a frozen import closure so no import is silently replaced, and an authenticated normative inventory so the resolved package is the one the control plane approved.
@@ -91,3 +93,13 @@ The set of normative files MUST be fixed by an authenticated inventory in the pa
 - **GIVEN** a file containing normative requirements is declared informative
 - **WHEN** package validation runs the normative/informative classifier rules
 - **THEN** the package is rejected as structurally invalid with the offending file named.
+
+## Requirement Closure
+
+| Requirement | Status | Implementation | Verification |
+|---|---|---|---|
+| `coh-pkg-01` (explicit package resolution) | **EXERCISED** | `hub/coherence/package.py` | `tests/test_hub_coherence_normative.py`, `tests/test_hub_coherence.py` |
+| `coh-pkg-02` (package structural validity) | **EXERCISED** | `hub/coherence/__main__.py`, `hub/coherence/package.py`, `hub/coherence/schemacheck.py` | `tests/test_hub_coherence_exitcodes.py`, `tests/test_hub_coherence_decision.py`, `tests/test_hub_coherence_normative.py` |
+| `coh-pkg-03` (normative boundary) | **EXERCISED** | `hub/coherence/package.py` | `tests/test_hub_coherence_normative.py` |
+| `coh-pkg-04` (frozen import closure) | **EXERCISED** | `hub/coherence/package.py` | `tests/test_hub_coherence_normative.py`, `tests/test_hub_coherence.py` |
+| `coh-pkg-05` (authenticated normative inventory) | **EXERCISED** | `hub/coherence/package.py` | `tests/test_hub_coherence_normative.py`, `tests/test_hub_coherence.py` |

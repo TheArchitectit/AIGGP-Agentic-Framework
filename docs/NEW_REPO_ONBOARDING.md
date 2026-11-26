@@ -9,21 +9,44 @@
 
 ## The one rule that breaks onboarding
 
-**The submodule MUST live at `.devgate/`.**
+**The tooling checkout MUST live at `.devgate/`, and MUST NOT be committed.**
 
 Every gate resolves the project root as *the parent directory of `.devgate/`*.
-A submodule checked out at `devgate/`, `vendor/devgate/`, or any other name makes
-every gate scan the wrong tree (or walk upward into a sibling project). Several
-scripts fail closed on this; the semantic scanner silently resolves to the parent
-repo — see `known-gate-defects.md`. There is no config that fixes a wrong path.
+A checkout at `devgate/`, `vendor/devgate/`, or any other name makes every gate
+scan the wrong tree (or walk upward into a sibling project). Several scripts
+fail closed on this; the semantic scanner silently resolves to the parent repo
+— see `known-gate-defects.md`. There is no config that fixes a wrong path.
+
+`PREVENT-SUB-001` additionally requires the checkout to stay **local**: a
+`.gitmodules` change naming `DevGate-Agentic-Framework` is a `critical`
+violation, so clone the tooling and gitignore it rather than registering a
+submodule.
 
 ```bash
-# correct
-git submodule add <devgate-url> .devgate
+# correct — local, untracked tooling at the fixed path
+git clone <devgate-url> .devgate
+echo '.devgate/' >> .gitignore
 
 # wrong — gates will not find your project
-git submodule add <devgate-url> devgate
+git clone <devgate-url> devgate
+
+# wrong — PREVENT-SUB-001 blocks this
+git submodule add <devgate-url> .devgate
 ```
+
+> **Operational checklist:** for the add-or-initialize steps (including the
+> registered-but-never-initialized case), the pre-first-run scope and secrets
+> ordering, and the parent-repo git commands, see
+> [SUBMODULE_WIRING.md](./SUBMODULE_WIRING.md).
+
+For GitHub Actions consumers, the reusable `drift-scan.yml`, `specs.yml`, and
+`text-integrity.yml` workflows bootstrap this local-only path themselves. Add
+`.devgate/` to the consumer `.gitignore` and replace each workflow's
+`REPLACE_WITH_REVIEWED_FULL_40_HEX_COMMIT` value with the reviewed, full
+lowercase 40-character DevGate commit before enabling those workflows. Each
+workflow verifies the exact checkout and its
+workflow-specific scripts/data before running gates; it does not rely on
+`.gitmodules` or recursive submodule checkout.
 
 ---
 
@@ -33,14 +56,21 @@ git submodule add <devgate-url> devgate
 <project>/
 ├── <your source>              ← any language, any structure
 ├── package.json|Cargo.toml|pyproject.toml|go.mod|project.godot
-├── .devgate/                  ← the submodule (fixed name)
+├── .devgate/                  ← local tooling checkout (fixed name, untracked)
 └── .guardrails/               ← THIS project's overlay (never inside .devgate/)
     ├── failure-registry.jsonl
+    ├── scope.json                 ← scan scope: skip_dirs for vendored/generated trees
+    ├── silent-success-allowlist.json  ← {"entries": [...]} shape, not a bare list
+    ├── charset-allowlist.json     ← check_charset is fail-closed without it
+    ├── manifest-joins.json        ← check_manifest_join is fail-closed without it
+    ├── bundle-size.json           ← bundle-size-check skips until configured
     ├── prevention-rules/
     │   └── pattern-rules.json
     └── openspec/
+        ├── config.yaml            ← schema: spec-driven (openspec CLI)
         ├── gate-config.json
         └── changes/<change-id>/
+            ├── .openspec.yaml     ← schema/created/skip_specs metadata (see below)
             ├── spec.md
             ├── tasks.md
             ├── package.json          ← identity (see below)
@@ -52,16 +82,48 @@ the overlay wins on `rule_id` / `failure_id` collision. Never edit files inside
 `.devgate/` to customize behavior — that is what the overlay is for
 (`gate-configuration-contract` / `rule-config-01`, `doc-truth` / `doc-overlay-01`).
 
+Two overlay files are **additive** rather than id-keyed, because their entries
+have no id to collide on: `.guardrails/failure-registry.jsonl` is append-only,
+and `.guardrails/silent-success-allowlist.json` is a coverage set. The bundled
+silent-success allowlist is empty by contract (`baseline-ownership` /
+`base-own-01`: a bundled entry may name only DevGate's own paths), so a project's
+own markers belong in the overlay and `scripts/silent-success-scan.sh` adds them
+to the baseline's — an overlay can widen coverage, never delete a baseline
+requirement.
+
 ---
 
-## Step 1 — Add the submodule and the overlay
+## Step 1 — Add the tooling checkout and the overlay
 
 ```bash
-git submodule add <devgate-url> .devgate
+git clone <devgate-url> .devgate
+echo '.devgate/' >> .gitignore
 mkdir -p .guardrails/prevention-rules
 mkdir -p .guardrails/openspec/changes
 touch .guardrails/failure-registry.jsonl
 ```
+
+Declare scan scope before the first run — `.guardrails/scope.json`:
+
+```json
+{ "skip_dirs": ["vendor-dir", "build-output", "node_modules"] }
+```
+
+Without it, gates walk vendored and generated trees (the isolated test runner
+has been seen executing a vendored repo's test suite and the framework's own
+`.devgate/tests/`). `.devgate` is skipped by the walker by default, but list
+every vendored/generated directory your project keeps in-tree.
+
+Two gates are **fail-closed on their overlay config** and cannot report clean
+until the files exist (a gate that bans nothing is worse than no gate):
+
+- `check_charset.py` → `.guardrails/charset-allowlist.json` — `{"allow": [{"codepoint": "0x00A7", "reason": "..."}], "deny": [...]}`; every row carries a `reason`; deny rows are tripwires that survive later allowlist edits.
+- `check_manifest_join.py` → `.guardrails/manifest-joins.json` — `{"joins": [{"id", "reason", "declared": {"paths", "pattern", "source"}, "wired": {...}, "bidirectional": true}]}`; each side must extract names or the join is stale and fails.
+
+And one that silently skips until configured: `bundle-size-check.mjs` →
+`.guardrails/bundle-size.json` (`{"dist_dir": "dist", "max_kb": 900}`). The
+silent-success allowlist, when you need one, is `{"entries": []}` — a bare
+`[]` fails `allowlist_health.py`.
 
 Add the secrets ignore patterns **before** the first gate run — the forbidden-file
 check will otherwise block on a stray `.env` (and it should):
@@ -77,6 +139,25 @@ check will otherwise block on a stray `.env` (and it should):
 ---
 
 ## Step 2 — Verify the gates run against *your* tree
+
+Tooling the scanners expect on PATH (install before trusting a red gate):
+
+- **gitleaks** (`secret-scan.sh`) — the *pinned* release, not latest; the pin
+  is recorded with its tarball sha256 in `docs/qa/` (currently `8.30.1`,
+  `551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb`).
+  Verify the checksum; the gate refuses to run with any other scanner.
+- **typescript@5** (`semantic-scan.mjs`) — `npm install --no-save --no-package-lock typescript@5`
+  (v7 dropped the root compiler API). Gitignore `node_modules/`.
+- **a python3 with pytest** if you ship `test_*.py` / `*_test.py` —
+  `run-tests.mjs` spawns `python3 -m pytest`, so a distro python without pip
+  needs a project venv on PATH (`uv venv .venv && uv pip install --python
+  .venv/bin/python pytest`).
+
+Make the **initial commit first**. The tracked-tree gates (`check_charset`,
+`check_corruption`, `check_encoding`, `check_exec_bits`) and
+`regression_check.py --all` read committed content; before any commit they
+report zero-input failures or `NOTHING SCANNED`. That is the gate saying it
+has no evidence — never a pass.
 
 ```bash
 node .devgate/scripts/guardrails-scan.mjs
@@ -151,6 +232,23 @@ sha256sum specs/capability.md | cut -d' ' -f1
 (sorted-key RFC 8785 JSON, domain-separated `package/v1` + `subject-manifest/v1`
 prefixes) and exits `0` verified / `1` violated / `2` malformed. Copy it into a
 new repo's `.guardrails/scripts/` and wire `verify-all-packages.sh` into CI.
+
+> **Pending:** that reference implementation is not yet shipped in any
+> published tree — until it lands, a consumer's own digest verifier is the
+> seal gate, and this section is a description of the contract, not a copyable
+> artifact.
+
+**CLI-compat metadata.** `openspec validate --all --strict` (the hard gate
+this framework's seal cycle names) also reads two YAML files: the project's
+`openspec/config.yaml` (`schema: spec-driven`) and, per change package,
+`.openspec.yaml` with `schema`, `created`, and — for an identity-only package
+that carries no delta specs — `skip_specs: true`. Without valid
+`.openspec.yaml` metadata the `skip_specs` marker is not honored and the
+validator demands delta headers a seal package does not have.
+
+**`kind: informative` digests do not gate.** `tasks.md` churns by design; a
+digest mismatch on an informative entry is a note, never a failure. Only
+`kind: normative` entries invalidate the seal (coh-id-03).
 
 ---
 
@@ -322,9 +420,18 @@ when the bug is genuinely generic to the framework. Entries are append-only.
 
 ## Onboarding checklist
 
-- [ ] Submodule at `.devgate/` (exact name)
+- [ ] Local, ignored checkout at `.devgate/` (exact name; never a submodule)
+- [ ] For GitHub reusable workflows, the workflow-level `DEVGATE_SHA` value is
+      the reviewed full DevGate commit SHA
 - [ ] `.guardrails/` overlay exists; baseline untouched
 - [ ] Secret ignore patterns added before first gate run
+- [ ] `.guardrails/scope.json` names every vendored/generated tree
+- [ ] Fail-closed overlay configs exist: `charset-allowlist.json`,
+      `manifest-joins.json`, `silent-success-allowlist.json` (object shape)
+- [ ] Pinned gitleaks + typescript@5 + pytest-capable python3 installed
+- [ ] Initial commit made before trusting tracked-tree gate results
+- [ ] `openspec validate --all --strict` passes (config.yaml + per-change
+      `.openspec.yaml` metadata)
 - [ ] Every gate reports **this** project's paths
 - [ ] No gate reported green with zero inputs
 - [ ] `openspec` symlink → `.guardrails/openspec`
@@ -339,6 +446,9 @@ when the bug is genuinely generic to the framework. Entries are append-only.
 - [ ] No stub test bodies; state targets are reached via a real seam
 - [ ] No secrets, tokens, host names, or IPs in any tracked file
 - [ ] `failure-registry.jsonl` overlay receives project bugs (not the baseline)
+- [ ] `silent-success-allowlist.json` overlay holds this project's markers (the
+      bundled baseline is empty by contract, and `baseline_ownership_check.py`
+      fails on any bundled entry naming a path outside DevGate)
 
 ### Per-work-cycle checklist (Step 4b)
 

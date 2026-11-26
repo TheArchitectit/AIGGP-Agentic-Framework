@@ -1,4 +1,4 @@
-# // spec: coh-eval-06, coh-rt-05, coh-rt-06, coh-eval-02, coh-rt-03, coh-ctx-04
+# // spec: coh-eval-06, coh-rt-05, coh-rt-06, coh-eval-02, coh-rt-03, coh-ctx-04, coh-assert-05
 """Evaluator runtime: built-in evaluators only, declared-inputs-only mediation,
 limits/crash/dependency-block -> ERROR-execution, complete-outcome accounting.
 No repository executable code, no network, no secrets.
@@ -133,10 +133,15 @@ def run(planned: list, package: dict, subject_root: str, limits: dict = None,
 
         if outcome in ("SATISFIED", "VIOLATED"):
             findings.extend(fs)
+        advisory_only = (
+            outcome == "VIOLATED" and bool(fs)
+            and all(f.get("enforcement") == "ADVISORY" for f in fs))
         ledger.append({
             "assertion_id": a["id"], "version": a["version"],
             "outcome": outcome, "reason": reason,
-            "enforcement": "BLOCK" if outcome != "SATISFIED" else "ADVISORY",
+            "enforcement": ("ADVISORY"
+                            if outcome == "SATISFIED" or advisory_only
+                            else "BLOCK"),
         })
         done[a["id"]] = outcome
 

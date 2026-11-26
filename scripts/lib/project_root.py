@@ -1,4 +1,4 @@
-# // spec: root-anchor-01, root-anchor-03
+# // spec: root-anchor-01, root-anchor-03, gate-root-01
 """DevGate scanner project-root contract — the Python home for "which tree does
 a scanner operate on." Mirrors scripts/lib/project-root.mjs; both implement the
 same layout rule so a Python and a Node scanner never disagree on the root.

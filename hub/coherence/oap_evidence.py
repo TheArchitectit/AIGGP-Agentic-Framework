@@ -1,4 +1,4 @@
-# // spec: coh-oap-01, coh-oap-07
+# // spec: coh-oap-01, coh-oap-07, coh-int-04
 """Detached Ed25519 signing/verification for the OAP evidence envelope.
 
 Implements the signing half of the peer-side method in

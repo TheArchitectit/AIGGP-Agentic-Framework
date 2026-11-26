@@ -1,0 +1,11 @@
+{
+  "cases": [
+    "corpus-01-unevidenced-marker",
+    "corpus-02-surface-divergence",
+    "corpus-03-aged-untriaged",
+    "corpus-04-scrubbed-not-revoked",
+    "corpus-05-clean-control"
+  ],
+  "sha256": "sha256:bc08d63a62272172259baaa2d044280909d9e572aa021bb4aee8308777b750d9",
+  "version": "2026-11-15.1"
+}

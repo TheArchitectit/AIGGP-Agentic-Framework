@@ -10,8 +10,15 @@ Locks the contract that matters:
   * a policy that both allows and denies a codepoint refuses to run (exit 2);
   * a missing allowlist refuses to run (exit 2) - never a silent ban-nothing;
   * a zero-file scan FAILS (no vacuous green);
+  * an untracked-but-not-ignored file is scanned before it is committed, and
+    the success line reports the tracked/untracked split (FAIL-charset-untracked);
   * non-UTF-8 bytes FAIL with a named reason;
-  * the deny list beats the allow list.
+  * the deny list beats the allow list;
+  * a reasoned `ignore` row exempts a content fixture (post content of
+    record) from the whole check, artifacts included;
+  * an `ignore` row without a reason (or path) is a usage error;
+  * an `ignore` row covering a `strict_zero` scope refuses to run - content
+    fixtures are exemptable, code scopes are not.
 """
 from __future__ import annotations
 
@@ -158,12 +165,47 @@ class CharsetGate(unittest.TestCase):
     def test_zero_text_files_fails(self):
         with tempfile.TemporaryDirectory() as d:
             t = Path(d)
-            # Only a binary file is TRACKED: nothing text to scan -> no
-            # vacuous green. Policy files exist on disk but are untracked.
+            # Only a binary file is in scope -> nothing text to scan -> no
+            # vacuous green. make_repo always writes the gate's own policy
+            # files, and those ARE text; exclude them with .git/info/exclude
+            # (which is not itself a worktree file) so the fixture really
+            # contains no scannable content.
             make_repo(t, {"blob.bin": b"\x00\x01\x02"}, track=["blob.bin"])
+            (t / ".git" / "info" / "exclude").write_text(".guardrails/\n",
+                                                         encoding="utf-8")
             r = run(t)
             self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
             self.assertIn("zero text files", r.stderr)
+            self.assertIn("scope was", r.stderr)
+
+    def test_untracked_file_is_scanned(self):
+        """FAIL-charset-untracked: `git ls-files` alone reads only committed
+        paths, so a brand-new file carrying non-ASCII passed the local gate and
+        only tripped after someone committed it -- green because the file was
+        never read. The scan now includes untracked-but-not-ignored files."""
+        with tempfile.TemporaryDirectory() as d:
+            t = Path(d)
+            # Tracked content is clean; the violation is in a file nobody has
+            # `git add`ed yet.
+            make_repo(t, {"a.md": b"plain ascii\n",
+                          "new.md": "fresh \u00a7 drift\n".encode()},
+                      track=["a.md"])
+            r = run(t)
+            self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+            self.assertIn("new.md", r.stdout)
+            self.assertIn("U+00A7", r.stdout)
+
+    def test_success_line_reports_tracked_and_untracked_scope(self):
+        """The gate must say what it read. A success line that reports only a
+        total cannot tell an empty scope from a full one."""
+        with tempfile.TemporaryDirectory() as d:
+            t = Path(d)
+            make_repo(t, {"a.md": b"plain ascii\n"})
+            (t / "b.md").write_text("also ascii\n", encoding="utf-8")
+            r = run(t)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertRegex(r.stdout, r"\d+ text file\(s\) scanned")
+            self.assertRegex(r.stdout, r"\(\d+ tracked \+ 1 untracked\)")
 
     def test_non_utf8_fails_with_reason(self):
         with tempfile.TemporaryDirectory() as d:
@@ -200,6 +242,59 @@ class CharsetGate(unittest.TestCase):
             r = run(t)
             self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
             self.assertIn("new.md", r.stdout)
+
+    def test_ignore_row_exempts_content_fixture(self):
+        """Content fixtures (post content of record) may sit outside the standard.
+
+        The failure this closes: an as-received WordPress.com export is the
+        import source of record - its bytes must stay verbatim - yet original
+        author prose carries dotted runs that trip the substitution-artifact
+        heuristic and glyphs outside the allow list. The exemption is per-path
+        and reason-carrying; the same bytes outside the exempt path still fail
+        (pinned by the section-sign test above).
+        """
+        with tempfile.TemporaryDirectory() as d:
+            t = Path(d)
+            # Built at runtime: literal artifacts here would trip the gate on
+            # this test file itself.
+            art = "Sec." + " " + "Sec. 3, 5.\n"
+            prose = ("emails" + "." * 4 + " please" + "." * 4 + " wait"
+                     + "." * 6 + " " + chr(0x00A7) + " " + chr(0x2014) + " ")
+            pol = dict(POLICY)
+            pol["ignore"] = [
+                {"path": "content/import.json",
+                 "reason": "as-received post content fixture (import source "
+                           "of record)"}]
+            make_repo(t, {
+                "content/import.json": (prose + art).encode(),
+                "src/main.py": b"print('code stays under the standard')\n",
+            }, policy=pol)
+            r = run(t)
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            self.assertIn("ignored", r.stdout)
+
+    def test_ignore_row_without_reason_is_usage_error(self):
+        with tempfile.TemporaryDirectory() as d:
+            t = Path(d)
+            pol = dict(POLICY)
+            pol["ignore"] = [{"path": "content/import.json"}]
+            make_repo(t, {"a.md": b"x\n"}, policy=pol)
+            r = run(t)
+            self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+            self.assertIn("without a reason", r.stderr)
+
+    def test_ignore_row_may_not_cover_strict_scope(self):
+        """Ignore is for content fixtures, never for code scopes."""
+        with tempfile.TemporaryDirectory() as d:
+            t = Path(d)
+            pol = dict(POLICY)
+            pol["strict_zero"] = [{"path": "src", "reason": "code"}]
+            pol["ignore"] = [{"path": "src",
+                              "reason": "would swallow the code scope"}]
+            make_repo(t, {"a.md": b"x\n"}, policy=pol)
+            r = run(t)
+            self.assertEqual(r.returncode, 2, r.stdout + r.stderr)
+            self.assertIn("strict_zero", r.stderr)
 
     def test_baseline_may_only_decrease(self):
         with tempfile.TemporaryDirectory() as d:

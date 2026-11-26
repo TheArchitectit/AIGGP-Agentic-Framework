@@ -17,8 +17,18 @@ carries structural meaning (dashes, arrows, box-drawing, status glyphs) and
 may NARROW the standard but never disable it. The reported defect (U+00A7) is
 explicitly DENIED so a later allowlist edit cannot silently reintroduce it.
 
+Reviewed `ignore` rows exempt content/data fixtures whose bytes are the
+record itself (e.g. an as-received post-content export that is the import
+source of record). This is not a general escape hatch: an ignore row that
+would cover a strict_zero scope is a policy contradiction and refuses to
+run, so "ignore the content, never the code" is enforced by the policy
+parser, not by reviewer vigilance.
+
 Fail-closed, non-vacuous:
   * a scan that reads zero files FAILS (no vacuous green);
+  * the scan covers tracked files AND untracked-but-not-ignored files, so a
+    file is read before it is committed rather than after; the success line
+    reports the tracked/untracked split so the scope is visible;
   * a malformed/absent allowlist FAILS rather than silently banning nothing;
   * the deny list always beats the allow list.
 
@@ -158,13 +168,38 @@ def load_policy(root: Path):
             sys.exit(EXIT_USAGE)
         strict_paths.add(p.strip().strip("/"))
 
+    # ignore: reviewed content/data fixtures outside the tracked-text standard
+    # (e.g. an as-received post-content export that is the import source of
+    # record — the bytes must stay verbatim). NOT a general escape hatch: an
+    # ignore row that covers a strict_zero scope is a policy contradiction, so
+    # content fixtures are exemptable and code is not, by construction.
+    ignored: set[str] = set()
+    for row in data.get("ignore", []) or []:
+        _reason(row)
+        p = row.get("path") if isinstance(row, dict) else None
+        norm = p.strip().strip("/") if isinstance(p, str) else ""
+        if not norm or norm == ".":
+            print(f"check-charset: FAIL - ignore row needs a 'path': {row!r}",
+                  file=sys.stderr)
+            sys.exit(EXIT_USAGE)
+        ignored.add(norm)
+    for ipath in sorted(ignored):
+        for spath in sorted(strict_paths):
+            if (ipath == spath or ipath.startswith(spath + "/")
+                    or spath.startswith(ipath + "/")):
+                print(f"check-charset: FAIL - ignore row {ipath!r} covers "
+                      f"strict_zero scope {spath!r}: content/data fixtures may "
+                      "be exempt, code scopes may not (fw-charset-01)",
+                      file=sys.stderr)
+                sys.exit(EXIT_USAGE)
+
     # A deny entry that is also allowed is a policy contradiction: refuse to run.
     conflict = allowed & denied
     if conflict:
         print("check-charset: FAIL - codepoints both allowed and denied: "
               + ", ".join(f"U+{c:04X}" for c in sorted(conflict)), file=sys.stderr)
         sys.exit(EXIT_USAGE)
-    return allowed, denied, strict_paths
+    return allowed, denied, strict_paths, ignored
 
 
 def load_baseline(root: Path) -> dict[str, int]:
@@ -202,9 +237,21 @@ def load_baseline(root: Path) -> dict[str, int]:
     return out
 
 
-def tracked_files(root: Path) -> list[str]:
-    r = subprocess.run(["git", "-C", str(root), "ls-files", "-z"],
-                       capture_output=True, text=True, encoding="utf-8",
+def tracked_files(root: Path, include_untracked: bool = False) -> list[str]:
+    """Repo-relative paths in scope.
+
+    ``include_untracked`` adds files git has not added yet (``--others
+    --exclude-standard``, so .gitignore still applies). The SCAN needs them:
+    with `git ls-files` alone a new file could carry non-ASCII through the
+    local gate and only trip after commit — green because it was never read
+    (FAIL-charset-untracked). Baseline GENERATION stays tracked-only, so an
+    uncommitted file can never be grandfathered by ``--write-baseline``.
+    """
+    cmd = ["git", "-C", str(root), "ls-files"]
+    if include_untracked:
+        cmd += ["--cached", "--others", "--exclude-standard"]
+    cmd.append("-z")
+    r = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
                        errors="replace")
     if r.returncode != 0:
         print(f"check-charset: FAIL - git ls-files failed: {r.stderr}",
@@ -218,17 +265,23 @@ def is_text(path: str) -> bool:
     return p.suffix.lower() in TEXT_EXTS or p.name.lower() in TEXT_BASENAMES
 
 
-def is_strict(rel: str, strict_paths: set[str]) -> bool:
-    """True when ``rel`` sits inside a strict-zero scope (prefix, path-boundary)."""
-    for p in strict_paths:
+def under_prefix(rel: str, prefixes: set[str]) -> bool:
+    """True when ``rel`` equals or sits inside one of ``prefixes`` (path-boundary)."""
+    for p in prefixes:
         if rel == p or rel.startswith(p + "/"):
             return True
     return False
 
 
+def is_strict(rel: str, strict_paths: set[str]) -> bool:
+    """True when ``rel`` sits inside a strict-zero scope (prefix, path-boundary)."""
+    return under_prefix(rel, strict_paths)
+
+
 def scan(root: Path, allowed: set[int], denied: set[int], max_report: int,
          baseline: dict[str, int] | None = None,
-         strict_paths: set[str] | None = None) -> int:
+         strict_paths: set[str] | None = None,
+         ignored_paths: set[str] | None = None) -> int:
     gate_common = _load_gate_common()
     try:
         skip_dirs = gate_common.load_skip_dirs()
@@ -238,22 +291,33 @@ def scan(root: Path, allowed: set[int], denied: set[int], max_report: int,
         return EXIT_USAGE
 
     baseline = baseline or {}
-    files = [f for f in tracked_files(root) if is_text(f)]
+    tracked_set = set(tracked_files(root))
+    # Union of tracked + untracked-but-not-ignored, so the gate reads a file
+    # the author is about to commit instead of blessing it unseen.
+    files = [f for f in tracked_files(root, include_untracked=True) if is_text(f)]
     files = [f for f in files
              if not any(part in skip_dirs for part in Path(f).parts)]
 
     strict_paths = strict_paths or set()
+    ignored_paths = ignored_paths or set()
     violations = []
     artifacts = []
     strict_hits: list[tuple[str, int, int, int, str]] = []
     scanned = 0
+    scanned_untracked = 0
+    ignored_files = 0
     per_file: dict[str, int] = {}
     for rel in files:
+        if under_prefix(rel, ignored_paths):
+            ignored_files += 1
+            continue
         try:
             data = (root / rel).read_bytes()
         except OSError:
             continue
         scanned += 1
+        if rel not in tracked_set:
+            scanned_untracked += 1
         try:
             text = data.decode("utf-8")
         except UnicodeDecodeError as exc:
@@ -278,8 +342,10 @@ def scan(root: Path, allowed: set[int], denied: set[int], max_report: int,
                         strict_hits.append(violation)
 
     if scanned == 0:
-        print("check-charset: FAIL - zero text files scanned (no vacuous green)",
-              file=sys.stderr)
+        print("check-charset: FAIL - zero text files scanned (no vacuous green); "
+              f"scope was {len(tracked_set)} tracked path(s) plus untracked "
+              f"files, {len(files)} in the text extension set, "
+              f"{ignored_files} ignored", file=sys.stderr)
         return EXIT_VIOLATIONS
 
     # Ratchet: a file may not exceed its grandfathered baseline.
@@ -288,8 +354,9 @@ def scan(root: Path, allowed: set[int], denied: set[int], max_report: int,
     improved = {rel: n for rel, n in per_file.items()
                 if rel in baseline and n < baseline[rel]}
     # A baselined file that is now clean (or removed) also counts as improved.
+    # An ignored content fixture is not "improved" — it is out of the standard.
     for rel in baseline:
-        if rel not in per_file:
+        if rel not in per_file and not under_prefix(rel, ignored_paths):
             improved[rel] = 0
 
     # Substitution artifacts first: they are ASCII, so they are never
@@ -353,22 +420,29 @@ def scan(root: Path, allowed: set[int], denied: set[int], max_report: int,
               + ", ".join(sorted(improved)[:8]))
 
     grandfathered = sum(baseline.get(rel, 0) for rel in per_file)
-    print(f"check-charset: OK - {scanned} text file(s) within baseline "
+    print(f"check-charset: OK - {scanned} text file(s) scanned "
+          f"({scanned - scanned_untracked} tracked + {scanned_untracked} "
+          f"untracked) within baseline "
           f"({len(allowed)} allowed / {len(denied)} denied codepoints; "
-          f"{grandfathered} grandfathered occurrence(s))")
+          f"{grandfathered} grandfathered occurrence(s); "
+          f"{ignored_files} ignored content fixture(s))")
     return EXIT_OK
 
 
 def write_baseline(root: Path, allowed: set[int], denied: set[int],
-                   strict_paths: set[str] | None = None) -> int:
+                   strict_paths: set[str] | None = None,
+                   ignored_paths: set[str] | None = None) -> int:
     """Regenerate the ratchet baseline from the current tree."""
     gate_common = _load_gate_common()
     skip_dirs = gate_common.load_skip_dirs()
+    ignored_paths = ignored_paths or set()
     files = [f for f in tracked_files(root) if is_text(f)]
     files = [f for f in files
              if not any(part in skip_dirs for part in Path(f).parts)]
     per: dict[str, int] = {}
     for rel in files:
+        if under_prefix(rel, ignored_paths):
+            continue
         try:
             data = (root / rel).read_bytes()
         except OSError:
@@ -412,12 +486,12 @@ def main() -> int:
                     help="regenerate the baseline from the current tree and exit")
     args = ap.parse_args()
     root = Path(args.repo).resolve()
-    allowed, denied, strict_paths = load_policy(root)
+    allowed, denied, strict_paths, ignored_paths = load_policy(root)
     if args.write_baseline:
-        return write_baseline(root, allowed, denied, strict_paths)
+        return write_baseline(root, allowed, denied, strict_paths, ignored_paths)
     baseline = {} if args.no_baseline else load_baseline(root)
     return scan(root, allowed, denied, 10**9 if args.list else args.max_report,
-                baseline, strict_paths)
+                baseline, strict_paths, ignored_paths)
 
 
 if __name__ == "__main__":

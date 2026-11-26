@@ -58,6 +58,34 @@ class TestQuickstartInit(unittest.TestCase):
                      "regression_check.py", "silent-success-scan.sh"):
             self.assertIn(gate, r.stdout, f"quickstart must print {gate}")
 
+    def test_carriers_flag_copies_selected_or_all_hooks_without_clobbering(self):
+        proj = self._fixture()
+        (proj / ".devgate").mkdir(parents=True)
+        r = run_init(proj, "--carriers", "claude-code,opencode")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        cc = proj / ".guardrails" / "hooks" / "claude-code" / "session-start.sh"
+        oc = proj / ".guardrails" / "hooks" / "opencode" / "session-start.mjs"
+        self.assertTrue(cc.is_file())
+        self.assertTrue(oc.is_file())
+        cc.write_text("# custom hook\n", encoding="utf-8")
+        r2 = run_init(proj, "--carriers", "all")
+        self.assertEqual(r2.returncode, 0, r2.stdout + r2.stderr)
+        self.assertEqual(cc.read_text(encoding="utf-8"), "# custom hook\n",
+                         "existing carrier hook must not be overwritten")
+        for rel in (
+            "pi-extension/session-init.ts",
+            "codex/session-start.sh",
+            "mimo/session-start.sh",
+        ):
+            self.assertTrue((proj / ".guardrails" / "hooks" / rel).is_file(), rel)
+
+    def test_unknown_carrier_fails_closed(self):
+        proj = self._fixture()
+        r = run_init(proj, "--dry-run", "--carriers", "not-a-carrier")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("unknown carrier", r.stderr)
+
+
 
 if __name__ == "__main__":
     unittest.main()

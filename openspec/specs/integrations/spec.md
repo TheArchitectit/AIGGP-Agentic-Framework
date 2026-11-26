@@ -1,5 +1,7 @@
 # Integrations
 
+Status: CLOSED (EXERCISED 7)
+
 ## Purpose
 
 Adapter contracts that consume coherence decisions without weakening them: a stable CI integration surface, fleet visibility through the hub's monitor polls, promote-or-halt semantics for downstream pipelines, no implicit trust from upstream submissions, adapters that cannot silently downgrade or skip the contract, gates that execute or report an explicit SKIPPED state rather than silently passing, and per-repository fleet independence so one repository's adoption stage cannot gate another's.
@@ -109,3 +111,15 @@ Fleet integration MUST respect that runners are repo-scoped and the hub polls ea
 - **GIVEN** a host whose watched branches are configured (e.g. `main`)
 - **WHEN** the coherence check class runs
 - **THEN** it evaluates only the configured watched branches and records an explicit no-op (not a pass) where none are configured.
+
+## Requirement Closure
+
+| Requirement | Status | Implementation | Verification |
+|---|---|---|---|
+| `coh-int-01` (stable CI integration) | **EXERCISED** | `hub/coherence/invoke.py` | `tests/test_coherence_local_wrapper.py`, `tests/test_coherence_workflow_template.py`, `tests/test_hub_coherence_invoke.py` |
+| `coh-int-02` (fleet visibility) | **EXERCISED** | `hub/coherence_view.py`, `hub/monitor.py` | `tests/test_hub_monitor_coherence.py`, `tests/test_hub_coherence.py`, `tests/test_hub_monitor.py` |
+| `coh-int-03` (promote-or-halt contract) | **EXERCISED** | `scripts/world_slice_tool.py` | `tests/test_hub_coherence_3d_slice.py` |
+| `coh-int-04` (no implicit trust from upstream) | **EXERCISED** | `hub/coherence/oap_evidence.py` | `tests/test_oap_evidence_schema.py`, `tests/test_oap_evidence_signature.py` |
+| `coh-int-05` (adapters never weaken the contract) | **EXERCISED** | `hub/coherence/invoke.py`, `hub/coherence_view.py`, `hub/monitor.py` | `tests/test_coherence_local_wrapper.py`, `tests/test_hub_coherence_invoke.py`, `tests/test_hub_monitor_default_deny.py` |
+| `coh-int-06` (gate runs or reports explicit SKIPPED) | **EXERCISED** | `hub/coherence_view.py` | `tests/test_coherence_workflow_template.py` |
+| `coh-int-07` (per-repository fleet independence) | **EXERCISED** | `hub/coherence_view.py`, `hub/monitor.py` | `tests/test_runbook_claims.py` |

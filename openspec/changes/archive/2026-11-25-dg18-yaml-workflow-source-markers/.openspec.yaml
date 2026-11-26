@@ -1,0 +1,3 @@
+schema: spec-driven
+created: 2026-11-25
+goal: Count real source requirement markers in owned YAML workflow definitions without crediting examples or fixtures.

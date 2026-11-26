@@ -100,16 +100,69 @@ scan: off # off | repository (whole-tree drift scan)
 Precedence: explicit flags > env (`STITCHER_CODEREVIEW_LLM_*`) > config file > defaults. `--config <path>` overrides auto-resolve (explicit missing path errors); disable/severities apply to all categories before sort/verdict so every format agrees. Invalid values fail fast; unknown keys warn.
 
 ## Pre-commit
+The repo ships `.pre-commit-hooks.yaml` (hook id `stitcher-codereview`) and the
+parity harness `scripts/stitcher-local.mjs`. The hook runs the same CLI and the
+same checks as CI against the working tree, so local and CI verdicts agree for
+the same change.
 ```yaml
 # .pre-commit-config.yaml
 repos:
-  - repo: https://github.com/drwhofan2k18-pixel/stitcher-codereview
-    rev: v1
+  - repo: https://github.com/TheArchitectit/AIGGP-Agentic-Framework
+    rev: <tag>
     hooks:
       - id: stitcher-codereview
         args: [--change, my-change, --base, origin/main, --fail-on, high]
 ```
-Runs on the working tree (staged + unstaged + untracked), so it reviews exactly what is about to be committed.
+The hook is `language: system`, so put the CLI on PATH once from a checkout
+(`npm ci && npm run build && npm link` in this directory).
+
+Parity is checked, not assumed: the harness runs the review twice - once on the
+working tree, once in a clean `git worktree` at HEAD - and compares the
+normalized verdict, findings and requirement coverage. Any divergence is
+classified as a defect and exits 1:
+```bash
+node scripts/stitcher-local.mjs --run --root . --change my-change --base origin/main
+# or compare two saved reports:
+node scripts/stitcher-local.mjs --local local.json --ci ci.json --out parity.json
+```
+
+## Reverse drift gate
+`--drift-only` evaluates a range with no change package: every changed behavior
+file whose capability gained no spec update in the same range is a finding (the
+severity is declared with `--drift-severity`, default `medium`). The repo-level
+entry point is `scripts/stitcher-drift.mjs`, so CI and pre-commit run the same
+code path:
+```bash
+node scripts/stitcher-drift.mjs --base origin/main --fail-on medium
+```
+
+## Task traceability (both directions)
+Given `--root` and `--base`, the tasks check also maps commits to tasks: a
+commit that changes behavior files and names no task is `trace-orphan-commit`
+(with file evidence); a task marked done that no commit implements is
+`trace-orphan-task`. An unresolvable range reports `trace-commits-unavailable`
+instead of a clean mapping it did not compute.
+
+## External-tool adapters (identity preserved)
+Adapter-ingested findings carry the source tool's name, version (or content
+digest), the digest of the input it scanned and the digest of the raw output.
+Their check ids stay source-attributed (`guardrails-scan/PREVENT-003`,
+`secret-scan-declared/declared-repo`); they are never renamed to AIGGP checks.
+The first two targets are `guardrails-scan.mjs` and
+`secret-scan-declared.sh` (Q12.2).
+
+## Evidence-linked comments and agent verdicts
+Every finding and requirement verdict carries a `coh-ev-<digest>` evidence
+reference; SARIF results expose it in `properties.evidenceRef`, and review
+comments append it. A comment without an evidence link is refused before any
+forge API call (`--evidence-base-url` renders it as a link).
+`--verdict` is the coding-agent-loop endpoint: it prints a `promote`/`halt`
+record keyed to `--subject-digest`; a loop presenting its own prior output
+(`--loop-outputs`) re-enters as an unverified subject and halts.
+```bash
+node dist/cli.js --change my-change --base main --verdict \
+  --subject-digest "$(git rev-parse HEAD)" --producer claude-code-loop
+```
 
 ## Agent skill
 Coding agents should review their own changes before declaring done:
@@ -135,4 +188,4 @@ npm test        # vitest run — full suite in parallel
 - No changes are committed until you ask; the standard loop is `npm run build && npm test` before a commit.
 
 ## Roadmap
-See [`docs/ROADMAP.md`](docs/ROADMAP.md) — competitive landscape (2026) + phased feature plan: inline PR comments, incremental review, config flexibility, drift-scan mode, evidence trace, LLM tier, multi-VCS, distribution.
+See [upstream `docs/ROADMAP.md`](https://github.com/drwhofan2k18-pixel/stitcher-codereview/blob/main/docs/ROADMAP.md) — competitive landscape (2026) + phased feature plan: inline PR comments, incremental review, config flexibility, drift-scan mode, evidence trace, LLM tier, multi-VCS, distribution. (The roadmap is not vendored — this directory carries only the files the composite action needs — so the link points at upstream rather than at a path that does not exist here.)

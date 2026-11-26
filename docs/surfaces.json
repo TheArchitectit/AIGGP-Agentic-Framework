@@ -1,0 +1,15 @@
+{
+  "note": "Surfaces manifest for scripts/surface_reach_check.py. Each group is one artifact delivered on more than one surface. The DevGate gate family ships in two forge syntaxes (templates/github-workflows and templates/gitlab-ci); a fix to a gate must reach both twins. Byte identity is NOT expected across the two syntaxes, so each group declares compare=exists (presence is the reach check here; behavioural parity is scripts/forge_parity_drill.py's job, GLF-01). Declared 2026-11-15 from the actual template pairs on disk.",
+  "groups": [
+    {"name": "forge-bundle-size-check", "compare": "exists", "paths": ["templates/github-workflows/bundle-size-check.yml", "templates/gitlab-ci/bundle-size-check.gitlab-ci.yml"]},
+    {"name": "forge-drift-scan", "compare": "exists", "paths": ["templates/github-workflows/drift-scan.yml", "templates/gitlab-ci/drift-scan.gitlab-ci.yml"]},
+    {"name": "forge-file-size-check", "compare": "exists", "paths": ["templates/github-workflows/file-size-check.yml", "templates/gitlab-ci/file-size-check.gitlab-ci.yml"]},
+    {"name": "forge-guardrails-compliance", "compare": "exists", "paths": ["templates/github-workflows/guardrails-compliance.yml", "templates/gitlab-ci/guardrails-compliance.gitlab-ci.yml"]},
+    {"name": "forge-secret-validation", "compare": "exists", "paths": ["templates/github-workflows/secret-validation.yml", "templates/gitlab-ci/secret-validation.gitlab-ci.yml"]},
+    {"name": "forge-smoke-gate", "compare": "exists", "paths": ["templates/github-workflows/smoke-gate.yml", "templates/gitlab-ci/smoke-gate.gitlab-ci.yml"]},
+    {"name": "forge-spec-coherence", "compare": "exists", "paths": ["templates/github-workflows/spec-coherence.yml", "templates/gitlab-ci/spec-coherence.gitlab-ci.yml"]},
+    {"name": "forge-specs", "compare": "exists", "paths": ["templates/github-workflows/specs.yml", "templates/gitlab-ci/specs.gitlab-ci.yml"]},
+    {"name": "forge-storage-hygiene", "compare": "exists", "paths": ["templates/github-workflows/storage-hygiene.yml", "templates/gitlab-ci/storage-hygiene.gitlab-ci.yml"]},
+    {"name": "forge-text-integrity", "compare": "exists", "paths": ["templates/github-workflows/text-integrity.yml", "templates/gitlab-ci/text-integrity.gitlab-ci.yml"]}
+  ]
+}

@@ -1,5 +1,7 @@
 # Gate configuration contract
 
+Status: CLOSED (EXERCISED 2)
+
 ## Purpose
 
 Fix where gate configuration lives: a project customizes behavior through its own root-level overlay files rather than by editing the DevGate submodule.
@@ -37,3 +39,10 @@ disabled-by-default state and exit 0 with its skip notice.
 #### Scenario: silent-success on a fresh install
 - **WHEN** silent-success-scan runs on a fresh consumer with no overlay
 - **THEN** it prints the no-families-enabled skip notice and exits 0
+
+## Requirement Closure
+
+| Requirement | Status | Implementation | Verification |
+|---|---|---|---|
+| `rule-config-01` (Configuration lives in the project overlay) | **EXERCISED** | `scripts/gate_overlay.py`, `scripts/schema-health-check.mjs`, `scripts/silent-success-scan.sh` | `tests/test_gate_overlay.py`, `tests/test_silent_success_overlay.py`, `tests/test_silent_success_gate.py` |
+| `rule-fresh-01` (Fresh installs are green) | **EXERCISED** | `scripts/gate_overlay.py`, `scripts/silent-success-scan.sh` | `tests/test_gate_overlay.py`, `tests/test_silent_success_overlay.py`, `tests/test_silent_success_gate.py` |

@@ -1,0 +1,186 @@
+# Create the GitHub Release from an annotated version tag. This workflow is
+# idempotent: scripts/deploy.sh may already have created the release. An
+# existing release is evidence; a create failure with no release is fatal.
+name: Release Published
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Publish the tagged release
+    runs-on: devgate
+    steps:
+      - name: Checkout the tag
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8  # v5.0.0
+        with:
+          fetch-depth: 0
+
+      # --- Fleet GitHub App token: canonical shape, docs/GITHUB-APP-TOKEN.md ---
+      # 1. Fail closed and named when half the pair is configured. The action
+      #    would also fail on a missing private-key input, but its message does
+      #    not name the secret a reader has to go and set.
+      - name: Check the App credential pair (fail closed, named)
+        id: app-cred
+        env:
+          APP_ID: ${{ vars.DEVGATE_SWEEP_APP_ID }}
+          APP_KEY: ${{ secrets.DEVGATE_SWEEP_APP_PRIVATE_KEY }}
+        run: |
+          set -eu
+          if [ -n "$APP_ID" ] && [ -z "$APP_KEY" ]; then
+            echo "::error::vars.DEVGATE_SWEEP_APP_ID is set but secrets.DEVGATE_SWEEP_APP_PRIVATE_KEY is missing."
+            echo "::error::Failing closed: a configured App never falls through to a wider identity."
+            exit 1
+          fi
+          echo "[auth] app id variable: $([ -n "$APP_ID" ] && echo set || echo unset)"
+
+      # 2. Mint the installation token. Skipped only when the variable is unset;
+      #    the pin is a full SHA, never a tag.
+      - name: Mint the fleet App token
+        id: app-token
+        if: ${{ vars.DEVGATE_SWEEP_APP_ID != '' }}
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+        with:
+          app-id: ${{ vars.DEVGATE_SWEEP_APP_ID }}
+          private-key: ${{ secrets.DEVGATE_SWEEP_APP_PRIVATE_KEY }}
+          owner: TheArchitectit   # owner scope: jobs that read other fleet repos
+
+      # 3. Resolve the mode once, announce it, and publish one token output for
+      #    the call sites. The fallback is never silent.
+      - name: Resolve and announce the token mode
+        id: auth
+        env:
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
+          WORKFLOW_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          if [ -n "$APP_TOKEN" ]; then
+            MODE=app
+            echo "[auth] token mode: app — program GitHub App installation, 5,000 req/h (separate from the user budget)"
+            TOKEN="$APP_TOKEN"
+          else
+            MODE=workflow
+            TOKEN="$WORKFLOW_TOKEN"
+            echo "::warning::[auth] token mode: workflow — vars.DEVGATE_SWEEP_APP_ID is unset on this repository. Falling back to github.token: 1,000 req/h, scoped to this repository only."
+          fi
+          [ -z "$APP_TOKEN" ] || echo "::add-mask::$APP_TOKEN"
+          printf 'token=%s\n' "$TOKEN" >> "$GITHUB_OUTPUT"
+          printf 'token_mode=%s\n' "$MODE" >> "$GITHUB_OUTPUT"
+
+      - name: Publish and verify the GitHub Release
+        env:
+          GH_TOKEN: ${{ steps.auth.outputs.token }}
+          TOKEN_MODE: ${{ steps.auth.outputs.token_mode }}
+        run: |
+          set -euo pipefail
+          echo "[auth] this step spends the $TOKEN_MODE budget (release create/readback)"
+          TAG="${GITHUB_REF_NAME}"
+          # actions/checkout can leave a local tag ref that resolves straight
+          # to a commit even when the pushed ref is annotated. Fetch the tag
+          # object itself before asserting annotation; do not weaken the check.
+          git fetch --force --no-tags origin "refs/tags/$TAG:refs/tags/$TAG"
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::$TAG is not a semantic version tag"
+            exit 1
+          fi
+          if [ "$(git cat-file -t "$TAG")" != "tag" ]; then
+            echo "::error::$TAG is not annotated"
+            exit 1
+          fi
+          if [ "$(git rev-parse HEAD)" != "$(git rev-parse "$TAG^{commit}")" ]; then
+            echo "::error::checkout HEAD and $TAG resolve to different commits"
+            exit 1
+          fi
+          if [ -f VERSION ] && [ "$(tr -d '[:space:]' < VERSION)" != "${TAG#v}" ]; then
+            echo "::error::VERSION disagrees with $TAG"
+            exit 1
+          fi
+
+          python3 - "$TAG" "$RUNNER_TEMP/release-notes.md" <<'PY'
+          import pathlib, sys
+          tag, output = sys.argv[1:]
+          version = tag[1:]
+          heading = f"## [{version}]"
+          lines = pathlib.Path("CHANGELOG.md").read_text(encoding="utf-8").splitlines()
+          notes, found = [], False
+          for line in lines:
+              if line.strip() == heading or line.strip().startswith(heading + " - "):
+                  if found:
+                      raise SystemExit(f"duplicate release heading: {heading}")
+                  found = True
+                  continue
+              if found and line.startswith("## ["):
+                  break
+              if found:
+                  notes.append(line)
+          body = "\n".join(notes).strip()
+          if not found:
+              raise SystemExit(f"CHANGELOG.md has no {heading} section")
+          if not body:
+              raise SystemExit(f"{heading} has no release notes; an empty release is not evidence")
+          pathlib.Path(output).write_text(body + "\n", encoding="utf-8")
+          print(f"release notes: {len(body.splitlines())} line(s) from {heading}")
+          PY
+
+          # Talk to the REST API with curl, not the `gh` CLI. `gh` is NOT
+          # guaranteed on a self-hosted runner: the lane images ship the
+          # actions/runner toolchain and nothing else, so `gh` exists only where
+          # someone installed it into a running container by hand. v1.3.20's
+          # release job died here with `gh: command not found` (exit 127) on a
+          # spare of the same lane that had passed for v1.3.19 on the base
+          # runner, which had a hand-installed copy. A required publish step
+          # must not depend on that.
+          api="https://api.github.com/repos/${GITHUB_REPOSITORY}"
+          auth=(-H "Authorization: Bearer ${GH_TOKEN}"
+                -H "Accept: application/vnd.github+json"
+                -H "X-GitHub-Api-Version: 2022-11-28")
+          status=$(curl -sS -o /dev/null -w '%{http_code}' "${auth[@]}" \
+            "$api/releases/tags/$TAG")
+          case "$status" in
+            200)
+              echo "$TAG already has a GitHub Release; leaving its notes editable by maintainers"
+              ;;
+            404)
+              curl -sS -X POST "${auth[@]}" \
+                -H "Content-Type: application/json" "$api/releases" \
+                --data-binary "$(python3 - "$TAG" "$RUNNER_TEMP/release-notes.md" <<'PY'
+          import json, pathlib, sys
+          tag, notes = sys.argv[1:]
+          print(json.dumps({
+              "tag_name": tag,
+              "name": tag,
+              "body": pathlib.Path(notes).read_text(encoding="utf-8"),
+              "draft": False,
+              "prerelease": False,
+          }))
+          PY
+          )" >/dev/null || true
+              ;;
+            *)
+              echo "::error::could not read releases for $TAG (HTTP $status)"
+              exit 1
+              ;;
+          esac
+
+          # Verify by reading it back: the release exists, is published (not a
+          # draft) and carries the changelog body. An empty release is not
+          # evidence.
+          curl -sS "${auth[@]}" "$api/releases/tags/$TAG" -o "$RUNNER_TEMP/release.json"
+          python3 - "$RUNNER_TEMP/release.json" "$TAG" <<'PY'
+          import json, pathlib, sys
+          path, tag = sys.argv[1:]
+          release = json.loads(pathlib.Path(path).read_text(encoding="utf-8"))
+          if release.get("tag_name") != tag:
+              raise SystemExit(f"release tag mismatch: {release.get('tag_name')} != {tag}")
+          if release.get("draft"):
+              raise SystemExit(f"{tag} exists but is still a draft")
+          body = (release.get("body") or "").strip()
+          if not body:
+              raise SystemExit(f"{tag} has an empty release body")
+          print(f"GitHub Release {tag} verified: {release['html_url']} ({len(body.splitlines())} line(s))")
+          PY

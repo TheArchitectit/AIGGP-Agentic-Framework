@@ -1,5 +1,7 @@
 # Decision Contract
 
+Status: CLOSED (EXERCISED 5)
+
 ## Purpose
 
 The shape and semantics of a coherence decision: one precedence matrix for PASS/ADVISORY/BLOCK/ERROR/SKIP over the same evidence, structured error envelopes instead of panic-shaped failures, strict separation of the canonical decision from its transport envelope, a frozen exit-code contract for consumers, and a stable finding sort order so machine consumers can rely on positions.
@@ -12,13 +14,14 @@ A decision is a canonical enum with one precedence over the same evidence; consu
 
 <!-- id: coh-dec-01 -->
 
-The service MUST apply one published total ordering over error and outcome classes when computing the top-level decision and exit code. ERROR-class conditions (invalid input, untrusted policy, evaluator/resource failure, evidence or signing failure) take precedence over FAIL-class conditions within the same run; FAIL takes precedence over ADVISORY; ADVISORY takes precedence over PASS. Every exit code MUST map to exactly one decision state, and every decision state to exactly one exit code.
+The service MUST apply one published total ordering over error and outcome classes when computing the top-level decision and exit code. ERROR-class conditions take precedence over FAIL-class conditions within the same run; FAIL takes precedence over ADVISORY; ADVISORY takes precedence over PASS. Every exit code MUST map to exactly one decision state, and every decision state to exactly one exit code.
 
 #### Scenario: simultaneous crash and violation
 
 - **GIVEN** one required evaluator crashed (UNRESOLVED) and another produced an enforced VIOLATED finding
 - **WHEN** the decision is computed
-- **THEN** the matrix yields a single deterministic decision and exit code, recorded with both condition classes visible in the result, and repeated runs of the same inputs yield the same decision.
+- **THEN** the matrix yields a single deterministic decision and exit code, recorded with both condition classes visible in the result, and repeated runs of the same inputs yield the same decision
+- **AND** ERROR-class conditions (invalid input, untrusted policy, evaluator/resource failure, evidence or signing failure) outrank every FAIL-class condition in the same run
 
 #### Scenario: exit code and result disagree
 
@@ -60,13 +63,14 @@ The canonical result MUST exclude runtime duration, host name, wall-clock timest
 
 <!-- id: coh-dec-04 -->
 
-The service MUST use the published exit codes: 0 PASS, 10 ADVISORY, 20 FAIL, 30 invalid input or package, 31 policy resolution error, 32 evaluator error or incomplete execution, 33 evidence or attestation error, 40 unsupported protocol version. Callers MUST use both the exit code and the parsed result. Exit codes 30–33 and 40 are ERROR-class: in enforced mode they block promotion, and in inventory (Stage 0) mode they MUST NOT be reported as a coherence authorization for the subject.
+The service MUST use the published exit codes. Callers MUST use both the exit code and the parsed result. Exit codes 30-33 and 40 are ERROR-class: in enforced mode they block promotion, and in inventory (Stage 0) mode they MUST NOT be reported as a coherence authorization for the subject.
 
 #### Scenario: full exit-code sweep
 
 - **GIVEN** a conformance fixture suite with one fixture per exit code
 - **WHEN** each fixture is evaluated
-- **THEN** each produces its documented exit code, matching decision state, and a parseable result or error envelope.
+- **THEN** each produces its documented exit code, matching decision state, and a parseable result or error envelope
+- **AND** the published exit codes: 0 PASS, 10 ADVISORY, 20 FAIL, 30 invalid input or package, 31 policy resolution error, 32 evaluator error or incomplete execution, 33 evidence or attestation error, 40 unsupported protocol version.
 
 #### Scenario: ERROR in enforced mode
 
@@ -85,3 +89,13 @@ Findings MUST be sorted by assertion ID, then subject location under a defined p
 - **GIVEN** subject files traverse in different OS-dependent orders across two hosts
 - **WHEN** findings are canonicalized
 - **THEN** the sorted findings arrays are byte-identical.
+
+## Requirement Closure
+
+| Requirement | Status | Implementation | Verification |
+|---|---|---|---|
+| `coh-dec-01` (single decision precedence matrix) | **EXERCISED** | `hub/coherence/__main__.py`, `hub/coherence/result.py` | `tests/test_hub_coherence.py`, `tests/test_hub_coherence_decision.py` |
+| `coh-dec-02` (structured error envelopes) | **EXERCISED** | `hub/coherence/__main__.py` | `tests/test_hub_coherence_exitcodes.py`, `tests/test_hub_coherence_decision.py` |
+| `coh-dec-03` (canonical versus envelope separation) | **EXERCISED** | `hub/coherence/result.py`, `hub/coherence/schemacheck.py` | `tests/test_hub_coherence_decision.py`, `tests/test_hub_coherence.py` |
+| `coh-dec-04` (exit code contract) | **EXERCISED** | `hub/coherence/__main__.py`, `hub/coherence/container_exec.py`, `hub/coherence/result.py` | `tests/fixtures/coherence/fixtures.py`, `tests/test_hub_coherence.py`, `tests/test_hub_coherence_conformance.py` |
+| `coh-dec-05` (finding sort order and stability) | **EXERCISED** | `hub/coherence/result.py` | `tests/test_hub_coherence_decision.py`, `tests/test_hub_coherence.py` |

@@ -53,7 +53,38 @@ jobs:
           set -euo pipefail
           rm -rf .devgate
           git clone https://github.com/TheArchitectit/AIGGP-Agentic-Framework.git .devgate
-          git -C .devgate checkout cb29c002db0fa5c04a3984300e780a0a3e84f76d
+          git -C .devgate checkout 8c2d0a9c680309bd90e6be7d5d43dd21e948fc20
+
+      # aiggp-08 stages 7 and 3: the vendored reviewer's whole-repo mode and
+      # reverse-drift mode, on the schedule that owns full-tree sweeps.
+      - name: Build the vendored stitcher (whole-repo + drift modes)
+        run: |
+          set -euo pipefail
+          npm --prefix actions/stitcher-codereview ci --no-audit --no-fund
+          npm --prefix actions/stitcher-codereview run build
+
+      - name: Whole-repo mode (aiggp-08 stage 7)
+        run: |
+          set -euo pipefail
+          node actions/stitcher-codereview/dist/cli.js --root . --scan repository \
+            --format json --fail-on high --no-user-config > "$RUNNER_TEMP/stitcher-scan.json"
+          # Non-vacuity: the mode must have produced a repository-scan record.
+          grep -q '"repository-scan"' "$RUNNER_TEMP/stitcher-scan.json" || {
+            echo "FAIL: --scan repository produced no repository-scan record"; exit 1;
+          }
+          python3 -c "import json;d=json.load(open('$RUNNER_TEMP/stitcher-scan.json'));print('stitcher scan findings:',len(d['findings']))"
+
+      # Advisory on the schedule: this repository's own tree is not drift-clean
+      # yet, so the blocking use of the gate is pre-commit (scripts/stitcher-local.mjs)
+      # where the diff is the author's change. The report is still produced and
+      # counted here, so drift volume is visible without reddening main.
+      - name: Reverse-drift report (aiggp-08 stage 3, advisory)
+        run: |
+          set -euo pipefail
+          BASE=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || git rev-parse HEAD^)
+          node scripts/stitcher-drift.mjs --base "$BASE" --format json --fail-on never \
+            > "$RUNNER_TEMP/stitcher-drift.json"
+          python3 -c "import json;d=json.load(open('$RUNNER_TEMP/stitcher-drift.json'));print('reverse-drift findings:',len(d['findings']))"
 
       - name: Drift gate suite (full tree)
         run: |
@@ -72,8 +103,25 @@ jobs:
           }
 
           # python-gated: regression_check.py requires >=3.9 (py3.8 crashes on list[str])
+          # The window must not be empty by construction. `--all` resolves to
+          # `last-tag..HEAD`, and on the first nightly run after a release HEAD
+          # *is* that tag, so the window holds zero files and --pre-commit exits
+          # 2 — a red that says nothing about the tree (2026-11-13 run on
+          # v1.3.28, reproduced locally: exit 2, "NOTHING SCANNED"). Anchor on
+          # the last tag reachable from HEAD^ instead: identical to `--all`
+          # whenever HEAD is untagged (the tag is then still the ancestor's),
+          # and widened to the release's own commits when HEAD is the tag.
+          # --pre-commit stays, so a window that is empty for any other reason
+          # still fails instead of passing vacuously.
           if [ "$PY_OK" = "1" ]; then
-            run_gate regression python3 .devgate/scripts/regression_check.py --all --pre-commit
+            DRIFT_BASE=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || true)
+            if [ -n "$DRIFT_BASE" ]; then
+              DRIFT_WINDOW="${DRIFT_BASE}..HEAD"
+              run_gate regression python3 .devgate/scripts/regression_check.py --range "$DRIFT_WINDOW" --pre-commit
+            else
+              DRIFT_WINDOW="all (no tag reachable from HEAD^)"
+              run_gate regression python3 .devgate/scripts/regression_check.py --all --pre-commit
+            fi
           else RES[regression]="SKIPPED (python < 3.9 on this runner)"; fi
 
           run_gate guardrails node .devgate/scripts/guardrails-scan.mjs
@@ -102,6 +150,8 @@ jobs:
             echo "| silent-success | ${RES[silent-success]:-NOT_RUN} |"
             echo "| semantic | ${RES[semantic]:-NOT_RUN} |"
             echo ""
-            echo "Scanners: AIGGP-Agentic-Framework@cb29c002 (in-tree clone, pinned)"
+            echo "Regression window: \`${DRIFT_WINDOW:-not computed (python < 3.9)}\`"
+            echo ""
+            echo "Scanners: AIGGP-Agentic-Framework@8c2d0a9 (in-tree clone, pinned)"
           } >> "$GITHUB_STEP_SUMMARY"
           exit $FAIL

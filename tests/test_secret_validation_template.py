@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# // spec: ci-tpl-01
 """The shipped secret-scanning template must enforce the contract this repo runs.
 
 The template previously told consumers to run `gitleaks/gitleaks-action@v2` on a
@@ -70,6 +71,7 @@ echo "not the tarball" > "$out"
 
 INSTALL_STUB = """#!/bin/bash
 : > "{sb}/install-called"
+printf '%s\\n' "$*" >> "{sb}/install-args"
 exit 0
 """
 
@@ -304,6 +306,33 @@ class TestSecretValidationTemplate(unittest.TestCase):
         run = _step_run(self.jobs, "secret-scan", "pinned version")
         self.assertIn("gitleaks version", run)
 
+    def test_the_fetched_scanner_installs_where_a_rootless_job_can_write(self):
+        """Executed: `/usr/local/bin` is root-owned, so on a rootless
+        self-hosted runner the install step died before any scan ran. The
+        destination is observed rather than asserted from prose — `install`
+        records its arguments and `$GITHUB_PATH` records what the later steps
+        will see on PATH."""
+        run = _step_run(self.jobs, "secret-scan", "Provide the pinned scanner")
+        with self._scratch() as tmp:
+            sb = self._sandbox(tmp, scanner=False, verified=True)
+            gp = tmp / "github_path"
+            gp.write_text("", encoding="utf-8")
+            r = self._bash(run, tmp, sandbox=sb,
+                           extra_env={"GITHUB_PATH": str(gp)})
+            self.assertEqual(r.returncode, 0, f"{r.stdout}{r.stderr}")
+            self.assertTrue((sb / "install-called").exists(),
+                            "the fetch path never reached installation")
+            args = (sb / "install-args").read_text()
+            self.assertIn(str(tmp / "bin" / "gitleaks"), args,
+                          "the scanner was not installed into $RUNNER_TEMP/bin: "
+                          + args)
+            self.assertNotIn("/usr/local/bin", args,
+                             "the template still installs into a root-owned "
+                             "directory")
+            self.assertEqual(gp.read_text().strip(), str(tmp / "bin"),
+                             "the installed directory was not appended to "
+                             "$GITHUB_PATH")
+
     # --- the one assertion no future author is trusted to remember -----------
 
     def test_template_and_ci_name_the_same_scanner_pin(self):
@@ -363,23 +392,35 @@ class TestSecretValidationTemplate(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             yield Path(d)
 
-    def _sandbox(self, tmp, scanner: bool):
+    def _sandbox(self, tmp, scanner: bool, verified: bool = False):
         """A PATH holding only what the scanner step needs.
 
         The step picks its branch with `command -v gitleaks`, so running it
         against the ambient PATH measures the machine rather than the template:
         on a host that happens to have gitleaks installed, the fetch path is
         unreachable and the checksum assertion passes without ever being
-        exercised. Only `sha256sum` and `tar` are the real tools here; `curl`
-        and `install` record that they were called.
+        exercised. `mkdir` is symlinked because the step creates
+        `$RUNNER_TEMP/bin` — a real directory operation whose target is what
+        the rootless test observes. With `verified=True` the checksum and
+        extract tools are stubs that accept the bytes: that test is about the
+        install destination, and the checksum's own test still refuses wrong
+        bytes against the real tools.
         """
         sb = tmp / "sandbox"
         sb.mkdir(exist_ok=True)
-        for tool in ("sha256sum", "tar"):
-            src = shutil.which(tool)
-            if src is None:
-                self.skipTest(f"{tool} is not on this host")
-            os.symlink(src, sb / tool)
+        if verified:
+            _write_exec(sb / "sha256sum", "#!/bin/bash\nexit 0\n")
+            _write_exec(sb / "tar", "#!/bin/bash\nexit 0\n")
+        else:
+            for tool in ("sha256sum", "tar"):
+                src = shutil.which(tool)
+                if src is None:
+                    self.skipTest(f"{tool} is not on this host")
+                os.symlink(src, sb / tool)
+        mkdir = shutil.which("mkdir")
+        if mkdir is None:
+            self.skipTest("mkdir is not on this host")
+        os.symlink(mkdir, sb / "mkdir")
         _write_exec(sb / "curl", CURL_STUB.format(sb=sb))
         _write_exec(sb / "install", INSTALL_STUB.format(sb=sb))
 
@@ -387,7 +428,7 @@ class TestSecretValidationTemplate(unittest.TestCase):
             _write_exec(sb / "gitleaks", '#!/bin/bash\necho "8.30.1"\n')
         return sb
 
-    def _bash(self, run: str, tmp, sandbox=None):
+    def _bash(self, run: str, tmp, sandbox=None, extra_env=None):
         # The template under test is GitHub Actions YAML whose steps are bash.
         # Without a bash to run them, every assertion below would be about the
         # absence of an interpreter, not about the template.
@@ -401,6 +442,8 @@ class TestSecretValidationTemplate(unittest.TestCase):
         }
         env.pop("PR_BASE", None)
         env.pop("PR_HEAD", None)
+        if extra_env:
+            env.update(extra_env)
         env["PATH"] = str(sandbox) if sandbox is not None else os.environ["PATH"]
         return subprocess.run([BASH, "-c", run], cwd=str(tmp), env=env,
                               capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
