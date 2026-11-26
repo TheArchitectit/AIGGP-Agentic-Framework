@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Published the bank AI tooling assessment, its qualification tasks, and the
+  integration record for PRs #32, #33, and #46 through #49.
+
 ### Fixed
 
 - Preserved per-file launch failures and verified the original runner report

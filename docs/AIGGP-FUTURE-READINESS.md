@@ -9,6 +9,10 @@ protected promotion, a runtime evidence boundary, and monitoring recovery.
 Platform or production readiness requires evidence from the intended
 deployment and the team that owns it.
 
+The bank assessment maps the 46-slide technical plan to the services that
+own each control and the evidence needed to accept it.
+[Bank AI tooling platform fit](../openspec/changes/audit-bank-ai-tooling-platform-fit/bank-platform-fit.md).
+
 ## Scope and evidence
 
 The review covered the published specs and active changes, current templates
