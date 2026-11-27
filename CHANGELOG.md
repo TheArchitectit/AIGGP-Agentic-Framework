@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Recorded [DG-02 batch 012](openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-012/README.md) and the [fleet contract qualification gap](openspec/changes/qualify-dg02-boundary-contract-domain-gaps/proposal.md). The twelve reviewed claims remain UNPROVEN.
 - Published the bank AI tooling assessment, its qualification tasks, and the
   integration record for PRs #32, #33, and #46 through #49.
+- Added an opt-in protected transition review mode for committed corruption ranges. It reads a protected external catalog and per-run binding, matches only the exact reviewed substitution, keeps matched findings visible as `EXCEPTION-ADVISORY`, and leaves ordinary invocations strict. A rootless Podman smoke step in the evaluator-image CI job exercises synthetic protected-store inputs, including matching, revocation, and rejection cases. Production controller provisioning, independent security review, upstream approval, and protected-CI rollout remain pending.
 
 ### Fixed
 
@@ -39,6 +40,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   agreement with the pinned OpenSpec CLI in CI (DG-01).
 - Restored direct execution of the drift template test and enforced its
   executable Git index mode (DG-12).
+- Fixed traceability coverage summaries to count requirement statements on both sides and identify reused IDs, while preserving blocking behavior for every uncovered statement.
+- Fixed failure-registry hygiene reporting to print its scanned scope on every exit path, including successful and early-refusal runs.
+- The specification-gap scan reads the optional `inventory_dirs` declaration in `.guardrails/scope.json`, reports which directories it scanned, and rejects malformed or escaping paths.
 
 ## [1.3.52] - 2026-11-20
 
