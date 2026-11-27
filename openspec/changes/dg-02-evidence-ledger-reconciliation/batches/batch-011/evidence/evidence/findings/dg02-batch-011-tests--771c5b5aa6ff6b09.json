@@ -1,0 +1,1 @@
+{"assertion_id":"dg02-batch-011-tests","expected":"Receipt records measured tests and reproducible operation controls.","finding_key":"dg02-batch-test-receipt","observed":"Exact test-receipt.json file digest sha256:8fdd5be8b1053635bdee865a00fe00ed9f29d93a0ae5bcdc588496f1ac08158e.","subject_locations":["DG02-U-121..DG02-U-132 test-receipt.json"]}
