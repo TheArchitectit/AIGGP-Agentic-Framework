@@ -135,7 +135,8 @@ def _load_entries(registry_path: Path) -> tuple[list[dict], list[str]]:
 
 def check(registry_path: Path | None = None, *,
           devgate_root: Path | None = None,
-          project_root: Path | None = None) -> tuple[int, list[str]]:
+          project_root: Path | None = None,
+          scope: dict | None = None) -> tuple[int, list[str]]:
     """Run all hygiene checks over the EFFECTIVE registry — bundled baseline +
     project overlay merged by failure_id (the overlay entry replacing a same-id
     baseline entry is the overlay contract, not a duplicate; duplicates are
@@ -170,6 +171,9 @@ def check(registry_path: Path | None = None, *,
         # yielded zero entries, zero errors, exit 0 — a vacuous green from the
         # hygiene gate itself). The old guard only covered the "devgate" label.
         if not registry_path.exists():
+            if scope is not None:
+                scope.update(entries=0, sources={},
+                             note=f"registry not found: {registry_path}")
             return 1, [f"registry not found: {registry_path}"]
         sources = [("registry", registry_path, project_root)]
     else:
@@ -185,6 +189,16 @@ def check(registry_path: Path | None = None, *,
     merged: list[tuple[dict, Path, str, int]] = []
     pos_by_id: dict[str, int] = {}
     had_parse_error = False
+    parsed_per_source: dict[str, int] = {}
+    # spec: gate-scope-line-01
+    # Scope is recorded as it is discovered, so main() can print an honest line
+    # on every exit path - including the early ones. This gate used to print
+    # NOTHING on a clean run, which made "validated 72 entries" and "found no
+    # registry, shrugged" indistinguishable from CI; the consumer's workflow had
+    # to count the merged input by hand to avoid a vacuous green.
+    if scope is not None:
+        scope.update(sources={label: 0 for label, _p, _o in sources},
+                     entries=0, errors=0, warnings=0, note="")
     for label, path, owner in sources:
         if not path.exists():
             if label == "devgate":
@@ -192,6 +206,8 @@ def check(registry_path: Path | None = None, *,
                 return 1, errors + warnings
             continue
         entries, parse_errors = _load_entries(path)
+        if scope is not None:
+            scope["sources"][label] = len(entries)
         errors.extend(f"{label}: {e}" for e in parse_errors)
         if parse_errors:
             had_parse_error = True
@@ -213,6 +229,8 @@ def check(registry_path: Path | None = None, *,
             else:
                 merged.append((entry, owner, label, lineno))
     if had_parse_error:
+        if scope is not None:
+            scope.update(entries=len(merged), errors=len(errors))
         return 1, errors + warnings
 
     # 2. Required fields (+ duplicate failure_id reported at merge time)
@@ -285,13 +303,23 @@ def check(registry_path: Path | None = None, *,
                 warnings.append(message + "  (warning — stale entry)")
 
     findings = errors + warnings
+    if scope is not None:
+        scope.update(entries=len(merged), errors=len(errors), warnings=len(warnings))
     return (0 if not errors else 1), findings
 
 
 def main() -> int:
     env_path = os.getenv("FAILURE_REGISTRY_PATH", "")
     registry_path = Path(env_path) if env_path else None
-    exit_code, findings = check(registry_path)
+    scope: dict = {}
+    exit_code, findings = check(registry_path, scope=scope)
+    # gate-scope-line-01: printed BEFORE the findings and on every exit path, so
+    # `run-gate.sh` can require it and a green run cannot mean "scanned nothing".
+    breakdown = ", ".join(f"{label} {n}" for label, n in scope.get("sources", {}).items())
+    note = f" ({scope['note']})" if scope.get("note") else ""
+    print(f"failure-registry: scope: {scope.get('entries', 0)} merged entries"
+          f" [{breakdown}]; {scope.get('errors', 0)} error(s), "
+          f"{scope.get('warnings', 0)} warning(s){note}")
     for f in findings:
         print(f, file=sys.stderr if "not found" in f or "not found in git" in f else sys.stdout)
     return exit_code

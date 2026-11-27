@@ -60,6 +60,66 @@ class TestExplicitPathHonesty(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
 
+class TestScopeLine(unittest.TestCase):
+    """gate-scope-line-01: the gate used to print NOTHING on a clean run, so a
+    CI step could not tell 'validated 72 entries' from 'found nothing and
+    shrugged'. The consumer's workflow (NeonDash) had to count the merged input
+    by hand in its own yaml to dodge the vacuous green - scope that belongs in
+    the tool, not in every caller."""
+
+    def _run(self, env_extra):
+        env = dict(os.environ)
+        env.pop("FAILURE_REGISTRY_PATH", None)
+        env.update(env_extra)
+        return subprocess.run([PYTHON, str(SCRIPT)], capture_output=True,
+                              text=True, env=env)
+
+    def test_clean_run_still_prints_its_scope(self):
+        tmp = Path(tempfile.mkdtemp(prefix="dg-scope-"))
+        reg = tmp / "reg.jsonl"
+        reg.write_text(json.dumps(GOOD_ENTRY) + "\n")
+        r = self._run({"FAILURE_REGISTRY_PATH": str(reg),
+                       "DEVGATE_PROJECT_ROOT": str(tmp)})
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertTrue(r.stdout.startswith("failure-registry: scope:"), r.stdout)
+        self.assertIn("1 merged entries", r.stdout)
+        self.assertIn("registry 1", r.stdout)
+        self.assertIn("0 error(s)", r.stdout)
+
+    def test_scope_line_survives_a_missing_named_registry(self):
+        """The early exits need the line too - 'scope: 0 merged entries
+        (registry not found: ...)' is a sentence CI can require and read."""
+        missing = Path(tempfile.mkdtemp()) / "nope.jsonl"
+        r = self._run({"FAILURE_REGISTRY_PATH": str(missing)})
+        self.assertEqual(r.returncode, 1)
+        self.assertTrue(r.stdout.startswith("failure-registry: scope:"), r.stdout)
+        self.assertIn("registry not found", r.stdout)
+
+    def test_scope_breakdown_names_both_sources(self):
+        """Merged is two sources, and the line has to show the split: a breakdown
+        that reads `devgate 68` in a project whose overlay carries 12 entries is
+        the gate admitting it never read them. Through the module API because the
+        submodule layout needs a tree, not an env var (root-anchor-01 resolves
+        `.devgate/` from the SCRIPT's own path, and a symlink resolves away)."""
+        frc = TestRegistryHygiene()._check_module()
+        tmp = Path(tempfile.mkdtemp(prefix="dg-both-"))
+        base = tmp / "devgate"
+        proj = tmp / "proj"
+        (base / ".guardrails").mkdir(parents=True)
+        (proj / ".guardrails").mkdir(parents=True)
+        base_entry = dict(GOOD_ENTRY, failure_id="FAIL-base1234")
+        proj_entry = dict(GOOD_ENTRY, failure_id="FAIL-proj5678")
+        (base / ".guardrails/failure-registry.jsonl").write_text(
+            json.dumps(base_entry) + "\n")
+        (proj / ".guardrails/failure-registry.jsonl").write_text(
+            json.dumps(proj_entry) + "\n")
+        scope: dict = {}
+        code, findings = frc.check(devgate_root=base, project_root=proj, scope=scope)
+        self.assertEqual(code, 0, findings)
+        self.assertEqual(scope["sources"], {"devgate": 1, "project": 1}, scope)
+        self.assertEqual(scope["entries"], 2, scope)
+
+
 class TestRegistryHygiene(unittest.TestCase):
     def _check_module(self):
         sys.path.insert(0, str(Path(__file__).resolve().parent.parent))

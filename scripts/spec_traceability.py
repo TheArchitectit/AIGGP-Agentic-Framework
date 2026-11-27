@@ -88,13 +88,30 @@ def main() -> int:
             if not covered and mode == "blocking":
                 blocking_failures.append(rid)
 
+    # spec: rule-denominator-01
+    # Both sides of this fraction count the SAME thing: requirement statements.
+    # The denominator was always per-file (a delta package that reuses a sealed
+    # id legitimately states it twice), while the numerator intersected a DEDUPED
+    # set — so NeonDash reported "49/51 covered" with nothing uncovered: the two
+    # reused ids were counted twice below and once above. Reuse is stated in the
+    # summary line so the number is never a mystery again.
+    instances = [rid for reqs in requirements.values() for rid in reqs]
     total = total_ids
-    covered_count = len(markers & set(rid for r in requirements.values() for rid in r))
+    covered_count = sum(1 for rid in instances if rid in markers)
     uncovered = total - covered_count
-    print(f"spec-traceability: {covered_count}/{total} requirements covered")
+    unique_ids = len(set(instances))
+    reused = total - unique_ids
+    summary = f"spec-traceability: {covered_count}/{total} requirements covered"
+    if reused:
+        summary += (f" ({unique_ids} unique id(s), {reused} stated by more than "
+                    "one spec — a delta reusing a sealed id)")
+    print(summary)
 
     if blocking_failures:
-        print(f"spec-traceability: BLOCKING failures: {', '.join(blocking_failures)}")
+        # Statements, evaluated per statement; the LIST is deduped, because
+        # naming one id twice tells the reader nothing new about a red gate.
+        unique_failures = list(dict.fromkeys(blocking_failures))
+        print(f"spec-traceability: BLOCKING failures: {', '.join(unique_failures)}")
         return 1
     if uncovered:
         print(f"spec-traceability: advisory — {uncovered} uncovered requirement(s)")

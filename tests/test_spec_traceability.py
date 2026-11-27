@@ -305,3 +305,36 @@ def test_bundled_specs_have_traceable_ids_and_no_external_game_framework_pointer
             assert (ch / "proposal.md").is_file(), f"{ch.name} missing proposal.md"
             assert (ch / "tasks.md").is_file(), f"{ch.name} missing tasks.md"
 
+
+def test_id_reused_by_a_delta_is_not_phantom_uncovered(tmp_path):
+    """rule-denominator-01 (NeonDash, 2026-11-25): a sealed `daily-challenge`
+    spec and a change package that MODIFIES it both state `game-daily-04`. The
+    denominator counted both statements while the numerator intersected a
+    DEDUPED set, so the gate printed '49/51 requirements covered' plus
+    '2 uncovered' on a tree where its own --report showed every id covered.
+    A summary that disagrees with its own detail is the same gate-tooling class
+    as a green that means nothing: the two sides must count the same thing, and
+    the reuse has to be said out loud so the number is never a mystery."""
+    write(tmp_path / "openspec/specs/daily-challenge/spec.md", SPEC)
+    # A distinct capability key is what makes this a phantom: NeonDash's delta
+    # package states the sealed id under its own capability name, so the id is
+    # genuinely counted twice below and once above.
+    write(tmp_path / "openspec/changes/add-daily-modifiers/specs/daily-challenge-ext/spec.md", SPEC)
+    write(tmp_path / "game/spawner.gd", "# spec: router-req-01\nfn x() {}\n")
+    result = run(tmp_path, "--report")
+    assert result.returncode == 0, result.stdout
+    assert "2/2 requirements covered" in result.stdout, result.stdout
+    assert "1 unique id(s), 1 stated by more than one spec" in result.stdout, result.stdout
+    assert "advisory —" not in result.stdout, result.stdout
+
+
+def test_reused_id_still_blocks_when_the_marker_is_absent(tmp_path):
+    """The dedupe must not become a pass: two statements of one uncovered id are
+    two uncovered statements, and a blocking capability still goes red."""
+    write(tmp_path / "openspec/specs/daily-challenge/spec.md", SPEC)
+    write(tmp_path / "openspec/changes/add-daily-modifiers/specs/daily-challenge-ext/spec.md", SPEC)
+    write(tmp_path / "openspec/gate-config.json",
+          json.dumps({"default_mode": "blocking", "specs": {}}))
+    result = run(tmp_path)
+    assert result.returncode == 1, result.stdout
+    assert "BLOCKING failures: router-req-01" in result.stdout, result.stdout

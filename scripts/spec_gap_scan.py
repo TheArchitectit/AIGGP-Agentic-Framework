@@ -44,6 +44,52 @@ MARKER_IN_FILE = re.compile(r"(?://|#)\s*spec:")
 # spec" unless it truly found no anchors, SGA-04).
 INVENTORY_DIRS = ("src/autoload", "src/core", "src/models", "src/ui",
                   "src/scenes", "data")
+# A project whose tree is not game-shaped declares its own anchors in the
+# fleet's existing scope contract, e.g. {"inventory_dirs": ["scripts"]}.
+# NeonDash keeps its code under scripts/ and tools/, so the game-shaped
+# defaults found nothing there and the scanner exited 2 ("unknown scope")
+# forever - honest, and permanently ignorable, which is the same outcome.
+# ONE scope file per repo (fw-scope-01): the same .guardrails/scope.json that
+# already carries skip_dirs / source_dirs, never a second contract. Absent
+# file, absent key, or a null value all mean "use the built-ins"; a malformed
+# one is a configuration error, because a declared scope that gets ignored is
+# worse than none.
+ANCHOR_SCOPE_FILE = ".guardrails/scope.json"
+
+
+def anchor_dirs(root: Path) -> tuple[tuple[str, ...], str]:
+    """(dirs, where they came from) - gate-anchor-scope-01.
+
+    # spec: gate-anchor-scope-01
+    The source travels with the dirs because SGA-04's honest empty has to say
+    what it looked at: "no anchors under the built-in game defaults" is a
+    different sentence from "no anchors under your own scope.json", and only
+    the first one means the scanner is wrong for this repo.
+    """
+    cfg = root / ANCHOR_SCOPE_FILE
+    if not cfg.is_file():
+        return INVENTORY_DIRS, "built-in game defaults"
+    data = json.loads(cfg.read_text(encoding="utf-8"))
+    dirs = data.get("inventory_dirs")
+    if dirs is None:
+        return INVENTORY_DIRS, "built-in game defaults"
+    if not isinstance(dirs, list) or not dirs:
+        raise ValueError(f"{cfg}: inventory_dirs must be a non-empty list"
+                         " (or absent for the built-in defaults)")
+    cleaned = []
+    for d in dirs:
+        name = str(d).strip().rstrip("/")
+        p = Path(name)
+        if not name:
+            raise ValueError(f"{cfg}: bad inventory_dirs entry {d!r}")
+        if name != "." and (p.is_absolute() or ".." in p.parts):
+            # coh-sec-01, same rule as the size gate's walk roots: a declared
+            # anchor must stay inside the repo, or the swept surface silently
+            # widens past everything the gate can answer for.
+            raise ValueError(f"{cfg}: inventory_dirs entry refused: {name!r} "
+                             "escapes the repo root")
+        cleaned.append(name)
+    return tuple(cleaned), ANCHOR_SCOPE_FILE
 
 
 def kebab(stem: str) -> str:
@@ -58,10 +104,10 @@ def file_anchor(path: Path, root: Path) -> dict:
             "end_line": len(lines), "lines": len(lines)}
 
 
-def build_inventory(root: Path) -> list[dict]:
+def build_inventory(root: Path, dirs: tuple[str, ...] = INVENTORY_DIRS) -> list[dict]:
     """Capability candidates named from files that exist — never invented."""
     caps = {}
-    for d in INVENTORY_DIRS:
+    for d in dirs:
         base = root / d
         if not base.is_dir():
             continue
@@ -156,7 +202,9 @@ def claimed_but_absent(root: Path) -> list[dict]:
 
 
 def scan(root: Path) -> dict:
-    inventory = build_inventory(root)
+    # gate-anchor-scope-01: the anchor set is configuration, not destiny.
+    dirs, anchor_source = anchor_dirs(root)
+    inventory = build_inventory(root, dirs)
     covered_caps = spec_capabilities(root)
     requirements = collect_requirements(root)
     markers = collect_markers(root)
@@ -186,6 +234,8 @@ def scan(root: Path) -> dict:
         "root": str(root),
         "inventory": {
             "capabilities": len(inventory),
+            "anchor_dirs": list(dirs),
+            "anchor_source": anchor_source,
             "unspaced": unspaced,
             "partially_tracked": partially_tracked,
         },
@@ -206,6 +256,9 @@ def scan(root: Path) -> dict:
 def human_table(report: dict) -> list[str]:
     s = report["summary"]
     out = [f"spec-gap-scan: {report['root']}",
+           f"  anchors={len(report['inventory'].get('anchor_dirs', []))} dir(s) "
+           f"from {report['inventory'].get('anchor_source', 'built-in game defaults')} "
+           f"({', '.join(report['inventory'].get('anchor_dirs', [])) or 'none'})",
            f"  capabilities={report['inventory']['capabilities']} "
            f"unspaced={s['unspaced']} partially_tracked={s['partially_tracked']} "
            f"uncovered_ids={s['uncovered_ids']}/{report['coverage']['requirement_ids']} "
@@ -318,11 +371,26 @@ def main() -> int:
     if not root.is_dir():
         print(f"spec-gap-scan: not a directory: {root}", file=sys.stderr)
         return 2
-    report = scan(root)
+    try:
+        report = scan(root)
+    except json.JSONDecodeError as exc:
+        # Named before ValueError: JSONDecodeError IS a ValueError, and the
+        # json module's message does not say which file it choked on.
+        print(f"spec-gap-scan: cannot read {ANCHOR_SCOPE_FILE}: {exc}",
+              file=sys.stderr)
+        return 2
+    except ValueError as exc:
+        # gate-anchor-scope-01: a declared scope that cannot be read is a
+        # configuration error, never a silent fall back to the defaults - the
+        # defaults are exactly the "unknown scope" this file was written for.
+        print(f"spec-gap-scan: {exc}", file=sys.stderr)
+        return 2
     if report["inventory"]["capabilities"] == 0:
         # SGA-04: an honest empty is NOT a pass — distinct wording, exit 2.
         print("spec-gap-scan: unknown scope (no anchors found) — looked at "
-              f"{root}, no capability anchors under {', '.join(INVENTORY_DIRS)}",
+              f"{root}, no capability anchors under "
+              f"{', '.join(report['inventory']['anchor_dirs'])} "
+              f"({report['inventory']['anchor_source']})",
               file=sys.stderr)
         return 2
 

@@ -287,3 +287,62 @@ def test_write_report_honours_explicit_path_and_skips_unknown_scope(tmp_path):
     assert r2.returncode == 0
     assert out.exists()
 
+
+# --- gate-anchor-scope-01: the anchor set is configuration -----------------
+
+
+def test_scope_json_declares_anchors_for_a_non_game_tree(tmp_path):
+    """gate-anchor-scope-01. NeonDash keeps its code under scripts/ and tools/,
+    so the built-in game-shaped anchors found nothing and the scanner exited 2
+    forever - an honest 'unknown scope' that made the gate permanently
+    ignorable. The answer is the fleet's ONE scope contract (fw-scope-01),
+    .guardrails/scope.json, which already carries skip_dirs and source_dirs;
+    inventing a second scope file is how two contracts start disagreeing.
+    Absent key leaves every game-shaped repo on the built-ins, unchanged."""
+    gd(tmp_path / "scripts/spawner.gd",
+       "extends Node\nfunc spawn():\n\tpass\n")
+    tmp_path.joinpath(".guardrails").mkdir(parents=True, exist_ok=True)
+    tmp_path.joinpath(".guardrails/scope.json").write_text(
+        json.dumps({"api_version": "devgate.scope/v1",
+                    "inventory_dirs": ["scripts"]}), encoding="utf-8")
+    r = run([], root=tmp_path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "anchors=1 dir(s) from .guardrails/scope.json (scripts)" in r.stdout, r.stdout
+    assert "capabilities=1" in r.stdout, r.stdout
+
+
+def test_unknown_scope_names_where_it_looks(tmp_path):
+    """SGA-04's honest empty must say whether it used the defaults or the
+    project's own declaration - 'no anchors' after a declared scope means the
+    project declared the wrong dirs, not that the scanner is wrong."""
+    tmp_path.joinpath("openspec").mkdir(parents=True, exist_ok=True)
+    tmp_path.joinpath(".guardrails").mkdir(parents=True, exist_ok=True)
+    tmp_path.joinpath(".guardrails/scope.json").write_text(
+        json.dumps({"inventory_dirs": ["lib"]}), encoding="utf-8")
+    r = run([], root=tmp_path)
+    assert r.returncode == 2
+    assert "(.guardrails/scope.json)" in r.stderr, r.stderr
+
+
+def test_declared_scope_that_escapes_the_root_is_a_config_error(tmp_path):
+    """An absolute or `..` anchor would silently widen the swept surface beyond
+    the repo - louder than a shrug, and never a fall back to the defaults."""
+    tmp_path.joinpath(".guardrails").mkdir(parents=True, exist_ok=True)
+    for bad in ("../outside", "/etc"):
+        tmp_path.joinpath(".guardrails/scope.json").write_text(
+            json.dumps({"inventory_dirs": [bad]}), encoding="utf-8")
+        r = run([], root=tmp_path)
+        assert r.returncode == 2, (bad, r.stdout)
+        assert "escapes the repo root" in r.stderr, (bad, r.stderr)
+
+
+def test_broken_scope_json_is_a_config_error_not_a_default(tmp_path):
+    """A declared scope the scanner cannot parse must not fall back to the
+    built-ins - that is the 'unknown scope' the project already declared away.
+    Also proves the JSONDecodeError branch names the file, since json's own
+    message does not."""
+    tmp_path.joinpath(".guardrails").mkdir(parents=True, exist_ok=True)
+    tmp_path.joinpath(".guardrails/scope.json").write_text("{not json", encoding="utf-8")
+    r = run([], root=tmp_path)
+    assert r.returncode == 2, r.stdout
+    assert ".guardrails/scope.json" in r.stderr, r.stderr
