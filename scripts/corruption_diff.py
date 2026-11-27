@@ -39,7 +39,7 @@ def _diff_hunks(diff: str):
     old_no = new_no = 0
     seen_plus = False
     gitlink = False
-    for line in diff.splitlines():
+    for line in diff.split("\n"):
         if line.startswith("diff --git "):
             if hunk and path is not None and not gitlink:
                 yield path, hunk
@@ -52,10 +52,10 @@ def _diff_hunks(diff: str):
             if _GITLINK_META.match(line):
                 gitlink = True         # commit pointer, not text: skip hunks
             elif line.startswith("--- "):
-                p = line[4:].strip()
+                p = line[4:].removesuffix("\t")
                 old_path = p[2:] if p.startswith("a/") else p
             elif line.startswith("+++ "):
-                p = line[4:].strip()
+                p = line[4:].removesuffix("\t")
                 newp = p[2:] if p.startswith("b/") else p
                 path = old_path if newp == "/dev/null" else newp
                 seen_plus = True

@@ -56,6 +56,8 @@ from pathlib import Path
 if str(Path(__file__).resolve().parent) not in sys.path:
     sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from corruption_reviews import ReviewError, Reviews, open_reviews
+
 EXIT_OK = 0
 EXIT_VIOLATIONS = 1
 EXIT_USAGE = 2
@@ -246,10 +248,13 @@ def _checksum_line_parts(line: str) -> tuple[str, str] | tuple[None, None]:
 
 
 def scan_diff(diff: str, allow: dict[str, str], max_report: int,
-              strict_mass_rewrite: bool = False) -> int:
+              strict_mass_rewrite: bool = False, reviews: Reviews | None = None) -> int:
+    reviewed = []
     added = list(_added_lines(diff))
     removed = list(_removed_lines(diff))
     if not added and not removed:
+        if reviews is not None:
+            reviews.check_current()
         # Pin bumps and 100% renames are real ranges with nothing textual to
         # judge (the moved bytes are covered by the full-tree content scan);
         # zero lines with neither means an empty range - vacuous, so FAILS.
@@ -320,6 +325,10 @@ def scan_diff(diff: str, allow: dict[str, str], max_report: int,
                 ratio = 1.0 - SequenceMatcher(None, old, new).ratio()
                 len_delta = abs(len(new) - len(old)) / max(1, len(old))
                 if len_delta <= FLIP_LEN_TOLERANCE and ratio >= FLIP_DIFF_RATIO:
+                    identity = reviews.match(path, ln) if reviews else None
+                    if identity is not None:
+                        reviewed.append((path, ln, identity))
+                        continue
                     fails.append(
                         f"{path}:{ln}: substitution flip "
                         f"({ratio*100:.0f}% of characters changed, "
@@ -342,6 +351,13 @@ def scan_diff(diff: str, allow: dict[str, str], max_report: int,
             f"BULK MUTATION - {bulk_files} whole files rewritten in one change "
             f"(ransomware / runaway-script shape)")
 
+    if reviews is not None:
+        reviews.check_current()
+    for path, line, identity in reviewed[:max_report]:
+        print(f"check-corruption: VIOLATED EXCEPTION-ADVISORY {path}:{line} "
+              f"substitution flip; exception={identity}")
+    if len(reviewed) > max_report:
+        print(f"check-corruption: {len(reviewed)} reviewed substitutions total; use --list for all")
     if fails:
         print(f"check-corruption: FAIL - {len(fails)} data-flip / "
               f"bulk-mutation finding(s) (fw-corruption-01)")
@@ -354,7 +370,9 @@ def scan_diff(diff: str, allow: dict[str, str], max_report: int,
     for w in warnings[:max_report]:
         print(f"check-corruption: WARNING - {w}")
     skipped = _gitlink_update_count(diff)
-    print(f"check-corruption: OK - diff scan clean "
+    verdict = (f"{len(reviewed)} reviewed substitution(s); no blocking findings"
+               if reviewed else "diff scan clean")
+    print(f"check-corruption: OK - {verdict} "
           f"({len(added)} added / {len(removed)} removed line(s), "
           f"{bulk_files} whole-file rewrite(s) warned"
           + (f", {skipped} gitlink pin update(s) skipped" if skipped else "")
@@ -368,6 +386,8 @@ def main() -> int:
         description="data-corruption + bad-flip gate (fw-corruption-01)")
     ap.add_argument("--repo", default=".")
     ap.add_argument("--range", help="git revision range A..B (diff scan)")
+    ap.add_argument("--reviewed-transitions", action="store_true",
+                    help="apply protected run-bound reviews to an exact committed range")
     ap.add_argument("--staged", action="store_true", help="scan the staged diff")
     ap.add_argument("--no-baseline", action="store_true")
     ap.add_argument("--write-baseline", action="store_true")
@@ -385,8 +405,22 @@ def main() -> int:
               file=sys.stderr)
         return EXIT_USAGE
 
-    allow = load_allowlist(root)
     max_report = 10**9 if args.list else 30
+    if args.reviewed_transitions:
+        if not args.range or args.staged or args.write_baseline or args.no_baseline:
+            ap.error("--reviewed-transitions requires only a committed --range")
+        if Path(__file__).resolve().is_relative_to(root):
+            ap.error("reviewed mode requires the protected evaluator outside the subject checkout")
+        try:
+            commits = args.range.split("..")
+            if len(commits) != 2:
+                raise ReviewError("expected BASE..HEAD")
+            with open_reviews(root, *commits) as reviews:
+                return scan_diff(reviews.diff(), {}, max_report, args.strict_mass_rewrite, reviews)
+        except (OSError, ValueError, UnicodeError) as exc:
+            print(f"check-corruption: FAIL - reviewed range unavailable: {exc}", file=sys.stderr)
+            return EXIT_USAGE
+    allow = load_allowlist(root)
 
     if args.range or args.staged:
         cmd = ["git", "-C", str(root), "diff", "--no-color", "--unified=0"]
