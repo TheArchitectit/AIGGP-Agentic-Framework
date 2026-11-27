@@ -1,6 +1,6 @@
 {
   "batch": "batch-007",
-  "batch_disposition_sha256": "sha256:e7c4bea6eb826dfd164e031594a72da514a8ef9745f3a4e054962149bd4cd720",
+  "batch_disposition_sha256": "sha256:f2d106988c4d8916cd896afb5f98e22dacde0a49d602cabe7797454d59cfc96c",
   "canonical_discovery": {
     "checked_in_manifests_reviewed": [
       "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-001/evidence/evidence-manifest.json",
@@ -16,11 +16,11 @@
   },
   "canonical_roster_ledger_state_unchanged": true,
   "evidence_integrity_only": true,
-  "evidence_manifest_digest": "sha256:67ae978d512728e8a3e3102dff7bcf6d6bf0fb98dfce1e6c15d49374a6ad652b",
+  "evidence_manifest_digest": "sha256:c3208e61de610df2e3152f86916528f32c52ea11ba74c0c197e6dfc58efedda0",
   "format": "dg02-batch-disposition/v1",
   "lifecycle_transitions": 0,
   "prior_discovery_disposition_sha256": "a77e3e9966e72dd8c2233444e424d4e39fb4e074fe60a567616019c19addac79",
-  "reviewed_at_utc": "2026-11-27T18:09:52+00:00",
+  "reviewed_at_utc": "2026-11-27T18:13:27+00:00",
   "reviewed_head": "5df1164e039084475c03683b15607fbca07b34c6",
   "rows": [
     "DG02-U-073",

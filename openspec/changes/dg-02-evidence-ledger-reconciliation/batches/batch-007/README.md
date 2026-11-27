@@ -7,7 +7,7 @@ The [dispositions](batch-007-disposition.jsonl) bind the evidence and missing pr
 | Row | Requirement | Observation | Remaining proof |
 | --- | --- | --- | --- |
 | DG02-U-073 | `mon-hub-01` | Configuration, startup and service tests exercise parts of the hub. | No reviewed test establishes one deployment and hub-only peer configuration for every runner. |
-| DG02-U-074 | `mon-channels-01` | Monitor tests exercise API checks and heartbeat paths. | No reviewed control demonstrates both channels independently for an unenrolled runner. |
+| DG02-U-074 | `mon-channels-01` | Monitor tests exercise API checks and heartbeat paths. | No reviewed control demonstrates API checks for a registered repository runner without a heartbeat and independently establishes heartbeat-only stale detection. |
 | DG02-U-075 | `mon-registry-01` | Registry tests cover schema, placeholder example, and credential revocation. | Persistent volume deployment and complete committed host-data hygiene need row-bound evidence. |
 | DG02-U-076 | `mon-deadman-01` | Watchdog tests cover unreachable, stale, disabled and malformed health responses. | The cited window does not establish installed systemd failure or hosted-runner exclusion. |
 | DG02-U-077 | `mon-local-01` | Config defaults to loopback, but HUB_BIND_HOST=0.0.0.0 is accepted and server binds the configured value. | The local-only listener requirement needs enforced and independently tested address boundaries. |
@@ -26,7 +26,7 @@ The first 84 of 182 rows have detailed reviews. The next 98 begin at `DG02-U-085
 ```sh
 python3 scripts/evidence-validate.py \
   openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-007/evidence \
-  --expected sha256:67ae978d512728e8a3e3102dff7bcf6d6bf0fb98dfce1e6c15d49374a6ad652b
+  --expected sha256:c3208e61de610df2e3152f86916528f32c52ea11ba74c0c197e6dfc58efedda0
 ```
 
 The manifest binds the exact test receipt and a finding for every row. Each finding hashes its disposition with the two review evidence link fields removed, using sorted compact ASCII JSON.
