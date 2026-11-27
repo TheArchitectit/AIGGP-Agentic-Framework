@@ -1,0 +1,5 @@
+{
+  "api_version": "devgate.scope/v1",
+  "skip_dirs": [".devgate", ".git", "__pycache__"],
+  "source_dirs": ["."]
+}

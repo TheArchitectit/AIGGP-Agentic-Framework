@@ -1,0 +1,196 @@
+# Text Integrity — Reusable CI Template (fw-charset-01, fw-encoding-01, fw-corruption-01)
+#
+# Consumer-facing counterpart to DevGate's own `text-integrity` job. This is the
+# template a fleet repo copies so the three text gates actually RUN there. Until
+# 2026-10-19 they ran only in DevGate's own CI, so every consumer repo —
+# openagentrails, OpenAgentPlatform, radicalopenmcpplatform — shipped text with
+# no gate at all and drifted freely.
+#
+# WHY THIS EXISTS (measured, not theoretical): a U+00A7 SECTION SIGN landed in
+# agent-guardrails-template spec 16 on 2026-10-18 and sat in `main` for a day.
+# The gate that denies that exact codepoint existed and was green — in a repo
+# the character was never written to. A gate is only fleet-wide when every
+# consumer runs it.
+#
+# WHAT IT DOES
+#   1. fw-charset-01 — tracked text is ASCII. The reported defect (U+00A7) is
+#      DENIED by name; an allowlist preserves reviewed typography that carries
+#      structural meaning (box drawing, arrows, dashes, status glyphs). A
+#      malformed allowlist row is a hard error, and `deny` always beats `allow`.
+#   2. fw-encoding-01 — encoding and line-ending drift: BOM, non-UTF-8 bytes,
+#      CRLF/LF mismatch, and .gitattributes declaration.
+#   3. fw-corruption-01 — damaged bytes in content (U+FFFD, mojibake, control
+#      and bidi characters) plus the bad-flip / bulk-mutation shape in the
+#      pushed range.
+#
+# NON-VACUITY: every gate fails if it scans zero files. A scan that evaluated
+# nothing must never read as green — that is the failure mode these gates exist
+# to prevent, and it applies to the gates themselves first.
+#
+# RATCHET, NOT EXEMPTION: existing debt is grandfathered per file via
+# `.guardrails/charset-baseline.json` and may only DECREASE. A repo adopting
+# this template on a drifted tree goes green at its current count and then can
+# never grow. Scopes listed in `strict_zero` are NOT grandfatherable — new text
+# in those trees must be clean on the first commit.
+#
+# SETUP:
+#   - Add `.devgate/` to the consumer `.gitignore` and replace the workflow's
+#     `DEVGATE_SHA` placeholder with a reviewed, full 40-character commit.
+#   - Copy this file into your repo at `.github/workflows/text-integrity.yml`.
+#   - First run: the charset gate writes a baseline when `--write-baseline` is
+#     passed. Run it once locally, review the diff, commit the baseline.
+#     Without a baseline the gate is strict-zero across the whole tree.
+#   - CUSTOMIZE: the `runs-on` label (defaults to ubuntu-latest), and
+#     `strict_zero` if you have a tree that must never carry non-ASCII.
+
+name: Text Integrity
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+# Replace this with the consumer-reviewed full commit before installing the
+# template. Keeping the pin in the workflow makes updates visible in code review.
+env:
+  DEVGATE_SHA: bdbd450e0275a05b319ce29d83f761e8ed552e69
+  DEVGATE_SOURCE_URL: https://github.com/TheArchitectit/AIGGP-Agentic-Framework.git
+
+concurrency:
+  group: text-integrity-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  text-integrity:
+    name: "Text integrity (charset / encoding / corruption)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      # CUSTOMIZE: point at .devgate/scripts for the pinned checkout, or
+      # scripts/ for a repo that vendors its own copies.
+      SCRIPTS_DIR: .devgate/scripts
+
+    steps:
+      - name: Checkout consumer code
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          # The corruption gate scans the pushed range, so history is needed
+          # beyond the default single commit.
+          fetch-depth: 0
+
+      - name: Bootstrap pinned DevGate
+        run: |
+          set -euo pipefail
+          bootstrap_fail() { echo "::error::DevGate bootstrap: $1"; exit 1; }
+          root=$(pwd -P)
+          consumer_root=$(git rev-parse --show-toplevel 2>/dev/null) || bootstrap_fail "cannot resolve the consumer Git root"
+          [ "$consumer_root" = "$root" ] || bootstrap_fail "job is not at the consumer Git root"
+          [ -n "${DEVGATE_SHA:-}" ] && [[ "$DEVGATE_SHA" =~ ^[0-9a-f]{40}$ ]] || bootstrap_fail "replace the workflow-level DEVGATE_SHA placeholder with a reviewed full lowercase commit SHA"
+          git check-ignore --quiet --no-index -- .devgate/ || bootstrap_fail ".devgate/ must be ignored by the consumer"
+          tracked_devgate=$(git ls-files -- .devgate 2>/dev/null) || bootstrap_fail "cannot inspect tracked DevGate paths"
+          [ -z "$tracked_devgate" ] || bootstrap_fail ".devgate/ must not be tracked"
+          [ ! -L .devgate ] || bootstrap_fail ".devgate must not be a symlink"
+          source_url=${DEVGATE_SOURCE_URL:-https://github.com/TheArchitectit/AIGGP-Agentic-Framework.git}
+          case "$source_url" in *://*@*) bootstrap_fail "DEVGATE_SOURCE_URL must not contain credentials" ;; esac
+          if [ -e .devgate ]; then
+            checkout_root=$(git -C .devgate rev-parse --show-toplevel 2>/dev/null) || bootstrap_fail "existing .devgate is not a complete Git checkout"
+            [ "$checkout_root" = "$root/.devgate" ] || bootstrap_fail "existing .devgate is not a checkout rooted at .devgate"
+            actual=$(git -C .devgate rev-parse HEAD 2>/dev/null) || bootstrap_fail "existing .devgate has no checked-out commit"
+            [ "$actual" = "$DEVGATE_SHA" ] || bootstrap_fail "existing .devgate is not at DEVGATE_SHA"
+            origin=$(git -C .devgate remote get-url origin 2>/dev/null) || bootstrap_fail "existing .devgate has no origin"
+            [ "$origin" = "$source_url" ] || bootstrap_fail "existing .devgate has the wrong source"
+            checkout_status=$(git -C .devgate status --porcelain --untracked-files=all --ignored=matching 2>/dev/null) || bootstrap_fail "cannot inspect existing .devgate state"
+            [ -z "$checkout_status" ] || bootstrap_fail "existing .devgate is dirty"
+          else
+            git init --quiet .devgate || bootstrap_fail "could not initialize .devgate"
+            git -C .devgate remote add origin "$source_url" || bootstrap_fail "could not configure DevGate source"
+            GIT_TERMINAL_PROMPT=0 GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null git -C .devgate fetch --quiet --no-tags --depth=1 origin "$DEVGATE_SHA" || bootstrap_fail "could not fetch the pinned DevGate commit"
+            git -C .devgate -c core.autocrlf=false checkout --quiet --detach FETCH_HEAD || bootstrap_fail "could not check out the pinned DevGate commit"
+          fi
+          checkout_root=$(git -C .devgate rev-parse --show-toplevel 2>/dev/null) || bootstrap_fail ".devgate is not a Git checkout"
+          [ "$checkout_root" = "$root/.devgate" ] || bootstrap_fail ".devgate has the wrong checkout root"
+          actual=$(git -C .devgate rev-parse HEAD 2>/dev/null) || bootstrap_fail ".devgate has no checked-out commit"
+          [ "$actual" = "$DEVGATE_SHA" ] || bootstrap_fail ".devgate HEAD does not match DEVGATE_SHA"
+          git -C .devgate cat-file -e "$DEVGATE_SHA^{commit}" || bootstrap_fail "DEVGATE_SHA is not a commit"
+          checkout_status=$(git -C .devgate status --porcelain --untracked-files=all --ignored=matching 2>/dev/null) || bootstrap_fail "cannot inspect .devgate worktree state"
+          [ -z "$checkout_status" ] || bootstrap_fail ".devgate worktree is not clean"
+          for required in .guardrails/scope.json scripts/check_charset.py scripts/check_encoding.py scripts/check_corruption.py scripts/corruption_diff.py scripts/gate_common.py scripts/lib/project_root.py tests/test_check_charset.py tests/test_check_encoding.py tests/test_check_corruption.py; do
+            [ ! -L ".devgate/$required" ] && [ -f ".devgate/$required" ] || bootstrap_fail "required DevGate file is missing or unsafe: $required"
+            git -C .devgate ls-files --error-unmatch -- "$required" >/dev/null 2>&1 || bootstrap_fail "required DevGate file is not tracked: $required"
+            pinned_blob=$(git -C .devgate rev-parse --verify "$DEVGATE_SHA:$required" 2>/dev/null) || bootstrap_fail "required DevGate file is absent from DEVGATE_SHA: $required"
+            actual_blob=$(git -C .devgate hash-object --no-filters -- "$required" 2>/dev/null) || bootstrap_fail "cannot hash required DevGate file: $required"
+            [ "$actual_blob" = "$pinned_blob" ] || bootstrap_fail "required DevGate file content does not match DEVGATE_SHA: $required"
+          done
+          echo "DevGate ready at $DEVGATE_SHA under .devgate/"
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+
+      # The gates refuse to run against a missing scope contract; fail here with
+      # a clear message rather than mid-scan.
+      - name: Verify gate tooling is present
+        run: |
+          set -euo pipefail
+          for g in check_charset.py check_encoding.py check_corruption.py gate_common.py; do
+            if [ ! -f "$SCRIPTS_DIR/$g" ]; then
+              echo "::error::$SCRIPTS_DIR/$g is missing — is DevGate vendored at .devgate/?"
+              exit 1
+            fi
+          done
+          echo "gate tooling present in $SCRIPTS_DIR"
+
+      # fw-charset-01: tracked text is ASCII. U+00A7 is DENIED by name; the
+      # allowlist preserves reviewed typography and may narrow the standard but
+      # never disable it.
+      - name: Charset standard (ASCII text; no non-ASCII glyphs)
+        run: python3 "$SCRIPTS_DIR/check_charset.py" --repo .
+
+      # fw-encoding-01: BOM, non-UTF-8 bytes, CRLF/LF mismatch, missing
+      # .gitattributes declaration.
+      - name: Encoding drift (BOM / non-UTF-8 / line endings)
+        run: python3 "$SCRIPTS_DIR/check_encoding.py" --repo .
+
+      # fw-corruption-01: damaged bytes in content, plus the pushed-range
+      # bad-flip / bulk-mutation scan. The range scan is fail-closed: a base
+      # ref that cannot be resolved is an error, never a silent skip.
+      - name: Data corruption (content + pushed-range flip scan)
+        run: |
+          set -uo pipefail
+          python3 "$SCRIPTS_DIR/check_corruption.py" --repo .
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="origin/${{ github.base_ref }}"
+          elif [ "${{ github.event_name }}" = "push" ] && [ -n "${{ github.event.before }}" ] \
+               && [ "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]; then
+            BASE="${{ github.event.before }}"
+          else
+            # No usable base (workflow_dispatch, first push). Skip the RANGE
+            # scan only; the content scan above already ran over the full tree.
+            echo "no pushed range to scan for this event — content scan above is authoritative"
+            exit 0
+          fi
+          if ! git rev-parse --verify --quiet "$BASE^{commit}" >/dev/null; then
+            echo "::error::base $BASE does not resolve — refusing to report a range scan that did not run"
+            exit 1
+          fi
+          python3 "$SCRIPTS_DIR/check_corruption.py" --repo . --range "$BASE..HEAD"
+
+      - name: Gate self-tests (red-on-drift control)
+        # The controls ship with DevGate. They prove each gate CAN fail; without
+        # them a green step only proves the tree is clean, not that the gate
+        # would refuse anything.
+        run: |
+          set -euo pipefail
+          for t in test_check_charset.py test_check_encoding.py test_check_corruption.py; do
+            if [ -f ".devgate/tests/$t" ]; then
+              python3 ".devgate/tests/$t"
+            else
+              echo "::error::control .devgate/tests/$t is missing — a gate with no red-on-drift proof is unverified"
+              exit 1
+            fi
+          done

@@ -1,0 +1,10 @@
+{
+  "api_version": "devgate.charset/v1",
+  "note": ["Synthetic reference consumer uses strict ASCII text."],
+  "deny": [
+    {"codepoint": "0x00A7", "reason": "Synthetic negative-control codepoint is forbidden by the consumer policy."}
+  ],
+  "allow": [
+    {"codepoint": "0x2014", "reason": "The exact published text-integrity workflow uses em dashes in its explanatory comments."}
+  ]
+}
