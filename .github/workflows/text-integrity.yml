@@ -57,7 +57,7 @@ permissions:
 # Replace this with the consumer-reviewed full commit before installing the
 # template. Keeping the pin in the workflow makes updates visible in code review.
 env:
-  DEVGATE_SHA: bdbd450e0275a05b319ce29d83f761e8ed552e69
+  DEVGATE_SHA: 80d18b0f0f4e080c9e47d4e534cc2c56c29308ca
   DEVGATE_SOURCE_URL: https://github.com/TheArchitectit/AIGGP-Agentic-Framework.git
 
 concurrency:
