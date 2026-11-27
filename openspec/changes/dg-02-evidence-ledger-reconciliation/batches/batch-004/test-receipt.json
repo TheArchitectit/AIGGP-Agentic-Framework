@@ -1,0 +1,189 @@
+{
+  "format": "dg02-batch-test-receipt/v1",
+  "reviewed_head": "bdbd450e0275a05b319ce29d83f761e8ed552e69",
+  "reviewed_at_utc": "2026-11-27T16:12:27Z",
+  "runtime": "Python 3.12.13; Linux x86_64; non-root uid 1000",
+  "python_command": "../py312/bin/python -m pytest -q --junitxml=/tmp/dg02-batch004-audit312.xml <34 explicitly listed test modules>",
+  "python_outcome": {
+    "failed": 0,
+    "passed": 551,
+    "passing_subtests": 9,
+    "skipped": 0,
+    "junit_sha256": "d064e0032195e88330203f2eec51790489be5dac229ca1dc2fe3f2b0d30767d1"
+  },
+  "per_module": {
+    "tests/test_coherence_local_wrapper.py": {
+      "passed": 14,
+      "skipped": 0,
+      "failed": 0
+    },
+    "tests/test_gate_common.py": {
+      "passed": 32,
+      "skipped": 0,
+      "failed": 0
+    },
+    "tests/test_gate_containment.py": {
+      "passed": 20,
+      "skipped": 0,
+      "failed": 0
+    },
+    "tests/test_hub_alert.py": {
+      "passed": 20,
+      "skipped": 0,
+      "failed": 0
+    },
+    "tests/test_hub_alerts.py": {
+      "passed": 9,
+      "skipped": 0,
+      "failed": 0
+    },
+    "tests/test_hub_boundary_validation.py": {
+      "passed": 3,
+      "skipped": 0,
+      "failed": 0
+    },
+    "tests/test_hub_coherence.py": {
+      "passed": 45,
+      "skipped": 0,
+      "failed": 0
+    },
+    "tests/test_hub_coherence_3d_slice.py": {
+      "passed": 12,
+      "skipped": 0,
+      "failed": 0
+    },
+    "tests/test_hub_coherence_allowlist.py": {
+      "passed": 4,
+      "skipped": 0,
+      "failed": 0
+    },
+    "tests/test_hub_coherence_assertion_schema.py": {
+      "passed": 15,
+      "skipped": 0,
+      "failed": 0
+    },
+    "tests/test_hub_coherence_compat.py": {
+      "passed": 20,
+      "skipped": 0,
+      "failed": 0
+    },
+    "tests/test_hub_coherence_conformance.py": {
+      "passed": 32,
+      "skipped": 0,
+      "failed": 0
+    },
+    "tests/test_hub_coherence_container.py": {
+      "passed": 29,
+      "skipped": 0,
+      "failed": 0
+    },
+    "tests/test_hub_coherence_containment.py": {
+      "passed": 14,
+      "skipped": 0,
+      "failed": 0
+    },
+    "tests/test_hub_coherence_decision.py": {
+      "passed": 6,
+      "skipped": 0,
+      "failed": 0
+    },
+    "tests/test_hub_coherence_exitcodes.py": {
+      "passed": 34,
+      "skipped": 0,
+      "failed": 0
+    },
+    "tests/test_hub_coherence_issue.py": {
+      "passed": 17,
+      "skipped": 0,
+      "failed": 0
+    },
+    "tests/test_hub_coherence_ladder.py": {
+      "passed": 8,
+      "skipped": 0,
+      "failed": 0
+    },
+    "tests/test_hub_coherence_launcher.py": {
+      "passed": 36,
+      "skipped": 0,
+      "failed": 0
+    },
+    "tests/test_hub_coherence_modes.py": {
+      "passed": 18,
+      "skipped": 0,
+      "failed": 0
+    },
+    "tests/test_hub_coherence_modes_cli.py": {
+      "passed": 6,
+      "skipped": 0,
+      "failed": 0
+    },
+    "tests/test_hub_coherence_runtime.py": {
+      "passed": 18,
+      "skipped": 0,
+      "failed": 0
+    },
+    "tests/test_hub_coherence_schema.py": {
+      "passed": 26,
+      "skipped": 0,
+      "failed": 0
+    },
+    "tests/test_hub_config_and_deadcode.py": {
+      "passed": 4,
+      "skipped": 0,
+      "failed": 0
+    },
+    "tests/test_hub_enroll_heartbeat.py": {
+      "passed": 18,
+      "skipped": 0,
+      "failed": 0
+    },
+    "tests/test_hub_main.py": {
+      "passed": 10,
+      "skipped": 0,
+      "failed": 0
+    },
+    "tests/test_hub_negative_cl.py": {
+      "passed": 1,
+      "skipped": 0,
+      "failed": 0
+    },
+    "tests/test_hub_registry.py": {
+      "passed": 25,
+      "skipped": 0,
+      "failed": 0
+    },
+    "tests/test_hub_server_smoke.py": {
+      "passed": 1,
+      "skipped": 0,
+      "failed": 0
+    },
+    "tests/test_hub_services.py": {
+      "passed": 6,
+      "skipped": 0,
+      "failed": 0
+    },
+    "tests/test_mutation_harness.py": {
+      "passed": 22,
+      "skipped": 0,
+      "failed": 0
+    },
+    "tests/test_regression_scope.py": {
+      "passed": 14,
+      "skipped": 0,
+      "failed": 0
+    },
+    "tests/test_runbook_claims.py": {
+      "passed": 5,
+      "skipped": 0,
+      "failed": 0
+    },
+    "tests/test_schema_health_exitcodes.py": {
+      "passed": 7,
+      "skipped": 0,
+      "failed": 0
+    }
+  },
+  "node_command": "node --test tests/test_guardrails_scan.mjs",
+  "node_outcome": "PASS; 1 Node test file; all reported controls passed",
+  "scope_note": "This receipt records the named modules run as an aggregate, including all owner-spec test modules listed for rows 037–048. Per-row coverage below names relevant assertions, but shared module outcomes are not isolated row-specific acceptance receipts. No canonical requirement-specific evidence bundle or external/deployment receipt was established; all dispositions remain UNPROVEN."
+}

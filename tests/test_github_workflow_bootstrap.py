@@ -5,11 +5,13 @@ from __future__ import annotations
 import os
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
 REPO = Path(__file__).resolve().parent.parent
+APPROVED_REFERENCE_DEVGATE_SHA = "bdbd450e0275a05b319ce29d83f761e8ed552e69"
 WORKFLOWS = {
     "drift-scan.yml": (
         "Bootstrap pinned DevGate for target detection",
@@ -331,3 +333,101 @@ def test_tracked_and_dirty_dev_gate_paths_fail_closed(
     result = _run(dirty_project, source_url, pin, body)
     _assert_fail_closed(dirty_project, result)
     assert "is dirty" in result.stdout + result.stderr
+
+
+def test_reference_consumer_materializes_real_behavior_and_pinned_workflow(tmp_path: Path) -> None:
+    template = REPO / "templates" / "consumer-delivery-reference"
+    destination = tmp_path / "consumer"
+    result = subprocess.run(
+        [sys.executable, str(template / "materialize.py"), str(destination)],
+        cwd=REPO,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    identity = result.stdout
+    assert "consumer commit:" in identity
+    assert f"DevGate commit: {APPROVED_REFERENCE_DEVGATE_SHA}" in identity
+    workflow = (destination / ".github/workflows/text-integrity.yml").read_text(encoding="utf-8")
+    assert f"DEVGATE_SHA: {APPROVED_REFERENCE_DEVGATE_SHA}" in workflow
+    assert "REPLACE_WITH_REVIEWED_FULL_40_HEX_COMMIT" not in workflow
+    published = subprocess.run(
+        [
+            "git",
+            "show",
+            f"{APPROVED_REFERENCE_DEVGATE_SHA}:templates/github-workflows/text-integrity.yml",
+        ],
+        cwd=REPO,
+        text=True,
+        capture_output=True,
+        check=True,
+    ).stdout
+    assert workflow == published.replace(
+        "REPLACE_WITH_REVIEWED_FULL_40_HEX_COMMIT",
+        APPROVED_REFERENCE_DEVGATE_SHA,
+    )
+    assert (destination / ".guardrails/scope.json").is_file()
+    assert (destination / ".guardrails/charset-allowlist.json").is_file()
+    assert (destination / ".github/workflows/reference-consumer.yml").is_file()
+    assert not (destination / "materialize.py").exists()
+    assert not (destination / "README.md").exists()
+    behavior = subprocess.run(
+        [sys.executable, "tests/run_tests.py"],
+        cwd=destination,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert behavior.returncode == 0, behavior.stdout + behavior.stderr
+    assert "Ran 2 tests" in behavior.stderr
+    assert "Behavior test cases: 2" in behavior.stdout
+    bootstrap = _run(
+        destination, REPO.as_uri(), APPROVED_REFERENCE_DEVGATE_SHA,
+        _step_run(workflow, "Bootstrap pinned DevGate"),
+    )
+    assert bootstrap.returncode == 0, bootstrap.stderr
+    tools = destination / ".devgate"
+    assert _git(tools, "rev-parse", "HEAD") == APPROVED_REFERENCE_DEVGATE_SHA
+    scanner = [sys.executable, str(tools / "scripts/check_charset.py"), "--repo", "."]
+    clean = subprocess.run(scanner, cwd=destination, capture_output=True, text=True)
+    assert clean.returncode == 0, clean.stderr
+    assert "9 tracked" in clean.stdout
+    (destination / "negative-control.txt").write_text(chr(0x00A7), encoding="utf-8")
+    _git(destination, "add", "negative-control.txt")
+    charset = subprocess.run(scanner, cwd=destination, capture_output=True, text=True)
+    assert charset.returncode == 1
+    assert "negative-control.txt:1:1" in charset.stdout
+    assert "U+00A7" in charset.stdout
+
+
+def test_reference_consumer_rejects_bad_pin_without_populating_target(tmp_path: Path) -> None:
+    template = REPO / "templates" / "consumer-delivery-reference"
+    destination = tmp_path / "consumer"
+    result = subprocess.run(
+        [sys.executable, str(template / "materialize.py"), str(destination), "--devgate-sha", "not-a-pin"],
+        cwd=REPO,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode != 0
+    assert "full lowercase 40-character SHA" in result.stderr
+    assert not destination.exists()
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(template / "materialize.py"),
+            str(destination),
+            "--devgate-sha",
+            "0000000000000000000000000000000000000000",
+        ],
+        cwd=REPO,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode != 0
+    assert "commit is unavailable locally" in result.stderr
+    assert not destination.exists()
+    assert not list(tmp_path.glob(".consumer.stage-*"))

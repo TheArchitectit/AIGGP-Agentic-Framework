@@ -37,3 +37,18 @@
 - [ ] 3.3 Verify tenant entitlements, policy coverage, operations, recovery,
   and deployment acceptance with their accountable owners. Activate optional
   products and a central gateway only after their separate decisions.
+
+## Accountable roles and next receipts
+
+The source handoff identifies accountable functions, not named individuals.
+These assignments preserve that role-level ownership; each task remains open
+until its acceptance evidence is recorded.
+
+| Task | Accountable owner roles | Next acceptance receipt |
+| --- | --- | --- |
+| 2.1 Hosted reference workflow | Consumer CI owner and release owner | Review the [synthetic hosted pilot](../qualify-consumer-delivery-evidence/hosted-pilot.md) and supply the corresponding bank-selected runner, tool pin, positive and rejection receipts for bank acceptance. |
+| 2.2 Promotion evidence | Consumer CI owner and release owner | Protected-path evidence that required checks, reviewed source, approved artifact digest, approval, recovery reference, and rollback decision match at promotion. |
+| 2.3 Monitor recovery | Monitor maintainer and operator | Rehearsal receipt for restore, writer fencing, heartbeat reconciliation, and alert continuity against agreed recovery objectives. |
+| 3.1 Read-only runtime pilot | Runtime owner and data owner | Synthetic identity and record results for scoped access, source permissions, default-deny, durable evidence, and revocation for one named tool. |
+| 3.2 Controlled action pilot | Action owner, identity owner, and target owner | Simulator receipt for exact approval and parameters, credential scope, idempotency, uncertain-outcome reconciliation, and accepted/denied effect counts. |
+| 3.3 Operational acceptance | Tenant owner, security owner, and platform owner | Tenant entitlement and policy results plus deployment, operations, and recovery acceptance for selected services; keep bank-controlled receipts with the bank. |

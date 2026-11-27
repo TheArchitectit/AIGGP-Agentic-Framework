@@ -16,3 +16,4 @@ hub/coherence/schemas/*.schema.json text eol=lf
 # and finding payloads byte-stable on Windows checkouts as well as Linux.
 openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-002/** text eol=lf
 openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-003/** text eol=lf
+openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-004/** text eol=lf

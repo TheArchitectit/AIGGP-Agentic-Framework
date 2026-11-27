@@ -1,0 +1,28 @@
+{
+  "batch": "batch-004",
+  "batch_disposition_sha256": "sha256:58d337d34c3fe9174c78c9f3922968ced3b412aea699a4f1765b5d20d01326ff",
+  "canonical_roster_ledger_state_unchanged": true,
+  "evidence_integrity_only": true,
+  "evidence_manifest_digest": "sha256:728533e782a0117cb58a8c7653422dc769ec6aec8a2f978e34c6570e5cad945f",
+  "format": "dg02-batch-disposition/v1",
+  "lifecycle_transitions": 0,
+  "prior_discovery_disposition_sha256": "a77e3e9966e72dd8c2233444e424d4e39fb4e074fe60a567616019c19addac79",
+  "reviewed_at_utc": "2026-11-27T16:15:50Z",
+  "reviewed_head": "bdbd450e0275a05b319ce29d83f761e8ed552e69",
+  "rows": [
+    "DG02-U-037",
+    "DG02-U-038",
+    "DG02-U-039",
+    "DG02-U-040",
+    "DG02-U-041",
+    "DG02-U-042",
+    "DG02-U-043",
+    "DG02-U-044",
+    "DG02-U-045",
+    "DG02-U-046",
+    "DG02-U-047",
+    "DG02-U-048"
+  ],
+  "source_roster_sha256": "92c30d3b19cebdfac4a99f3a8a47ebbdb7ca3e28dcd8b35d63e16d1e4da4b27a",
+  "test_receipt_sha256": "sha256:f8849c41fac762d890638e9fee9401db2c40587f5e2d2daff1ddf58d716a9326"
+}

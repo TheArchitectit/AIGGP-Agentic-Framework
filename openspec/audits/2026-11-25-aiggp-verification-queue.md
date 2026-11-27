@@ -1,6 +1,6 @@
 # AIGGP OpenSpec verification queue
 
-Work sequence for November 25–26, 2026. The [gap register](2026-11-25-aiggp-gap-register.md)
+Work sequence, resumed November 27, 2026. The [gap register](2026-11-25-aiggp-gap-register.md)
 identifies the owning change and its acceptance tasks.
 
 ## Current batch
@@ -14,8 +14,8 @@ identifies the owning change and its acceptance tasks.
 - [ ] DG-02. Continue reviewing the indexed requirements against
   enforcement, named behavioral tests, ordered commits, and sealed evidence.
   Preserve the original roster and apply lifecycle transitions only for
-  requirements with accepted evidence. [Batch 003](../changes/dg-02-evidence-ledger-reconciliation/batches/batch-003/README.md)
-  brings detailed coverage to 36 of 182. The next row is DG02-U-037.
+  requirements with accepted evidence. [Batch 004](../changes/dg-02-evidence-ledger-reconciliation/batches/batch-004/README.md)
+  brings detailed coverage to 48 of 182. The next row is DG02-U-049.
 
 ## Architecture acceptance
 

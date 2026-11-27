@@ -1,0 +1,216 @@
+{
+  "candidate": "bdbd450e0275a05b319ce29d83f761e8ed552e69",
+  "app_id": 2550930,
+  "jobs": [
+    {
+      "job": "Publish evaluator image to GHCR (S4)",
+      "workflow": ".github/workflows/ci.yml",
+      "event": "push",
+      "attempt": 1,
+      "run_id": 46024242565,
+      "native_id": 140591534328,
+      "check_suite_id": 124512304482,
+      "job_url": "https://github.com/TheArchitectit/AIGGP-Agentic-Framework/actions/runs/46024242565/job/140591534328",
+      "conclusion": "success",
+      "app_verdict": "success",
+      "checkout": "bdbd450e0275a05b319ce29d83f761e8ed552e69",
+      "runner_name": "ucs03-devgate-podman",
+      "runner_id": 28,
+      "labels": [
+        "devgate-podman"
+      ],
+      "issues": [],
+      "app_check_id": 140614858597,
+      "app_check_url": "https://github.com/TheArchitectit/AIGGP-Agentic-Framework/runs/140614858597"
+    },
+    {
+      "job": "Test suite (Python + Node)",
+      "workflow": ".github/workflows/ci.yml",
+      "event": "push",
+      "attempt": 1,
+      "run_id": 46024242565,
+      "native_id": 140591534725,
+      "check_suite_id": 124512304482,
+      "job_url": "https://github.com/TheArchitectit/AIGGP-Agentic-Framework/actions/runs/46024242565/job/140591534725",
+      "conclusion": "success",
+      "app_verdict": "success",
+      "checkout": "bdbd450e0275a05b319ce29d83f761e8ed552e69",
+      "runner_name": "ucs03-devgate",
+      "runner_id": 23,
+      "labels": [
+        "devgate"
+      ],
+      "issues": [],
+      "app_check_id": 140614874762,
+      "app_check_url": "https://github.com/TheArchitectit/AIGGP-Agentic-Framework/runs/140614874762"
+    },
+    {
+      "job": "The evaluator itself is attacked (fw-*)",
+      "workflow": ".github/workflows/ci.yml",
+      "event": "push",
+      "attempt": 1,
+      "run_id": 46024242565,
+      "native_id": 140591534736,
+      "check_suite_id": 124512304482,
+      "job_url": "https://github.com/TheArchitectit/AIGGP-Agentic-Framework/actions/runs/46024242565/job/140591534736",
+      "conclusion": "success",
+      "app_verdict": "success",
+      "checkout": "bdbd450e0275a05b319ce29d83f761e8ed552e69",
+      "runner_name": "ucs03-devgate-spare2",
+      "runner_id": 26,
+      "labels": [
+        "devgate"
+      ],
+      "issues": [],
+      "app_check_id": 140614889533,
+      "app_check_url": "https://github.com/TheArchitectit/AIGGP-Agentic-Framework/runs/140614889533"
+    },
+    {
+      "job": "DevGate gates on DevGate",
+      "workflow": ".github/workflows/ci.yml",
+      "event": "push",
+      "attempt": 1,
+      "run_id": 46024242565,
+      "native_id": 140591534818,
+      "check_suite_id": 124512304482,
+      "job_url": "https://github.com/TheArchitectit/AIGGP-Agentic-Framework/actions/runs/46024242565/job/140591534818",
+      "conclusion": "success",
+      "app_verdict": "success",
+      "checkout": "bdbd450e0275a05b319ce29d83f761e8ed552e69",
+      "runner_name": "ucs03-devgate-spare1",
+      "runner_id": 27,
+      "labels": [
+        "devgate"
+      ],
+      "issues": [],
+      "app_check_id": 140614903960,
+      "app_check_url": "https://github.com/TheArchitectit/AIGGP-Agentic-Framework/runs/140614903960"
+    },
+    {
+      "job": "Evaluator image builds with its contracts (coh-rt-08)",
+      "workflow": ".github/workflows/ci.yml",
+      "event": "push",
+      "attempt": 1,
+      "run_id": 46024242565,
+      "native_id": 140591534895,
+      "check_suite_id": 124512304482,
+      "job_url": "https://github.com/TheArchitectit/AIGGP-Agentic-Framework/actions/runs/46024242565/job/140591534895",
+      "conclusion": "success",
+      "app_verdict": "success",
+      "checkout": "bdbd450e0275a05b319ce29d83f761e8ed552e69",
+      "runner_name": "ucs03-devgate-podman",
+      "runner_id": 28,
+      "labels": [
+        "devgate-podman"
+      ],
+      "issues": [],
+      "app_check_id": 140614919436,
+      "app_check_url": "https://github.com/TheArchitectit/AIGGP-Agentic-Framework/runs/140614919436"
+    },
+    {
+      "job": "Specs (openspec strict + traceability)",
+      "workflow": ".github/workflows/ci.yml",
+      "event": "push",
+      "attempt": 1,
+      "run_id": 46024242565,
+      "native_id": 140591534971,
+      "check_suite_id": 124512304482,
+      "job_url": "https://github.com/TheArchitectit/AIGGP-Agentic-Framework/actions/runs/46024242565/job/140591534971",
+      "conclusion": "success",
+      "app_verdict": "success",
+      "checkout": "bdbd450e0275a05b319ce29d83f761e8ed552e69",
+      "runner_name": "ucs03-devgate-spare1",
+      "runner_id": 27,
+      "labels": [
+        "devgate"
+      ],
+      "issues": [],
+      "app_check_id": 140614934301,
+      "app_check_url": "https://github.com/TheArchitectit/AIGGP-Agentic-Framework/runs/140614934301"
+    },
+    {
+      "job": "Secret scan (pinned gitleaks over the pushed range)",
+      "workflow": ".github/workflows/ci.yml",
+      "event": "push",
+      "attempt": 1,
+      "run_id": 46024242565,
+      "native_id": 140591534972,
+      "check_suite_id": 124512304482,
+      "job_url": "https://github.com/TheArchitectit/AIGGP-Agentic-Framework/actions/runs/46024242565/job/140591534972",
+      "conclusion": "success",
+      "app_verdict": "success",
+      "checkout": "bdbd450e0275a05b319ce29d83f761e8ed552e69",
+      "runner_name": "ucs03-devgate-spare1",
+      "runner_id": 27,
+      "labels": [
+        "devgate"
+      ],
+      "issues": [],
+      "app_check_id": 140614949596,
+      "app_check_url": "https://github.com/TheArchitectit/AIGGP-Agentic-Framework/runs/140614949596"
+    },
+    {
+      "job": "Open-item gates (detects; does not block a push)",
+      "workflow": ".github/workflows/open-item-gates.yml",
+      "event": "push",
+      "attempt": 1,
+      "run_id": 46024242676,
+      "native_id": 140591401797,
+      "check_suite_id": 124512304770,
+      "job_url": "https://github.com/TheArchitectit/AIGGP-Agentic-Framework/actions/runs/46024242676/job/140591401797",
+      "conclusion": "success",
+      "app_verdict": "success",
+      "checkout": "bdbd450e0275a05b319ce29d83f761e8ed552e69",
+      "runner_name": "ucs03-devgate",
+      "runner_id": 23,
+      "labels": [
+        "devgate"
+      ],
+      "issues": [],
+      "app_check_id": 140614964546,
+      "app_check_url": "https://github.com/TheArchitectit/AIGGP-Agentic-Framework/runs/140614964546"
+    },
+    {
+      "job": "Main is a tagged, documented release",
+      "workflow": ".github/workflows/release-coverage.yml",
+      "event": "push",
+      "attempt": 1,
+      "run_id": 46024242657,
+      "native_id": 140591400818,
+      "check_suite_id": 124512304722,
+      "job_url": "https://github.com/TheArchitectit/AIGGP-Agentic-Framework/actions/runs/46024242657/job/140591400818",
+      "conclusion": "failure",
+      "app_verdict": "failure",
+      "checkout": "bdbd450e0275a05b319ce29d83f761e8ed552e69",
+      "runner_name": "ucs03-devgate",
+      "runner_id": 23,
+      "labels": [
+        "devgate"
+      ],
+      "issues": [],
+      "app_check_id": 140614979417,
+      "app_check_url": "https://github.com/TheArchitectit/AIGGP-Agentic-Framework/runs/140614979417"
+    },
+    {
+      "job": "Spec-state ledger audit (detection, not prevention)",
+      "workflow": ".github/workflows/spec-state.yml",
+      "event": "push",
+      "attempt": 1,
+      "run_id": 46024242696,
+      "native_id": 140591407038,
+      "check_suite_id": 124512304813,
+      "job_url": "https://github.com/TheArchitectit/AIGGP-Agentic-Framework/actions/runs/46024242696/job/140591407038",
+      "conclusion": "success",
+      "app_verdict": "success",
+      "checkout": "bdbd450e0275a05b319ce29d83f761e8ed552e69",
+      "runner_name": "ucs03-devgate-spare2",
+      "runner_id": 26,
+      "labels": [
+        "devgate"
+      ],
+      "issues": [],
+      "app_check_id": 140614995648,
+      "app_check_url": "https://github.com/TheArchitectit/AIGGP-Agentic-Framework/runs/140614995648"
+    }
+  ]
+}

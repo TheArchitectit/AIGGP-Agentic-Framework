@@ -29,7 +29,7 @@
   "test_gate_containment": 18,
   "test_gate_overlay": 6,
   "test_gen_checksums": 5,
-  "test_github_workflow_bootstrap": 36,
+  "test_github_workflow_bootstrap": 38,
   "test_gitlab_forge_deployment": 14,
   "test_gitlab_forge_support": 7,
   "test_gitlab_template_bootstrap": 9,

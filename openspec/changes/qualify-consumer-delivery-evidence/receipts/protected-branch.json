@@ -1,0 +1,42 @@
+{
+  "target": "codex/reference-promotion",
+  "strict": true,
+  "enforce_admins": true,
+  "app_id": 2550930,
+  "app_slug": "mission-control-ci-cd",
+  "required_checks": [
+    "AIGGP reference / Text integrity (charset / encoding / corruption)",
+    "AIGGP reference / Synthetic source behavior"
+  ],
+  "merge_attempts": [
+    {
+      "pr": 61,
+      "sha": "664956666fbfeed0c0839ad3c377c2d3a65aa0b0",
+      "request": "PUT /pulls/61/merge",
+      "http": 405,
+      "message": "2 of 2 required status checks have not succeeded: 1 expected.",
+      "branch_sha_before": "e4c6f33647d54d6c7925eb898f20c6b1bcf3395f",
+      "branch_sha_after": "e4c6f33647d54d6c7925eb898f20c6b1bcf3395f",
+      "status": "blocked",
+      "stage": "missing"
+    },
+    {
+      "pr": 61,
+      "sha": "664956666fbfeed0c0839ad3c377c2d3a65aa0b0",
+      "request": "PUT /pulls/61/merge",
+      "http": 405,
+      "message": "2 of 2 required status checks are failing.",
+      "branch_sha_before": "e4c6f33647d54d6c7925eb898f20c6b1bcf3395f",
+      "branch_sha_after": "e4c6f33647d54d6c7925eb898f20c6b1bcf3395f",
+      "status": "blocked",
+      "stage": "failed"
+    }
+  ],
+  "pr_merge_state": {
+    "61": "BLOCKED",
+    "62": "BLOCKED",
+    "63": "BLOCKED",
+    "64": "BLOCKED",
+    "65": "CLEAN"
+  }
+}

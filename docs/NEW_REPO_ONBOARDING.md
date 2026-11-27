@@ -50,6 +50,12 @@ workflow-specific scripts/data before running gates; it does not rely on
 
 ---
 
+## Hosted reference consumer
+
+From a full AIGGP checkout, run `python3 templates/consumer-delivery-reference/materialize.py /path/to/empty-directory`. The materializer creates a standalone synthetic Python repository with a pinned text-integrity workflow, two entry-point tests and a consumer-owned scan policy. Review the tooling pin for each adoption.
+
+The [hosted pilot](../openspec/changes/qualify-consumer-delivery-evidence/hosted-pilot.md) records the two GitHub-hosted jobs, separate App checks on the candidate, the tested merge SHA and the protected branch used for the trial. An adopting CI owner must select the runner and check publisher and configure required checks on the intended target branch. A new private runner or forge needs its own execution and protection receipts.
+
 ## Layout
 
 ```
