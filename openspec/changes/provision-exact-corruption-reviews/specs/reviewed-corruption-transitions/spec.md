@@ -15,9 +15,17 @@ The corruption evaluator SHALL keep existing modes strict. It SHALL enter review
 
 ### Requirement: Reviewed mode uses protected external authority
 <!-- id: scan-corruption-reviewed-authority-01 -->
-Reviewed mode SHALL read the catalog only from `/etc/aiggp/corruption-reviews.json` and the binding only from `/run/aiggp/corruption-reviews/<sha256(canonical-checkout-path)>.json`. The privileged control plane SHALL install these files outside the subject checkout and mount the containing protected directories read-only, not individual files, so atomic host-side replacement is visible. The evaluator SHALL reopen and revalidate the binding and catalog before applying reviewed dispositions. Subject files, allowlists, CLI overrides, or checkout content SHALL NOT authorize a finding.
+Reviewed mode SHALL accept authority only from the fixed catalog and run binding in privileged, read-only directory mounts. The evaluator SHALL reopen and validate both files before applying any reviewed disposition. Subject files, allowlists and CLI overrides cannot authorize a finding.
 
-The catalog SHALL use API version `aiggp.corruption-review-catalog/v1` with an `exceptions` array. The binding SHALL use `aiggp.corruption-review-binding/v1` and bind canonical checkout, immutable `github:<host>:<numeric repository id>`, exact full base/head, UTC issuance/expiry, and SHA-256 of raw catalog bytes.
+#### Scenario: Controller installs the authority files
+- **WHEN** the privileged controller provisions a checkout
+- **THEN** it installs the catalog at `/etc/aiggp/corruption-reviews.json` and the binding at `/run/aiggp/corruption-reviews/<sha256(canonical-checkout-path)>.json` outside the subject checkout
+- **AND** it mounts the containing protected directories read-only so atomic file replacement remains visible
+
+#### Scenario: Evaluator reads an issued catalog and binding
+- **WHEN** reviewed mode starts
+- **THEN** it requires an `aiggp.corruption-review-catalog/v1` catalog with an `exceptions` array and an `aiggp.corruption-review-binding/v1` binding
+- **AND** the binding fixes the canonical checkout, immutable `github:<host>:<numeric repository id>`, full base and head, UTC issuance and expiry, and SHA-256 of the raw catalog
 
 #### Scenario: Subject checkout supplies apparent authority
 - **WHEN** a subject file or CLI option attempts to supply or replace authority inputs
@@ -29,7 +37,12 @@ The catalog SHALL use API version `aiggp.corruption-review-catalog/v1` with an `
 
 ### Requirement: Exception records identify one exact finding transition
 <!-- id: scan-corruption-reviewed-exact-01 -->
-Each record SHALL provide `exception_id`, `subject_ref`, `subject_path`, `assertion_id`, `finding_fingerprint`, `owner`, `reason`, `approving_authority`, `created_at`, `expires_at`, `remediation_ref`, and `enforcement_treatment`. The `finding_fingerprint` object SHALL contain `assertion_id`, integer `assertion_version` (currently 1), `subject_location` equal to `subject_path`, and bind ordered blob IDs and exact new-side line in `substitution-flip:<before-blob>:<after-blob>:<new-line>`. It applies only if every identity, detector, path, blob order, location, and validity field matches.
+A reviewed record SHALL apply to one substitution only when the subject, detector, path, ordered blob IDs, new-side line and validity all match the finding. The record SHALL identify its owner and approving authority and carry the reason, remediation reference and enforcement treatment.
+
+#### Scenario: Evaluator validates a review record
+- **WHEN** the evaluator loads a record
+- **THEN** it requires `exception_id`, `subject_ref`, `subject_path`, `assertion_id`, `finding_fingerprint`, `owner`, `reason`, `approving_authority`, `created_at`, `expires_at`, `remediation_ref` and `enforcement_treatment`
+- **AND** the fingerprint contains the matching `assertion_id`, integer `assertion_version` (currently 1), `subject_location` equal to `subject_path` and `substitution-flip:<before-blob>:<after-blob>:<new-line>`
 
 #### Scenario: Exact transition matches
 - **WHEN** a finding matches one valid record's full identity and transition tuple
