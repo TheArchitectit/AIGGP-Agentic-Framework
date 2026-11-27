@@ -246,7 +246,8 @@ def _checksum_line_parts(line: str) -> tuple[str, str] | tuple[None, None]:
 
 
 def scan_diff(diff: str, allow: dict[str, str], max_report: int,
-              strict_mass_rewrite: bool = False) -> int:
+              strict_mass_rewrite: bool = False,
+              exact_review: dict | None = None) -> int:
     added = list(_added_lines(diff))
     removed = list(_removed_lines(diff))
     if not added and not removed:
@@ -269,6 +270,8 @@ def scan_diff(diff: str, allow: dict[str, str], max_report: int,
 
     fails: list[str] = []
     warnings: list[str] = []
+    flips: list[str] = []
+    mass_rewrites: list[dict] = []
 
     # Flip detection: pair removed/added lines ONLY inside the contiguous -/+
     # run git reports, in order; a same-length line with a high character-level
@@ -320,10 +323,11 @@ def scan_diff(diff: str, allow: dict[str, str], max_report: int,
                 ratio = 1.0 - SequenceMatcher(None, old, new).ratio()
                 len_delta = abs(len(new) - len(old)) / max(1, len(old))
                 if len_delta <= FLIP_LEN_TOLERANCE and ratio >= FLIP_DIFF_RATIO:
-                    fails.append(
-                        f"{path}:{ln}: substitution flip "
-                        f"({ratio*100:.0f}% of characters changed, "
-                        f"length within {len_delta*100:.0f}%)")
+                    finding = (f"{path}:{ln}: substitution flip "
+                               f"({ratio*100:.0f}% of characters changed, "
+                               f"length within {len_delta*100:.0f}%)")
+                    flips.append(finding)
+                    fails.append(finding)
 
     bulk_files = 0
     for path in sorted(add_by_file):
@@ -333,6 +337,8 @@ def scan_diff(diff: str, allow: dict[str, str], max_report: int,
         if (add_by_file[path] >= MASS_REWRITE_MIN_LINES
                 and rem_by_file[path] >= MASS_REWRITE_MIN_LINES):
             bulk_files += 1
+            mass_rewrites.append({"path": path, "added": add_by_file[path],
+                                  "removed": rem_by_file[path]})
             msg = (f"{path}: MASS REWRITE - {add_by_file[path]} added / "
                    f"{rem_by_file[path]} removed line(s) in one change")
             (fails if strict_mass_rewrite else warnings).append(msg)
@@ -341,6 +347,28 @@ def scan_diff(diff: str, allow: dict[str, str], max_report: int,
         fails.append(
             f"BULK MUTATION - {bulk_files} whole files rewritten in one change "
             f"(ransomware / runaway-script shape)")
+
+    if exact_review is not None:
+        inventory = {
+            "flips": sorted(flips),
+            "mass_rewrites": mass_rewrites,
+            "strict_mass_rewrite": strict_mass_rewrite,
+            "bulk_mutation": ({"files": bulk_files,
+                               "threshold": BULK_MUTATION_FILES}
+                              if bulk_files >= BULK_MUTATION_FILES else None),
+            "failures": sorted(fails),
+            "warnings": sorted(warnings),
+        }
+        if exact_review["inventory"] == inventory:
+            print(f"check-corruption: REVIEWED - {exact_review['review_id']} "
+                  "matches the exact committed range findings")
+            for finding in [*fails, *warnings]:
+                print(f"  REVIEWED: {finding}")
+            print(f"check-corruption: OK - detached review covers {len(flips)} "
+                  f"substitution flip(s), {bulk_files} mass rewrite(s)")
+            return EXIT_OK
+        print("check-corruption: detached review identity matched but finding "
+              "inventory differed; full range findings remain enforced")
 
     if fails:
         print(f"check-corruption: FAIL - {len(fails)} data-flip / "
@@ -368,6 +396,9 @@ def main() -> int:
         description="data-corruption + bad-flip gate (fw-corruption-01)")
     ap.add_argument("--repo", default=".")
     ap.add_argument("--range", help="git revision range A..B (diff scan)")
+    ap.add_argument("--repository-id", help="canonical OWNER/REPO identity; enables exact range mode")
+    ap.add_argument("--review-file", help="detached trusted review JSON outside --repo")
+    ap.add_argument("--review-sha256", help="authority-supplied SHA-256 for --review-file")
     ap.add_argument("--staged", action="store_true", help="scan the staged diff")
     ap.add_argument("--no-baseline", action="store_true")
     ap.add_argument("--write-baseline", action="store_true")
@@ -377,6 +408,19 @@ def main() -> int:
     args = ap.parse_args()
 
     root = Path(args.repo).resolve()
+    if bool(args.review_file) != bool(args.review_sha256):
+        print("check-corruption: FAIL - --review-file and --review-sha256 must be supplied together",
+              file=sys.stderr)
+        return EXIT_USAGE
+    exact_mode = args.repository_id is not None
+    if (args.review_file or args.review_sha256) and not exact_mode:
+        print("check-corruption: FAIL - detached review requires --repository-id and --range",
+              file=sys.stderr)
+        return EXIT_USAGE
+    if exact_mode and (not args.range or args.staged):
+        print("check-corruption: FAIL - exact-review mode requires a committed --range",
+              file=sys.stderr)
+        return EXIT_USAGE
     gc = _load_gate_common()
     try:
         skip_dirs = gc.load_skip_dirs()
@@ -385,13 +429,28 @@ def main() -> int:
               file=sys.stderr)
         return EXIT_USAGE
 
-    allow = load_allowlist(root)
+    allow = {} if exact_mode else load_allowlist(root)
     max_report = 10**9 if args.list else 30
 
     if args.range or args.staged:
+        exact_review = None
+        range_expression = args.range
+        if exact_mode:
+            try:
+                from corruption_review import ReviewError, prepare_review
+                exact_review, status, range_expression = prepare_review(
+                    root, args.range, args.repository_id,
+                    args.review_file, args.review_sha256)
+                if exact_review is None:
+                    print(f"check-corruption: {status}; ordinary range policy remains active")
+            except ReviewError as exc:
+                print(f"check-corruption: FAIL - exact range review: {exc}", file=sys.stderr)
+                return EXIT_USAGE
         cmd = ["git", "-C", str(root), "diff", "--no-color", "--unified=0"]
+        if exact_mode:
+            cmd.extend(["--no-ext-diff", "--no-textconv"])
         if args.range:
-            cmd.append(args.range)
+            cmd.append(range_expression)
         else:
             cmd.append("--cached")
         r = subprocess.run(cmd, capture_output=True, text=True,
@@ -400,7 +459,8 @@ def main() -> int:
             print(f"check-corruption: FAIL - git diff failed: {r.stderr}",
                   file=sys.stderr)
             return EXIT_USAGE
-        return scan_diff(r.stdout, allow, max_report, args.strict_mass_rewrite)
+        return scan_diff(r.stdout, {} if exact_mode else allow, max_report,
+                         args.strict_mass_rewrite, exact_review)
 
     if args.write_baseline:
         files = [f for f in tracked_files(root) if gc.is_text_file(f)]
