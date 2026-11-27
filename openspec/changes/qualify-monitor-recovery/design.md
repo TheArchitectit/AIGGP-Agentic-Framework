@@ -2,11 +2,21 @@
 
 ## State boundary
 
-The recovery set is the configured instance state, not deployment configuration.
-It contains `runners.json`, `services.json`, and every `alerts/*.jsonl` file under
-the configured data directory. It does not contain environment variables, API
-credentials, bearer tokens, container images, or machine-specific endpoint data.
-Backups and receipts remain private instance artifacts and are never committed.
+The recovery set covers the configured runner registry, service map, and daily
+alert records. These filenames identify candidate inputs. Their contents still
+need qualification before backup. The [source inventory](state-inventory.md)
+records which inputs can carry pending enrollment credentials, instance
+addresses, or free text. The private archive must exclude environment secrets,
+plaintext bearer tokens, machine-specific endpoints and deployment
+configuration. Keep instance backups and receipts in private storage.
+
+Reject an ineligible generation before writing an archive or issuing a receipt.
+Leave the source state intact. In particular, an outstanding one-time enrollment
+credential is a reason to defer a raw registry backup. Complete or explicitly
+retire that enrollment through the normal lifecycle before retrying. Keep the
+registry salt with the heartbeat verifiers needed for recovery. Define any
+normalized backup representation, its schema version and its restore behavior
+before enabling backup of a generation that needs field-level transformation.
 
 The registry schema is versioned JSON and the service map has its own JSON schema.
 The runner registry is written with a same-directory temporary file followed by

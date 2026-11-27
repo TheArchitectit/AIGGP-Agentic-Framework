@@ -2,9 +2,9 @@
 
 ## 1. Bound the persisted state
 
-- [ ] 1.1 Inventory the versioned registry/service-map schemas and append-only alert
+- [x] 1.1 Inventory the versioned registry/service-map schemas and append-only alert
   records; identify the exact configured files and exclude runtime secrets and
-  deployment configuration from the backup set.
+  deployment configuration from the backup set. See the [source and fixture inventory](state-inventory.md).
 - [ ] 1.2 Define strict manifest and receipt schemas with normalized relative paths,
   schema versions, byte counts, SHA-256 digests, writer generation, and
   privacy-safe runner counts.
