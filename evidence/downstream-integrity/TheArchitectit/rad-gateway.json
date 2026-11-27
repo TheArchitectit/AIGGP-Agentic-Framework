@@ -1,1 +1,403 @@
-{"api_version":"devgate.corruption-range-review/v1","base_commit":"ded98fedcc274a01b656a31ce94a541b5449485f","inventory":{"bulk_mutation":{"files":63,"threshold":10},"failures":["BULK MUTATION - 63 whole files rewritten in one change (ransomware / runaway-script shape)","cmd/rad-gateway/assets/assets/index-B8bjRea4.js:1: substitution flip (72% of characters changed, length within 0%)"],"flips":["cmd/rad-gateway/assets/assets/index-B8bjRea4.js:1: substitution flip (72% of characters changed, length within 0%)"],"mass_rewrites":[{"added":77,"path":".github/workflows/ci.yml","removed":42},{"added":147,"path":".github/workflows/devgate-gates.yml","removed":42},{"added":38,"path":".github/workflows/drift-scan.yml","removed":20},{"added":21,"path":"CHANGELOG.md","removed":21},{"added":16,"path":"docs/PLEXUS_DEBUG_MIGRATION.md","removed":16},{"added":8,"path":"docs/QA-SPRINT13.md","removed":8},{"added":17,"path":"docs/ROADMAP.md","removed":17},{"added":17,"path":"docs/SPRINT_PLAN.md","removed":17},{"added":22,"path":"docs/analysis/PARITY_GAP_ANALYSIS_2026-08.md","removed":22},{"added":8,"path":"docs/analysis/dashboard-parity-comparison-2026-07.md","removed":8},{"added":13,"path":"docs/analysis/team-echo-operations-strategy.md","removed":13},{"added":11,"path":"docs/api/compatibility-policy.md","removed":11},{"added":54,"path":"docs/architecture/beta-vs-production.md","removed":54},{"added":19,"path":"docs/architecture/integration-architecture.md","removed":19},{"added":12,"path":"docs/archive/PROJECT_STATUS_AND_PLAN.md","removed":12},{"added":13,"path":"docs/archive/sprint-tasks/P1/T1.10-openai-anthropic-streaming-conversion.md","removed":13},{"added":12,"path":"docs/archive/sprint-tasks/P2/T2.3-selector-framework.md","removed":12},{"added":25,"path":"docs/archive/sprints/MASTER_SPRINT_PLAN.md","removed":25},{"added":9,"path":"docs/archive/sprints/architect-sprint-plan.md","removed":9},{"added":11,"path":"docs/archive/sprints/complete-feature-sprint-plan.md","removed":11},{"added":9,"path":"docs/archive/sprints/fullstack-sprint-plan.md","removed":9},{"added":329,"path":"docs/audit/2026-09-20-f2-regression.md","removed":329},{"added":8,"path":"docs/database/schema-design.md","removed":8},{"added":11,"path":"docs/operations/golden-stack.md","removed":11},{"added":9,"path":"docs/operations/operator-acceptance-runbook.md","removed":9},{"added":28,"path":"docs/parity-matrix.md","removed":28},{"added":9,"path":"docs/reviews/architecture-gap-analysis.md","removed":9},{"added":8,"path":"docs/reviews/security-gap-analysis.md","removed":8},{"added":22,"path":"docs/sprints/SPRINT_10_CONTEXT_MGMT_EXECUTION.md","removed":22},{"added":16,"path":"internal/admin/graphql/generated_part_08.go","removed":16},{"added":26,"path":"internal/admin/graphql/generated_part_09.go","removed":26},{"added":13,"path":"internal/admin/graphql/generated_part_10.go","removed":13},{"added":8,"path":"internal/admin/graphql/generated_part_11.go","removed":8},{"added":11,"path":"internal/admin/graphql/generated_part_12.go","removed":11},{"added":8,"path":"internal/admin/graphql/generated_part_13.go","removed":8},{"added":11,"path":"internal/admin/graphql/generated_part_14.go","removed":11},{"added":8,"path":"internal/admin/graphql/generated_part_15.go","removed":8},{"added":9,"path":"internal/admin/graphql/generated_part_16.go","removed":9},{"added":8,"path":"internal/admin/graphql/generated_part_18.go","removed":8},{"added":11,"path":"internal/admin/graphql/generated_part_20.go","removed":11},{"added":10,"path":"internal/admin/graphql/generated_part_21.go","removed":10},{"added":12,"path":"internal/admin/graphql/generated_part_22.go","removed":12},{"added":8,"path":"internal/admin/graphql/generated_part_25.go","removed":8},{"added":9,"path":"internal/admin/graphql/generated_part_26.go","removed":9},{"added":12,"path":"internal/admin/graphql/generated_part_27.go","removed":12},{"added":12,"path":"internal/admin/graphql/generated_part_28.go","removed":12},{"added":35,"path":"internal/admin/graphql/generated_part_29.go","removed":35},{"added":19,"path":"internal/admin/graphql/generated_part_30.go","removed":19},{"added":42,"path":"internal/admin/graphql/generated_part_31.go","removed":42},{"added":17,"path":"internal/admin/graphql/generated_part_32.go","removed":17},{"added":38,"path":"internal/admin/graphql/generated_part_40.go","removed":38},{"added":46,"path":"internal/admin/graphql/generated_part_41.go","removed":46},{"added":52,"path":"internal/admin/graphql/generated_part_42.go","removed":52},{"added":26,"path":"internal/admin/graphql/generated_part_43.go","removed":26},{"added":58,"path":"internal/repohygiene/script_references_test.go","removed":36},{"added":11,"path":"openspec/changes/2026-11-21-ci-github-app-identity/design.md","removed":11},{"added":60,"path":"openspec/changes/2026-11-21-ci-github-app-identity/tasks.md","removed":60},{"added":12,"path":"openspec/changes/2026-11-22-spec-gap-admin-privilege/tasks.md","removed":12},{"added":35,"path":"openspec/changes/archive/2026-09-10-security-provider-portability/tasks.md","removed":35},{"added":12,"path":"openspec/changes/archive/2026-09-19-audit-remediation-f1/tasks.md","removed":12},{"added":15,"path":"openspec/changes/archive/2026-09-23-admin-authz-transport/tasks.md","removed":15},{"added":21,"path":"openspec/changes/archive/2026-11-22-spec-gap-a2a-agent-dispatch/tasks.md","removed":21},{"added":10,"path":"tests/routetable/authz_matrix_test.go","removed":10}],"strict_mass_rewrite":false,"warnings":[".github/workflows/ci.yml: MASS REWRITE - 77 added / 42 removed line(s) in one change",".github/workflows/devgate-gates.yml: MASS REWRITE - 147 added / 42 removed line(s) in one change",".github/workflows/drift-scan.yml: MASS REWRITE - 38 added / 20 removed line(s) in one change","CHANGELOG.md: MASS REWRITE - 21 added / 21 removed line(s) in one change","docs/PLEXUS_DEBUG_MIGRATION.md: MASS REWRITE - 16 added / 16 removed line(s) in one change","docs/QA-SPRINT13.md: MASS REWRITE - 8 added / 8 removed line(s) in one change","docs/ROADMAP.md: MASS REWRITE - 17 added / 17 removed line(s) in one change","docs/SPRINT_PLAN.md: MASS REWRITE - 17 added / 17 removed line(s) in one change","docs/analysis/PARITY_GAP_ANALYSIS_2026-08.md: MASS REWRITE - 22 added / 22 removed line(s) in one change","docs/analysis/dashboard-parity-comparison-2026-07.md: MASS REWRITE - 8 added / 8 removed line(s) in one change","docs/analysis/team-echo-operations-strategy.md: MASS REWRITE - 13 added / 13 removed line(s) in one change","docs/api/compatibility-policy.md: MASS REWRITE - 11 added / 11 removed line(s) in one change","docs/architecture/beta-vs-production.md: MASS REWRITE - 54 added / 54 removed line(s) in one change","docs/architecture/integration-architecture.md: MASS REWRITE - 19 added / 19 removed line(s) in one change","docs/archive/PROJECT_STATUS_AND_PLAN.md: MASS REWRITE - 12 added / 12 removed line(s) in one change","docs/archive/sprint-tasks/P1/T1.10-openai-anthropic-streaming-conversion.md: MASS REWRITE - 13 added / 13 removed line(s) in one change","docs/archive/sprint-tasks/P2/T2.3-selector-framework.md: MASS REWRITE - 12 added / 12 removed line(s) in one change","docs/archive/sprints/MASTER_SPRINT_PLAN.md: MASS REWRITE - 25 added / 25 removed line(s) in one change","docs/archive/sprints/architect-sprint-plan.md: MASS REWRITE - 9 added / 9 removed line(s) in one change","docs/archive/sprints/complete-feature-sprint-plan.md: MASS REWRITE - 11 added / 11 removed line(s) in one change","docs/archive/sprints/fullstack-sprint-plan.md: MASS REWRITE - 9 added / 9 removed line(s) in one change","docs/audit/2026-09-20-f2-regression.md: MASS REWRITE - 329 added / 329 removed line(s) in one change","docs/database/schema-design.md: MASS REWRITE - 8 added / 8 removed line(s) in one change","docs/operations/golden-stack.md: MASS REWRITE - 11 added / 11 removed line(s) in one change","docs/operations/operator-acceptance-runbook.md: MASS REWRITE - 9 added / 9 removed line(s) in one change","docs/parity-matrix.md: MASS REWRITE - 28 added / 28 removed line(s) in one change","docs/reviews/architecture-gap-analysis.md: MASS REWRITE - 9 added / 9 removed line(s) in one change","docs/reviews/security-gap-analysis.md: MASS REWRITE - 8 added / 8 removed line(s) in one change","docs/sprints/SPRINT_10_CONTEXT_MGMT_EXECUTION.md: MASS REWRITE - 22 added / 22 removed line(s) in one change","internal/admin/graphql/generated_part_08.go: MASS REWRITE - 16 added / 16 removed line(s) in one change","internal/admin/graphql/generated_part_09.go: MASS REWRITE - 26 added / 26 removed line(s) in one change","internal/admin/graphql/generated_part_10.go: MASS REWRITE - 13 added / 13 removed line(s) in one change","internal/admin/graphql/generated_part_11.go: MASS REWRITE - 8 added / 8 removed line(s) in one change","internal/admin/graphql/generated_part_12.go: MASS REWRITE - 11 added / 11 removed line(s) in one change","internal/admin/graphql/generated_part_13.go: MASS REWRITE - 8 added / 8 removed line(s) in one change","internal/admin/graphql/generated_part_14.go: MASS REWRITE - 11 added / 11 removed line(s) in one change","internal/admin/graphql/generated_part_15.go: MASS REWRITE - 8 added / 8 removed line(s) in one change","internal/admin/graphql/generated_part_16.go: MASS REWRITE - 9 added / 9 removed line(s) in one change","internal/admin/graphql/generated_part_18.go: MASS REWRITE - 8 added / 8 removed line(s) in one change","internal/admin/graphql/generated_part_20.go: MASS REWRITE - 11 added / 11 removed line(s) in one change","internal/admin/graphql/generated_part_21.go: MASS REWRITE - 10 added / 10 removed line(s) in one change","internal/admin/graphql/generated_part_22.go: MASS REWRITE - 12 added / 12 removed line(s) in one change","internal/admin/graphql/generated_part_25.go: MASS REWRITE - 8 added / 8 removed line(s) in one change","internal/admin/graphql/generated_part_26.go: MASS REWRITE - 9 added / 9 removed line(s) in one change","internal/admin/graphql/generated_part_27.go: MASS REWRITE - 12 added / 12 removed line(s) in one change","internal/admin/graphql/generated_part_28.go: MASS REWRITE - 12 added / 12 removed line(s) in one change","internal/admin/graphql/generated_part_29.go: MASS REWRITE - 35 added / 35 removed line(s) in one change","internal/admin/graphql/generated_part_30.go: MASS REWRITE - 19 added / 19 removed line(s) in one change","internal/admin/graphql/generated_part_31.go: MASS REWRITE - 42 added / 42 removed line(s) in one change","internal/admin/graphql/generated_part_32.go: MASS REWRITE - 17 added / 17 removed line(s) in one change","internal/admin/graphql/generated_part_40.go: MASS REWRITE - 38 added / 38 removed line(s) in one change","internal/admin/graphql/generated_part_41.go: MASS REWRITE - 46 added / 46 removed line(s) in one change","internal/admin/graphql/generated_part_42.go: MASS REWRITE - 52 added / 52 removed line(s) in one change","internal/admin/graphql/generated_part_43.go: MASS REWRITE - 26 added / 26 removed line(s) in one change","internal/repohygiene/script_references_test.go: MASS REWRITE - 58 added / 36 removed line(s) in one change","openspec/changes/2026-11-21-ci-github-app-identity/design.md: MASS REWRITE - 11 added / 11 removed line(s) in one change","openspec/changes/2026-11-21-ci-github-app-identity/tasks.md: MASS REWRITE - 60 added / 60 removed line(s) in one change","openspec/changes/2026-11-22-spec-gap-admin-privilege/tasks.md: MASS REWRITE - 12 added / 12 removed line(s) in one change","openspec/changes/archive/2026-09-10-security-provider-portability/tasks.md: MASS REWRITE - 35 added / 35 removed line(s) in one change","openspec/changes/archive/2026-09-19-audit-remediation-f1/tasks.md: MASS REWRITE - 12 added / 12 removed line(s) in one change","openspec/changes/archive/2026-09-23-admin-authz-transport/tasks.md: MASS REWRITE - 15 added / 15 removed line(s) in one change","openspec/changes/archive/2026-11-22-spec-gap-a2a-agent-dispatch/tasks.md: MASS REWRITE - 21 added / 21 removed line(s) in one change","tests/routetable/authz_matrix_test.go: MASS REWRITE - 10 added / 10 removed line(s) in one change"]},"repository":"TheArchitectit/rad-gateway","review_id":"gateway-788d5542-8e78ff75","target_tree":"8e78ff7529bf066a147cd16f5ab07415427a85c2"}
+{
+  "api_version": "devgate.corruption-range-review/v1",
+  "base_commit": "52c12593a672d266713aed40a9bfccf77a6b9b7c",
+  "inventory": {
+    "bulk_mutation": {
+      "files": 63,
+      "threshold": 10
+    },
+    "failures": [
+      "BULK MUTATION - 63 whole files rewritten in one change (ransomware / runaway-script shape)",
+      "cmd/rad-gateway/assets/assets/index-B8bjRea4.js:1: substitution flip (72% of characters changed, length within 0%)"
+    ],
+    "flips": [
+      "cmd/rad-gateway/assets/assets/index-B8bjRea4.js:1: substitution flip (72% of characters changed, length within 0%)"
+    ],
+    "mass_rewrites": [
+      {
+        "added": 89,
+        "path": ".github/workflows/ci.yml",
+        "removed": 83
+      },
+      {
+        "added": 147,
+        "path": ".github/workflows/devgate-gates.yml",
+        "removed": 42
+      },
+      {
+        "added": 38,
+        "path": ".github/workflows/drift-scan.yml",
+        "removed": 20
+      },
+      {
+        "added": 21,
+        "path": "CHANGELOG.md",
+        "removed": 21
+      },
+      {
+        "added": 16,
+        "path": "docs/PLEXUS_DEBUG_MIGRATION.md",
+        "removed": 16
+      },
+      {
+        "added": 8,
+        "path": "docs/QA-SPRINT13.md",
+        "removed": 8
+      },
+      {
+        "added": 17,
+        "path": "docs/ROADMAP.md",
+        "removed": 17
+      },
+      {
+        "added": 17,
+        "path": "docs/SPRINT_PLAN.md",
+        "removed": 17
+      },
+      {
+        "added": 22,
+        "path": "docs/analysis/PARITY_GAP_ANALYSIS_2026-08.md",
+        "removed": 22
+      },
+      {
+        "added": 8,
+        "path": "docs/analysis/dashboard-parity-comparison-2026-07.md",
+        "removed": 8
+      },
+      {
+        "added": 13,
+        "path": "docs/analysis/team-echo-operations-strategy.md",
+        "removed": 13
+      },
+      {
+        "added": 11,
+        "path": "docs/api/compatibility-policy.md",
+        "removed": 11
+      },
+      {
+        "added": 54,
+        "path": "docs/architecture/beta-vs-production.md",
+        "removed": 54
+      },
+      {
+        "added": 19,
+        "path": "docs/architecture/integration-architecture.md",
+        "removed": 19
+      },
+      {
+        "added": 12,
+        "path": "docs/archive/PROJECT_STATUS_AND_PLAN.md",
+        "removed": 12
+      },
+      {
+        "added": 13,
+        "path": "docs/archive/sprint-tasks/P1/T1.10-openai-anthropic-streaming-conversion.md",
+        "removed": 13
+      },
+      {
+        "added": 12,
+        "path": "docs/archive/sprint-tasks/P2/T2.3-selector-framework.md",
+        "removed": 12
+      },
+      {
+        "added": 25,
+        "path": "docs/archive/sprints/MASTER_SPRINT_PLAN.md",
+        "removed": 25
+      },
+      {
+        "added": 9,
+        "path": "docs/archive/sprints/architect-sprint-plan.md",
+        "removed": 9
+      },
+      {
+        "added": 11,
+        "path": "docs/archive/sprints/complete-feature-sprint-plan.md",
+        "removed": 11
+      },
+      {
+        "added": 9,
+        "path": "docs/archive/sprints/fullstack-sprint-plan.md",
+        "removed": 9
+      },
+      {
+        "added": 329,
+        "path": "docs/audit/2026-09-20-f2-regression.md",
+        "removed": 329
+      },
+      {
+        "added": 8,
+        "path": "docs/database/schema-design.md",
+        "removed": 8
+      },
+      {
+        "added": 11,
+        "path": "docs/operations/golden-stack.md",
+        "removed": 11
+      },
+      {
+        "added": 9,
+        "path": "docs/operations/operator-acceptance-runbook.md",
+        "removed": 9
+      },
+      {
+        "added": 28,
+        "path": "docs/parity-matrix.md",
+        "removed": 28
+      },
+      {
+        "added": 9,
+        "path": "docs/reviews/architecture-gap-analysis.md",
+        "removed": 9
+      },
+      {
+        "added": 8,
+        "path": "docs/reviews/security-gap-analysis.md",
+        "removed": 8
+      },
+      {
+        "added": 22,
+        "path": "docs/sprints/SPRINT_10_CONTEXT_MGMT_EXECUTION.md",
+        "removed": 22
+      },
+      {
+        "added": 16,
+        "path": "internal/admin/graphql/generated_part_08.go",
+        "removed": 16
+      },
+      {
+        "added": 26,
+        "path": "internal/admin/graphql/generated_part_09.go",
+        "removed": 26
+      },
+      {
+        "added": 13,
+        "path": "internal/admin/graphql/generated_part_10.go",
+        "removed": 13
+      },
+      {
+        "added": 8,
+        "path": "internal/admin/graphql/generated_part_11.go",
+        "removed": 8
+      },
+      {
+        "added": 11,
+        "path": "internal/admin/graphql/generated_part_12.go",
+        "removed": 11
+      },
+      {
+        "added": 8,
+        "path": "internal/admin/graphql/generated_part_13.go",
+        "removed": 8
+      },
+      {
+        "added": 11,
+        "path": "internal/admin/graphql/generated_part_14.go",
+        "removed": 11
+      },
+      {
+        "added": 8,
+        "path": "internal/admin/graphql/generated_part_15.go",
+        "removed": 8
+      },
+      {
+        "added": 9,
+        "path": "internal/admin/graphql/generated_part_16.go",
+        "removed": 9
+      },
+      {
+        "added": 8,
+        "path": "internal/admin/graphql/generated_part_18.go",
+        "removed": 8
+      },
+      {
+        "added": 11,
+        "path": "internal/admin/graphql/generated_part_20.go",
+        "removed": 11
+      },
+      {
+        "added": 10,
+        "path": "internal/admin/graphql/generated_part_21.go",
+        "removed": 10
+      },
+      {
+        "added": 12,
+        "path": "internal/admin/graphql/generated_part_22.go",
+        "removed": 12
+      },
+      {
+        "added": 8,
+        "path": "internal/admin/graphql/generated_part_25.go",
+        "removed": 8
+      },
+      {
+        "added": 9,
+        "path": "internal/admin/graphql/generated_part_26.go",
+        "removed": 9
+      },
+      {
+        "added": 12,
+        "path": "internal/admin/graphql/generated_part_27.go",
+        "removed": 12
+      },
+      {
+        "added": 12,
+        "path": "internal/admin/graphql/generated_part_28.go",
+        "removed": 12
+      },
+      {
+        "added": 35,
+        "path": "internal/admin/graphql/generated_part_29.go",
+        "removed": 35
+      },
+      {
+        "added": 19,
+        "path": "internal/admin/graphql/generated_part_30.go",
+        "removed": 19
+      },
+      {
+        "added": 42,
+        "path": "internal/admin/graphql/generated_part_31.go",
+        "removed": 42
+      },
+      {
+        "added": 17,
+        "path": "internal/admin/graphql/generated_part_32.go",
+        "removed": 17
+      },
+      {
+        "added": 38,
+        "path": "internal/admin/graphql/generated_part_40.go",
+        "removed": 38
+      },
+      {
+        "added": 46,
+        "path": "internal/admin/graphql/generated_part_41.go",
+        "removed": 46
+      },
+      {
+        "added": 52,
+        "path": "internal/admin/graphql/generated_part_42.go",
+        "removed": 52
+      },
+      {
+        "added": 26,
+        "path": "internal/admin/graphql/generated_part_43.go",
+        "removed": 26
+      },
+      {
+        "added": 58,
+        "path": "internal/repohygiene/script_references_test.go",
+        "removed": 36
+      },
+      {
+        "added": 11,
+        "path": "openspec/changes/2026-11-21-ci-github-app-identity/design.md",
+        "removed": 11
+      },
+      {
+        "added": 60,
+        "path": "openspec/changes/2026-11-21-ci-github-app-identity/tasks.md",
+        "removed": 60
+      },
+      {
+        "added": 12,
+        "path": "openspec/changes/2026-11-22-spec-gap-admin-privilege/tasks.md",
+        "removed": 12
+      },
+      {
+        "added": 35,
+        "path": "openspec/changes/archive/2026-09-10-security-provider-portability/tasks.md",
+        "removed": 35
+      },
+      {
+        "added": 12,
+        "path": "openspec/changes/archive/2026-09-19-audit-remediation-f1/tasks.md",
+        "removed": 12
+      },
+      {
+        "added": 15,
+        "path": "openspec/changes/archive/2026-09-23-admin-authz-transport/tasks.md",
+        "removed": 15
+      },
+      {
+        "added": 21,
+        "path": "openspec/changes/archive/2026-11-22-spec-gap-a2a-agent-dispatch/tasks.md",
+        "removed": 21
+      },
+      {
+        "added": 10,
+        "path": "tests/routetable/authz_matrix_test.go",
+        "removed": 10
+      }
+    ],
+    "strict_mass_rewrite": false,
+    "warnings": [
+      ".github/workflows/ci.yml: MASS REWRITE - 89 added / 83 removed line(s) in one change",
+      ".github/workflows/devgate-gates.yml: MASS REWRITE - 147 added / 42 removed line(s) in one change",
+      ".github/workflows/drift-scan.yml: MASS REWRITE - 38 added / 20 removed line(s) in one change",
+      "CHANGELOG.md: MASS REWRITE - 21 added / 21 removed line(s) in one change",
+      "docs/PLEXUS_DEBUG_MIGRATION.md: MASS REWRITE - 16 added / 16 removed line(s) in one change",
+      "docs/QA-SPRINT13.md: MASS REWRITE - 8 added / 8 removed line(s) in one change",
+      "docs/ROADMAP.md: MASS REWRITE - 17 added / 17 removed line(s) in one change",
+      "docs/SPRINT_PLAN.md: MASS REWRITE - 17 added / 17 removed line(s) in one change",
+      "docs/analysis/PARITY_GAP_ANALYSIS_2026-08.md: MASS REWRITE - 22 added / 22 removed line(s) in one change",
+      "docs/analysis/dashboard-parity-comparison-2026-07.md: MASS REWRITE - 8 added / 8 removed line(s) in one change",
+      "docs/analysis/team-echo-operations-strategy.md: MASS REWRITE - 13 added / 13 removed line(s) in one change",
+      "docs/api/compatibility-policy.md: MASS REWRITE - 11 added / 11 removed line(s) in one change",
+      "docs/architecture/beta-vs-production.md: MASS REWRITE - 54 added / 54 removed line(s) in one change",
+      "docs/architecture/integration-architecture.md: MASS REWRITE - 19 added / 19 removed line(s) in one change",
+      "docs/archive/PROJECT_STATUS_AND_PLAN.md: MASS REWRITE - 12 added / 12 removed line(s) in one change",
+      "docs/archive/sprint-tasks/P1/T1.10-openai-anthropic-streaming-conversion.md: MASS REWRITE - 13 added / 13 removed line(s) in one change",
+      "docs/archive/sprint-tasks/P2/T2.3-selector-framework.md: MASS REWRITE - 12 added / 12 removed line(s) in one change",
+      "docs/archive/sprints/MASTER_SPRINT_PLAN.md: MASS REWRITE - 25 added / 25 removed line(s) in one change",
+      "docs/archive/sprints/architect-sprint-plan.md: MASS REWRITE - 9 added / 9 removed line(s) in one change",
+      "docs/archive/sprints/complete-feature-sprint-plan.md: MASS REWRITE - 11 added / 11 removed line(s) in one change",
+      "docs/archive/sprints/fullstack-sprint-plan.md: MASS REWRITE - 9 added / 9 removed line(s) in one change",
+      "docs/audit/2026-09-20-f2-regression.md: MASS REWRITE - 329 added / 329 removed line(s) in one change",
+      "docs/database/schema-design.md: MASS REWRITE - 8 added / 8 removed line(s) in one change",
+      "docs/operations/golden-stack.md: MASS REWRITE - 11 added / 11 removed line(s) in one change",
+      "docs/operations/operator-acceptance-runbook.md: MASS REWRITE - 9 added / 9 removed line(s) in one change",
+      "docs/parity-matrix.md: MASS REWRITE - 28 added / 28 removed line(s) in one change",
+      "docs/reviews/architecture-gap-analysis.md: MASS REWRITE - 9 added / 9 removed line(s) in one change",
+      "docs/reviews/security-gap-analysis.md: MASS REWRITE - 8 added / 8 removed line(s) in one change",
+      "docs/sprints/SPRINT_10_CONTEXT_MGMT_EXECUTION.md: MASS REWRITE - 22 added / 22 removed line(s) in one change",
+      "internal/admin/graphql/generated_part_08.go: MASS REWRITE - 16 added / 16 removed line(s) in one change",
+      "internal/admin/graphql/generated_part_09.go: MASS REWRITE - 26 added / 26 removed line(s) in one change",
+      "internal/admin/graphql/generated_part_10.go: MASS REWRITE - 13 added / 13 removed line(s) in one change",
+      "internal/admin/graphql/generated_part_11.go: MASS REWRITE - 8 added / 8 removed line(s) in one change",
+      "internal/admin/graphql/generated_part_12.go: MASS REWRITE - 11 added / 11 removed line(s) in one change",
+      "internal/admin/graphql/generated_part_13.go: MASS REWRITE - 8 added / 8 removed line(s) in one change",
+      "internal/admin/graphql/generated_part_14.go: MASS REWRITE - 11 added / 11 removed line(s) in one change",
+      "internal/admin/graphql/generated_part_15.go: MASS REWRITE - 8 added / 8 removed line(s) in one change",
+      "internal/admin/graphql/generated_part_16.go: MASS REWRITE - 9 added / 9 removed line(s) in one change",
+      "internal/admin/graphql/generated_part_18.go: MASS REWRITE - 8 added / 8 removed line(s) in one change",
+      "internal/admin/graphql/generated_part_20.go: MASS REWRITE - 11 added / 11 removed line(s) in one change",
+      "internal/admin/graphql/generated_part_21.go: MASS REWRITE - 10 added / 10 removed line(s) in one change",
+      "internal/admin/graphql/generated_part_22.go: MASS REWRITE - 12 added / 12 removed line(s) in one change",
+      "internal/admin/graphql/generated_part_25.go: MASS REWRITE - 8 added / 8 removed line(s) in one change",
+      "internal/admin/graphql/generated_part_26.go: MASS REWRITE - 9 added / 9 removed line(s) in one change",
+      "internal/admin/graphql/generated_part_27.go: MASS REWRITE - 12 added / 12 removed line(s) in one change",
+      "internal/admin/graphql/generated_part_28.go: MASS REWRITE - 12 added / 12 removed line(s) in one change",
+      "internal/admin/graphql/generated_part_29.go: MASS REWRITE - 35 added / 35 removed line(s) in one change",
+      "internal/admin/graphql/generated_part_30.go: MASS REWRITE - 19 added / 19 removed line(s) in one change",
+      "internal/admin/graphql/generated_part_31.go: MASS REWRITE - 42 added / 42 removed line(s) in one change",
+      "internal/admin/graphql/generated_part_32.go: MASS REWRITE - 17 added / 17 removed line(s) in one change",
+      "internal/admin/graphql/generated_part_40.go: MASS REWRITE - 38 added / 38 removed line(s) in one change",
+      "internal/admin/graphql/generated_part_41.go: MASS REWRITE - 46 added / 46 removed line(s) in one change",
+      "internal/admin/graphql/generated_part_42.go: MASS REWRITE - 52 added / 52 removed line(s) in one change",
+      "internal/admin/graphql/generated_part_43.go: MASS REWRITE - 26 added / 26 removed line(s) in one change",
+      "internal/repohygiene/script_references_test.go: MASS REWRITE - 58 added / 36 removed line(s) in one change",
+      "openspec/changes/2026-11-21-ci-github-app-identity/design.md: MASS REWRITE - 11 added / 11 removed line(s) in one change",
+      "openspec/changes/2026-11-21-ci-github-app-identity/tasks.md: MASS REWRITE - 60 added / 60 removed line(s) in one change",
+      "openspec/changes/2026-11-22-spec-gap-admin-privilege/tasks.md: MASS REWRITE - 12 added / 12 removed line(s) in one change",
+      "openspec/changes/archive/2026-09-10-security-provider-portability/tasks.md: MASS REWRITE - 35 added / 35 removed line(s) in one change",
+      "openspec/changes/archive/2026-09-19-audit-remediation-f1/tasks.md: MASS REWRITE - 12 added / 12 removed line(s) in one change",
+      "openspec/changes/archive/2026-09-23-admin-authz-transport/tasks.md: MASS REWRITE - 15 added / 15 removed line(s) in one change",
+      "openspec/changes/archive/2026-11-22-spec-gap-a2a-agent-dispatch/tasks.md: MASS REWRITE - 21 added / 21 removed line(s) in one change",
+      "tests/routetable/authz_matrix_test.go: MASS REWRITE - 10 added / 10 removed line(s) in one change"
+    ]
+  },
+  "repository": "TheArchitectit/rad-gateway",
+  "review_id": "radgw-pr129-merge-daaf383aa407",
+  "target_tree": "daaf383aa40787f1b4777aa34cbacd4311d17f95"
+}
