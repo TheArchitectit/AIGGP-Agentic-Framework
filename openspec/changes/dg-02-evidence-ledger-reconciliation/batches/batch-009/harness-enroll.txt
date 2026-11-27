@@ -1,0 +1,18 @@
+ok - plain-labels: exit 0
+ok - plain-labels: token never on stdout/stderr
+ok - plain-labels: payload is valid JSON
+ok - plain-labels: payload fields correct
+ok - plain-labels: curl is time-bounded
+ok - plain-labels: env file is 0600
+ok - plain-labels: token written to env file
+ok - hostile-labels: exit 0
+ok - hostile-labels: token never on stdout/stderr
+ok - hostile-labels: payload is valid JSON
+ok - hostile-labels: payload fields correct
+ok - hostile-labels: curl is time-bounded
+ok - hostile-labels: env file is 0600
+ok - hostile-labels: token written to env file
+ok - hostile runner name sanitized (enroll proceeds)
+ok - sanitized slug names the env file
+
+ALL TESTS PASSED

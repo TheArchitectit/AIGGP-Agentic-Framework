@@ -1,0 +1,66 @@
+ok - nested *.go violation blocks the scan
+ok - finding names the nested file and rule
+ok - PREVENT-009 fires on production discard
+ok - PREVENT-009 excludes *_test.go
+ok - allow annotation suppresses
+ok - forbidden_context (Exception) suppresses PREVENT-007
+ok - 4b: production line silenced only by context words still fires PREVENT-003
+ok - 4b: the same line in a test file stays suppressed
+ok - .guardrailsignore excludes archive/, keeps pkg/
+ok - overlay: new rule_id fires (PREVENT-XI-001)
+ok - overlay: merge banner shown
+ok - overlay: same-id entry REPLACED severity (error→warning)
+ok - overlay: replaced entry uses overlay message
+ok - overlay: scan blocks on the appended rule
+ok - env override: overlay-only rule fires
+ok - env override: bundled baseline NOT merged (030 silent)
+ok - cfg(test): production unwrap blocks (2 hits)
+ok - cfg(test): unwrap inside test module is NOT reported
+ok - cfg(test): exactly 2 violation(s), not 3
+ok - 8b: attribute between cfg(test) and mod does not reopen production
+ok - 8b: no unwrap finding from the test module
+ok - 8b: no Mock finding from the test module
+ok - test file: error rule silent
+ok - test file: warning rule still fires
+ok - test file: non-strict exit 0 (warning non-blocking)
+ok - sibling tests.rs: error rule silent
+ok - sibling tests.rs: warnings still fire (2)
+ok - COMMITTED-ENV fires on tracked .env
+ok - COMMITTED-ENV ignores untracked file
+ok - COMMITTED-GENERATED fires on tracked __pycache__
+ok - ignore: .env.testing not reported
+ok - carve-out: bare .env still fires despite ignore entry
+ok - warning alone: non-strict exit 0
+ok - warning alone: --strict exits 1
+ok - allow-file: header declaration exempts the whole file
+ok - allow-file: empty reason is NOT an exemption
+ok - allow-file: unrelated rule id does not exempt
+ok - allow-file: declaration past the header does not exempt
+ok - allow-file: exactly 3 violations (reason/rule/position)
+ok - zig: a catch unreachable violation blocks the scan
+ok - zig: finding names the rule and the file
+ok - zig: a clean zig file is not reported
+ok - zig comment: doc-comment mention of @panic/print is NOT reported
+ok - zig comment: live catch unreachable in the same run still fires
+ok - mjs: violation in .mjs file is reported
+ok - mjs: violation in .cjs file is reported
+ok - mjs: a clean .mjs file is not reported
+ok - html: a violation in a .html file is reported
+ok - html: a clean .html file is not reported
+ok - html: a full-line HTML comment mentioning the pattern is NOT reported
+ok - 12b: exclude_glob silences the exempt path on an unscoped rule
+ok - 12b: the same unscoped rule still fires outside the exemption
+ok - 19: a fixture module's synthetic Request is test code — silent
+ok - 19: the same line in a *.test.ts file stays exempt
+ok - 19: the same line in production code still blocks
+
+ALL TESTS PASSED
+✔ tests/test_guardrails_scan.mjs (701.078961ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 705.610134
