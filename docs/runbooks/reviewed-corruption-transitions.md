@@ -39,3 +39,13 @@ Use `--list` for the audit receipt. The normal display caps detail and reports a
 ## Withdraw a decision
 
 Remove or amend the record through the controller. Atomic replacement changes the catalog digest, which invalidates outstanding bindings. Issue a fresh binding against the current catalog for the next exact-range run. Retain the redacted report alongside the evaluator version, repository and range, catalog digest, decision reference and reviewer identity. Keep the subject change held while approval, protected provisioning or exact integration CI is pending.
+
+## Repeat the protected filesystem test
+
+The evaluator-image CI job runs this test on the rootless Podman runner. To repeat it locally, run the following from the repository root on a Linux host with rootless Podman.
+
+```sh
+python3 tests/protected_store_smoke.py --run
+```
+
+The build fetches the pinned Python base if absent and installs Git. The test container runs offline with a read-only root filesystem. It creates synthetic decisions under two empty in-memory mounts and invokes the real evaluator as an unprivileged user. The harness checks the ordinary blocking result, the exact advisory, atomic revocation, rejection of writable or symlinked policy, and rejection of a missing run binding. It removes the disposable image when the run ends.
