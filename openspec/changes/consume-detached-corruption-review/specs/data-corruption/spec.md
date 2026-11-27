@@ -8,7 +8,7 @@ Keep corruption checks effective while permitting an external authority to ackno
 
 ### Requirement: Range findings require detached exact review
 <!-- id: fw-corruption-02 -->
-When exact-review mode is enabled, the corruption scanner SHALL evaluate the complete committed range without using suppression data from the scanned repository. The canonical repository identity SHALL match the run's reserved `GITHUB_REPOSITORY` when present, or otherwise the verified `origin` identity. Under GitHub Actions the resolved `HEAD` SHALL match the reserved `GITHUB_SHA`. A review MAY acknowledge substitution-flip and mass-rewrite findings only when a detached review document, whose expected digest is supplied outside the scanned repository, matches the canonical repository identity, full base commit, exact target Git tree, and complete inventory of all range failures and warnings. The review SHALL NOT suppress content findings, staged findings, or control-test failures. Missing or stale review data SHALL leave ordinary range findings visible and blocking; malformed explicitly configured review data SHALL fail closed.
+Exact mode SHALL scan committed ranges without consumer-controlled suppressions. A detached, externally hashed review MAY acknowledge substitution and mass-rewrite findings only when repository, run, full base, exact target tree, and complete finding inventory match. Other findings remain blocking; invalid configured reviews fail closed.
 
 #### Scenario: exact review matches the committed range
 - **WHEN** the externally supplied review digest, repository, base commit, target tree, and complete flip and rewrite inventory match the evaluated `BASE..HEAD` range
@@ -29,6 +29,14 @@ When exact-review mode is enabled, the corruption scanner SHALL evaluate the com
 #### Scenario: GitHub run and checkout disagree
 - **WHEN** the workflow's reserved `GITHUB_SHA` does not identify the scanner's resolved `HEAD`
 - **THEN** exact-review mode fails before scanning, even if a review document names that checkout
+
+#### Scenario: repository identity is replayed to another checkout
+- **WHEN** the supplied repository differs from reserved `GITHUB_REPOSITORY`, or from verified `origin` outside Actions
+- **THEN** exact-review mode fails before applying any detached review
+
+#### Scenario: content and other gates remain blocking
+- **WHEN** a content, staged, control-test, or other non-range finding occurs alongside an acknowledged range
+- **THEN** the range review does not suppress that finding or make its gate pass
 
 #### Scenario: unrelated clean range with stale review
 - **WHEN** an otherwise valid detached review names another base or target tree and the current range is clean
