@@ -1,0 +1,1148 @@
+{
+  "capabilities": 67,
+  "matched": 67,
+  "mismatches": [],
+  "results": [
+    {
+      "capability": "adapters-and-loops",
+      "cli_count": 2,
+      "cli_ids": [
+        "adapter-01",
+        "adapter-02"
+      ],
+      "marker_ids": [
+        "adapter-01",
+        "adapter-02"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "add-runner-to-fleet",
+      "cli_count": 1,
+      "cli_ids": [
+        "fleet-add-01"
+      ],
+      "marker_ids": [
+        "fleet-add-01"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "adoption-and-policy",
+      "cli_count": 7,
+      "cli_ids": [
+        "coh-pol-01",
+        "coh-pol-02",
+        "coh-pol-03",
+        "coh-pol-04",
+        "coh-pol-05",
+        "coh-pol-06",
+        "coh-pol-07"
+      ],
+      "marker_ids": [
+        "coh-pol-01",
+        "coh-pol-02",
+        "coh-pol-03",
+        "coh-pol-04",
+        "coh-pol-05",
+        "coh-pol-06",
+        "coh-pol-07"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "art-creation-contract",
+      "cli_count": 12,
+      "cli_ids": [
+        "art-done-01",
+        "art-brief-01",
+        "art-brief-02",
+        "art-stage-01",
+        "art-ledger-01",
+        "art-bytes-01",
+        "art-accept-01",
+        "art-accept-02",
+        "art-draw-01",
+        "art-rights-01",
+        "art-qty-01",
+        "art-evolve-01"
+      ],
+      "marker_ids": [
+        "art-done-01",
+        "art-brief-01",
+        "art-brief-02",
+        "art-stage-01",
+        "art-ledger-01",
+        "art-bytes-01",
+        "art-accept-01",
+        "art-accept-02",
+        "art-draw-01",
+        "art-rights-01",
+        "art-qty-01",
+        "art-evolve-01"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "assertions-and-evaluators",
+      "cli_count": 6,
+      "cli_ids": [
+        "coh-assert-01",
+        "coh-assert-02",
+        "coh-assert-03",
+        "coh-assert-04",
+        "coh-assert-05",
+        "coh-assert-06"
+      ],
+      "marker_ids": [
+        "coh-assert-01",
+        "coh-assert-02",
+        "coh-assert-03",
+        "coh-assert-04",
+        "coh-assert-05",
+        "coh-assert-06"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "baseline-ownership",
+      "cli_count": 3,
+      "cli_ids": [
+        "base-own-01",
+        "base-write-01",
+        "base-specs-01"
+      ],
+      "marker_ids": [
+        "base-own-01",
+        "base-write-01",
+        "base-specs-01"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "branch-drift",
+      "cli_count": 4,
+      "cli_ids": [
+        "bd-01",
+        "bd-02",
+        "bd-03",
+        "bd-04"
+      ],
+      "marker_ids": [
+        "bd-01",
+        "bd-02",
+        "bd-03",
+        "bd-04"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "canonical-identity",
+      "cli_count": 5,
+      "cli_ids": [
+        "coh-id-01",
+        "coh-id-02",
+        "coh-id-03",
+        "coh-id-04",
+        "coh-id-05"
+      ],
+      "marker_ids": [
+        "coh-id-01",
+        "coh-id-02",
+        "coh-id-03",
+        "coh-id-04",
+        "coh-id-05"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "ci-template-contract",
+      "cli_count": 3,
+      "cli_ids": [
+        "ci-run-01",
+        "ci-match-01",
+        "ci-self-01"
+      ],
+      "marker_ids": [
+        "ci-run-01",
+        "ci-match-01",
+        "ci-self-01"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "coherence-evaluation",
+      "cli_count": 6,
+      "cli_ids": [
+        "coh-eval-01",
+        "coh-eval-02",
+        "coh-eval-03",
+        "coh-eval-04",
+        "coh-eval-05",
+        "coh-eval-06"
+      ],
+      "marker_ids": [
+        "coh-eval-01",
+        "coh-eval-02",
+        "coh-eval-03",
+        "coh-eval-04",
+        "coh-eval-05",
+        "coh-eval-06"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "container-runtime",
+      "cli_count": 7,
+      "cli_ids": [
+        "coh-rt-01",
+        "coh-rt-02",
+        "coh-rt-03",
+        "coh-rt-04",
+        "coh-rt-05",
+        "coh-rt-06",
+        "coh-rt-07"
+      ],
+      "marker_ids": [
+        "coh-rt-01",
+        "coh-rt-02",
+        "coh-rt-03",
+        "coh-rt-04",
+        "coh-rt-05",
+        "coh-rt-06",
+        "coh-rt-07"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "decision-contract",
+      "cli_count": 5,
+      "cli_ids": [
+        "coh-dec-01",
+        "coh-dec-02",
+        "coh-dec-03",
+        "coh-dec-04",
+        "coh-dec-05"
+      ],
+      "marker_ids": [
+        "coh-dec-01",
+        "coh-dec-02",
+        "coh-dec-03",
+        "coh-dec-04",
+        "coh-dec-05"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "doc-truth",
+      "cli_count": 2,
+      "cli_ids": [
+        "doc-version-01",
+        "doc-overlay-01"
+      ],
+      "marker_ids": [
+        "doc-version-01",
+        "doc-overlay-01"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "drift-workflow-setup-instructions",
+      "cli_count": 1,
+      "cli_ids": [
+        "drift-setup-note-01"
+      ],
+      "marker_ids": [
+        "drift-setup-note-01"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "enrollment-and-alerting",
+      "cli_count": 3,
+      "cli_ids": [
+        "mon-enroll-01",
+        "mon-alert-01",
+        "mon-monitor-hub-01"
+      ],
+      "marker_ids": [
+        "mon-enroll-01",
+        "mon-alert-01",
+        "mon-monitor-hub-01"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "evaluation-context",
+      "cli_count": 5,
+      "cli_ids": [
+        "coh-ctx-01",
+        "coh-ctx-02",
+        "coh-ctx-03",
+        "coh-ctx-04",
+        "coh-ctx-05"
+      ],
+      "marker_ids": [
+        "coh-ctx-01",
+        "coh-ctx-02",
+        "coh-ctx-03",
+        "coh-ctx-04",
+        "coh-ctx-05"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "evidence-and-attestation",
+      "cli_count": 7,
+      "cli_ids": [
+        "coh-ev-01",
+        "coh-ev-02",
+        "coh-ev-03",
+        "coh-ev-04",
+        "coh-ev-05",
+        "coh-ev-06",
+        "coh-ev-07"
+      ],
+      "marker_ids": [
+        "coh-ev-01",
+        "coh-ev-02",
+        "coh-ev-03",
+        "coh-ev-04",
+        "coh-ev-05",
+        "coh-ev-06",
+        "coh-ev-07"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "evidence-claims",
+      "cli_count": 7,
+      "cli_ids": [
+        "evc-01",
+        "evc-02",
+        "evc-03",
+        "evc-04",
+        "evc-05",
+        "evc-06",
+        "evc-07"
+      ],
+      "marker_ids": [
+        "evc-01",
+        "evc-02",
+        "evc-03",
+        "evc-04",
+        "evc-05",
+        "evc-06",
+        "evc-07"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "fleet-app-enrollment",
+      "cli_count": 9,
+      "cli_ids": [
+        "fleet-app-01",
+        "fleet-app-02",
+        "fleet-app-03",
+        "fleet-app-04",
+        "fleet-app-05",
+        "fleet-app-06",
+        "fleet-app-07",
+        "fleet-app-08",
+        "fleet-app-09"
+      ],
+      "marker_ids": [
+        "fleet-app-01",
+        "fleet-app-02",
+        "fleet-app-03",
+        "fleet-app-04",
+        "fleet-app-05",
+        "fleet-app-06",
+        "fleet-app-07",
+        "fleet-app-08",
+        "fleet-app-09"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "fleet-manager-adapter-contract",
+      "cli_count": 4,
+      "cli_ids": [
+        "fleet-007-01",
+        "fleet-007-02",
+        "fleet-007-03",
+        "fleet-007-04"
+      ],
+      "marker_ids": [
+        "fleet-007-01",
+        "fleet-007-02",
+        "fleet-007-03",
+        "fleet-007-04"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "fleet-manager-agent-channel",
+      "cli_count": 5,
+      "cli_ids": [
+        "fleet-004-01",
+        "fleet-004-02",
+        "fleet-004-03",
+        "fleet-004-04",
+        "fleet-004-05"
+      ],
+      "marker_ids": [
+        "fleet-004-01",
+        "fleet-004-02",
+        "fleet-004-03",
+        "fleet-004-04",
+        "fleet-004-05"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "fleet-manager-agent-operations",
+      "cli_count": 5,
+      "cli_ids": [
+        "fleet-005-01",
+        "fleet-005-02",
+        "fleet-005-03",
+        "fleet-005-04",
+        "fleet-005-05"
+      ],
+      "marker_ids": [
+        "fleet-005-01",
+        "fleet-005-02",
+        "fleet-005-03",
+        "fleet-005-04",
+        "fleet-005-05"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "fleet-manager-boundary",
+      "cli_count": 4,
+      "cli_ids": [
+        "repo-002-01",
+        "repo-002-02",
+        "repo-002-03",
+        "repo-002-04"
+      ],
+      "marker_ids": [
+        "repo-002-01",
+        "repo-002-02",
+        "repo-002-03",
+        "repo-002-04"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "fleet-manager-contracts",
+      "cli_count": 6,
+      "cli_ids": [
+        "repo-003-01",
+        "repo-003-02",
+        "repo-004-01",
+        "repo-004-02",
+        "repo-004-03",
+        "repo-004-04"
+      ],
+      "marker_ids": [
+        "repo-003-01",
+        "repo-003-02",
+        "repo-004-01",
+        "repo-004-02",
+        "repo-004-03",
+        "repo-004-04"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "fleet-manager-domain",
+      "cli_count": 5,
+      "cli_ids": [
+        "fleet-001-01",
+        "fleet-001-02",
+        "fleet-001-03",
+        "fleet-001-04",
+        "fleet-001-05"
+      ],
+      "marker_ids": [
+        "fleet-001-01",
+        "fleet-001-02",
+        "fleet-001-03",
+        "fleet-001-04",
+        "fleet-001-05"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "fleet-manager-extraction",
+      "cli_count": 3,
+      "cli_ids": [
+        "repo-005-01",
+        "repo-005-02",
+        "repo-005-03"
+      ],
+      "marker_ids": [
+        "repo-005-01",
+        "repo-005-02",
+        "repo-005-03"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "fleet-manager-job-lifecycle",
+      "cli_count": 5,
+      "cli_ids": [
+        "fleet-008-01",
+        "fleet-008-02",
+        "fleet-008-03",
+        "fleet-008-04",
+        "fleet-008-05"
+      ],
+      "marker_ids": [
+        "fleet-008-01",
+        "fleet-008-02",
+        "fleet-008-03",
+        "fleet-008-04",
+        "fleet-008-05"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "fleet-manager-plan",
+      "cli_count": 4,
+      "cli_ids": [
+        "fleet-002-01",
+        "fleet-002-02",
+        "fleet-002-03",
+        "fleet-002-04"
+      ],
+      "marker_ids": [
+        "fleet-002-01",
+        "fleet-002-02",
+        "fleet-002-03",
+        "fleet-002-04"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "fleet-manager-reconciliation",
+      "cli_count": 4,
+      "cli_ids": [
+        "fleet-003-01",
+        "fleet-003-02",
+        "fleet-003-03",
+        "fleet-003-04"
+      ],
+      "marker_ids": [
+        "fleet-003-01",
+        "fleet-003-02",
+        "fleet-003-03",
+        "fleet-003-04"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "fleet-manager-signed-state",
+      "cli_count": 4,
+      "cli_ids": [
+        "fleet-006-01",
+        "fleet-006-02",
+        "fleet-006-03",
+        "fleet-006-04"
+      ],
+      "marker_ids": [
+        "fleet-006-01",
+        "fleet-006-02",
+        "fleet-006-03",
+        "fleet-006-04"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "forge-parity",
+      "cli_count": 1,
+      "cli_ids": [
+        "GLF-14"
+      ],
+      "marker_ids": [
+        "GLF-14"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "framework-ci",
+      "cli_count": 3,
+      "cli_ids": [
+        "fw-ci-01",
+        "fw-ci-02",
+        "fw-ci-03"
+      ],
+      "marker_ids": [
+        "fw-ci-01",
+        "fw-ci-02",
+        "fw-ci-03"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "game-regression",
+      "cli_count": 6,
+      "cli_ids": [
+        "game-reg-04",
+        "game-reg-05",
+        "game-reg-06",
+        "game-reg-01",
+        "game-reg-02",
+        "game-reg-03"
+      ],
+      "marker_ids": [
+        "game-reg-04",
+        "game-reg-05",
+        "game-reg-06",
+        "game-reg-01",
+        "game-reg-02",
+        "game-reg-03"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "game-session-start",
+      "cli_count": 6,
+      "cli_ids": [
+        "session-01",
+        "session-02",
+        "session-03",
+        "session-04",
+        "session-05",
+        "session-06"
+      ],
+      "marker_ids": [
+        "session-01",
+        "session-02",
+        "session-03",
+        "session-04",
+        "session-05",
+        "session-06"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "game-type-phase-matrix",
+      "cli_count": 3,
+      "cli_ids": [
+        "game-matrix-01",
+        "game-matrix-02",
+        "game-matrix-03"
+      ],
+      "marker_ids": [
+        "game-matrix-01",
+        "game-matrix-02",
+        "game-matrix-03"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "gate-configuration-contract",
+      "cli_count": 2,
+      "cli_ids": [
+        "rule-config-01",
+        "rule-fresh-01"
+      ],
+      "marker_ids": [
+        "rule-config-01",
+        "rule-fresh-01"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "gate-execution-contract",
+      "cli_count": 3,
+      "cli_ids": [
+        "gate-root-01",
+        "gate-vacuous-01",
+        "gate-allwindow-01"
+      ],
+      "marker_ids": [
+        "gate-root-01",
+        "gate-vacuous-01",
+        "gate-allwindow-01"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "gitlab-instance-adoption-review",
+      "cli_count": 1,
+      "cli_ids": [
+        "glf-oi-001"
+      ],
+      "marker_ids": [
+        "glf-oi-001"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "gitlab-parity-deferral-review",
+      "cli_count": 1,
+      "cli_ids": [
+        "glf-oi-002"
+      ],
+      "marker_ids": [
+        "glf-oi-002"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "gitlab-restore-deferral-review",
+      "cli_count": 1,
+      "cli_ids": [
+        "glf-oi-003"
+      ],
+      "marker_ids": [
+        "glf-oi-003"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "gitlab-template-bootstrap",
+      "cli_count": 1,
+      "cli_ids": [
+        "glf-template-bootstrap-01"
+      ],
+      "marker_ids": [
+        "glf-template-bootstrap-01"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "hub-architecture",
+      "cli_count": 5,
+      "cli_ids": [
+        "mon-hub-01",
+        "mon-channels-01",
+        "mon-registry-01",
+        "mon-deadman-01",
+        "mon-local-01"
+      ],
+      "marker_ids": [
+        "mon-hub-01",
+        "mon-channels-01",
+        "mon-registry-01",
+        "mon-deadman-01",
+        "mon-local-01"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "integrations",
+      "cli_count": 7,
+      "cli_ids": [
+        "coh-int-01",
+        "coh-int-02",
+        "coh-int-03",
+        "coh-int-04",
+        "coh-int-05",
+        "coh-int-06",
+        "coh-int-07"
+      ],
+      "marker_ids": [
+        "coh-int-01",
+        "coh-int-02",
+        "coh-int-03",
+        "coh-int-04",
+        "coh-int-05",
+        "coh-int-06",
+        "coh-int-07"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "open-item-aging",
+      "cli_count": 4,
+      "cli_ids": [
+        "oia-01",
+        "oia-02",
+        "oia-03",
+        "oia-04"
+      ],
+      "marker_ids": [
+        "oia-01",
+        "oia-02",
+        "oia-03",
+        "oia-04"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "package-resolution",
+      "cli_count": 5,
+      "cli_ids": [
+        "coh-pkg-01",
+        "coh-pkg-02",
+        "coh-pkg-03",
+        "coh-pkg-04",
+        "coh-pkg-05"
+      ],
+      "marker_ids": [
+        "coh-pkg-01",
+        "coh-pkg-02",
+        "coh-pkg-03",
+        "coh-pkg-04",
+        "coh-pkg-05"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "per-file-test-runner-integrity",
+      "cli_count": 2,
+      "cli_ids": [
+        "gate-test-launch-01",
+        "gate-test-count-01"
+      ],
+      "marker_ids": [
+        "gate-test-launch-01",
+        "gate-test-count-01"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "per-screen-tracking",
+      "cli_count": 2,
+      "cli_ids": [
+        "screen-inv-01",
+        "screen-inv-02"
+      ],
+      "marker_ids": [
+        "screen-inv-01",
+        "screen-inv-02"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "publish-safety",
+      "cli_count": 3,
+      "cli_ids": [
+        "rel-upload-01",
+        "rel-artifact-01",
+        "rel-fixcommit-01"
+      ],
+      "marker_ids": [
+        "rel-upload-01",
+        "rel-artifact-01",
+        "rel-fixcommit-01"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "release-checksum-manifest",
+      "cli_count": 3,
+      "cli_ids": [
+        "fw-ci-06",
+        "fw-ci-05",
+        "fw-ci-07"
+      ],
+      "marker_ids": [
+        "fw-ci-06",
+        "fw-ci-05",
+        "fw-ci-07"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "release-gate-targeting",
+      "cli_count": 2,
+      "cli_ids": [
+        "rel-target-01",
+        "rel-audit-01"
+      ],
+      "marker_ids": [
+        "rel-target-01",
+        "rel-audit-01"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "requirement-id-inventory",
+      "cli_count": 3,
+      "cli_ids": [
+        "spec-fmt-04",
+        "spec-fmt-05",
+        "spec-fmt-06"
+      ],
+      "marker_ids": [
+        "spec-fmt-04",
+        "spec-fmt-05",
+        "spec-fmt-06"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "reviewer-surfaces",
+      "cli_count": 3,
+      "cli_ids": [
+        "reviewer-01",
+        "reviewer-02",
+        "reviewer-03"
+      ],
+      "marker_ids": [
+        "reviewer-01",
+        "reviewer-02",
+        "reviewer-03"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "rule-coverage-truth",
+      "cli_count": 3,
+      "cli_ids": [
+        "rule-truth-01",
+        "rule-behavior-01",
+        "rule-marker-01"
+      ],
+      "marker_ids": [
+        "rule-truth-01",
+        "rule-behavior-01",
+        "rule-marker-01"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "runner-monitoring",
+      "cli_count": 4,
+      "cli_ids": [
+        "mon-online-01",
+        "mon-queue-01",
+        "mon-gates-01",
+        "mon-drift-01"
+      ],
+      "marker_ids": [
+        "mon-online-01",
+        "mon-queue-01",
+        "mon-gates-01",
+        "mon-drift-01"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "runner-toolchain-requests",
+      "cli_count": 6,
+      "cli_ids": [
+        "mon-tc-01",
+        "mon-tc-02",
+        "mon-tc-03",
+        "mon-tc-04",
+        "mon-tc-05",
+        "mon-tc-06"
+      ],
+      "marker_ids": [
+        "mon-tc-01",
+        "mon-tc-02",
+        "mon-tc-03",
+        "mon-tc-04",
+        "mon-tc-05",
+        "mon-tc-06"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "scanner-parsing",
+      "cli_count": 3,
+      "cli_ids": [
+        "gate-tscn-01",
+        "gate-rstest-01",
+        "gate-size-01"
+      ],
+      "marker_ids": [
+        "gate-tscn-01",
+        "gate-rstest-01",
+        "gate-size-01"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "secret-rotation",
+      "cli_count": 4,
+      "cli_ids": [
+        "sr-01",
+        "sr-02",
+        "sr-03",
+        "sr-04"
+      ],
+      "marker_ids": [
+        "sr-01",
+        "sr-02",
+        "sr-03",
+        "sr-04"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "security-boundaries",
+      "cli_count": 4,
+      "cli_ids": [
+        "coh-sec-01",
+        "mon-sec-01",
+        "mon-sec-02",
+        "ci-sec-01"
+      ],
+      "marker_ids": [
+        "coh-sec-01",
+        "mon-sec-01",
+        "mon-sec-02",
+        "ci-sec-01"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "spec-platform",
+      "cli_count": 3,
+      "cli_ids": [
+        "spec-fmt-01",
+        "spec-fmt-02",
+        "spec-fmt-03"
+      ],
+      "marker_ids": [
+        "spec-fmt-01",
+        "spec-fmt-02",
+        "spec-fmt-03"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "spec-state-ledger",
+      "cli_count": 9,
+      "cli_ids": [
+        "spec-state-01",
+        "spec-state-02",
+        "spec-state-03",
+        "spec-state-04",
+        "spec-state-05",
+        "spec-state-06",
+        "spec-state-07",
+        "spec-state-08",
+        "spec-state-09"
+      ],
+      "marker_ids": [
+        "spec-state-01",
+        "spec-state-02",
+        "spec-state-03",
+        "spec-state-04",
+        "spec-state-05",
+        "spec-state-06",
+        "spec-state-07",
+        "spec-state-08",
+        "spec-state-09"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "spec-status-disposition",
+      "cli_count": 2,
+      "cli_ids": [
+        "spec-state-10",
+        "spec-state-11"
+      ],
+      "marker_ids": [
+        "spec-state-10",
+        "spec-state-11"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "subjects-3d",
+      "cli_count": 4,
+      "cli_ids": [
+        "coh-3d-01",
+        "coh-3d-02",
+        "coh-3d-03",
+        "coh-3d-04"
+      ],
+      "marker_ids": [
+        "coh-3d-01",
+        "coh-3d-02",
+        "coh-3d-03",
+        "coh-3d-04"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "surface-reach",
+      "cli_count": 4,
+      "cli_ids": [
+        "srch-01",
+        "srch-02",
+        "srch-03",
+        "srch-04"
+      ],
+      "marker_ids": [
+        "srch-01",
+        "srch-02",
+        "srch-03",
+        "srch-04"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "traceability-and-drift",
+      "cli_count": 3,
+      "cli_ids": [
+        "trace-01",
+        "trace-02",
+        "trace-03"
+      ],
+      "marker_ids": [
+        "trace-01",
+        "trace-02",
+        "trace-03"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "tracked-executable-integrity",
+      "cli_count": 1,
+      "cli_ids": [
+        "fw-ci-04"
+      ],
+      "marker_ids": [
+        "fw-ci-04"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "tree-clean",
+      "cli_count": 4,
+      "cli_ids": [
+        "tc-01",
+        "tc-02",
+        "tc-03",
+        "tc-04"
+      ],
+      "marker_ids": [
+        "tc-01",
+        "tc-02",
+        "tc-03",
+        "tc-04"
+      ],
+      "matched": true
+    },
+    {
+      "capability": "zig-opengl-engine",
+      "cli_count": 4,
+      "cli_ids": [
+        "zig-engine-01",
+        "zig-ui-inv-01",
+        "zig-scope-01",
+        "zig-regress-01"
+      ],
+      "marker_ids": [
+        "zig-engine-01",
+        "zig-ui-inv-01",
+        "zig-scope-01",
+        "zig-regress-01"
+      ],
+      "matched": true
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+{"assertion_id":"dg02-batch-010-tests","expected":"Receipt records measured tests, parser comparison and reproducible adapter controls.","finding_key":"dg02-batch-test-receipt","observed":"Exact test-receipt.json file digest sha256:0f355a3322cbd830738cf86a64003123d54388cf7a7c9eed65b3e778a8dd0c4a.","subject_locations":["DG02-U-109..DG02-U-120 test-receipt.json"]}
