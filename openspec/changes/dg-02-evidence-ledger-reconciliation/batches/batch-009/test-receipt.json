@@ -3,8 +3,10 @@
     {
       "command": "node --test tests/test_guardrails_scan.mjs",
       "exit_code": 0,
+      "original_output_sha256": "sha256:74889036ffe0d1289525b8c07d94017b2695636eed45ec9cdbf383d87756eaee",
+      "output_normalization": "Replaced Unicode info, pass, arrow and dash glyphs with ASCII equivalents.",
       "output_ref": "harness-node.txt",
-      "output_sha256": "sha256:74889036ffe0d1289525b8c07d94017b2695636eed45ec9cdbf383d87756eaee",
+      "output_sha256": "sha256:0b54ee68abfeabee13fa811d73cddc7d679d31b93d3f14b4fd585495555700e8",
       "passing_assertions": 55
     },
     {

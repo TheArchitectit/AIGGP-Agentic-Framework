@@ -26,7 +26,7 @@ The first 108 of 182 rows have detailed reviews. The next 74 begin at `DG02-U-10
 ```sh
 python3 scripts/evidence-validate.py \
   openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-009/evidence \
-  --expected sha256:dddd8a8fb96298ef5bdb052d200e8b381c8588deb58440431c2a1a24f93170ee
+  --expected sha256:111a0bc2d2d101c731ffad796787231bab355eb238bcd9d37ff73d0d11e20296
 ```
 
 The manifest binds the exact test receipt and a finding for every row. Each finding hashes its disposition with the two review evidence link fields removed, using sorted compact ASCII JSON.

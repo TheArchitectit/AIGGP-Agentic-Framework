@@ -1,6 +1,6 @@
 {
   "batch": "batch-009",
-  "batch_disposition_sha256": "sha256:ba2e48edec8cb31e227c13ac21c0ba06b575160ca4ab279a0e1026e7c2f5ec67",
+  "batch_disposition_sha256": "sha256:f2979d30420dfbbce15c1cbc625025e384ef0aea3583e74e155c75aab777f855",
   "canonical_discovery": {
     "checked_in_manifests_reviewed": [
       "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-001/evidence/evidence-manifest.json",
@@ -18,11 +18,11 @@
   },
   "canonical_roster_ledger_state_unchanged": true,
   "evidence_integrity_only": true,
-  "evidence_manifest_digest": "sha256:dddd8a8fb96298ef5bdb052d200e8b381c8588deb58440431c2a1a24f93170ee",
+  "evidence_manifest_digest": "sha256:111a0bc2d2d101c731ffad796787231bab355eb238bcd9d37ff73d0d11e20296",
   "format": "dg02-batch-disposition/v1",
   "lifecycle_transitions": 0,
   "prior_discovery_disposition_sha256": "a77e3e9966e72dd8c2233444e424d4e39fb4e074fe60a567616019c19addac79",
-  "reviewed_at_utc": "2026-11-27T19:25:59+00:00",
+  "reviewed_at_utc": "2026-11-27T19:30:42+00:00",
   "reviewed_head": "259a5708e25ebf4222db8cd0525f739ba6f59c77",
   "rows": [
     "DG02-U-097",
@@ -39,5 +39,5 @@
     "DG02-U-108"
   ],
   "source_roster_sha256": "92c30d3b19cebdfac4a99f3a8a47ebbdb7ca3e28dcd8b35d63e16d1e4da4b27a",
-  "test_receipt_sha256": "sha256:931ef008f8e446b025c340d396e615c7cb255f2d359391209419a9882d2f5954"
+  "test_receipt_sha256": "sha256:533aec1886775a078e0f6adcdb35af29b2f0ba10583608aaabf8bd09a8200fba"
 }

@@ -9,7 +9,7 @@ ok - 4b: the same line in a test file stays suppressed
 ok - .guardrailsignore excludes archive/, keeps pkg/
 ok - overlay: new rule_id fires (PREVENT-XI-001)
 ok - overlay: merge banner shown
-ok - overlay: same-id entry REPLACED severity (error→warning)
+ok - overlay: same-id entry REPLACED severity (error->warning)
 ok - overlay: replaced entry uses overlay message
 ok - overlay: scan blocks on the appended rule
 ok - env override: overlay-only rule fires
@@ -50,17 +50,17 @@ ok - html: a clean .html file is not reported
 ok - html: a full-line HTML comment mentioning the pattern is NOT reported
 ok - 12b: exclude_glob silences the exempt path on an unscoped rule
 ok - 12b: the same unscoped rule still fires outside the exemption
-ok - 19: a fixture module's synthetic Request is test code — silent
+ok - 19: a fixture module's synthetic Request is test code -- silent
 ok - 19: the same line in a *.test.ts file stays exempt
 ok - 19: the same line in production code still blocks
 
 ALL TESTS PASSED
-✔ tests/test_guardrails_scan.mjs (701.078961ms)
-ℹ tests 1
-ℹ suites 0
-ℹ pass 1
-ℹ fail 0
-ℹ cancelled 0
-ℹ skipped 0
-ℹ todo 0
-ℹ duration_ms 705.610134
+[pass] tests/test_guardrails_scan.mjs (701.078961ms)
+[info] tests 1
+[info] suites 0
+[info] pass 1
+[info] fail 0
+[info] cancelled 0
+[info] skipped 0
+[info] todo 0
+[info] duration_ms 705.610134

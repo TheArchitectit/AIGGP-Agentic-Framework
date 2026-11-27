@@ -1,0 +1,1 @@
+{"assertion_id":"dg02-batch-009-tests","expected":"Receipt records measured tests and synthetic controls, and hashes their reproducible script.","finding_key":"dg02-batch-test-receipt","observed":"Exact test-receipt.json file digest sha256:533aec1886775a078e0f6adcdb35af29b2f0ba10583608aaabf8bd09a8200fba.","subject_locations":["DG02-U-097..DG02-U-108 test-receipt.json"]}
