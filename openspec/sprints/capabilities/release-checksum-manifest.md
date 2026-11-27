@@ -31,3 +31,7 @@ Record the source and test revisions, actual inputs, expected and observed outco
 Coordinate overlapping work with [dg22-prepare-approved-main-release](../../changes/dg22-prepare-approved-main-release/sprint-plan.md).
 
 [Published specification](../../specs/release-checksum-manifest/spec.md) and [sprint dispatch](../../SPRINTS.md).
+
+## Active change routing
+
+The [detached corruption range review](../../changes/archive/2026-11-27-consume-detached-corruption-review/sprint-plan.md) records the completed `release-checksum-manifest` delta and its final-tree inventory receipt. Future script changes still need a final-tree reconciliation and candidate-specific hosted evidence.

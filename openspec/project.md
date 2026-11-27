@@ -13,7 +13,7 @@ Browse published requirements, capability status, active changes and the archive
 
 After adding a requirement, change package or review batch, run `python3 scripts/spec_index.py --write` from the repository root and commit the generated index alongside the source documents. Run `python3 scripts/spec_index.py --check` to verify a clean regeneration.
 
-Maintain the corresponding [sprint plan](SPRINTS.md) with the requirement IDs or active tasks it covers. Each plan identifies agent roles, acceptance artifacts and external owner decisions.
+Maintain the corresponding [sprint plan](SPRINTS.md) with the requirement IDs or active tasks it covers. Each plan identifies agent roles, acceptance artifacts and external owner decisions. For corruption review, the detached whole-range and protected per-transition evaluators are separate, mutually exclusive trusted alternatives; normal strict behavior remains the default, and one mode never falls back to the other. Their package plans and owner boundaries are linked from the [sprint dispatch guide](SPRINTS.md#workstream-pickup).
 
 ## Users
 

@@ -577,3 +577,14 @@ Historical checklist: 0 unchecked, 0 partial.
 Hold for reference. If a linked requirement changes, collect the historic receipt and dispatch work through its current owner.
 
 Published plans: [per-file-test-runner-integrity](capabilities/per-file-test-runner-integrity.md).
+
+
+### 2026-11-27-consume-detached-corruption-review
+
+[Proposal](../changes/archive/2026-11-27-consume-detached-corruption-review/proposal.md) and [task record](../changes/archive/2026-11-27-consume-detached-corruption-review/tasks.md).
+
+Historical checklist: 0 unchecked, 0 partial.
+
+Hold for reference. If the detached-range requirement changes, collect the historic receipt and route current qualification through its published capability plan. Production authority issuance and adoption remain owner decisions.
+
+Published plan: [data-corruption](capabilities/data-corruption.md).

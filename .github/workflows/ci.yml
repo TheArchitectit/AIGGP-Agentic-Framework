@@ -486,6 +486,8 @@ jobs:
       # registry credentials) and runs on the fleet; this job proves what can
       # be proven from source: the image builds reproducibly and CARRIES its
       # frozen schemas (F1 regression: it once shipped without them).
+      - name: Verify real protected corruption-review inputs in a disposable namespace
+        run: python3 tests/protected_store_smoke.py --run
       - name: Build pinned image
         run: |
           if ! command -v podman >/dev/null 2>&1; then

@@ -1,42 +1,14 @@
 #!/usr/bin/env python3
 # spec: fw-corruption-01
-"""check_corruption.py — data-corruption gate (fw-corruption-01).
+"""Corruption scanner (fw-corruption-01).
 
-fw-charset-01 governs which characters may appear; fw-encoding-01 governs a
-file's encoding and line endings. This gate governs *corruption*: bytes or
-characters that were once valid and are now damaged, plus the mass-mutation
-shape that ransomware and bad bulk edits produce.
+The content scan detects lossy decoding, mojibake, controls, and invisible
+reordering characters. The diff scan detects suspicious substitutions,
+mass rewrites, and bulk mutations. Empty scans fail closed; baselines only
+decrease. Gitlink-only and pure-rename diffs pass with a note.
 
-Two modes:
-
-**Content scan (default).** Every tracked text file is inspected for:
-  * U+FFFD REPLACEMENT CHARACTER — the tell-tale of a lossy decode;
-  * mojibake — UTF-8 bytes re-decoded as Latin-1 ("\u00c2\u00a7", "\u00e2\u20ac\u2122",
-    "\u00c3\u00a9"); the C1 control block (U+0080-U+009F) is a near-certain signal;
-  * C0/C1 control characters that are not tab/newline/CR;
-  * zero-width and bidi-override characters (invisible, can reorder text);
-  * NUL bytes inside a text file.
-
-**Diff scan (`--range A..B`, or `--staged`).** Detects a *bad data flip*: a
-change that substitutes characters in place rather than editing meaning. A
-changed line whose length is within +/-15% of the original and whose
-character-level difference exceeds 60% is a substitution flip. A file where
-most lines changed at once is reported as a mass rewrite (the ransomware /
-runaway-script shape) and FAILS unless it is on the reviewed allowlist.
-Submodule pointer updates (gitlink, mode 160000) are skipped: a pin bump
-is a commit pointer, not text. A pin-bump-only diff passes with a note.
-100%-similarity renames are the same shape - a move with no textual delta -
-so a rename-only diff also passes with a note (renames WITH edits carry
-hunks and are judged line-by-line).
-
-Fail-closed, non-vacuous: a zero-file scan FAILS; a zero-line diff scan
-FAILS unless it carries gitlink pin bumps or 100% renames; the ratchet
-baseline may only decrease.
-
-The hunk-level diff parser the diff scan is built on (_diff_hunks and the
-replacement pairing) lives in scripts/corruption_diff.py — split out to keep
-both modules under DevGate's own 500-line hard limit (this file stood at 518).
-It is re-exported below so callers and tests keep importing one module.
+Hunk parsing and substitution pairing live in corruption_diff.py and are
+re-exported here for callers and tests.
 
 Exit: 0 clean; 1 violations; 2 usage.
 """
@@ -228,7 +200,8 @@ def scan_content(root: Path, gc, skip_dirs, allow: dict[str, str],
 # helpers built on it) moved to scripts/corruption_diff.py (500-line cap
 # split); re-exported here so callers and tests keep importing one module.
 from corruption_diff import (  # noqa: E402
-    _GITLINK_META, _added_lines, _diff_hunks, _gitlink_update_count,
+    ReviewModeError, _GITLINK_META, _added_lines, _diff_hunks, _gitlink_update_count,
+    validate_review_mode,
     _removed_lines, _rename_update_count, _replacement_blocks)
 
 # A checksum-manifest line: a fixed-width hex digest, whitespace, then a path.
@@ -246,10 +219,15 @@ def _checksum_line_parts(line: str) -> tuple[str, str] | tuple[None, None]:
 
 
 def scan_diff(diff: str, allow: dict[str, str], max_report: int,
-              strict_mass_rewrite: bool = False) -> int:
+              strict_mass_rewrite: bool = False,
+              exact_review: dict | None = None, reviews=None) -> int:
+    if exact_review is not None and reviews is not None:
+        raise ValueError("protected and detached review modes are mutually exclusive")
     added = list(_added_lines(diff))
     removed = list(_removed_lines(diff))
     if not added and not removed:
+        if reviews is not None:
+            reviews.check_current()
         # Pin bumps and 100% renames are real ranges with nothing textual to
         # judge (the moved bytes are covered by the full-tree content scan);
         # zero lines with neither means an empty range - vacuous, so FAILS.
@@ -269,6 +247,9 @@ def scan_diff(diff: str, allow: dict[str, str], max_report: int,
 
     fails: list[str] = []
     warnings: list[str] = []
+    flips: list[str] = []
+    mass_rewrites: list[dict] = []
+    reviewed: list[tuple[str, int, str]] = []
 
     # Flip detection: pair removed/added lines ONLY inside the contiguous -/+
     # run git reports, in order; a same-length line with a high character-level
@@ -320,10 +301,15 @@ def scan_diff(diff: str, allow: dict[str, str], max_report: int,
                 ratio = 1.0 - SequenceMatcher(None, old, new).ratio()
                 len_delta = abs(len(new) - len(old)) / max(1, len(old))
                 if len_delta <= FLIP_LEN_TOLERANCE and ratio >= FLIP_DIFF_RATIO:
-                    fails.append(
-                        f"{path}:{ln}: substitution flip "
-                        f"({ratio*100:.0f}% of characters changed, "
-                        f"length within {len_delta*100:.0f}%)")
+                    finding = (f"{path}:{ln}: substitution flip "
+                               f"({ratio*100:.0f}% of characters changed, "
+                               f"length within {len_delta*100:.0f}%)")
+                    flips.append(finding)
+                    identity = reviews.match(path, ln) if reviews is not None else None
+                    if identity is not None:
+                        reviewed.append((path, ln, identity))
+                    else:
+                        fails.append(finding)
 
     bulk_files = 0
     for path in sorted(add_by_file):
@@ -333,6 +319,8 @@ def scan_diff(diff: str, allow: dict[str, str], max_report: int,
         if (add_by_file[path] >= MASS_REWRITE_MIN_LINES
                 and rem_by_file[path] >= MASS_REWRITE_MIN_LINES):
             bulk_files += 1
+            mass_rewrites.append({"path": path, "added": add_by_file[path],
+                                  "removed": rem_by_file[path]})
             msg = (f"{path}: MASS REWRITE - {add_by_file[path]} added / "
                    f"{rem_by_file[path]} removed line(s) in one change")
             (fails if strict_mass_rewrite else warnings).append(msg)
@@ -341,6 +329,38 @@ def scan_diff(diff: str, allow: dict[str, str], max_report: int,
         fails.append(
             f"BULK MUTATION - {bulk_files} whole files rewritten in one change "
             f"(ransomware / runaway-script shape)")
+
+    if exact_review is not None:
+        inventory = {
+            "flips": sorted(flips),
+            "mass_rewrites": mass_rewrites,
+            "strict_mass_rewrite": strict_mass_rewrite,
+            "bulk_mutation": ({"files": bulk_files,
+                               "threshold": BULK_MUTATION_FILES}
+                              if bulk_files >= BULK_MUTATION_FILES else None),
+            "failures": sorted(fails),
+            "warnings": sorted(warnings),
+        }
+        if exact_review["inventory"] == inventory:
+            print(f"check-corruption: REVIEWED - {exact_review['review_id']} "
+                  "matches the exact committed range findings")
+            for finding in [*fails, *warnings]:
+                print(f"  REVIEWED: {finding}")
+            print(f"check-corruption: OK - detached review covers {len(flips)} "
+                  f"substitution flip(s), {bulk_files} mass rewrite(s)")
+            return EXIT_OK
+        print("check-corruption: detached review identity matched but finding "
+              "inventory differed; full range findings remain enforced")
+
+    if reviews is not None:
+        reviews.check_current()
+        # spec: scan-corruption-reviewed-visible-01
+        for path, line, identity in reviewed[:max_report]:
+            print(f"check-corruption: VIOLATED EXCEPTION-ADVISORY {path}:{line} "
+                  f"substitution flip; exception={identity}")
+        if len(reviewed) > max_report:
+            print(f"check-corruption: {len(reviewed)} reviewed substitutions total; "
+                  "use --list for all")
 
     if fails:
         print(f"check-corruption: FAIL - {len(fails)} data-flip / "
@@ -353,6 +373,10 @@ def scan_diff(diff: str, allow: dict[str, str], max_report: int,
 
     for w in warnings[:max_report]:
         print(f"check-corruption: WARNING - {w}")
+    if reviewed:
+        print(f"check-corruption: OK - diff scan passed with {len(reviewed)} "
+              "reviewed substitution(s) and no blocking findings")
+        return EXIT_OK
     skipped = _gitlink_update_count(diff)
     print(f"check-corruption: OK - diff scan clean "
           f"({len(added)} added / {len(removed)} removed line(s), "
@@ -368,6 +392,11 @@ def main() -> int:
         description="data-corruption + bad-flip gate (fw-corruption-01)")
     ap.add_argument("--repo", default=".")
     ap.add_argument("--range", help="git revision range A..B (diff scan)")
+    ap.add_argument("--reviewed-transitions", action="store_true",
+                    help="apply protected reviews to exact substitutions in a committed range")
+    ap.add_argument("--repository-id", help="canonical OWNER/REPO identity; enables exact range mode")
+    ap.add_argument("--review-file", help="detached trusted review JSON outside --repo")
+    ap.add_argument("--review-sha256", help="authority-supplied SHA-256 for --review-file")
     ap.add_argument("--staged", action="store_true", help="scan the staged diff")
     ap.add_argument("--no-baseline", action="store_true")
     ap.add_argument("--write-baseline", action="store_true")
@@ -377,6 +406,10 @@ def main() -> int:
     args = ap.parse_args()
 
     root = Path(args.repo).resolve()
+    try:
+        review_mode = validate_review_mode(args)
+    except ReviewModeError as exc:
+        ap.error(str(exc))
     gc = _load_gate_common()
     try:
         skip_dirs = gc.load_skip_dirs()
@@ -385,10 +418,30 @@ def main() -> int:
               file=sys.stderr)
         return EXIT_USAGE
 
-    allow = load_allowlist(root)
     max_report = 10**9 if args.list else 30
 
     if args.range or args.staged:
+        if review_mode == "protected":
+            try:
+                import corruption_reviews
+                return corruption_reviews.run_protected_range(
+                    root, args.range, max_report, args.strict_mass_rewrite, scan_diff)
+            except (ImportError, OSError, ValueError, RecursionError) as exc:
+                print(f"check-corruption: FAIL - protected review: {exc}",
+                      file=sys.stderr)
+                return EXIT_USAGE
+        if review_mode == "detached":
+            try:
+                import corruption_review
+                return corruption_review.run_detached_range(
+                    root, args.range, args.repository_id, args.review_file,
+                    args.review_sha256, max_report, args.strict_mass_rewrite,
+                    scan_diff)
+            except (ImportError, OSError, ValueError, RecursionError) as exc:
+                print(f"check-corruption: FAIL - exact range review: {exc}",
+                      file=sys.stderr)
+                return EXIT_USAGE
+        allow = load_allowlist(root)
         cmd = ["git", "-C", str(root), "diff", "--no-color", "--unified=0"]
         if args.range:
             cmd.append(args.range)
@@ -401,6 +454,8 @@ def main() -> int:
                   file=sys.stderr)
             return EXIT_USAGE
         return scan_diff(r.stdout, allow, max_report, args.strict_mass_rewrite)
+
+    allow = load_allowlist(root)
 
     if args.write_baseline:
         files = [f for f in tracked_files(root) if gc.is_text_file(f)]

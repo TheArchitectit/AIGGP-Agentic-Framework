@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added opt-in detached exact-range corruption review. It binds an external SHA-256 review to the repository/run, full base, target tree, and complete substitution/mass-rewrite inventory; stale or mismatched reviews do not suppress findings. Published the [data-corruption contract](openspec/specs/data-corruption/spec.md) and archived the implementation package. Protected-transition provisioning and protected-CI adoption remain pending in the [active owner plan](openspec/changes/provision-exact-corruption-reviews/sprint-plan.md).
 - Added [sprint plans and role assignments](openspec/SPRINTS.md) for published capabilities and active changes, with routing for archived packages.
 
 - Expanded the [OpenSpec index](openspec/INDEX.md) to include published requirements and change packages.
@@ -17,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   integration record for PRs #32, #33, and #46 through #49.
 
 ### Fixed
+
+- The CI test-count gate rejects zero and non-integer per-suite floors and names the invalid suite.
 
 - Regenerated the shipped script checksums for the catalog renderer and three gate updates identified by the framework self-check.
 - Preserved per-file launch failures and verified the original runner report

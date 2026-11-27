@@ -22,6 +22,33 @@ _GITLINK_META = re.compile(
     r"^(?:index \S+\.\.\S+|new file mode|deleted file mode) 160000$")
 
 
+class ReviewModeError(ValueError):
+    """Review mode arguments conflict before any authority or scope is read."""
+
+
+# spec: scan-corruption-reviewed-default-01
+def validate_review_mode(args) -> str | None:
+    protected = bool(args.reviewed_transitions)
+    detached = (args.repository_id is not None or args.review_file is not None
+                or args.review_sha256 is not None)
+    if protected and detached:
+        raise ReviewModeError("protected and detached review modes are mutually exclusive")
+    if args.review_file is not None and args.review_sha256 is None:
+        raise ReviewModeError("--review-file requires --review-sha256")
+    if args.review_sha256 is not None and args.review_file is None:
+        raise ReviewModeError("--review-sha256 requires --review-file")
+    if ((args.review_file is not None or args.review_sha256 is not None)
+            and args.repository_id is None):
+        raise ReviewModeError("detached review requires --repository-id")
+    mode = "protected" if protected else "detached" if detached else None
+    if mode is not None:
+        if not args.range or args.staged:
+            raise ReviewModeError(f"{mode} review mode requires only a committed --range")
+        if args.write_baseline or args.no_baseline:
+            raise ReviewModeError(f"{mode} review mode cannot be combined with baseline options")
+    return mode
+
+
 def _diff_hunks(diff: str):
     """Yield ``(path, [(kind, lineno, text), ...])`` once per hunk.
 
@@ -39,7 +66,7 @@ def _diff_hunks(diff: str):
     old_no = new_no = 0
     seen_plus = False
     gitlink = False
-    for line in diff.splitlines():
+    for line in diff.split("\n"):
         if line.startswith("diff --git "):
             if hunk and path is not None and not gitlink:
                 yield path, hunk
@@ -52,10 +79,10 @@ def _diff_hunks(diff: str):
             if _GITLINK_META.match(line):
                 gitlink = True         # commit pointer, not text: skip hunks
             elif line.startswith("--- "):
-                p = line[4:].strip()
+                p = line[4:].removesuffix("\t")
                 old_path = p[2:] if p.startswith("a/") else p
             elif line.startswith("+++ "):
-                p = line[4:].strip()
+                p = line[4:].removesuffix("\t")
                 newp = p[2:] if p.startswith("b/") else p
                 path = old_path if newp == "/dev/null" else newp
                 seen_plus = True

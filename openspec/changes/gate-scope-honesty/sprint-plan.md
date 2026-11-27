@@ -16,16 +16,16 @@ Exercise the native entry point for this change. A change to session startup or 
 - Treat tasks 1.1–1.3, 2.1–2.3, and 3.1–3.4 as completed upstream behavior; do not rewrite them without a failing control.
 - Record the released DevGate revision containing the denominator, registry scope-line, and declared-anchor fixes.
 - For task 4.1, confirm the NeonDash owner can select and approve the `.devgate` revision; do not assume upstream release availability.
-- Inspect the consumer's registry guard, traceability ratchet, and actual `.guardrails/openspec/scope.json` placement before changing any path.
+- Inspect the consumer's registry guard and traceability ratchet alongside the measured `.guardrails/scope.json` declaration recorded in task 4.3.
 - Exit when consumer repo/revision, accountable owner, release pin, and baseline outputs are recorded.
 
 ## S2 — consumer integration and evidence
 
 - Task 4.1: owner-approved `.devgate` bump; record exact upstream and consumer SHAs.
 - Task 4.2: replace YAML line counting with an assertion on the tool-owned scope line and raise the ratchet floor atomically with the denominator change.
-- Task 4.3: reconcile the declared `inventory_dirs` location with the `.guardrails/scope.json` contract; use `scripts` and `tools` only if the consumer owner confirms those roots.
+- Task 4.3 records the measured `scripts`, `tools` and `data` roots in `.guardrails/scope.json`. Carry that completed result into the replay for 4.1 and 4.2.
 - Run clean, missing-registry, merged-input, and declared-anchor consumer cases; retain stdout, exit status, and nonzero input counts.
-- Exit when all three unchecked tasks have reviewable consumer-side evidence or an explicit owner-blocked record.
+- Exit when tasks 4.1 and 4.2 have reviewable consumer-side evidence or an explicit owner-blocked record.
 
 ## S3 — independent qualification
 

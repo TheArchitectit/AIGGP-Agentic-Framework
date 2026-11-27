@@ -26,31 +26,55 @@ def collect():
     return counts
 
 
-def main() -> int:
-    update = "--update" in sys.argv
-    doc = json.loads(OUT.read_text(encoding="utf-8")) if OUT.exists() else {}
-    counts = collect()
+def validate(doc: object, counts: dict[str, int]) -> list[str]:
+    """Check that every declared floor is a positive JSON integer."""
+    if not isinstance(doc, dict):
+        return ["manifest must be a JSON object"]
+
+    floors = doc.get("floors")
+    if not isinstance(floors, dict):
+        return ["floors must be a JSON object"]
+
     problems = []
-    for suite, floor in (doc.get("floors") or {}).items():
+    for suite, floor in floors.items():
+        if not isinstance(suite, str) or not suite:
+            problems.append("floor suite names must be non-empty strings")
+            continue
+        if type(floor) is not int or floor <= 0:
+            problems.append(
+                f"{suite}: floor must be a positive JSON integer")
+            continue
         got = counts.get(suite, 0)
         if got < floor:
             problems.append(f"{suite}: {got} collected < floor {floor}")
+
     total = sum(counts.values())
     total_floor = doc.get("total_floor", 0)
     if total < total_floor:
         problems.append(f"TOTAL: {total} < floor {total_floor}")
+    return problems
+
+
+def main() -> int:
+    update = "--update" in sys.argv
+    doc = json.loads(OUT.read_text(encoding="utf-8")) if OUT.exists() else {}
+    counts = collect()
     if update:
+        total = sum(counts.values())
         floors = {k: max(1, int(v * 0.9)) for k, v in sorted(counts.items())}
         OUT.write_text(json.dumps(
             {"note": doc.get("note", ""), "floors": floors,
              "total_floor": int(total * 0.9)}, indent=1) + "\n", encoding="utf-8")
         print(f"floors regenerated: {len(floors)} suites, total {total}")
         return 0
+
+    problems = validate(doc, counts)
     if problems:
-        print("test-floor: FAIL — silent suite shrinkage:")
+        print("test-floor: FAIL — invalid floors or silent suite shrinkage:")
         for p in problems:
             print(f"  {p}")
         return 1
+    total = sum(counts.values())
     print(f"test-floor: OK — {len(counts)} suites, {total} tests "
           f"(floors hold)")
     return 0

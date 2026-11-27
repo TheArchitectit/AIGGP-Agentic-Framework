@@ -199,6 +199,10 @@ inputs, including deterministic results for the surface reach check. See
 the [archived OpenSpec change](openspec/changes/archive/2026-11-20-add-open-item-gates/)
 for the gate contracts and wiring.
 
+### Corruption review boundaries
+
+Ordinary corruption checks remain strict when no detached receipt is configured. The opt-in detached mode accepts an external review only when its digest, repository/run, full base, target tree, and complete finding inventory match; a stale or mismatched review cannot suppress findings. The separately opt-in protected-transition mode is still active work, and neither mode falls back to the other. This evaluator support does not provision production authority or enable protected CI. See the [published detached-review contract](openspec/specs/data-corruption/spec.md), the [archived package plan](openspec/changes/archive/2026-11-27-consume-detached-corruption-review/sprint-plan.md), the [protected-transition runbook](docs/runbooks/reviewed-corruption-transitions.md), and the [active provisioning plan](openspec/changes/provision-exact-corruption-reviews/sprint-plan.md).
+
 ### Releases and documentation
 
 Product changes on `main` must be released, not accumulated behind a green

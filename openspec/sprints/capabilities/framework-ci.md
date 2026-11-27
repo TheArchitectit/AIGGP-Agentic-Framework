@@ -33,3 +33,7 @@ DG-02 tracks DG02-U-059, DG02-U-060, DG02-U-061. [Row dispositions and batch sea
 Coordinate overlapping work with [gate-scope-honesty](../../changes/gate-scope-honesty/sprint-plan.md).
 
 [Published specification](../../specs/framework-ci/spec.md) and [sprint dispatch](../../SPRINTS.md).
+
+## Active change routing
+
+The [detached corruption range review](../../changes/archive/2026-11-27-consume-detached-corruption-review/sprint-plan.md) records the archived `framework-ci` test-floor and suite-inventory delta. The detached-range change completed its package tasks; preserve the independent CI gates and do not infer protected rollout from local fixtures.

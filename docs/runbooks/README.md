@@ -2,7 +2,11 @@
 
 These runbooks describe the IMPLEMENTED mechanisms only: every command
 references code that exists in this repository and behavior covered by
-tests or drills. Where a capability is not yet built (S5/S6/S7 remainder),
+tests or drills. The reviewed-corruption runbook covers only the protected
+exact-transition evaluator; the detached whole-range review is specified by the published
+[data-corruption capability](../../openspec/specs/data-corruption/spec.md) and is not an alternate or fallback authority source. Production
+controller provisioning and protected-CI adoption remain pending owner decisions.
+Where a capability is not yet built (S5/S6/S7 remainder),
 the runbook says so instead of describing an aspiration.
 
 | Runbook | Scenario | Verified by |
@@ -14,6 +18,7 @@ the runbook says so instead of describing an aspiration.
 | [migration-fixed-name-to-per-runner-units.md](./migration-fixed-name-to-per-runner-units.md) | moving a host from fixed-name to per-runner units (`bfb7e99`) | `tests/mutation_battery_image_state.py`; `tests/test_runbook_claims.py` |
 | [deprecation-and-compat.md](./deprecation-and-compat.md) | wire-contract compatibility: supported versions, retirement procedure, retired-vs-foreign exit 40 | `tests/test_hub_coherence_compat.py`; `tests/test_runbook_claims.py` |
 | [toolchain-request-loop.md](./toolchain-request-loop.md) | toolchain request lifecycle: report, approve/deny, build report, fulfil; what an approval does (image rebuild) and does not do | `tests/test_hub_toolchain_requests.py`; `tests/test_hub_operator_auth.py`; `tests/test_runbook_claims.py` |
+| [reviewed-corruption-transitions.md](./reviewed-corruption-transitions.md) | Review or revoke one exact substitution in a committed range | `tests/test_corruption_reviews.py` and the rootless protected-store CI smoke |
 
 ## Fast triage
 
