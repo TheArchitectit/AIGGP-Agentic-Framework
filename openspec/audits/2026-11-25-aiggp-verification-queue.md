@@ -14,8 +14,8 @@ identifies the owning change and its acceptance tasks.
 - [ ] DG-02. Continue reviewing the indexed requirements against
   enforcement, named behavioral tests, ordered commits, and sealed evidence.
   Preserve the original roster and apply lifecycle transitions only for
-  requirements with accepted evidence. [Batch 005](../changes/dg-02-evidence-ledger-reconciliation/batches/batch-005/README.md)
-  brings detailed coverage to 60 of 182. All 182 remain UNPROVEN. The next row is DG02-U-061.
+  requirements with accepted evidence. [Batch 006](../changes/dg-02-evidence-ledger-reconciliation/batches/batch-006/README.md)
+  brings detailed coverage to 72 of 182. All 182 remain UNPROVEN. The next row is DG02-U-073.
 
 ## Architecture acceptance
 

@@ -1,0 +1,662 @@
+{
+  "cargo": "cargo 1.97.1 (c980f4866 2026-06-30)",
+  "distinct_named_python_nodes": {
+    "command": [
+      "../py312/bin/python",
+      "-m",
+      "pytest",
+      "-q",
+      "--junitxml=../dg006-named.xml",
+      "tests/test_game_regression.py::test_allow_is_id_aware_for_registry",
+      "tests/test_game_regression.py::test_builtin_game_pattern_allow",
+      "tests/test_game_regression.py::test_comment_describing_a_pattern_is_not_a_hit",
+      "tests/test_game_regression.py::test_file_open_checked_on_the_next_line_is_not_save_corrupt",
+      "tests/test_game_regression.py::test_file_open_guarded_by_gdscript_truthiness",
+      "tests/test_game_regression.py::test_file_open_without_a_null_check_still_fires",
+      "tests/test_game_regression.py::test_glob_matches_basename_and_relpath",
+      "tests/test_game_regression.py::test_guard_window_is_bounded",
+      "tests/test_game_regression.py::test_guardrailsignore_scans",
+      "tests/test_game_regression.py::test_line_has_allow_helper",
+      "tests/test_game_regression.py::test_load_without_a_null_check_still_fires",
+      "tests/test_game_regression.py::test_preload_constant_is_not_an_unchecked_scene_load",
+      "tests/test_game_regression.py::test_push_error_and_assert_are_not_defects",
+      "tests/test_game_regression.py::test_registry_entry_scoped_by_file_glob",
+      "tests/test_game_regression.py::test_zero_files_is_nothing_scanned_not_pass",
+      "tests/test_gate_common.py::test_project_root_env_override",
+      "tests/test_gate_common.py::test_project_root_layout_standalone",
+      "tests/test_gate_common.py::test_project_root_layout_submodule",
+      "tests/test_gate_common.py::test_project_root_never_walks_parents",
+      "tests/test_gate_overlay.py::test_explicit_path_is_single_source_no_merge",
+      "tests/test_gate_overlay.py::test_no_overlay_is_baseline_only",
+      "tests/test_gate_overlay.py::test_overlay_appends_new_ids",
+      "tests/test_gate_overlay.py::test_overlay_replaces_same_id_in_place",
+      "tests/test_gate_overlay.py::test_registry_merges_by_failure_id",
+      "tests/test_gate_overlay.py::test_registry_status_filter",
+      "tests/test_gate_overlay.py::test_semantic_rules_merged_with_pattern_rules",
+      "tests/test_log_failure.py::TestBaseWrite01Contract::test_gameplay_crash_entry_records_seed_and_input_trace",
+      "tests/test_log_failure.py::TestBaseWrite01Contract::test_gameplay_crash_without_input_trace_is_refused",
+      "tests/test_log_failure.py::TestBaseWrite01Contract::test_unseeded_gameplay_crash_is_refused_and_names_what_is_missing",
+      "tests/test_log_failure.py::TestLogFailureTargeting::test_append_only_never_rewrites",
+      "tests/test_python_root_anchor.py::test_no_ancestor_walkup_survives",
+      "tests/test_python_root_anchor.py::test_root_is_independent_of_cwd",
+      "tests/test_python_root_anchor.py::test_standalone_under_marker_parent",
+      "tests/test_python_root_anchor.py::test_submodule_layout_resolves_to_consumer",
+      "tests/test_regression_check.py::test_all_base_falls_back_only_when_no_tag",
+      "tests/test_regression_check.py::test_all_base_short_history_uses_empty_tree_not_crash",
+      "tests/test_regression_check.py::test_all_base_uses_tag_when_one_exists",
+      "tests/test_regression_check.py::test_all_scope_empty_tree_diff_uses_two_dot",
+      "tests/test_regression_check.py::test_all_scope_raises_when_base_diff_fails",
+      "tests/test_regression_check.py::test_base_scope_diffs_ref_and_fails_loud_on_bad_ref",
+      "tests/test_regression_scope.py::TestRealRepoEndToEnd::test_both_hunks_visible_under_all_scope",
+      "tests/test_schema_health_exitcodes.py::TestExitCodeContract::test_real_failure_is_exit_1_and_real_pass_is_exit_0",
+      "tests/test_silent_success_gate.py::TestSilentSuccessGateCanary::test_devgate_tree_itself_passes_with_live_families",
+      "tests/test_silent_success_overlay.py::test_bundled_allowlist_still_covers_with_an_overlay_present",
+      "tests/test_silent_success_overlay.py::test_malformed_allowlist_overlay_fails_closed",
+      "tests/test_silent_success_overlay.py::test_no_overlay_is_baseline_only",
+      "tests/test_silent_success_overlay.py::test_overlay_allowlist_does_not_cover_a_different_marker",
+      "tests/test_silent_success_overlay.py::test_overlay_replaces_same_family_adds_new",
+      "tests/test_silent_success_overlay.py::test_project_allowlist_overlay_covers_a_consumer_marker",
+      "tests/test_template_supply_chain.py::TestActionPinning::test_every_uses_is_sha_pinned"
+    ],
+    "errors": 0,
+    "exit_code": 0,
+    "failed": 0,
+    "junit_sha256": "sha256:9b28799e73ca59b3fe9efbd34e80d15e575c7f3c38ae10818215c604ba9cc846",
+    "passed": 50,
+    "skipped": 0
+  },
+  "format": "dg02-batch-test-receipt/v2",
+  "node": "v26.11.1",
+  "node_harnesses": {
+    "roots": {
+      "command": [
+        "node",
+        "tests/test_scanner_root_anchor.mjs"
+      ],
+      "exit_code": 0,
+      "kind": "custom assertion harness",
+      "passed": 15,
+      "passed_names": [
+        "run-tests: standalone root discovers the repo's 3 tests, not the parent's 2 decoys",
+        "run-tests: standalone exits green on 3 passing files",
+        "run-tests: zero discovery fails closed with a reason, never exits 0",
+        "run-tests: empty repo did not scan the parent",
+        "semantic-scan: standalone counts only the repo's own files, not the parent's decoys",
+        "run-tests: submodule layout discovers the CONSUMER's tests only",
+        "run-tests: consumer layout run exits green",
+        "run-tests: ALLOW_NO_TESTS=1 skips loudly and exits 0",
+        "run-tests: ALLOW_NO_TESTS=0 does NOT skip (only literal 1 is the hatch)",
+        "run-tests: resolves its own tree when invoked from an unrelated cwd",
+        "semantic-scan: resolves its own tree when invoked from an unrelated cwd",
+        "guardrails-scan: reports the repo's own file, never the decoy parent's",
+        "guardrails-scan: scope contract resolves from the layout root, not a cwd walk-up",
+        "run-tests: a case-variant .DevGate directory is not the submodule marker",
+        "project-root: resolves by path alone, never by touching the filesystem"
+      ],
+      "raw_output_sha256": "sha256:7b05173130ee19027833cc524f8e1fa9fc86cc4605a4430348c402d95128e69a"
+    },
+    "runner": {
+      "command": [
+        "node",
+        "--test",
+        "--test-reporter=tap",
+        "tests/test_run_tests_runner.mjs"
+      ],
+      "exit_code": 0,
+      "kind": "node:test",
+      "passed": 16,
+      "passed_names": [
+        "isSuffixTestFile: vitest-collected names only",
+        "selectJsRunner: declared vitest delegates suffix-style files",
+        "selectJsRunner: declared vitest keeps prefix-style on node --test",
+        "selectJsRunner: no vitest keeps every JS/TS file on node --test",
+        "declaresVitest: reads the consumer's package.json, fails closed to false",
+        "nearestVitestRoot: a nested package's vitest wins over the project root",
+        "selectJsRunner: nested vitest package delegates with its own root and relative filter",
+        "isEmptyRun: the 1..0 plan is vacuous; skips count as evidence",
+        "childTestEnv: scrubs NODE_TEST_CONTEXT, keeps the rest",
+        "run-tests delegates to the stub vitest and reads its TAP as a pass",
+        "run-tests fails a 1..0 stub run closed (vacuous green refused)",
+        "run-tests accounts for a missing Python executable and runs its healthy sibling",
+        "run-tests keeps a persistent EAGAIN launch failure after running healthy siblings",
+        "run-tests clears EAGAIN only when solo adjudication runs tests successfully",
+        "run-tests does not clear a launch failure when the solo run executes zero tests",
+        "run-tests children run top-level even when the runner sits under node --test"
+      ],
+      "raw_output_sha256": "sha256:16bbd5920c283c9ea42f3443da528021d69fac26dc25640801e23a81f874006f"
+    },
+    "schema": {
+      "command": [
+        "node",
+        "tests/test_schema_health_config.mjs"
+      ],
+      "exit_code": 0,
+      "kind": "custom assertion harness",
+      "passed": 7,
+      "passed_names": [
+        "no config is a loud skip",
+        "skip names the config surface",
+        "adapter without columns fails",
+        "columns without adapter fails",
+        "unknown adapter name fails",
+        "configured adapter with no db is a loud skip",
+        "malformed config fails"
+      ],
+      "raw_output_sha256": "sha256:8a0bdf77a45f45e4b425bfdbd93a7e86bc209c0ed44bdc9fb8bc60837d178e88"
+    }
+  },
+  "owner_and_support_modules": {
+    "command": [
+      "../py312/bin/python",
+      "-m",
+      "pytest",
+      "-q",
+      "--junitxml=../dg006-python.xml",
+      "tests/test_template_supply_chain.py",
+      "tests/test_log_failure.py",
+      "tests/test_game_regression.py",
+      "tests/test_gate_overlay.py",
+      "tests/test_silent_success_overlay.py",
+      "tests/test_silent_success_gate.py",
+      "tests/test_schema_health_exitcodes.py",
+      "tests/test_gate_common.py",
+      "tests/test_python_root_anchor.py",
+      "tests/test_regression_check.py",
+      "tests/test_regression_scope.py"
+    ],
+    "errors": 0,
+    "exit_code": 0,
+    "failed": 0,
+    "junit_sha256": "sha256:be83230642204e89bcb457068e1bec950ce3edccfbe2a370704b4d6f2f0e1f22",
+    "passed": 160,
+    "skipped": 0
+  },
+  "platform": "Linux",
+  "pytest": "9.2.0",
+  "python": "3.12.13",
+  "reviewed_head": "666cbed7caa59d315fb1ecde780a7661eb4828ac",
+  "row_control_ids": {
+    "DG02-U-061": [
+      "workflow_pins"
+    ],
+    "DG02-U-062": [
+      "duplicate_append"
+    ],
+    "DG02-U-063": [
+      "registry_diff_modes"
+    ],
+    "DG02-U-064": [],
+    "DG02-U-065": [
+      "orphan_signal"
+    ],
+    "DG02-U-066": [],
+    "DG02-U-067": [
+      "empty_game_scope"
+    ],
+    "DG02-U-068": [
+      "schema_overlay_name"
+    ],
+    "DG02-U-069": [
+      "fresh_install"
+    ],
+    "DG02-U-070": [],
+    "DG02-U-071": [
+      "cargo_empty_target"
+    ],
+    "DG02-U-072": [
+      "tagged_window"
+    ]
+  },
+  "row_passed_test_ids": {
+    "DG02-U-061": [
+      "tests/test_template_supply_chain.py::TestActionPinning::test_every_uses_is_sha_pinned"
+    ],
+    "DG02-U-062": [
+      "tests/test_log_failure.py::TestLogFailureTargeting::test_append_only_never_rewrites",
+      "tests/test_gate_overlay.py::test_registry_merges_by_failure_id"
+    ],
+    "DG02-U-063": [
+      "tests/test_game_regression.py::test_registry_entry_scoped_by_file_glob"
+    ],
+    "DG02-U-064": [
+      "tests/test_log_failure.py::TestBaseWrite01Contract::test_gameplay_crash_entry_records_seed_and_input_trace",
+      "tests/test_log_failure.py::TestBaseWrite01Contract::test_unseeded_gameplay_crash_is_refused_and_names_what_is_missing",
+      "tests/test_log_failure.py::TestBaseWrite01Contract::test_gameplay_crash_without_input_trace_is_refused"
+    ],
+    "DG02-U-065": [
+      "tests/test_game_regression.py::test_preload_constant_is_not_an_unchecked_scene_load",
+      "tests/test_game_regression.py::test_load_without_a_null_check_still_fires",
+      "tests/test_game_regression.py::test_file_open_checked_on_the_next_line_is_not_save_corrupt",
+      "tests/test_game_regression.py::test_file_open_without_a_null_check_still_fires",
+      "tests/test_game_regression.py::test_file_open_guarded_by_gdscript_truthiness",
+      "tests/test_game_regression.py::test_guard_window_is_bounded",
+      "tests/test_game_regression.py::test_push_error_and_assert_are_not_defects",
+      "tests/test_game_regression.py::test_comment_describing_a_pattern_is_not_a_hit",
+      "tests/test_game_regression.py::test_builtin_game_pattern_allow"
+    ],
+    "DG02-U-066": [
+      "tests/test_game_regression.py::test_glob_matches_basename_and_relpath",
+      "tests/test_game_regression.py::test_registry_entry_scoped_by_file_glob",
+      "tests/test_game_regression.py::test_allow_is_id_aware_for_registry",
+      "tests/test_game_regression.py::test_line_has_allow_helper",
+      "tests/test_game_regression.py::test_guardrailsignore_scans"
+    ],
+    "DG02-U-067": [
+      "tests/test_game_regression.py::test_zero_files_is_nothing_scanned_not_pass"
+    ],
+    "DG02-U-068": [
+      "tests/test_gate_overlay.py::test_no_overlay_is_baseline_only",
+      "tests/test_gate_overlay.py::test_overlay_appends_new_ids",
+      "tests/test_gate_overlay.py::test_overlay_replaces_same_id_in_place",
+      "tests/test_gate_overlay.py::test_explicit_path_is_single_source_no_merge",
+      "tests/test_gate_overlay.py::test_semantic_rules_merged_with_pattern_rules",
+      "tests/test_gate_overlay.py::test_registry_merges_by_failure_id",
+      "tests/test_gate_overlay.py::test_registry_status_filter",
+      "tests/test_silent_success_overlay.py::test_project_allowlist_overlay_covers_a_consumer_marker",
+      "tests/test_silent_success_overlay.py::test_overlay_allowlist_does_not_cover_a_different_marker",
+      "tests/test_silent_success_overlay.py::test_bundled_allowlist_still_covers_with_an_overlay_present",
+      "tests/test_silent_success_overlay.py::test_malformed_allowlist_overlay_fails_closed",
+      "tests/test_schema_health_exitcodes.py::TestExitCodeContract::test_real_failure_is_exit_1_and_real_pass_is_exit_0",
+      "tests/test_schema_health_config.mjs::no config is a loud skip",
+      "tests/test_schema_health_config.mjs::skip names the config surface",
+      "tests/test_schema_health_config.mjs::adapter without columns fails",
+      "tests/test_schema_health_config.mjs::columns without adapter fails",
+      "tests/test_schema_health_config.mjs::unknown adapter name fails",
+      "tests/test_schema_health_config.mjs::configured adapter with no db is a loud skip",
+      "tests/test_schema_health_config.mjs::malformed config fails"
+    ],
+    "DG02-U-069": [
+      "tests/test_silent_success_overlay.py::test_no_overlay_is_baseline_only",
+      "tests/test_silent_success_overlay.py::test_overlay_replaces_same_family_adds_new",
+      "tests/test_silent_success_gate.py::TestSilentSuccessGateCanary::test_devgate_tree_itself_passes_with_live_families"
+    ],
+    "DG02-U-070": [
+      "tests/test_gate_common.py::test_project_root_layout_submodule",
+      "tests/test_gate_common.py::test_project_root_layout_standalone",
+      "tests/test_gate_common.py::test_project_root_never_walks_parents",
+      "tests/test_gate_common.py::test_project_root_env_override",
+      "tests/test_python_root_anchor.py::test_standalone_under_marker_parent",
+      "tests/test_python_root_anchor.py::test_submodule_layout_resolves_to_consumer",
+      "tests/test_python_root_anchor.py::test_root_is_independent_of_cwd",
+      "tests/test_python_root_anchor.py::test_no_ancestor_walkup_survives",
+      "tests/test_scanner_root_anchor.mjs::run-tests: standalone root discovers the repo's 3 tests, not the parent's 2 decoys",
+      "tests/test_scanner_root_anchor.mjs::run-tests: standalone exits green on 3 passing files",
+      "tests/test_scanner_root_anchor.mjs::semantic-scan: standalone counts only the repo's own files, not the parent's decoys",
+      "tests/test_scanner_root_anchor.mjs::run-tests: submodule layout discovers the CONSUMER's tests only",
+      "tests/test_scanner_root_anchor.mjs::run-tests: consumer layout run exits green",
+      "tests/test_scanner_root_anchor.mjs::run-tests: resolves its own tree when invoked from an unrelated cwd",
+      "tests/test_scanner_root_anchor.mjs::semantic-scan: resolves its own tree when invoked from an unrelated cwd",
+      "tests/test_scanner_root_anchor.mjs::run-tests: a case-variant .DevGate directory is not the submodule marker"
+    ],
+    "DG02-U-071": [
+      "tests/test_run_tests_runner.mjs::isEmptyRun: the 1..0 plan is vacuous; skips count as evidence",
+      "tests/test_run_tests_runner.mjs::run-tests fails a 1..0 stub run closed (vacuous green refused)",
+      "tests/test_scanner_root_anchor.mjs::run-tests: zero discovery fails closed with a reason, never exits 0"
+    ],
+    "DG02-U-072": [
+      "tests/test_regression_check.py::test_all_scope_raises_when_base_diff_fails",
+      "tests/test_regression_check.py::test_all_base_uses_tag_when_one_exists",
+      "tests/test_regression_check.py::test_all_base_falls_back_only_when_no_tag",
+      "tests/test_regression_check.py::test_all_base_short_history_uses_empty_tree_not_crash",
+      "tests/test_regression_check.py::test_all_scope_empty_tree_diff_uses_two_dot",
+      "tests/test_regression_scope.py::TestRealRepoEndToEnd::test_both_hunks_visible_under_all_scope",
+      "tests/test_regression_check.py::test_base_scope_diffs_ref_and_fails_loud_on_bad_ref"
+    ]
+  },
+  "synthetic_controls": {
+    "cargo_empty_target": {
+      "commands": [
+        "cargo test --test empty_test",
+        "node .devgate/scripts/run-tests.mjs (zero tests)",
+        "node .devgate/scripts/run-tests.mjs (one test)"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        0
+      ],
+      "fixture": "A dependency-free Cargo package. tests/empty_test.rs was empty of tests, then contained a single passing test. Both runner invocations used the same reviewed scripts and offline Cargo.",
+      "observed": {
+        "cargo_reported": "running 0 tests",
+        "runner_passed_one_rust_test": true,
+        "runner_rejected_empty": true
+      }
+    },
+    "duplicate_append": {
+      "commands": [
+        "python scripts/log_failure.py --registry <project-registry> --error-message \"Synthetic sample\" --regression-pattern DG006_SAMPLE --file-glob \"*.gd\" (twice)",
+        "python scripts/game_regression.py --unstaged --pre-commit"
+      ],
+      "exit_codes": [
+        0,
+        0,
+        1
+      ],
+      "fixture": "Default-generated IDs. Same writer arguments, message, glob and literal pattern logged twice. Scanner checked the same single matching line.",
+      "observed": {
+        "first_entry_bytes_preserved": true,
+        "generated_distinct_ids": 2,
+        "registry_hits_on_one_source_line": 2,
+        "stored_lines": 2
+      }
+    },
+    "empty_game_scope": {
+      "commands": [
+        "python .devgate/scripts/game_regression.py --all",
+        "python .devgate/scripts/game_regression.py --all --fail-if-empty"
+      ],
+      "exit_codes": [
+        0,
+        2
+      ],
+      "fixture": "Same consumer with no applicable game source files.",
+      "observed": {
+        "clean_message_both": false,
+        "nothing_scanned_both": true
+      }
+    },
+    "fresh_install": {
+      "commands": [
+        "bash .devgate/scripts/silent-success-scan.sh"
+      ],
+      "exit_codes": [
+        0
+      ],
+      "fixture": "Clean empty consumer with reviewed scripts and bundled .guardrails installed under .devgate, no project overlay.",
+      "observed": {
+        "enabled_families": 4,
+        "skip_notice": false
+      }
+    },
+    "orphan_signal": {
+      "commands": [
+        "python scripts/game_regression.py --unstaged --pre-commit"
+      ],
+      "exit_codes": [
+        1
+      ],
+      "fixture": "One changed GDScript line connects the pressed signal.",
+      "observed": {
+        "file": "sample.gd",
+        "line": 1,
+        "pattern": "ORPHAN_SIGNAL"
+      }
+    },
+    "registry_diff_modes": {
+      "commands": [
+        "python scripts/game_regression.py --staged --pre-commit",
+        "python scripts/game_regression.py --unstaged --pre-commit"
+      ],
+      "exit_codes": [
+        1,
+        1
+      ],
+      "fixture": "One synthetic registry pattern DG006_SAMPLE scoped to *.gd. The tracked source contained the marker on line one. First staged, then restored only the index to the clean baseline.",
+      "observed": {
+        "cited_logged_id_and_line_both": true
+      }
+    },
+    "schema_overlay_name": {
+      "commands": [
+        "node .devgate/scripts/schema-health-check.mjs --db sample.sqlite [schema-contract.json]",
+        "node .devgate/scripts/schema-health-check.mjs --db sample.sqlite [schema-health.json]"
+      ],
+      "exit_codes": [
+        2,
+        1
+      ],
+      "fixture": "SQLite sample(value text). Each overlay requested missing sample.absent. Only its filename changed.",
+      "observed": {
+        "implementation_filename": "reported missing sample.absent",
+        "spec_filename": "SKIPPED"
+      }
+    },
+    "tagged_window": {
+      "commands": [
+        "python .devgate/scripts/regression_check.py --all --pre-commit --json",
+        "python .devgate/scripts/regression_check.py --base origin/main --pre-commit --json",
+        "python .devgate/scripts/regression_check.py --all --pre-commit --json (with registry entry)"
+      ],
+      "exit_codes": [
+        0,
+        1,
+        1
+      ],
+      "fixture": "Synthetic clean Git project. Tag v0 and origin/main both name the baseline. One later committed Python line contains DG006_WINDOW, matched by a critical prevention rule. A third run adds a registry entry for the same literal and commits it.",
+      "observed": {
+        "all_files_checked": 0,
+        "all_pattern_hits": 0,
+        "all_with_registry_entry_hits": 1,
+        "base_files_checked": 1,
+        "base_pattern_hits": 1
+      }
+    },
+    "workflow_pins": {
+      "commands": [
+        "Parse job.uses and job.steps[].uses with yaml",
+        "python -m pytest -q tests/test_template_supply_chain.py::TestActionPinning::test_every_uses_is_sha_pinned"
+      ],
+      "exit_codes": [
+        0,
+        1
+      ],
+      "fixture": "All reviewed .github/workflows YAML job/step uses fields. A copied pin test read one synthetic workflow using actions/checkout@v4.",
+      "observed": {
+        "mutable_fixture": "reported (mutable ref)",
+        "references": [
+          {
+            "file": "ci.yml",
+            "job": "tests",
+            "uses": "actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09",
+            "where": "step-1"
+          },
+          {
+            "file": "ci.yml",
+            "job": "tests",
+            "uses": "actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065",
+            "where": "step-2"
+          },
+          {
+            "file": "ci.yml",
+            "job": "tests",
+            "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+            "where": "step-3"
+          },
+          {
+            "file": "ci.yml",
+            "job": "self-gates",
+            "uses": "actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09",
+            "where": "step-1"
+          },
+          {
+            "file": "ci.yml",
+            "job": "self-gates",
+            "uses": "actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065",
+            "where": "step-2"
+          },
+          {
+            "file": "ci.yml",
+            "job": "self-gates",
+            "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+            "where": "step-3"
+          },
+          {
+            "file": "ci.yml",
+            "job": "secrets",
+            "uses": "actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09",
+            "where": "step-1"
+          },
+          {
+            "file": "ci.yml",
+            "job": "specs",
+            "uses": "actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09",
+            "where": "step-1"
+          },
+          {
+            "file": "ci.yml",
+            "job": "specs",
+            "uses": "actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065",
+            "where": "step-2"
+          },
+          {
+            "file": "ci.yml",
+            "job": "specs",
+            "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+            "where": "step-3"
+          },
+          {
+            "file": "ci.yml",
+            "job": "container-image",
+            "uses": "actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09",
+            "where": "step-1"
+          },
+          {
+            "file": "ci.yml",
+            "job": "evaluator-integrity",
+            "uses": "actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09",
+            "where": "step-1"
+          },
+          {
+            "file": "ci.yml",
+            "job": "evaluator-integrity",
+            "uses": "actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065",
+            "where": "step-2"
+          },
+          {
+            "file": "ci.yml",
+            "job": "container-publish",
+            "uses": "actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09",
+            "where": "step-1"
+          },
+          {
+            "file": "ci.yml",
+            "job": "container-publish",
+            "uses": "actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349",
+            "where": "step-3"
+          },
+          {
+            "file": "drift-scan.yml",
+            "job": "drift-scan",
+            "uses": "actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8",
+            "where": "step-1"
+          },
+          {
+            "file": "drift-scan.yml",
+            "job": "drift-scan",
+            "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+            "where": "step-2"
+          },
+          {
+            "file": "fleet-app-enroll.yml",
+            "job": "enroll",
+            "uses": "actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09",
+            "where": "step-1"
+          },
+          {
+            "file": "fleet-app-enroll.yml",
+            "job": "enroll",
+            "uses": "actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349",
+            "where": "step-3"
+          },
+          {
+            "file": "fleet-app-enroll.yml",
+            "job": "enroll",
+            "uses": "actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065",
+            "where": "step-4"
+          },
+          {
+            "file": "fleet-app-enroll.yml",
+            "job": "enroll",
+            "uses": "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+            "where": "step-7"
+          },
+          {
+            "file": "open-item-gates.yml",
+            "job": "open-item-gates",
+            "uses": "actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09",
+            "where": "step-1"
+          },
+          {
+            "file": "open-item-gates.yml",
+            "job": "open-item-gates",
+            "uses": "actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065",
+            "where": "step-2"
+          },
+          {
+            "file": "release-coverage.yml",
+            "job": "coverage",
+            "uses": "actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8",
+            "where": "step-1"
+          },
+          {
+            "file": "release.yml",
+            "job": "release",
+            "uses": "actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8",
+            "where": "step-1"
+          },
+          {
+            "file": "release.yml",
+            "job": "release",
+            "uses": "actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349",
+            "where": "step-3"
+          },
+          {
+            "file": "secret-fleet.yml",
+            "job": "sweep",
+            "uses": "actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09",
+            "where": "step-1"
+          },
+          {
+            "file": "secret-fleet.yml",
+            "job": "sweep",
+            "uses": "actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349",
+            "where": "step-3"
+          },
+          {
+            "file": "secret-fleet.yml",
+            "job": "sweep",
+            "uses": "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+            "where": "step-12"
+          },
+          {
+            "file": "spec-fleet.yml",
+            "job": "sweep",
+            "uses": "actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09",
+            "where": "step-1"
+          },
+          {
+            "file": "spec-fleet.yml",
+            "job": "sweep",
+            "uses": "actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349",
+            "where": "step-3"
+          },
+          {
+            "file": "spec-fleet.yml",
+            "job": "sweep",
+            "uses": "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020",
+            "where": "step-6"
+          },
+          {
+            "file": "spec-fleet.yml",
+            "job": "sweep",
+            "uses": "actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02",
+            "where": "step-11"
+          },
+          {
+            "file": "spec-state.yml",
+            "job": "audit",
+            "uses": "actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09",
+            "where": "step-1"
+          },
+          {
+            "file": "spec-state.yml",
+            "job": "audit",
+            "uses": "actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065",
+            "where": "step-2"
+          }
+        ],
+        "workflows": 10
+      }
+    }
+  }
+}
