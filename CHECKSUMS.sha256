@@ -1,4 +1,4 @@
-# DevGate release checksums — generated 2026-11-27T21:58:27Z
+# DevGate release checksums — generated 2026-11-27T21:59:38Z
 # Verify before use: python3 scripts/gen-checksums.py verify
 3ba50bc8b31743b05c2d11a2fe8156c44477548600ac9c2e1b4fa8f78e09c378  hub/__init__.py
 ee9d420de2f1a6dd228e9166b508e106f753dace985884ec6355581cabdbeb91  hub/alerts.py
@@ -113,7 +113,7 @@ b5f5a2a71210a15d5f7f579ac0105053dd2b79f2f5f264531fac62e0e86d7b79  scripts/lib/pr
 20f90e8d27f20370241ca1418a7cdfc29a92137bcb182f3389fef0b5de3dd7cb  scripts/lib/registry-digest.sh
 d428532da0eabccf62a62258b25eadfa3bc665382f416f943ffcf4e04ea8e427  scripts/lib/runner-installs.sh
 57d40f65e023ae68badddd7a8dd3c518f547e16b889c566bd7b74718872a66a3  scripts/lib/runner-units.sh
-83ffa22068fbd7c1b0a845c334aa6489a93a83ea2ccc37c370a55e1289a77cf9  scripts/lib/spec_catalog.py
+fdffee366a916be8f674b151597af576a173bd03ed1ba61f5b642a7f8f8f3921  scripts/lib/spec_catalog.py
 ec35dbddfa30c20162ced2b4ec34155e8ff351c369fe4ab18af4e836e968e1df  scripts/lib/spec_discovery.py
 72ebf577d603fbca883af6e48d5843719db23fbe3f537991f3d613577fb218c2  scripts/lib/test-runner-select.mjs
 d0db7d8b8bfc1c77e171acc9e9f0d7cd8d1afe4737f5745c8cb3de31ceb012f5  scripts/lib/toolchain_probe.py

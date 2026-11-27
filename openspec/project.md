@@ -13,6 +13,8 @@ Browse published requirements, capability status, active changes and the archive
 
 After adding a requirement, change package or review batch, run `python3 scripts/spec_index.py --write` from the repository root and commit the generated index alongside the source documents. Run `python3 scripts/spec_index.py --check` to verify a clean regeneration.
 
+Maintain the corresponding [sprint plan](SPRINTS.md) with the requirement IDs or active tasks it covers. Each plan identifies agent roles, acceptance artifacts and external owner decisions.
+
 ## Users
 
 - **Consumer projects** — repositories that provision DevGate tooling at

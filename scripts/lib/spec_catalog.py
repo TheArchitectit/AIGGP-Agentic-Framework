@@ -58,7 +58,7 @@ def _markdown_link(path: Path, root: Path, label: str) -> str:
 
 def _change_artifacts(change: Path, root: Path) -> list[str]:
     links = []
-    primary = (("proposal.md", "proposal"), ("tasks.md", "tasks"),
+    primary = (("sprint-plan.md", "sprint plan"), ("proposal.md", "proposal"), ("tasks.md", "tasks"),
                ("design.md", "design"), ("evidence.md", "evidence"),
                ("review.md", "review"))
     for name, label in primary:
@@ -127,13 +127,19 @@ def render(root: Path, capabilities: list[tuple[str, str, list[str], str]]) -> s
     Change directory presence, rather than proposal presence, defines the
     inventory, so older/minimal packages remain discoverable.
     """
-    lines = ["\n## Capability catalog\n",
-             "Every published capability and requirement is linked to its canonical specification.\n",
-             "| Capability | Requirements | Lifecycle |\n|---|---|---|"]
+    introduction = "Every published capability and requirement is linked to its canonical specification."
+    if (root / "openspec/SPRINTS.md").is_file():
+        introduction += (" Start with the [sprint sequence](SPRINTS.md#sprint-sequence), "
+                         "[agent roles](SPRINTS.md#dispatch-by-agent-type) and "
+                         "[session adapters](SPRINTS.md#session-adapter-matrix).")
+    lines = ["\n## Capability catalog\n", introduction + "\n",
+             "| Capability | Requirements | Lifecycle | Sprint plan |\n|---|---|---|---|"]
     for slug, title, req_ids, lifecycle in capabilities:
         req_links = _requirement_links(root / "openspec" / "specs" / slug / "spec.md",
                                        root, req_ids)
-        lines.append(f"| [{title}](specs/{slug}/spec.md) (`{slug}`) | {req_links} | **{lifecycle}** |")
+        plan = root / "openspec" / "sprints" / "capabilities" / f"{slug}.md"
+        plan_link = _markdown_link(plan, root, "Plan") if plan.is_file() else "Pending"
+        lines.append(f"| [{title}](specs/{slug}/spec.md) (`{slug}`) | {req_links} | **{lifecycle}** | {plan_link} |")
 
     changes_root = root / "openspec" / "changes"
     active = ([p for p in sorted(changes_root.iterdir(), key=lambda p: p.name)
@@ -149,6 +155,8 @@ def render(root: Path, capabilities: list[tuple[str, str, list[str], str]]) -> s
                       "| Change | Links |\n|---|---|"])
         for path in entries:
             artifacts = _change_artifacts(path, root)
+            if path.parent == archive_root and (root / "openspec/sprints/archive.md").is_file():
+                artifacts.append(f"[sprint routing](sprints/archive.md#{_slug(path.name)})")
             title = _change_title(path).replace("|", "&#124;").replace("\n", " ")
             lines.append(f"| {title} (`{path.name}`) | {' · '.join(artifacts)} |")
 

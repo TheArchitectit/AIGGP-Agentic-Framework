@@ -1,4 +1,5 @@
 """The generated OpenSpec index catalogs every capability and change."""
+import re
 from pathlib import Path
 
 from scripts import spec_index
@@ -118,3 +119,29 @@ def test_specs_only_repository_without_changes_directory_renders(tmp_path):
     assert "0 active changes are cataloged" in rendered
     assert "## Archived changes" in rendered
     assert "0 archived changes are cataloged" in rendered
+
+
+def test_sprint_plans_cover_the_published_requirements_and_change_packages():
+    openspec = ROOT / "openspec"
+    index = (openspec / "INDEX.md").read_text(encoding="utf-8")
+    specs = {path.parent.name: path for path in (openspec / "specs").glob("*/spec.md")}
+    plans = {path.stem: path for path in (openspec / "sprints/capabilities").glob("*.md")}
+    assert plans.keys() == specs.keys()
+    for capability, plan in plans.items():
+        assert f"](sprints/capabilities/{capability}.md)" in index
+        requirement_ids = spec_index.read_spec(specs[capability])[3]
+        target = f"../../specs/{capability}/spec.md#"
+        links = re.findall(r"\[\x60([^\x60]+)\x60\]\(([^)]+)\)", plan.read_text(encoding="utf-8"))
+        planned_ids = [req_id for req_id, href in links if href.startswith(target)]
+        assert sorted(planned_ids) == sorted(requirement_ids), capability
+
+    changes = openspec / "changes"
+    for change in (p for p in changes.iterdir() if p.is_dir() and p.name != "archive"):
+        assert (change / "sprint-plan.md").is_file(), change
+        assert f"](changes/{change.name}/sprint-plan.md)" in index, change
+
+    archive = (openspec / "sprints/archive.md").read_text(encoding="utf-8")
+    packages = sorted(p.name for p in (changes / "archive").iterdir() if p.is_dir())
+    assert sorted(re.findall(r"^### (.+)$", archive, re.MULTILINE)) == packages
+    for name in packages:
+        assert f"](sprints/archive.md#{name})" in index

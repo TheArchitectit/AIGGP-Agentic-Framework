@@ -92,6 +92,11 @@ bash .devgate/scripts/silent-success-scan.sh
 node .devgate/scripts/schema-health-check.mjs
 ```
 
+When changing this framework's shipped scripts, stage new script paths, run
+`python3 scripts/gen-checksums.py generate`, and commit `CHECKSUMS.sha256`
+with the script changes. Verify the result with `python3 scripts/gen-checksums.py verify`.
+The framework CI checks this inventory on pushes to `main`.
+
 ## The Four Gates (Write → Audit → Review → Commit)
 
 DevGate's scanners catch *known* failure patterns. They cannot tell whether the work does what was asked, whether a test asserts anything, or whether an agent reported success it never achieved. So work moves through four gates:
@@ -136,6 +141,7 @@ runs as a hard gate) and the marker gate (`scripts/spec_traceability.py`).
   archiving a requirement, change package or evidence batch. Run
   `python3 scripts/spec_index.py --write`, inspect the links and run
   `python3 scripts/spec_index.py --check` before committing.
+- Keep each published capability plan in `openspec/sprints/capabilities/` and each active change plan beside its tasks as `sprint-plan.md`. Update the historical routing entry on archive. Preserve the independent audit and accountable owner decisions in the [sprint dispatch guide](openspec/SPRINTS.md).
 - **Archive ceremony**: mark tasks complete → `openspec archive <change>`
   → `openspec validate --all --strict` → re-run `spec_traceability.py` →
   update CHANGELOG. A change whose tasks are all checked but which is not

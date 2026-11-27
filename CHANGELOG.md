@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Added [sprint plans and role assignments](openspec/SPRINTS.md) for published capabilities and active changes, with routing for archived packages.
+
 - Expanded the [OpenSpec index](openspec/INDEX.md) to include published requirements and change packages.
 - Recorded [DG-02 batch 012](openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-012/README.md) and the [fleet contract qualification gap](openspec/changes/qualify-dg02-boundary-contract-domain-gaps/proposal.md). The twelve reviewed claims remain UNPROVEN.
 - Published the bank AI tooling assessment, its qualification tasks, and the
@@ -16,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Regenerated the shipped script checksums for the catalog renderer and three gate updates identified by the framework self-check.
 - Preserved per-file launch failures and verified the original runner report
   in CI (DG-21).
 - Preserved Unicode script names and rejected unresolved index duplicates in
