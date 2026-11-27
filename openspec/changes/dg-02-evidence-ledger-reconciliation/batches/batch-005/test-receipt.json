@@ -1,0 +1,203 @@
+{
+  "distinct_named_nodes": {
+    "command": [
+      "../py312/bin/python",
+      "-m",
+      "pytest",
+      "-q",
+      "--junitxml=../dg005-named.xml",
+      "tests/test_hub_coherence.py::TestPackage::test_inventory_digest_mismatch",
+      "tests/test_hub_coherence_attest.py::TestAttestProduce::test_acyclic_order_re_signing_leaves_decision_unchanged",
+      "tests/test_hub_coherence_attest.py::TestAttestVerifyNegative::test_bound_input_substitution_detected",
+      "tests/test_hub_coherence_attest.py::TestAttestVerifyNegative::test_revoked_signer_rejected_even_with_valid_signature",
+      "tests/test_hub_coherence_attestation.py::TestFailClosed::test_stage2_replay_no_attestation",
+      "tests/test_hub_coherence_attestation.py::TestResigning::test_resign_leaves_decision_unchanged",
+      "tests/test_hub_coherence_attestation.py::TestSignAndVerify::test_verify_expired_signer_fails",
+      "tests/test_hub_coherence_attestation.py::TestSignAndVerify::test_verify_fails_on_substituted_digest",
+      "tests/test_hub_coherence_attestation.py::TestSignAndVerify::test_verify_revoked_signer_fails",
+      "tests/test_hub_coherence_cache.py::TestKeyCompleteness::test_a_changed_captured_fact_set_is_a_miss",
+      "tests/test_hub_coherence_cache.py::TestKeyCompleteness::test_a_changed_plugin_set_is_a_miss",
+      "tests/test_hub_coherence_cache.py::TestKeyCompleteness::test_a_result_bound_to_an_older_context_is_a_miss",
+      "tests/test_hub_coherence_cache.py::TestRetentionValidity::test_lapsed_input_retention_makes_a_matching_entry_a_miss",
+      "tests/test_hub_coherence_cache.py::TestSignerValidity::test_a_revoked_signer_makes_an_otherwise_matching_entry_a_miss",
+      "tests/test_hub_coherence_cache.py::TestTimeToLive::test_a_result_past_its_ttl_is_a_miss",
+      "tests/test_hub_coherence_evidence.py::TestEvidencePathEndToEnd::test_two_violation_run_passes_verify_run",
+      "tests/test_hub_coherence_evidence.py::TestEvidencePathIntegrity::test_retention_class_is_derived_from_declared_days",
+      "tests/test_hub_coherence_exitcodes.py::TestExitCodeSweep::test_33_evidence_error",
+      "tests/test_hub_coherence_issue.py::TestReplaySemantics::test_replay_byte_identical_and_labeled",
+      "tests/test_hub_coherence_modes.py::TestStage3CoreShelter::test_expired_exception_still_blocks_at_stage_3",
+      "tests/test_hub_coherence_normative.py::TestNormativeBoundary::test_informative_entry_content_change_leaves_digest_stable",
+      "tests/test_hub_coherence_normative.py::TestNormativeBoundary::test_informative_only_change_leaves_normative_digest_stable",
+      "tests/test_hub_coherence_normative.py::TestNormativeBoundary::test_reclassification_changes_package_digest",
+      "tests/test_hub_coherence_report.py::TestSummarize::test_replay_results_flagged_non_authorizing",
+      "tests/test_hub_coherence_retention.py::RetentionTestCase::test_retained_bundle_lives_outside_the_public_evidence_channel",
+      "tests/test_hub_coherence_retention.py::TestDistinctAuthorization::test_no_authorization_is_refused",
+      "tests/test_hub_coherence_retention.py::TestExpiry::test_expired_retention_fails_closed_with_a_distinct_reason",
+      "tests/test_hub_coherence_runtime.py::TestCapturedFactContent::test_tampered_content_rejected",
+      "tests/test_hub_coherence_runtime.py::TestCapturedFactContent::test_verified_content_is_loaded",
+      "tests/test_hub_coherence_runtime.py::TestCapturedFactMediation::test_bound_fact_satisfied_on_match",
+      "tests/test_hub_coherence_runtime.py::TestCapturedFactMediation::test_facts_scoped_to_declared_ids_only",
+      "tests/test_hub_coherence_runtime.py::TestCapturedFactMediation::test_mismatched_fact_violates",
+      "tests/test_hub_coherence_runtime.py::TestCapturedFactMediation::test_unbound_declared_fact_is_unresolved_never_satisfied",
+      "tests/test_hub_coherence_runtime.py::TestSecretRedactionAtSeal::test_scrub_bypass_is_an_evidence_error_never_a_silent_seal",
+      "tests/test_hub_coherence_runtime.py::TestSecretRedactionAtSeal::test_secret_scrubbed_before_sealing",
+      "tests/test_hub_coherence_schema.py::TestErrorEnvelopes::test_canonical_result_has_no_attestation_fields",
+      "tests/test_hub_coherence_store.py::TestBundleCompleteness::test_upload_carries_every_file_verify_requires",
+      "tests/test_hub_coherence_store.py::TestCacheValidity::test_retention_expiry_invalidates_even_with_long_ttl",
+      "tests/test_hub_coherence_store.py::TestCompleteCacheKey::test_every_single_input_changes_the_key",
+      "tests/test_hub_coherence_store.py::TestUploadResendsSealedBytes::test_a_failing_upload_leaves_the_sealed_bundle_recomputable",
+      "tests/test_hub_coherence_store.py::TestUploadResendsSealedBytes::test_retry_after_a_failure_sends_every_artifact",
+      "tests/test_hub_coherence_verify_cli.py::TestVerificationCLI::test_revoked_signer_fails_verification",
+      "tests/test_template_supply_chain.py::TestCiTemplateAndFrameworkContracts::test_framework_ci_runs_suite_and_gates"
+    ],
+    "errors": 0,
+    "exit_code": 1,
+    "failed": 3,
+    "failed_node_ids": [
+      "tests/test_hub_coherence_attestation.py::TestSignAndVerify::test_verify_expired_signer_fails",
+      "tests/test_hub_coherence_attestation.py::TestSignAndVerify::test_verify_fails_on_substituted_digest",
+      "tests/test_hub_coherence_attestation.py::TestSignAndVerify::test_verify_revoked_signer_fails"
+    ],
+    "failure_reason": "Three selected signing tests reached signer-key-not-configured before their verification assertions.",
+    "junit_sha256": "sha256:7ba17546462fbf726b3dbabf75c392da1581de0de535294e81f1693dd7e58022",
+    "passed": 40,
+    "passing_subtests": 0,
+    "skipped": 0
+  },
+  "format": "dg02-batch-test-receipt/v1",
+  "owner_and_support_modules": {
+    "command": [
+      "../py312/bin/python",
+      "-m",
+      "pytest",
+      "-q",
+      "--junitxml=../dg005-modules.xml",
+      "tests/test_evidence_integrity.py",
+      "tests/test_hub_coherence.py",
+      "tests/test_hub_coherence_attest.py",
+      "tests/test_hub_coherence_attestation.py",
+      "tests/test_hub_coherence_cache.py",
+      "tests/test_hub_coherence_conformance.py",
+      "tests/test_hub_coherence_evidence.py",
+      "tests/test_hub_coherence_exitcodes.py",
+      "tests/test_hub_coherence_issue.py",
+      "tests/test_hub_coherence_modes.py",
+      "tests/test_hub_coherence_normative.py",
+      "tests/test_hub_coherence_report.py",
+      "tests/test_hub_coherence_retention.py",
+      "tests/test_hub_coherence_runtime.py",
+      "tests/test_hub_coherence_schema.py",
+      "tests/test_hub_coherence_store.py",
+      "tests/test_hub_coherence_verify_cli.py",
+      "tests/test_template_supply_chain.py"
+    ],
+    "errors": 0,
+    "exit_code": 0,
+    "failed": 0,
+    "failed_node_ids": [],
+    "junit_sha256": "sha256:6f640252d41a14e317055548333ba6127009e1f539dbf114c105395a11a6cb9d",
+    "passed": 377,
+    "passing_subtests": 18,
+    "skipped": 0
+  },
+  "platform": "Linux",
+  "pytest": "9.2.0",
+  "python": "3.12.13",
+  "reviewed_head": "383eb4dc4077a44d9e834ef54142d325455ca682",
+  "row_passed_node_ids": {
+    "DG02-U-049": [
+      "tests/test_hub_coherence_attestation.py::TestFailClosed::test_stage2_replay_no_attestation",
+      "tests/test_hub_coherence_attestation.py::TestResigning::test_resign_leaves_decision_unchanged",
+      "tests/test_hub_coherence_schema.py::TestErrorEnvelopes::test_canonical_result_has_no_attestation_fields",
+      "tests/test_hub_coherence_issue.py::TestReplaySemantics::test_replay_byte_identical_and_labeled",
+      "tests/test_hub_coherence_modes.py::TestStage3CoreShelter::test_expired_exception_still_blocks_at_stage_3",
+      "tests/test_hub_coherence_report.py::TestSummarize::test_replay_results_flagged_non_authorizing"
+    ],
+    "DG02-U-050": [
+      "tests/test_hub_coherence_runtime.py::TestCapturedFactMediation::test_bound_fact_satisfied_on_match",
+      "tests/test_hub_coherence_runtime.py::TestCapturedFactMediation::test_mismatched_fact_violates",
+      "tests/test_hub_coherence_runtime.py::TestCapturedFactMediation::test_unbound_declared_fact_is_unresolved_never_satisfied",
+      "tests/test_hub_coherence_runtime.py::TestCapturedFactContent::test_verified_content_is_loaded",
+      "tests/test_hub_coherence_runtime.py::TestCapturedFactContent::test_tampered_content_rejected",
+      "tests/test_hub_coherence_runtime.py::TestCapturedFactMediation::test_facts_scoped_to_declared_ids_only"
+    ],
+    "DG02-U-051": [
+      "tests/test_hub_coherence_cache.py::TestKeyCompleteness::test_a_result_bound_to_an_older_context_is_a_miss",
+      "tests/test_hub_coherence_cache.py::TestKeyCompleteness::test_a_changed_captured_fact_set_is_a_miss",
+      "tests/test_hub_coherence_store.py::TestCompleteCacheKey::test_every_single_input_changes_the_key",
+      "tests/test_hub_coherence_cache.py::TestKeyCompleteness::test_a_changed_plugin_set_is_a_miss",
+      "tests/test_hub_coherence_cache.py::TestTimeToLive::test_a_result_past_its_ttl_is_a_miss",
+      "tests/test_hub_coherence_cache.py::TestRetentionValidity::test_lapsed_input_retention_makes_a_matching_entry_a_miss",
+      "tests/test_hub_coherence_cache.py::TestSignerValidity::test_a_revoked_signer_makes_an_otherwise_matching_entry_a_miss"
+    ],
+    "DG02-U-052": [
+      "tests/test_hub_coherence_attestation.py::TestResigning::test_resign_leaves_decision_unchanged",
+      "tests/test_hub_coherence_attest.py::TestAttestProduce::test_acyclic_order_re_signing_leaves_decision_unchanged",
+      "tests/test_hub_coherence_schema.py::TestErrorEnvelopes::test_canonical_result_has_no_attestation_fields"
+    ],
+    "DG02-U-053": [
+      "tests/test_hub_coherence_evidence.py::TestEvidencePathIntegrity::test_retention_class_is_derived_from_declared_days",
+      "tests/test_hub_coherence_evidence.py::TestEvidencePathEndToEnd::test_two_violation_run_passes_verify_run",
+      "tests/test_hub_coherence_store.py::TestUploadResendsSealedBytes::test_a_failing_upload_leaves_the_sealed_bundle_recomputable",
+      "tests/test_hub_coherence_store.py::TestUploadResendsSealedBytes::test_retry_after_a_failure_sends_every_artifact",
+      "tests/test_hub_coherence_exitcodes.py::TestExitCodeSweep::test_33_evidence_error",
+      "tests/test_hub_coherence_store.py::TestBundleCompleteness::test_upload_carries_every_file_verify_requires"
+    ],
+    "DG02-U-054": [
+      "tests/test_hub_coherence_evidence.py::TestEvidencePathEndToEnd::test_two_violation_run_passes_verify_run"
+    ],
+    "DG02-U-055": [
+      "tests/test_hub_coherence_retention.py::TestDistinctAuthorization::test_no_authorization_is_refused",
+      "tests/test_hub_coherence_retention.py::TestExpiry::test_expired_retention_fails_closed_with_a_distinct_reason",
+      "tests/test_hub_coherence_cache.py::TestRetentionValidity::test_lapsed_input_retention_makes_a_matching_entry_a_miss",
+      "tests/test_hub_coherence_store.py::TestCacheValidity::test_retention_expiry_invalidates_even_with_long_ttl",
+      "tests/test_hub_coherence_retention.py::RetentionTestCase::test_retained_bundle_lives_outside_the_public_evidence_channel"
+    ],
+    "DG02-U-056": [
+      "tests/test_hub_coherence_attestation.py::TestSignAndVerify::test_verify_fails_on_substituted_digest",
+      "tests/test_hub_coherence_attestation.py::TestSignAndVerify::test_verify_revoked_signer_fails",
+      "tests/test_hub_coherence_attest.py::TestAttestVerifyNegative::test_revoked_signer_rejected_even_with_valid_signature",
+      "tests/test_hub_coherence_verify_cli.py::TestVerificationCLI::test_revoked_signer_fails_verification",
+      "tests/test_hub_coherence_attest.py::TestAttestVerifyNegative::test_bound_input_substitution_detected",
+      "tests/test_hub_coherence_attestation.py::TestSignAndVerify::test_verify_expired_signer_fails"
+    ],
+    "DG02-U-057": [
+      "tests/test_hub_coherence_runtime.py::TestSecretRedactionAtSeal::test_secret_scrubbed_before_sealing",
+      "tests/test_hub_coherence_runtime.py::TestSecretRedactionAtSeal::test_scrub_bypass_is_an_evidence_error_never_a_silent_seal",
+      "tests/test_hub_coherence_evidence.py::TestEvidencePathEndToEnd::test_two_violation_run_passes_verify_run"
+    ],
+    "DG02-U-058": [
+      "tests/test_hub_coherence_normative.py::TestNormativeBoundary::test_reclassification_changes_package_digest",
+      "tests/test_hub_coherence_normative.py::TestNormativeBoundary::test_informative_only_change_leaves_normative_digest_stable",
+      "tests/test_hub_coherence_normative.py::TestNormativeBoundary::test_informative_entry_content_change_leaves_digest_stable",
+      "tests/test_hub_coherence.py::TestPackage::test_inventory_digest_mismatch"
+    ],
+    "DG02-U-059": [
+      "tests/test_template_supply_chain.py::TestCiTemplateAndFrameworkContracts::test_framework_ci_runs_suite_and_gates"
+    ],
+    "DG02-U-060": [
+      "tests/test_template_supply_chain.py::TestCiTemplateAndFrameworkContracts::test_framework_ci_runs_suite_and_gates"
+    ]
+  },
+  "signer_fixture_retry": {
+    "command": [
+      "../py312/bin/python",
+      "-m",
+      "pytest",
+      "-q",
+      "--junitxml=../dg005-signer-fixture.xml",
+      "tests/test_hub_coherence_attestation.py::TestSignAndVerify::test_verify_expired_signer_fails",
+      "tests/test_hub_coherence_attestation.py::TestSignAndVerify::test_verify_fails_on_substituted_digest",
+      "tests/test_hub_coherence_attestation.py::TestSignAndVerify::test_verify_revoked_signer_fails"
+    ],
+    "environment_overlay": "tests.fixtures.coherence.fixtures.cli_env() in the pytest child process",
+    "errors": 0,
+    "exit_code": 0,
+    "failed": 0,
+    "failed_node_ids": [],
+    "junit_sha256": "sha256:99d0f840a59564748305abd382f57ae52a355fc712b70a6c49b3108054bc7893",
+    "passed": 3,
+    "passing_subtests": 0,
+    "skipped": 0
+  }
+}

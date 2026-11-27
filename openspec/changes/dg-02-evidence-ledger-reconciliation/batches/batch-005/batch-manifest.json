@@ -1,0 +1,39 @@
+{
+  "batch": "batch-005",
+  "batch_disposition_sha256": "sha256:81b2b8641c5ccf97609759b33578023f2a1637db86a465100349102fb24dd809",
+  "canonical_discovery": {
+    "checked_in_manifests_reviewed": [
+      "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-001/evidence/evidence-manifest.json",
+      "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-002/evidence/evidence-manifest.json",
+      "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-003/evidence/evidence-manifest.json",
+      "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-004/evidence/evidence-manifest.json",
+      "openspec/evidence/doc-truth/evidence-manifest.json"
+    ],
+    "ledger_path": "openspec/state-ledger.jsonl",
+    "matching_ledger_rows": 0
+  },
+  "canonical_roster_ledger_state_unchanged": true,
+  "evidence_integrity_only": true,
+  "evidence_manifest_digest": "sha256:517a5a7c24967cfcdc6cfd469f179148d0b31fb9036c9c6dd67925db56649c69",
+  "format": "dg02-batch-disposition/v1",
+  "lifecycle_transitions": 0,
+  "prior_discovery_disposition_sha256": "a77e3e9966e72dd8c2233444e424d4e39fb4e074fe60a567616019c19addac79",
+  "reviewed_at_utc": "2026-11-27T16:56:41Z",
+  "reviewed_head": "383eb4dc4077a44d9e834ef54142d325455ca682",
+  "rows": [
+    "DG02-U-049",
+    "DG02-U-050",
+    "DG02-U-051",
+    "DG02-U-052",
+    "DG02-U-053",
+    "DG02-U-054",
+    "DG02-U-055",
+    "DG02-U-056",
+    "DG02-U-057",
+    "DG02-U-058",
+    "DG02-U-059",
+    "DG02-U-060"
+  ],
+  "source_roster_sha256": "92c30d3b19cebdfac4a99f3a8a47ebbdb7ca3e28dcd8b35d63e16d1e4da4b27a",
+  "test_receipt_sha256": "sha256:8273bcb749a5aefabbed13d1267c601fa6e2d64da1ce67de9eb25044d0653031"
+}
