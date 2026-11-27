@@ -1,0 +1,1 @@
+{"assertion_id":"dg02-batch-008-tests","expected":"Receipt records measured tests and synthetic controls.","finding_key":"dg02-batch-test-receipt","observed":"Exact test-receipt.json file digest sha256:1d2f8c0393dd18883530daa398fe556be108ed99db750f3147ae61fa36f49346.","subject_locations":["DG02-U-085..DG02-U-096 test-receipt.json"]}

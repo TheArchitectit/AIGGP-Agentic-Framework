@@ -1,0 +1,42 @@
+{
+  "batch": "batch-008",
+  "batch_disposition_sha256": "sha256:4094f5d746fc98fb0c6f3344f2dec4398df8d0bf89e2789965abfa53c67188d9",
+  "canonical_discovery": {
+    "checked_in_manifests_reviewed": [
+      "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-001/evidence/evidence-manifest.json",
+      "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-002/evidence/evidence-manifest.json",
+      "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-003/evidence/evidence-manifest.json",
+      "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-004/evidence/evidence-manifest.json",
+      "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-005/evidence/evidence-manifest.json",
+      "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-006/evidence/evidence-manifest.json",
+      "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-007/evidence/evidence-manifest.json",
+      "openspec/evidence/doc-truth/evidence-manifest.json"
+    ],
+    "ledger_path": "openspec/state-ledger.jsonl",
+    "matching_ledger_rows": 0
+  },
+  "canonical_roster_ledger_state_unchanged": true,
+  "evidence_integrity_only": true,
+  "evidence_manifest_digest": "sha256:5838339bd6017885acb943ee9d87d3a6ff6f383938408920ee70943c848d2cb4",
+  "format": "dg02-batch-disposition/v1",
+  "lifecycle_transitions": 0,
+  "prior_discovery_disposition_sha256": "a77e3e9966e72dd8c2233444e424d4e39fb4e074fe60a567616019c19addac79",
+  "reviewed_at_utc": "2026-11-27T18:51:03+00:00",
+  "reviewed_head": "febe1ef2fa10f131fb7955db4171e77e670f4c50",
+  "rows": [
+    "DG02-U-085",
+    "DG02-U-086",
+    "DG02-U-087",
+    "DG02-U-088",
+    "DG02-U-089",
+    "DG02-U-090",
+    "DG02-U-091",
+    "DG02-U-092",
+    "DG02-U-093",
+    "DG02-U-094",
+    "DG02-U-095",
+    "DG02-U-096"
+  ],
+  "source_roster_sha256": "92c30d3b19cebdfac4a99f3a8a47ebbdb7ca3e28dcd8b35d63e16d1e4da4b27a",
+  "test_receipt_sha256": "sha256:1d2f8c0393dd18883530daa398fe556be108ed99db750f3147ae61fa36f49346"
+}
