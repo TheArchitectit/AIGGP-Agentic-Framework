@@ -9,7 +9,7 @@ def evaluate(value: int) -> int:
     """Return a deterministic synthetic result, rejecting invalid input."""
     if value < 0:
         raise ValueError("value must be non-negative")
-    return value * 2
+    return value + 2
 
 
 def main(argv: list[str] | None = None) -> int:
