@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-27
+
 ### Added
 
 - Added opt-in detached exact-range corruption review. It binds an external SHA-256 review to the repository/run, full base, target tree, and complete substitution/mass-rewrite inventory; stale or mismatched reviews do not suppress findings. Published the [data-corruption contract](openspec/specs/data-corruption/spec.md) and archived the implementation package. Protected-transition provisioning and protected-CI adoption remain pending in the [active owner plan](openspec/changes/provision-exact-corruption-reviews/sprint-plan.md).
