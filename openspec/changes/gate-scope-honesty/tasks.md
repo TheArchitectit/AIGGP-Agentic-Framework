@@ -46,8 +46,14 @@
       tool's own scope line; raise the traceability ratchet floor to the new
       statement-level count in the same commit, or the ratchet reads a
       denominator change as a regression.
-- [ ] 4.3 Declare `"inventory_dirs": ["scripts", "tools"]` in
-      `.guardrails/openspec/scope.json` — note NeonDash's scope file lives
-      under `openspec/` while the contract lives at
-      `.guardrails/scope.json`; if the symlinked layout disagrees with the
-      contract path, that is this task's finding, not a footnote.
+- [x] 4.3 Declare `"inventory_dirs": ["scripts", "tools", "data"]` in
+      `.guardrails/scope.json` — measured, not assumed. A declaration
+      **replaces** the default set rather than adding to it, so the built-in
+      `data` has to be repeated: dropping it leaves capability `economy` alive
+      (it also anchors on `scripts/economy.gd`) but strips `data/economy.json`
+      out of that row's evidence. `tests/` is left out on purpose — 23 more
+      capabilities, all of them the suite grading itself. `ci/` is left out
+      because it yields zero capability anchors, which is exactly what the
+      honest-empty refusal says when aimed at it alone. The earlier note here
+      guessed the file lived under `openspec/`; it does not, and fw-scope-01's
+      path is the real one.

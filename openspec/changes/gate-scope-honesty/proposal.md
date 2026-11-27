@@ -23,12 +23,17 @@ be trusted by the CI step that runs it.
    overlay) and asserts that number before running the gate. Scope that lives
    in every consumer's workflow is scope the tool forgot to own.
 3. **The anchors that fit none.** `spec_gap_scan.py`'s inventory anchors are
-   hardcoded game dirs (`src/autoload`, `src/core`, …). A repo shaped like
-   NeonDash — code under `scripts/`, tools under `tools/` — yields zero
-   anchors, exit 2, "unknown scope", forever. Honest by SGA-04's design, and
-   therefore permanently ignored, which is the outcome a gate must not settle
-   for. The fleet already has one scope contract per repo
-   (`.guardrails/scope.json`, fw-scope-01) carrying `skip_dirs`,
+   hardcoded game dirs (`src/autoload`, `src/core`, …). NeonDash measured what
+   that costs: its only built-in anchor that exists is `data/`, so the scan
+   reported **one** capability (`economy`) and called the tree swept, while 34
+   capability-shaped roots it also owns (`scripts/`, `tools/`) were never
+   looked at. Declaring them finds five capabilities with no spec at all
+   (`highway`, `power-up-manager`, `swipe-detector`, `power-up`,
+   `fairness-report`) — invisible to the gap report, and reported as conformance.
+   A repo with none of the built-ins present gets exit 2, "unknown scope":
+   honest by SGA-04's design, and therefore permanently ignored, which is the
+   outcome a gate must not settle for. The fleet already has one scope contract
+   per repo (`.guardrails/scope.json`, fw-scope-01) carrying `skip_dirs`,
    `source_dirs` and `size_overrides`, and the size gate was pulled out of the
    identical hole on 2026-11-13 by declaring its roots there.
 
