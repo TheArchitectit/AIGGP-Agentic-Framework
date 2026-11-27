@@ -10,6 +10,9 @@
 > capability and package states. See the
 > [future readiness audit](docs/AIGGP-FUTURE-READINESS.md) for dependencies,
 > owners, and what this repository can support in a consumer deployment.
+>
+> **Continuing in the lab?** The [November 27 lab handoff](openspec/changes/qualify-consumer-delivery-evidence/lab-handoff.md)
+> records the checkout commands, hosted consumer test plan, approval-verification gap and outstanding bank tasks.
 
 ## Identity
 
