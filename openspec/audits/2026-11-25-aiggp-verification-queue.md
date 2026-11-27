@@ -11,10 +11,11 @@ identifies the owning change and its acceptance tasks.
 - [x] DG-22. Rehearse Release Coverage in disposable Git repositories.
   Exercise tagged and untagged product changes and the generated-report
   exception. Release metadata preparation remains pending.
-- [ ] DG-02. Review a bounded first batch of the indexed requirements against
+- [ ] DG-02. Continue reviewing the indexed requirements against
   enforcement, named behavioral tests, ordered commits, and sealed evidence.
   Preserve the original roster and apply lifecycle transitions only for
-  requirements with accepted evidence.
+  requirements with accepted evidence. [Batch 003](../changes/dg-02-evidence-ledger-reconciliation/batches/batch-003/README.md)
+  brings detailed coverage to 36 of 182. The next row is DG02-U-037.
 
 ## Architecture acceptance
 

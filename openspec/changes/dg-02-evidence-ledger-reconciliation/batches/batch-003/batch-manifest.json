@@ -1,0 +1,26 @@
+{
+  "format": "dg02-batch-disposition/v1",
+  "batch": "batch-003",
+  "reviewed_head": "80d18b0f0f4e080c9e47d4e534cc2c56c29308ca",
+  "rows": [
+    "DG02-U-025",
+    "DG02-U-026",
+    "DG02-U-027",
+    "DG02-U-028",
+    "DG02-U-029",
+    "DG02-U-030",
+    "DG02-U-031",
+    "DG02-U-032",
+    "DG02-U-033",
+    "DG02-U-034",
+    "DG02-U-035",
+    "DG02-U-036"
+  ],
+  "source_roster_sha256": "92c30d3b19cebdfac4a99f3a8a47ebbdb7ca3e28dcd8b35d63e16d1e4da4b27a",
+  "prior_discovery_disposition_sha256": "a77e3e9966e72dd8c2233444e424d4e39fb4e074fe60a567616019c19addac79",
+  "batch_disposition_sha256": "sha256:4883d23c1c1c75b6a82332f7a82ee12a96283d3f3e41740c302ffceb74bf3c4b",
+  "evidence_manifest_digest": "sha256:2eb3803fa4b467b79416e92de85877cd858db6cfa4588aaef9363114021c0c13",
+  "evidence_integrity_only": true,
+  "lifecycle_transitions": 0,
+  "canonical_roster_ledger_state_unchanged": true
+}
