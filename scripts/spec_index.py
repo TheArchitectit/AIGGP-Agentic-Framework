@@ -2,39 +2,22 @@
 # // spec: spec-state-07
 """spec_index.py - render `openspec/INDEX.md` from the specs it describes.
 
-`openspec/INDEX.md` says "Generated, not typed" and, until this script existed,
-nothing generated it: every status in it was typed by a person. This makes the
-claim true, and `--check` makes a hand edit a red build instead of a silent
-divergence.
+This generator renders lifecycle status and the navigable spec/change catalog;
+`--check` detects any difference from the committed index.
 
-Status is data, in this order of authority:
-1. the owner's `DEFERRED` decision in the spec's `Status:` line - a decision is
-   not a backlog item and no cell count overrides it;
-2. the per-requirement closure cells: all `EXERCISED` is CLOSED, none is OPEN,
-   anything between is PARTIAL;
-3. a spec with no cells falls back to its `Status:` line: a terminal word is
-   CLOSED, any other stated status is OPEN because no requirement is shown
-   exercised;
-4. no cells and no `Status:` line is UNKNOWN - a documentation gap, reported as
-   such rather than guessed at.
+Status authority, in order: owner `DEFERRED`; closure cells; a `Status:` line
+when no cells exist; otherwise UNKNOWN. Closure counts map all EXERCISED to
+CLOSED, none to OPEN, and mixed states to PARTIAL.
 
-Requirement sets come from `<!-- id: ... -->` markers (drafts excluded), so a
-closure table that omits a requirement cannot hide it.
+Requirement IDs come from non-draft `<!-- id: ... -->` markers, so omitted
+closure cells cannot hide requirements.
 
-Ledger rows are read for two purposes only: a requirement carried by a row but
-by no cell takes the row's latest recorded state, so a spec can join the index
-without restructuring its prose, and a row that disagrees with a cell is
-reported as a warning rather than silently resolved - the gate is what fails on
-disagreement, and this generator must not paper over it.
+Latest ledger rows fill missing cells; disagreement with cells remains visible
+to the state gate rather than being resolved by the generator.
 
-A requirement that claims `EXERCISED` (a closure cell or a terminal `Status:`
-line) without a ledger row proving it is **UNPROVEN**. The migration markers in
-`openspec/state-unproven.jsonl` carry the reason (provenance accepted but no
-sealed evidence landed, or provenance rejected outright). Editing the spec
-cannot promote a marker: proof is a ledger row whose two bounding commits
-resolve and whose sealed evidence bundle validates, and the gate is what
-accepts it. A spec that carries a ledger row also cannot fall back to a
-free-text `Status:` line (the ratchet, design section 9).
+An EXERCISED claim without a proving ledger row is UNPROVEN; migration markers
+record the reason and cannot be cleared by editing prose. Ledgered specs cannot
+fall back to a free-text `Status:` line.
 
 Usage:
   python3 scripts/spec_index.py            # print to stdout
@@ -56,6 +39,7 @@ from pathlib import Path
 SCRIPTS = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPTS / "lib"))
 import spec_discovery  # noqa: E402
+import spec_catalog  # noqa: E402
 
 STATES = ("EXERCISED", "WIRED", "ABSENT", "NOT_RUN", "DIFFERS")
 TERMINAL_WORD = re.compile(r"^\s*\**\s*(closed|implemented|terminal|complete)\b", re.I)
@@ -85,6 +69,9 @@ HEADER = """# OpenSpec index
 > it is not closed by relabelling the line.
 
 **{count} specs** — CLOSED {closed} · DEFERRED {deferred} · UNPROVEN {unproven} · PARTIAL {partial} · OPEN {open} · UNKNOWN {unknown}
+
+Browse the [capability catalog](#capability-catalog), [active changes](#active-changes),
+and [archived changes](#archived-changes) below.
 
 | Spec | Title | Status | Evidence |
 |---|---|---|---|
@@ -233,6 +220,7 @@ def render(root: Path, ledger: Path, unproven: Path) -> str:
     markers = unproven_states(unproven)
     entries, counts = [], {"CLOSED": 0, "DEFERRED": 0, "UNPROVEN": 0,
                            "PARTIAL": 0, "OPEN": 0, "UNKNOWN": 0}
+    capabilities = []
     for path in specs:
         cap = path.parent.name
         title, cells, status, reqs = read_spec(path)
@@ -242,12 +230,13 @@ def render(root: Path, ledger: Path, unproven: Path) -> str:
             title = cap.replace("-", " ").capitalize()
         kind, evidence = classify(cap, cells, status, reqs, rows, markers)
         counts[kind] += 1
+        capabilities.append((cap, title, reqs, kind))
         entries.append(f"| [`{cap}/spec.md`](specs/{cap}/spec.md) | {title} | **{kind}** | {evidence} |")
     head = HEADER.format(count=len(specs), closed=counts["CLOSED"],
                          deferred=counts["DEFERRED"], unproven=counts["UNPROVEN"],
                          partial=counts["PARTIAL"],
                          open=counts["OPEN"], unknown=counts["UNKNOWN"])
-    return head + "\n".join(entries) + "\n" + FOOTER
+    return head + "\n".join(entries) + "\n" + FOOTER + spec_catalog.render(root, capabilities)
 
 
 def main() -> int:

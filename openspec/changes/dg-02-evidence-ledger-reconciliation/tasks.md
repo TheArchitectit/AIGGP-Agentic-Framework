@@ -3,7 +3,7 @@
 ## 1. Reconciliation roster
 
 - [x] 1.1 Extract all 182 unproven rows with spec/requirement IDs; verify exact one-to-one roster mapping and record a stable input digest.
-- [ ] 1.2 For every row, inspect enforcement site, behavioral tests, reachable ordered commits, and evidence validator result; record each proof conjunct and concrete missing evidence. The [candidate review](task-1.2-evidence.md) records provenance and discovery for all 182 rows. The [first](batches/batch-001/README.md), [second](batches/batch-002/README.md), [third](batches/batch-003/README.md), [fourth](batches/batch-004/README.md), [fifth](batches/batch-005/README.md), [sixth](batches/batch-006/README.md), [seventh](batches/batch-007/README.md), [eighth](batches/batch-008/README.md), [ninth](batches/batch-009/README.md), [tenth](batches/batch-010/README.md), and [eleventh](batches/batch-011/README.md) sealed review batches cover rows 001-132. Another 50 await detailed review. Unsupported rows and outstanding proof remain open.
+- [ ] 1.2 For every row, inspect the enforcement site, behavioral tests, reachable ordered commits and evidence validator result. Record each proof conjunct and the missing evidence. Initial discovery covers all 182 rows. Twelve sealed batches cover rows 001-144. All 182 remain UNPROVEN. The remaining 38 start at DG02-U-145. [Initial discovery](task-1.2-evidence.md) and [batch index](README.md).
 
 ## 2. Sealed disposition
 

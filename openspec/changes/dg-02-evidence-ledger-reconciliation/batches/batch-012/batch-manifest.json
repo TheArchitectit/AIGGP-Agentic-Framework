@@ -1,0 +1,46 @@
+{
+  "batch": "batch-012",
+  "batch_disposition_sha256": "sha256:c8f6d365662606249c27ccfefa404486ed5a83ad96ea0a9ecd1dabb97e8c9ef7",
+  "canonical_discovery": {
+    "checked_in_manifests_reviewed": [
+      "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-001/evidence/evidence-manifest.json",
+      "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-002/evidence/evidence-manifest.json",
+      "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-003/evidence/evidence-manifest.json",
+      "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-004/evidence/evidence-manifest.json",
+      "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-005/evidence/evidence-manifest.json",
+      "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-006/evidence/evidence-manifest.json",
+      "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-007/evidence/evidence-manifest.json",
+      "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-008/evidence/evidence-manifest.json",
+      "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-009/evidence/evidence-manifest.json",
+      "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-010/evidence/evidence-manifest.json",
+      "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-011/evidence/evidence-manifest.json",
+      "openspec/evidence/doc-truth/evidence-manifest.json"
+    ],
+    "ledger_path": "openspec/state-ledger.jsonl",
+    "matching_ledger_rows": 0
+  },
+  "canonical_roster_ledger_state_unchanged": true,
+  "evidence_integrity_only": true,
+  "evidence_manifest_digest": "sha256:bf8fc918229affdcc2540277a06d11aab2fd15de33364354f3b8206f363a4aac",
+  "format": "dg02-batch-disposition/v1",
+  "lifecycle_transitions": 0,
+  "prior_discovery_disposition_sha256": "a77e3e9966e72dd8c2233444e424d4e39fb4e074fe60a567616019c19addac79",
+  "reviewed_at_utc": "2026-11-27T21:28:48+00:00",
+  "reviewed_head": "90cd3673bae8a13a643481dd55815b0a1997a424",
+  "rows": [
+    "DG02-U-133",
+    "DG02-U-134",
+    "DG02-U-135",
+    "DG02-U-136",
+    "DG02-U-137",
+    "DG02-U-138",
+    "DG02-U-139",
+    "DG02-U-140",
+    "DG02-U-141",
+    "DG02-U-142",
+    "DG02-U-143",
+    "DG02-U-144"
+  ],
+  "source_roster_sha256": "92c30d3b19cebdfac4a99f3a8a47ebbdb7ca3e28dcd8b35d63e16d1e4da4b27a",
+  "test_receipt_sha256": "sha256:b3c798f6338e82f4ee38bdfe78ecc1738cd5059719e5bf5447fa464394769607"
+}

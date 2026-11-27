@@ -9,6 +9,10 @@ quality gates, a gated deploy pipeline, a self-hosted runner standard, a
 runner-monitor hub, and a spec-coherence evaluation service that produces
 digest-pinned, evidence-sealed decisions.
 
+Browse published requirements, capability status, active changes and the archive in the [OpenSpec index](INDEX.md). For requirement-level evidence reconciliation, use the [DG-02 batch index](changes/dg-02-evidence-ledger-reconciliation/README.md).
+
+After adding a requirement, change package or review batch, run `python3 scripts/spec_index.py --write` from the repository root and commit the generated index alongside the source documents. Run `python3 scripts/spec_index.py --check` to verify a clean regeneration.
+
 ## Users
 
 - **Consumer projects** — repositories that provision DevGate tooling at

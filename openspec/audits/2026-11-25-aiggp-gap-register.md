@@ -74,6 +74,8 @@ The candidate review covers all 182 records and resolves 113 ordered commit
 ranges. Each requirement still needs its own enforcement, behavioral test,
 and sealed evidence before a lifecycle transition. [DG-02 candidate review](../changes/dg-02-evidence-ledger-reconciliation/task-1.2-evidence.md)
 
+November 27 follow-up. 144 of the 182 rows have a detailed sealed disposition. All 182 remain UNPROVEN. [Review index](../changes/dg-02-evidence-ledger-reconciliation/README.md) and [fleet boundary, contract and domain follow-up](../changes/qualify-dg02-boundary-contract-domain-gaps/proposal.md).
+
 ## Existing active work
 
 - `add-gitlab-forge-support` has nine checked boxes and four unchecked live

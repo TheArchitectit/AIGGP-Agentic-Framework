@@ -48,6 +48,10 @@ express — "an `assignment` iff `assigned`", "a `reason` iff not `assigned`",
 tested there. The split is stated so nobody reads the schema as the whole
 contract.
 
+## Consumer fixture coverage
+
+The consumer declares its minimum fields and reason codes in [core-consumer-expectations.json](fixtures/core-consumer-expectations.json). Batch 012 exercised changes to each list in separate package copies. Adding a required path failed the suite. Adding a reason code outside the producer enum left all 24 tests passing. The outstanding test must check every required reason. [Batch receipt](../../../openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-012/test-receipt.json) and [qualification tasks](../../../openspec/changes/qualify-dg02-boundary-contract-domain-gaps/tasks.md).
+
 ## Verifying by hand
 
 ```sh

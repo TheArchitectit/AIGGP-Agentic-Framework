@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Expanded the [OpenSpec index](openspec/INDEX.md) to include published requirements and change packages.
+- Recorded [DG-02 batch 012](openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-012/README.md) and the [fleet contract qualification gap](openspec/changes/qualify-dg02-boundary-contract-domain-gaps/proposal.md). The twelve reviewed claims remain UNPROVEN.
 - Published the bank AI tooling assessment, its qualification tasks, and the
   integration record for PRs #32, #33, and #46 through #49.
 

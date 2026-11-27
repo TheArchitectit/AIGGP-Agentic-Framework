@@ -84,10 +84,16 @@ and the parent-repo commands that must run from the project root — see
 holds the gates listed under [Components](#components), and `hub/` holds the
 runner-monitor and coherence services.
 
-`openspec/INDEX.md` is rendered by `scripts/spec_index.py` from the closure
-cells and `Status:` lines it describes; `--check` runs in CI, so a hand edit is
-a red build rather than a second source of truth. A state transition is not
-established by editing a cell: `scripts/spec_state_gate.py` reconciles the
+The [OpenSpec index](openspec/INDEX.md) links published requirements, active
+changes and archived packages. The [DG-02 batch index](openspec/changes/dg-02-evidence-ledger-reconciliation/README.md)
+links the evidence for 144 detailed reviews. All 182 baseline rows remain
+`UNPROVEN`.
+
+Run `python3 scripts/spec_index.py --write` to regenerate the catalog and its
+status table. The generator reads the package files, requirement headings,
+closure cells, status lines and ledger records. CI runs the same generator
+with `--check` to detect drift. For state transitions,
+`scripts/spec_state_gate.py` reconciles the
 edited requirements against rows added to `openspec/state-ledger.jsonl` and
 requires two resolved commits, a marked source change in that window, and a
 sealed evidence bundle for any terminal closure. It is enforced in two places,

@@ -16,7 +16,7 @@
   "test_diff_pattern_allow": 6,
   "test_drift_scan_template": 4,
   "test_evidence_integrity": 18,
-  "test_failure_registry_check": 11,
+  "test_failure_registry_check": 14,
   "test_findings_to_spec": 4,
   "test_fleet_app_enroll": 16,
   "test_fleet_app_enroll_workflow": 5,
@@ -138,15 +138,16 @@
   "test_secret_validation_template": 14,
   "test_silent_success_gate": 3,
   "test_silent_success_overlay": 9,
+  "test_spec_catalog": 4,
   "test_spec_fleet_classify": 11,
   "test_spec_fleet_walk": 10,
-  "test_spec_gap_scan": 18,
+  "test_spec_gap_scan": 22,
   "test_spec_id_inventory": 11,
-  "test_spec_traceability": 19,
+  "test_spec_traceability": 21,
   "test_spec_yaml_workflow_markers": 4,
   "test_storage_hygiene_template": 10,
   "test_template_supply_chain": 9,
   "test_workflow_read": 15
  },
- "total_floor": 1923
+ "total_floor": 1937
 }

@@ -14,6 +14,8 @@
 > **Continuing in the lab?** The [November 27 lab handoff](openspec/changes/qualify-consumer-delivery-evidence/lab-handoff.md)
 > records the checkout commands, hosted consumer test plan, approval-verification gap and outstanding bank tasks.
 
+For the separate DG-02 review, resume at **DG02-U-145**. The first 144 rows have individually recorded dispositions. All 182 baseline rows remain UNPROVEN. [Batch index and evidence](openspec/changes/dg-02-evidence-ledger-reconciliation/README.md).
+
 ## Identity
 
 | Field | Value |

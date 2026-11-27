@@ -132,6 +132,10 @@ runs as a hard gate) and the marker gate (`scripts/spec_traceability.py`).
   traceability re-run so requirement IDs are never double-counted. This is
   deliberate (the coherence service's GD-3): main specs and active-change
   deltas diverging is not drift.
+- Regenerate the [OpenSpec index](openspec/INDEX.md) after adding, moving or
+  archiving a requirement, change package or evidence batch. Run
+  `python3 scripts/spec_index.py --write`, inspect the links and run
+  `python3 scripts/spec_index.py --check` before committing.
 - **Archive ceremony**: mark tasks complete → `openspec archive <change>`
   → `openspec validate --all --strict` → re-run `spec_traceability.py` →
   update CHANGELOG. A change whose tasks are all checked but which is not

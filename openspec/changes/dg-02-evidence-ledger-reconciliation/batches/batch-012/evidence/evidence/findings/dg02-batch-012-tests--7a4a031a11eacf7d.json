@@ -1,0 +1,1 @@
+{"assertion_id":"dg02-batch-012-tests","expected":"Receipt records named tests and extracted-package consumer fixture controls.","finding_key":"dg02-batch-test-receipt","observed":"Exact test-receipt.json file digest sha256:b3c798f6338e82f4ee38bdfe78ecc1738cd5059719e5bf5447fa464394769607.","subject_locations":["DG02-U-133..DG02-U-144 test-receipt.json"]}

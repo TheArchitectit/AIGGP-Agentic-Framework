@@ -11,13 +11,11 @@ view it used.
 
 ### Requirement: A scanner's swept surface is declared in the scope contract
 <!-- id: gate-anchor-scope-01 -->
-Where a scanner's inventory anchors are shaped by a repo class rather than by
-the repo in front of it, the anchors SHALL be overridable from the project's
-existing `.guardrails/scope.json`, and the tool SHALL report which anchor set
-it used. An absent file or absent key means the built-in defaults, unchanged.
-A declared value that cannot be parsed, is empty, or escapes the repository
-root (coh-sec-01) SHALL be a configuration error, never a silent fall back to
-the defaults.
+For scanners with repo-class inventory anchors, projects SHALL be able to
+override the anchors in `.guardrails/scope.json`. The scanner SHALL report the
+anchor set it used. A missing file or key selects the built-in defaults. An
+unparseable, empty or out-of-repository declaration (coh-sec-01) SHALL produce
+a configuration error.
 
 #### Scenario: a non-game-shaped repo declares its anchors
 

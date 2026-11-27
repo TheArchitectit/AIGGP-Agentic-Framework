@@ -28,6 +28,10 @@ cross-boundary call must go through a versioned contract (box 1.2,
 `contracts/v1/`), never an import of an internal class, database model, or
 non-versioned schema.
 
+## Evidence for the boundary and v1 contracts
+
+Batch 012 maps the boundary, v1 contract and desired-state requirements to named tests. The extracted contract suite detected a missing required path and accepted an unsupported required reason code added to its consumer fixture. [Review and receipt](../openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-012/README.md) and [qualification tasks](../openspec/changes/qualify-dg02-boundary-contract-domain-gaps/tasks.md).
+
 ## Adding a path
 
 A new directory or file here is a **reviewed commit to `manifest.json`**, not

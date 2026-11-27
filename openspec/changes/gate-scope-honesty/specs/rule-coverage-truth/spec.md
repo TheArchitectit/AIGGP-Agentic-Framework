@@ -9,14 +9,11 @@ own `--report` detail: one unit counted on both sides of the fraction.
 
 ### Requirement: The coverage summary counts statements on both sides
 <!-- id: rule-denominator-01 -->
-The covered/total summary SHALL count requirement **statements** in its
-numerator and its denominator alike, so a requirement id stated by more than
-one spec file (a change package restating a sealed requirement) can never be
-reported as covered by the detail and uncovered by the summary at the same
-time. When any id is stated more than once, the summary line SHALL say how
-many ids are reused, so a total above the unique-id count is legible without
-reading the source. A blocking capability SHALL still fail while any statement
-of an uncovered id exists.
+The coverage summary SHALL count requirement statements in both numerator and
+denominator, including every restatement covered in the detailed report.
+When an ID occurs more than once, the summary SHALL give the number of reused
+IDs. An uncovered statement in a blocking capability SHALL still fail the
+gate.
 
 #### Scenario: a delta restates a sealed, covered requirement
 
