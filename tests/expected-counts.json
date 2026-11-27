@@ -138,7 +138,7 @@
   "test_secret_validation_template": 14,
   "test_silent_success_gate": 3,
   "test_silent_success_overlay": 9,
-  "test_spec_catalog": 4,
+  "test_spec_catalog": 5,
   "test_spec_fleet_classify": 11,
   "test_spec_fleet_walk": 10,
   "test_spec_gap_scan": 22,
@@ -149,5 +149,5 @@
   "test_template_supply_chain": 9,
   "test_workflow_read": 15
  },
- "total_floor": 1937
+ "total_floor": 1938
 }

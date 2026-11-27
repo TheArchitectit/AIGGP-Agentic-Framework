@@ -89,6 +89,8 @@ changes and archived packages. The [DG-02 batch index](openspec/changes/dg-02-ev
 links the evidence for 144 detailed reviews. All 182 baseline rows remain
 `UNPROVEN`.
 
+Use the [sprint dispatch guide](openspec/SPRINTS.md) to select a workstream, assign a writer and a separate auditor, and find the applicable session adapter. Each published capability and active change has a plan in the index.
+
 Run `python3 scripts/spec_index.py --write` to regenerate the catalog and its
 status table. The generator reads the package files, requirement headings,
 closure cells, status lines and ledger records. CI runs the same generator

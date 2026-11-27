@@ -30,3 +30,5 @@ python3 scripts/evidence-validate.py \
 ```
 
 The manifest binds the exact test receipt and a finding for every row. Each finding hashes its disposition with the two review evidence link fields removed, using sorted compact ASCII JSON.
+
+The [CI receipt for the batch commit](ci-receipt.md) pairs every AI02 App check with its UCS03 job and records the two failures.

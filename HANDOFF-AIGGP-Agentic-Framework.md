@@ -16,6 +16,8 @@
 
 For the separate DG-02 review, resume at **DG02-U-145**. The first 144 rows have individually recorded dispositions. All 182 baseline rows remain UNPROVEN. [Batch index and evidence](openspec/changes/dg-02-evidence-ledger-reconciliation/README.md).
 
+For sprint pickup, select the published capability or active change in the [OpenSpec index](openspec/INDEX.md) and use its plan for role assignments, dependencies and acceptance receipts. [Sprint sequence and agent queues](openspec/SPRINTS.md).
+
 ## Identity
 
 | Field | Value |
