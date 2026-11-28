@@ -14,7 +14,7 @@
 > **Continuing in the lab?** The [November 27 lab handoff](openspec/changes/qualify-consumer-delivery-evidence/lab-handoff.md)
 > records the checkout commands, hosted consumer test plan, approval-verification gap and outstanding bank tasks.
 
-For the separate DG-02 review, resume at **DG02-U-145**. The first 144 rows have individually recorded dispositions. All 182 baseline rows remain UNPROVEN. [Batch index and evidence](openspec/changes/dg-02-evidence-ledger-reconciliation/README.md).
+For the separate DG-02 review, resume at **DG02-U-157**. Batch 013 brings the detailed review through row 156. All 182 baseline rows remain UNPROVEN. Continue with the [batch index and evidence](openspec/changes/dg-02-evidence-ledger-reconciliation/README.md). The extraction/lifecycle/planning follow-up tracks the successful rehearsal exit when Node is missing and a plan that accepts an inconsistent capacity summary. [qualification plan](openspec/changes/qualify-dg02-extraction-lifecycle-plan-gaps/sprint-plan.md).
 
 For sprint pickup, select the published capability or active change in the [OpenSpec index](openspec/INDEX.md) and use its plan for role assignments, dependencies and acceptance receipts. [Sprint sequence and agent queues](openspec/SPRINTS.md).
 

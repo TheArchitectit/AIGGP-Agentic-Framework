@@ -14,8 +14,11 @@ identifies the owning change and its acceptance tasks.
 - [ ] DG-02. Continue reviewing the indexed requirements against
   enforcement, named behavioral tests, ordered commits, and sealed evidence.
   Preserve the original roster and apply lifecycle transitions only for
-  requirements with accepted evidence. Batch 012 brings detailed coverage to 144 of 182.
-  All 182 remain UNPROVEN. Resume at DG02-U-145. [Review index](../changes/dg-02-evidence-ledger-reconciliation/README.md).
+  requirements with accepted evidence. Batch 013 brings detailed coverage to 156 of 182.
+  All 182 remain UNPROVEN. Resume at DG02-U-157. The extraction/lifecycle/planning
+  controls include the missing-Node skip path and a caller-supplied capacity summary accepted under the same plan ID.
+  [Review index](../changes/dg-02-evidence-ledger-reconciliation/README.md) ·
+  [qualification plan](../changes/qualify-dg02-extraction-lifecycle-plan-gaps/sprint-plan.md).
 
 ## Architecture acceptance
 

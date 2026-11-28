@@ -1,0 +1,69 @@
+{
+  "batch": "batch-013",
+  "batch_disposition_sha256": "sha256:bd3b5e58b645dc0d1af786a21bd3d6865c520c9ebac7d593ce5066932b9966c8",
+  "canonical_discovery": {
+    "checked_in_manifests_reviewed": [
+      "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-001/evidence/evidence-manifest.json",
+      "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-002/evidence/evidence-manifest.json",
+      "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-003/evidence/evidence-manifest.json",
+      "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-004/evidence/evidence-manifest.json",
+      "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-005/evidence/evidence-manifest.json",
+      "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-006/evidence/evidence-manifest.json",
+      "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-007/evidence/evidence-manifest.json",
+      "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-008/evidence/evidence-manifest.json",
+      "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-009/evidence/evidence-manifest.json",
+      "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-010/evidence/evidence-manifest.json",
+      "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-011/evidence/evidence-manifest.json",
+      "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-012/evidence/evidence-manifest.json",
+      "openspec/evidence/doc-truth/evidence-manifest.json"
+    ],
+    "ledger_path": "openspec/state-ledger.jsonl",
+    "matching_ledger_rows": 0,
+    "reachable_manifest_blobs_reviewed": {
+      "0f2dac269ff1e05390888ddf9d00fb87b9eb47c0": "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-007/evidence/evidence-manifest.json",
+      "15ddbc5f387005f0fda6da02d8586f03a2648653": "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-008/evidence/evidence-manifest.json",
+      "305d12436cdfab14c8c812815c1ef14e46eaed89": "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-001/evidence/evidence-manifest.json",
+      "42a5c3a78c5a599c386cc5d0c6f7f1286b9259e3": "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-012/evidence/evidence-manifest.json",
+      "4461374437cb5b87a9997d14aac880bea38dcd2e": "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-009/evidence/evidence-manifest.json",
+      "46f7e38f91ee04976c19a5f2562f65ed8b970381": "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-011/evidence/evidence-manifest.json",
+      "54e92875248a7001f988235c8ae22b301e124d79": "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-010/evidence/evidence-manifest.json",
+      "648898ce4c2783fd16a56bd6b414b71ff48bf92d": "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-007/evidence/evidence-manifest.json",
+      "78844e6ed05be960e9085b79b83800bbcf1054cd": "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-002/evidence/evidence-manifest.json",
+      "86b0399c61170dd2d776aac7a66285828093e563": "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-003/evidence/evidence-manifest.json",
+      "9b4ac23f5f51d8b6a27d6af375ffdd6f9e7e269c": "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-004/evidence/evidence-manifest.json",
+      "b475717ecef3a6742fbef27d7211be7fdeae0036": "openspec/evidence/doc-truth/evidence-manifest.json",
+      "d0e1d4b8675df44eb67e109fc963beeb81ce27bb": "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-005/evidence/evidence-manifest.json",
+      "ebfb309ccea13189d2bb193fd556efac1e86eb28": "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-006/evidence/evidence-manifest.json",
+      "f3a3c0f9d22c1887272acc066d151508ed950a11": "openspec/changes/dg-02-evidence-ledger-reconciliation/batches/batch-009/evidence/evidence-manifest.json"
+    }
+  },
+  "canonical_roster_ledger_state_unchanged": true,
+  "evidence_integrity_only": true,
+  "evidence_manifest_digest": "sha256:3fe84def525a3b1f0cd88f7f787b5a82eefdfc51b23335b83222a357b57a3efb",
+  "format": "dg02-batch-disposition/v1",
+  "lifecycle_transitions": 0,
+  "previous_batch": {
+    "batch": "batch-012",
+    "evidence_manifest_digest": "sha256:bf8fc918229affdcc2540277a06d11aab2fd15de33364354f3b8206f363a4aac",
+    "manifest_file_sha256": "sha256:388ccd2c6007025ac25d986fbd0eb751970873b5f2a1ca1efa79734fa814678c"
+  },
+  "prior_discovery_disposition_sha256": "a77e3e9966e72dd8c2233444e424d4e39fb4e074fe60a567616019c19addac79",
+  "reviewed_at_utc": "2026-11-28T02:53:31+00:00",
+  "reviewed_head": "c1311159e5c13f44c1bc514713c6578d57cb5065",
+  "rows": [
+    "DG02-U-145",
+    "DG02-U-146",
+    "DG02-U-147",
+    "DG02-U-148",
+    "DG02-U-149",
+    "DG02-U-150",
+    "DG02-U-151",
+    "DG02-U-152",
+    "DG02-U-153",
+    "DG02-U-154",
+    "DG02-U-155",
+    "DG02-U-156"
+  ],
+  "source_roster_sha256": "92c30d3b19cebdfac4a99f3a8a47ebbdb7ca3e28dcd8b35d63e16d1e4da4b27a",
+  "test_receipt_sha256": "sha256:928b6e792565bd96a62e7bf58c17924cb61301c877d172e34782f97563543cb2"
+}

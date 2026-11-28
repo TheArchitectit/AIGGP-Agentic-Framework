@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Recorded DG-02 batch 013 (rows 145–156). All 182 requirements remain UNPROVEN. Review resumes at DG02-U-157. OpenSpec tracks the successful exit after a skipped extraction scan and the plan constructor accepting an inconsistent capacity summary.
+
 ## [1.4.0] - 2026-11-27
 
 ### Added

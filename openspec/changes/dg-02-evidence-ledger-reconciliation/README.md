@@ -1,6 +1,6 @@
 # DG-02 evidence review
 
-The baseline contains 182 requirements across 42 published capabilities. Detailed independent reviews cover rows 001-144. All 182 requirements remain **UNPROVEN**. The remaining 38 start at **DG02-U-145**. [Baseline roster](unproven-baseline-roster.jsonl) and [reconciliation tasks](tasks.md).
+The baseline contains 182 requirements across 42 published capabilities. Detailed independent reviews cover rows 001-156. All 182 requirements remain **UNPROVEN**. The remaining 26 start at **DG02-U-157**. [Baseline roster](unproven-baseline-roster.jsonl) and [reconciliation tasks](tasks.md).
 
 Use the batch summaries to find each requirement's observations, missing proof and validator command. Each manifest records the reviewed revision, row IDs and expected batch seal. An accepted batch seal verifies the review record. Requirement closure separately requires attributable implementation history and an accepted requirement-specific evidence bundle. [Proof rules](design.md) and [initial discovery](task-1.2-evidence.md).
 
@@ -18,7 +18,10 @@ Use the batch summaries to find each requirement's observations, missing proof a
 | [batch-010](batches/batch-010/README.md) | DG02-U-109 | DG02-U-120 | [Manifest](batches/batch-010/batch-manifest.json) |
 | [batch-011](batches/batch-011/README.md) | DG02-U-121 | DG02-U-132 | [Manifest](batches/batch-011/batch-manifest.json) |
 | [batch-012](batches/batch-012/README.md) | DG02-U-133 | DG02-U-144 | [Manifest](batches/batch-012/batch-manifest.json) |
+| [batch-013](batches/batch-013/README.md) | DG02-U-145 | DG02-U-156 | [Manifest](batches/batch-013/batch-manifest.json) |
 
 Batch 012 found that adding an unsupported reason code to the consumer fixture leaves the v1 contract suite passing. The corresponding qualification task is open. [Qualification tasks](../qualify-dg02-boundary-contract-domain-gaps/tasks.md).
+
+Batch 013 records current source and synthetic-test observations for extraction, job lifecycle, and fleet planning. All twelve claims remain UNPROVEN because historical provenance and accepted row-bound evidence are not established. The extraction rehearsal exits successfully after skipping the scan when Node is absent. A plan can retain its ID when a caller replaces its capacity summary. Track both findings in [extraction and lifecycle qualification](../qualify-dg02-extraction-lifecycle-plan-gaps/sprint-plan.md).
 
 The repository index covers published requirements and change packages. [OpenSpec index](../../INDEX.md).

@@ -1,14 +1,15 @@
 # Sprint plan — DG-02 evidence ledger reconciliation
 
 **Scope:** complete task 1.2 for the remaining rows, then finish the sealed disposition flow.
-Rows 001–144 have 12 reviewed batches; batch-012 covers 133–144 and leaves every row UNPROVEN. The next row is DG02-U-145; remaining range is 145–182.
+Rows 001–156 have 13 reviewed batches; batch-013 covers 145–156 and leaves every row UNPROVEN. The next row is DG02-U-157; remaining range is 157–182.
 
 ## Sequence
 
 ### S1 — intake/baseline
 
 - Preserve the pinned roster/input digest and immutable source ledger; verify batch-012’s manifest/receipt before using it as history.
-- Reconcile rows 145–182 in four bounded slices: 145–156, 157–168, 169–180, and 181–182. Each is discovery, not automatic acceptance.
+- Reconcile rows 157–182 in three bounded slices: 157–168, 169–180, and 181–182. Each is discovery, not automatic acceptance.
+- Verify batch-013 and its batch seal before using it as prior review history. Its extraction rehearsal can return overall OK with Node absent after skipping the required scan. A caller can also substitute a capacity summary while retaining the plan identity. Route those open controls through [extraction, lifecycle, and planning qualification](../qualify-dg02-extraction-lifecycle-plan-gaps/sprint-plan.md).
 
 ### S2 — implementation or evidence collection
 
@@ -35,6 +36,6 @@ Rows 001–144 have 12 reviewed batches; batch-012 covers 133–144 and leaves e
 ## Sources
 
 - [Proposal](proposal.md) · [Tasks](tasks.md) · [Input manifest and roster evidence](roster-evidence.md)
-- [Task 1.2 discovery](task-1.2-evidence.md) · [Batch 012](batches/batch-012/README.md) · [Global sprint plan](../../SPRINTS.md)
+- [Task 1.2 discovery](task-1.2-evidence.md) · [Batch 012](batches/batch-012/README.md) · [Batch 013](batches/batch-013/README.md) · [Global sprint plan](../../SPRINTS.md)
 
 Use the package’s native acceptance path. If the session interface changes, assign its carrier-specific work through the [five-adapter matrix](../../SPRINTS.md#session-adapter-matrix).

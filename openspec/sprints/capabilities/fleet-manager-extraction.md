@@ -28,6 +28,6 @@ Route acceptance to the **fleet manager maintainer and the operator for any live
 
 Record the source and test revisions, actual inputs, expected and observed outcomes, exit status and receipt location. Give the independent auditor the artifact and expected digest. Mark an unexecuted check with its reason.
 
-DG-02 tracks DG02-U-145, DG02-U-146, DG02-U-147. [Row dispositions and batch seals](../../changes/dg-02-evidence-ledger-reconciliation/README.md).
+DG-02 tracks DG02-U-145, DG02-U-146, DG02-U-147. [Row dispositions and batch seals](../../changes/dg-02-evidence-ledger-reconciliation/README.md). The missing-Node rehearsal control and its explicit scan skip are tracked in [the active extraction/lifecycle/planning qualification](../../changes/qualify-dg02-extraction-lifecycle-plan-gaps/sprint-plan.md).
 
 [Published specification](../../specs/fleet-manager-extraction/spec.md) and [sprint dispatch](../../SPRINTS.md).

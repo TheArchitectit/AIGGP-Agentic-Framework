@@ -74,7 +74,7 @@ The candidate review covers all 182 records and resolves 113 ordered commit
 ranges. Each requirement still needs its own enforcement, behavioral test,
 and sealed evidence before a lifecycle transition. [DG-02 candidate review](../changes/dg-02-evidence-ledger-reconciliation/task-1.2-evidence.md)
 
-November 27 follow-up. 144 of the 182 rows have a detailed sealed disposition. All 182 remain UNPROVEN. [Review index](../changes/dg-02-evidence-ledger-reconciliation/README.md) and [fleet boundary, contract and domain follow-up](../changes/qualify-dg02-boundary-contract-domain-gaps/proposal.md).
+November 27 follow-up. 156 of the 182 rows have detailed dispositions through batch 013. All 182 remain UNPROVEN. The batch-013 extraction rehearsal reports overall OK when Node is absent after skipping the guardrails scan. A plan accepted a changed capacity summary under its original ID. [Review index](../changes/dg-02-evidence-ledger-reconciliation/README.md), [fleet boundary, contract and domain follow-up](../changes/qualify-dg02-boundary-contract-domain-gaps/proposal.md), and [extraction, lifecycle and planning qualification](../changes/qualify-dg02-extraction-lifecycle-plan-gaps/sprint-plan.md).
 
 ## Existing active work
 

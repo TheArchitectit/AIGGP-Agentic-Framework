@@ -86,7 +86,7 @@ runner-monitor and coherence services.
 
 The [OpenSpec index](openspec/INDEX.md) links published requirements, active
 changes and archived packages. The [DG-02 batch index](openspec/changes/dg-02-evidence-ledger-reconciliation/README.md)
-links the evidence for 144 detailed reviews. All 182 baseline rows remain
+links the evidence for 156 detailed reviews. The next row is `DG02-U-157`. All 182 baseline rows remain
 `UNPROVEN`.
 
 Use the [sprint dispatch guide](openspec/SPRINTS.md) to select a workstream, assign a writer and a separate auditor, and find the applicable session adapter. Each published capability and active change has a plan in the index.

@@ -13,7 +13,7 @@ The bank assessment maps the 46-slide technical plan to the services that
 own each control and the evidence needed to accept it.
 [Bank AI tooling platform fit](../openspec/changes/audit-bank-ai-tooling-platform-fit/bank-platform-fit.md).
 
-The November 27 DG-02 review covers 144 of 182 rows in detail. All 182 remain UNPROVEN. The current catalog and review index track subsequent work alongside the dated baseline below. [OpenSpec index](../openspec/INDEX.md) and [DG-02 review index](../openspec/changes/dg-02-evidence-ledger-reconciliation/README.md).
+The DG-02 review covers 156 of 182 rows in detail through batch 013. All 182 remain UNPROVEN. The current catalog and review index track subsequent work alongside the dated baseline below. [OpenSpec index](../openspec/INDEX.md) and [DG-02 review index](../openspec/changes/dg-02-evidence-ledger-reconciliation/README.md).
 
 ## Scope and evidence
 

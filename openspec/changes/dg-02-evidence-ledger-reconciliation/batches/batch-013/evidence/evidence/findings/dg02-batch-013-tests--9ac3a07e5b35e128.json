@@ -1,0 +1,1 @@
+{"assertion_id":"dg02-batch-013-tests","expected":"The measured tests, replay controls and previous seal are bound to this batch.","finding_key":"dg02-batch-test-receipt","observed":"Exact test receipt digest sha256:928b6e792565bd96a62e7bf58c17924cb61301c877d172e34782f97563543cb2.","subject_locations":["DG02-U-145..DG02-U-156 test-receipt.json"]}

@@ -1,0 +1,4 @@
+schema: spec-driven
+created: 2026-11-27
+# This work qualifies the twelve existing requirements listed in the proposal.
+skip_specs: true

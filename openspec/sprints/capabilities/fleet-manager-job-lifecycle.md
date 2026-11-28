@@ -30,6 +30,6 @@ Route acceptance to the **fleet manager maintainer and the operator for any live
 
 Record the source and test revisions, actual inputs, expected and observed outcomes, exit status and receipt location. Give the independent auditor the artifact and expected digest. Mark an unexecuted check with its reason.
 
-DG-02 tracks DG02-U-148, DG02-U-149, DG02-U-150, DG02-U-151, DG02-U-152. [Row dispositions and batch seals](../../changes/dg-02-evidence-ledger-reconciliation/README.md).
+DG-02 tracks DG02-U-148, DG02-U-149, DG02-U-150, DG02-U-151, DG02-U-152. [Row dispositions and batch seals](../../changes/dg-02-evidence-ledger-reconciliation/README.md). Coordinate extraction and host-evidence gaps through [the active extraction/lifecycle/planning qualification](../../changes/qualify-dg02-extraction-lifecycle-plan-gaps/sprint-plan.md).
 
 [Published specification](../../specs/fleet-manager-job-lifecycle/spec.md) and [sprint dispatch](../../SPRINTS.md).
